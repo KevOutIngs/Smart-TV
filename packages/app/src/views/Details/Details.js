@@ -24,7 +24,7 @@ import AddToCollectionModal from '../../components/AddToCollectionModal';
 import DeleteItemDialog from '../../components/DeleteItemDialog';
 import ChangeArtworkModal from '../../components/ChangeArtworkModal';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
-import {getTmdbId, fetchTmdbSeasonRatings} from '../../services/mdblistApi';
+import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled} from '../../services/mdblistApi';
 import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
 
 import css from './Details.module.less';
@@ -421,12 +421,16 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		if (!settings.useMoonfinPlugin || !settings.tmdbEpisodeRatingsEnabled) return;
 		if (item.Type !== 'Season' && item.Type !== 'Episode') return;
 
-		const tmdbId = getTmdbId(item);
 		const seasonNumber = item.Type === 'Season' ? item.IndexNumber : item.ParentIndexNumber;
-		if (!tmdbId || seasonNumber == null) return;
+		if (seasonNumber == null) return;
 
 		let cancelled = false;
-		fetchTmdbSeasonRatings(effectiveServerUrl, tmdbId, seasonNumber).then(data => {
+		// The SeasonRatings route wants the series TMDB id, not the Season/Episode
+		// item's own provider id.
+		resolveSeriesTmdbId(item).then(seriesTmdbId => {
+			if (cancelled || !seriesTmdbId) return null;
+			return fetchTmdbSeasonRatings(effectiveServerUrl, seriesTmdbId, seasonNumber);
+		}).then(data => {
 			if (cancelled || !data?.episodes) return;
 			const ratingsMap = {};
 			for (const ep of data.episodes) {
@@ -1889,7 +1893,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 									)}
 									{birthPlace && <span className={css.infoItem}>{birthPlace}</span>}
 								</div>
-								{settings.useMoonfinPlugin && settings.mdblistEnabled !== false && <RatingsRow item={item} serverUrl={effectiveServerUrl} />}
+								<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
 								{item.Overview && <p className={css.overview}>{item.Overview}</p>}
 							</div>
 						</div>
@@ -1941,7 +1945,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 								<span className={css.seasonDetailCount}>
 									{episodes.length} {episodes.length !== 1 ? $L('Episodes') : $L('Episode')}
 								</span>
-								{settings.useMoonfinPlugin && settings.mdblistEnabled !== false && <RatingsRow item={item} serverUrl={effectiveServerUrl} />}
+								<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
 							</div>
 						</div>
 
@@ -2177,7 +2181,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 								{genres.length > 0 && (
 									<span className={css.seasonDetailCount}>{genres.join(', ')}</span>
 								)}
-								{settings.useMoonfinPlugin && settings.mdblistEnabled !== false && <RatingsRow item={item} serverUrl={effectiveServerUrl} />}
+								<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
 							</div>
 						</div>
 
@@ -2287,7 +2291,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 							</div>
 							<div className={css.personInfo}>
 								<h1 className={css.title}>{item.Name}</h1>
-								{settings.useMoonfinPlugin && settings.mdblistEnabled !== false && <RatingsRow item={item} serverUrl={effectiveServerUrl} />}
+								<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
 								{item.Overview && <p className={css.overview}>{item.Overview}</p>}
 								<HorizontalContainer className={css.actionButtons} spotlightId="details-action-buttons">
 									{artistAlbums.length > 0 && (
@@ -2372,7 +2376,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 										{year && <span className={css.infoItem}>{year}</span>}
 										{runtime && <span className={css.infoItem}>{runtime}</span>}
 									</div>
-									{settings.useMoonfinPlugin && settings.mdblistEnabled !== false && <RatingsRow item={item} serverUrl={effectiveServerUrl} />}
+									<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
 								</div>
 								{item.Overview && <p className={css.overview}>{item.Overview}</p>}
 							</div>
@@ -2476,7 +2480,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 								)}
 							</div>
 
-							<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={settings.useMoonfinPlugin && settings.mdblistEnabled !== false} />
+							<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
 
 							{/* Tagline */}
 							{tagline && <p className={css.tagline}>&ldquo;{tagline}&rdquo;</p>}
