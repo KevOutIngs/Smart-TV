@@ -121,6 +121,12 @@ const VALUE_CONVERSIONS = {
 	homeRowOverlay: {
 		toServer: v => v === 'on',
 		fromServer: v => (v ? 'on' : 'off')
+	},
+	// autoAdvanceInterval is stored in seconds on the TV UI slider (2-20), but saved
+	// as mediaBarIntervalMs in milliseconds (2000-20000) on the server.
+	autoAdvanceInterval: {
+		toServer: v => (typeof v === 'number' && Number.isFinite(v) ? (v >= 100 ? v : v * 1000) : 8000),
+		fromServer: v => (typeof v === 'number' && Number.isFinite(v) ? (v >= 100 ? Math.round(v / 1000) : v) : 8)
 	}
 	// homeRows is missing on purpose. The home layout is two server fields that have to
 	// move together, so it gets resolved whole rather than a key at a time.
