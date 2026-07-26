@@ -20,6 +20,7 @@ import {stopPlaybackForTrailer} from '../../utils/trailerPlayback';
 import {fetchVideoStreamUrl, extractYouTubeIdFromUrl} from '../../services/youtubeTrailer';
 import {formatTime} from '../Player/PlayerConstants';
 import AddToPlaylistModal from '../../components/AddToPlaylistModal';
+import AddToCollectionModal from '../../components/AddToCollectionModal';
 import DeleteItemDialog from '../../components/DeleteItemDialog';
 import ChangeArtworkModal from '../../components/ChangeArtworkModal';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
@@ -47,6 +48,9 @@ const shuffleArray = (arr) => {
 	}
 	return out;
 };
+
+// Item types a Jellyfin/Emby collection will accept as a member.
+const COLLECTION_ITEM_TYPES = ['Movie', 'Series', 'Season', 'Episode', 'Video', 'MusicVideo', 'BoxSet'];
 
 const WATCHED_CHECK_PATH = 'M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z';
 const WATCHED_CHECK_COMPACT_PATH = 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z';
@@ -197,6 +201,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const [trailerOverlay, setTrailerOverlay] = useState(null);
 	const [trailerStreamUrl, setTrailerStreamUrl] = useState(null);
 	const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+	const [showCollectionModal, setShowCollectionModal] = useState(false);
 	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 	const [showArtworkModal, setShowArtworkModal] = useState(false);
 	const [toastMessage, setToastMessage] = useState(null);
@@ -992,6 +997,15 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
 	}, []);
 
+	const handleOpenCollectionModal = useCallback(() => {
+		setShowCollectionModal(true);
+	}, []);
+
+	const handleCloseCollectionModal = useCallback(() => {
+		setShowCollectionModal(false);
+		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
+	}, []);
+
 	const handleOpenDeleteDialog = useCallback(() => {
 		setShowDeleteDialog(true);
 	}, []);
@@ -1044,12 +1058,13 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			}
 			if (showDeleteDialog) { handleCloseDeleteDialog(); return true; }
 			if (showPlaylistModal) { handleClosePlaylistModal(); return true; }
+			if (showCollectionModal) { handleCloseCollectionModal(); return true; }
 			if (activeModal) { closeModal(); return true; }
 			if (showMediaInfo) { setShowMediaInfo(false); return true; }
 			return false;
 		};
 		return () => { if (backHandlerRef) backHandlerRef.current = null; };
-	}, [backHandlerRef, activeModal, showMediaInfo, showPlaylistModal, showDeleteDialog, showArtworkModal, closeModal, handleClosePlaylistModal, handleCloseDeleteDialog, handleCloseArtworkModal]);
+	}, [backHandlerRef, activeModal, showMediaInfo, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal]);
 
 const handleSectionKeyDown = useCallback((ev) => {
 		const currentSpottable = ev.target.closest('.spottable');
@@ -1202,6 +1217,10 @@ const handleSectionKeyDown = useCallback((ev) => {
 	const isAudioTrack = item.Type === 'Audio';
 	const isBook = item.Type === 'Book';
 	const isReadableBook = isBook && item.Path?.toLowerCase().endsWith('.cbz');
+
+	// Collections only hold video content, so the action is hidden on people,
+	// music and playlists rather than offering a call the server would reject.
+	const canAddToCollection = COLLECTION_ITEM_TYPES.includes(item.Type);
 
 	// Poster URL
 	let posterUrl = null;
@@ -1475,6 +1494,16 @@ const handleSectionKeyDown = useCallback((ev) => {
 				</div>
 				<span className={css.btnLabel}>{$L('Add to Playlist')}</span>
 			</SpottableDiv>
+			{canAddToCollection && (
+				<SpottableDiv className={css.btnWrapper} onClick={handleOpenCollectionModal}>
+					<div className={css.btnAction}>
+						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+							<path d="M160-80q-33 0-56.5-23.5T80-160v-440h80v440h680v80H160Zm160-160q-33 0-56.5-23.5T240-320v-440q0-33 23.5-56.5T320-840h200l80 80h240q33 0 56.5 23.5T920-680v360q0 33-23.5 56.5T840-240H320Zm0-80h520v-360H567l-80-80H320v440Zm0 0v-440 440Z"/>
+						</svg>
+					</div>
+					<span className={css.btnLabel}>{$L('Add to Collection')}</span>
+				</SpottableDiv>
+			)}
 			{item.CanDelete && (
 				<SpottableDiv className={css.btnWrapper} onClick={handleOpenDeleteDialog}>
 					<div className={css.btnAction}>
@@ -1714,6 +1743,14 @@ const handleSectionKeyDown = useCallback((ev) => {
 				onSuccess={showToast}
 			/>
 
+			<AddToCollectionModal
+				open={showCollectionModal}
+				itemId={item?.Id}
+				api={effectiveApi}
+				onClose={handleCloseCollectionModal}
+				onSuccess={showToast}
+			/>
+
 			<DeleteItemDialog
 				open={showDeleteDialog}
 				itemName={item?.Name}
@@ -1805,6 +1842,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 					handleOpenSubtitleModal={handleOpenSubtitleModal}
 					handleOpenMediaInfo={handleOpenMediaInfo}
 					handleOpenPlaylistModal={handleOpenPlaylistModal}
+					handleOpenCollectionModal={canAddToCollection ? handleOpenCollectionModal : null}
 					handleOpenDeleteDialog={handleOpenDeleteDialog}
 					handleChapterSelect={handleChapterSelect}
 					handleExtraSelect={handleExtraSelect}

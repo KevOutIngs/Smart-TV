@@ -216,6 +216,41 @@ export const resolveItemsByProviderIds = async (items) => {
 	});
 };
 
+// Servers disagree about how the collection endpoints want their arguments, and
+// the ones that reject a shape answer with one of these rather than a 5xx. Both
+// writers below walk the accepted shapes and only give up once all have failed.
+const COLLECTION_RETRY_STATUSES = [400, 404, 405, 415, 422];
+const canRetryCollection = (err) => COLLECTION_RETRY_STATUSES.includes(err?.status);
+
+const createCollectionVia = (send) => async (name, itemIds = []) => {
+	const encoded = encodeURIComponent(name);
+	const ids = itemIds.join(',');
+	// Some builds match the query keys case sensitively, so send both spellings.
+	const query = `Name=${encoded}&name=${encoded}${ids ? `&Ids=${ids}&ids=${ids}` : ''}`;
+	try {
+		return await send(`/Collections?${query}`, {method: 'POST'});
+	} catch (err) {
+		if (!canRetryCollection(err)) throw err;
+		return send(`/Collections?${query}`, {
+			method: 'POST',
+			body: {Name: name, ...(ids ? {Ids: itemIds} : {})}
+		});
+	}
+};
+
+const addToCollectionVia = (send) => async (collectionId, itemIds) => {
+	const ids = itemIds.join(',');
+	const path = `/Collections/${collectionId}/Items`;
+	for (const key of ['Ids', 'ids']) {
+		try {
+			return await send(`${path}?${key}=${ids}`, {method: 'POST'});
+		} catch (err) {
+			if (!canRetryCollection(err)) throw err;
+		}
+	}
+	return send(path, {method: 'POST', body: {Ids: itemIds}});
+};
+
 export const api = {
 	getPublicInfo: () => request('/System/Info/Public'),
 
@@ -447,14 +482,43 @@ export const api = {
 	getLiveTvTimers: () =>
 		request(`/LiveTv/Timers`),
 
-	createLiveTvTimer: (programId) =>
-		request(`/LiveTv/Timers`, {
-			method: 'POST',
-			body: {ProgramId: programId}
-		}),
+	// Both timer kinds are created from the server's own defaults for a program
+	// rather than a hand built body. The series endpoint needs a fully populated
+	// SeriesTimerInfoDto, and a single timer inherits whatever recording padding
+	// the user set server side.
+	getLiveTvTimerDefaults: (programId) =>
+		request(`/LiveTv/Timers/Defaults?ProgramId=${programId}`),
+
+	createLiveTvTimer: async (programId) => {
+		let payload;
+		try {
+			payload = {...(await api.getLiveTvTimerDefaults(programId))};
+			if (payload.ProgramId == null) payload.ProgramId = programId;
+		} catch {
+			// Older servers have no defaults endpoint but still accept a bare id.
+			payload = {ProgramId: programId};
+		}
+		return request(`/LiveTv/Timers`, {method: 'POST', body: payload});
+	},
 
 	cancelLiveTvTimer: (timerId) =>
 		request(`/LiveTv/Timers/${timerId}`, {
+			method: 'DELETE'
+		}),
+
+	getLiveTvSeriesTimers: () =>
+		request(`/LiveTv/SeriesTimers`),
+
+	// No bare id fallback here, a series timer is only valid as a fully
+	// populated dto and the defaults call is the only thing that produces one.
+	createLiveTvSeriesTimer: async (programId) => {
+		const payload = {...(await api.getLiveTvTimerDefaults(programId))};
+		if (payload.ProgramId == null) payload.ProgramId = programId;
+		return request(`/LiveTv/SeriesTimers`, {method: 'POST', body: payload});
+	},
+
+	cancelLiveTvSeriesTimer: (seriesTimerId) =>
+		request(`/LiveTv/SeriesTimers/${seriesTimerId}`, {
 			method: 'DELETE'
 		}),
 
@@ -539,6 +603,9 @@ export const api = {
 		request(`/Playlists/${playlistId}/Items?EntryIds=${entryIds.join(',')}`, {
 			method: 'DELETE'
 		}),
+
+	createCollection: createCollectionVia(request),
+	addToCollection: addToCollectionVia(request),
 
 	getRemoteImages: (itemId, imageType) =>
 		request(`/Items/${itemId}/RemoteImages?Type=${imageType}&IncludeAllLanguages=true`),
@@ -819,6 +886,9 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 			serverRequest(`/Playlists/${playlistId}/Items?Ids=${itemIds.join(',')}`, {
 				method: 'POST'
 			}),
+
+		createCollection: createCollectionVia(serverRequest),
+		addToCollection: addToCollectionVia(serverRequest),
 
 		removeFromPlaylist: (playlistId, entryIds) =>
 			serverRequest(`/Playlists/${playlistId}/Items?EntryIds=${entryIds.join(',')}`, {

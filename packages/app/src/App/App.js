@@ -1184,15 +1184,6 @@ const AppContent = (props) => {
 						)}
 					</Panel>
 					<Panel>
-						{panelIndex === PANELS.SEERR_COLLECTION && (
-							<SeerrCollection
-								collectionId={seerrCollection?.collectionId}
-								onSelectItem={handleSelectSeerrItem}
-								backHandlerRef={backHandlerRef}
-							/>
-						)}
-					</Panel>
-					<Panel>
 						{panelIndex === PANELS.GENRE_BROWSE && (
 							<GenreBrowse
 								genre={selectedGenre}
@@ -1276,6 +1267,17 @@ const AppContent = (props) => {
 								game={selectedGame}
 								startFresh={gameStartFresh}
 								onBack={handleBack}
+								backHandlerRef={backHandlerRef}
+							/>
+						)}
+					</Panel>
+					{/* Keep this last. Panels renders only children[panelIndex], so every
+					    Panel's position here has to match its PANELS value. */}
+					<Panel>
+						{panelIndex === PANELS.SEERR_COLLECTION && (
+							<SeerrCollection
+								collectionId={seerrCollection?.collectionId}
+								onSelectItem={handleSelectSeerrItem}
 								backHandlerRef={backHandlerRef}
 							/>
 						)}

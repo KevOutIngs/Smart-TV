@@ -1,5 +1,7 @@
 import {useState, useEffect, useCallback} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
+import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
+import Spotlight from '@enact/spotlight';
 import $L from '@enact/i18n/$L';
 import {useAuth} from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -9,6 +11,13 @@ import css from './Recordings.module.less';
 
 const SpottableDiv = Spottable('div');
 const SpottableButton = Spottable('button');
+// self-only keeps 5-way inside the popup, otherwise focus walks straight through
+// the scrim onto the cards behind it.
+const PopupContainer = SpotlightContainerDecorator({
+	enterTo: 'default-element',
+	restrict: 'self-only',
+	preserveId: true
+}, 'div');
 
 const RecordingCard = ({recording, serverUrl, onSelect}) => {
 	const handleClick = useCallback(() => {
@@ -81,10 +90,38 @@ const TimerCard = ({timer, serverUrl, formatScheduledTime, onSelect}) => {
 	);
 };
 
+// A series timer carries no item id, so there is no artwork to fetch for it.
+const SeriesTimerCard = ({seriesTimer, onSelect}) => {
+	const handleClick = useCallback(() => {
+		onSelect(seriesTimer);
+	}, [seriesTimer, onSelect]);
+
+	return (
+		<SpottableDiv
+			className={css.card}
+			onClick={handleClick}
+		>
+			<div className={css.cardPlaceholder}>
+				<span>{$L('Series')}</span>
+			</div>
+			<div className={css.cardInfo}>
+				<div className={css.cardTitle}>{seriesTimer.Name}</div>
+				<div className={css.cardMeta}>
+					{seriesTimer.RecordAnyChannel ? $L('All channels') : seriesTimer.ChannelName}
+				</div>
+				<div className={css.cardSchedule}>
+					{seriesTimer.RecordNewOnly ? $L('New episodes only') : $L('All episodes')}
+				</div>
+			</div>
+		</SpottableDiv>
+	);
+};
+
 const Recordings = ({onPlayRecording, backHandlerRef}) => {
 	const {api, serverUrl} = useAuth();
 	const [recordings, setRecordings] = useState([]);
 	const [timers, setTimers] = useState([]);
+	const [seriesTimers, setSeriesTimers] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [activeTab, setActiveTab] = useState('recordings');
 	const [selectedItem, setSelectedItem] = useState(null);
@@ -102,20 +139,19 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 	}, [backHandlerRef, selectedItem]);
 
 	useEffect(() => {
+		// Each list is fetched on its own. Not every server exposes series timers,
+		// and one failed call shouldn't blank the whole screen.
 		const loadData = async () => {
-			try {
-				setIsLoading(true);
-				const [recordingsResult, timersResult] = await Promise.all([
-					api.getLiveTvRecordings(),
-					api.getLiveTvTimers()
-				]);
-				setRecordings(recordingsResult.Items || []);
-				setTimers(timersResult.Items || []);
-			} catch (err) {
-				console.error('Failed to load recordings:', err);
-			} finally {
-				setIsLoading(false);
-			}
+			setIsLoading(true);
+			const [recordingsResult, timersResult, seriesTimersResult] = await Promise.all([
+				api.getLiveTvRecordings().catch(() => null),
+				api.getLiveTvTimers().catch(() => null),
+				api.getLiveTvSeriesTimers().catch(() => null)
+			]);
+			setRecordings(recordingsResult?.Items || []);
+			setTimers(timersResult?.Items || []);
+			setSeriesTimers(seriesTimersResult?.Items || []);
+			setIsLoading(false);
 		};
 
 		loadData();
@@ -129,13 +165,30 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 		setActiveTab('scheduled');
 	}, []);
 
-	const handleSelectRecording = useCallback((recording) => {
-		setSelectedItem({type: 'recording', item: recording});
+	const handleSetSeriesTab = useCallback(() => {
+		setActiveTab('series');
 	}, []);
 
-	const handleSelectTimer = useCallback((timer) => {
-		setSelectedItem({type: 'timer', item: timer});
+	// The popup is a spotlight container, so focus has to be handed to it
+	// explicitly or it stays on the card behind the scrim.
+	const openPopup = useCallback((type, item) => {
+		setSelectedItem({type, item});
+		setTimeout(() => {
+			Spotlight.focus('recordings-popup');
+		}, 100);
 	}, []);
+
+	const handleSelectRecording = useCallback((recording) => {
+		openPopup('recording', recording);
+	}, [openPopup]);
+
+	const handleSelectTimer = useCallback((timer) => {
+		openPopup('timer', timer);
+	}, [openPopup]);
+
+	const handleSelectSeriesTimer = useCallback((seriesTimer) => {
+		openPopup('seriesTimer', seriesTimer);
+	}, [openPopup]);
 
 	const handlePlaySelectedRecording = useCallback(() => {
 		if (selectedItem?.item) {
@@ -163,6 +216,18 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 				setSelectedItem(null);
 			} catch (err) {
 				console.error('Failed to cancel timer:', err);
+			}
+		}
+	}, [api, selectedItem]);
+
+	const handleCancelSelectedSeriesTimer = useCallback(async () => {
+		if (selectedItem?.item?.Id) {
+			try {
+				await api.cancelLiveTvSeriesTimer(selectedItem.item.Id);
+				setSeriesTimers(prev => prev.filter(s => s.Id !== selectedItem.item.Id));
+				setSelectedItem(null);
+			} catch (err) {
+				console.error('Failed to cancel series timer:', err);
 			}
 		}
 	}, [api, selectedItem]);
@@ -208,6 +273,12 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 					>
 						{$L('Scheduled')} ({timers.length})
 					</SpottableButton>
+					<SpottableButton
+						className={`${css.tab} ${activeTab === 'series' ? css.active : ''}`}
+						onClick={handleSetSeriesTab}
+					>
+						{$L('Series')} ({seriesTimers.length})
+					</SpottableButton>
 				</div>
 			</div>
 
@@ -246,11 +317,27 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 						)}
 					</div>
 				)}
+
+				{activeTab === 'series' && (
+					<div className={css.grid}>
+						{seriesTimers.length === 0 ? (
+							<div className={css.empty}>{$L('No series recordings')}</div>
+						) : (
+							seriesTimers.map(seriesTimer => (
+								<SeriesTimerCard
+									key={seriesTimer.Id}
+									seriesTimer={seriesTimer}
+									onSelect={handleSelectSeriesTimer}
+								/>
+							))
+						)}
+					</div>
+				)}
 			</div>
 
 			{selectedItem && (
 				<div className={css.popup}>
-					<div className={css.popupContent}>
+					<PopupContainer className={css.popupContent} spotlightId="recordings-popup">
 						<div className={css.popupHeader}>
 							<div className={css.popupTitle}>{selectedItem.item.Name}</div>
 							{selectedItem.item.EpisodeTitle && (
@@ -263,10 +350,20 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 								<div className={css.popupOverview}>{selectedItem.item.Overview}</div>
 							)}
 							<div className={css.popupMeta}>
-								<div>{$L('Channel:')} {selectedItem.item.ChannelName}</div>
+								<div>
+									{$L('Channel:')}{' '}
+									{selectedItem.type === 'seriesTimer' && selectedItem.item.RecordAnyChannel
+										? $L('All channels')
+										: selectedItem.item.ChannelName}
+								</div>
 								{selectedItem.type === 'timer' && (
 									<div>
 										{$L('Scheduled:')} {formatScheduledTime(selectedItem.item.StartDate, selectedItem.item.EndDate)}
+									</div>
+								)}
+								{selectedItem.type === 'seriesTimer' && (
+									<div>
+										{selectedItem.item.RecordNewOnly ? $L('New episodes only') : $L('All episodes')}
 									</div>
 								)}
 								{selectedItem.type === 'recording' && selectedItem.item.RunTimeTicks && (
@@ -279,7 +376,7 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 							{selectedItem.type === 'recording' && (
 								<>
 									<SpottableButton
-										className={css.popupBtn}
+										className={`${css.popupBtn} spottable-default`}
 										onClick={handlePlaySelectedRecording}
 									>
 										{$L('Play')}
@@ -300,14 +397,24 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 									{$L('Cancel Recording')}
 								</SpottableButton>
 							)}
+							{selectedItem.type === 'seriesTimer' && (
+								<SpottableButton
+									className={`${css.popupBtn} ${css.danger}`}
+									onClick={handleCancelSelectedSeriesTimer}
+								>
+									{$L('Cancel Series')}
+								</SpottableButton>
+							)}
+							{/* Close is the default target whenever the only other action is
+							    destructive, so a stray OK press can't delete anything. */}
 							<SpottableButton
-								className={css.popupBtn}
+								className={`${css.popupBtn} ${selectedItem.type === 'recording' ? '' : 'spottable-default'}`}
 								onClick={handleClosePopup}
 							>
 								{$L('Close')}
 							</SpottableButton>
 						</div>
-					</div>
+					</PopupContainer>
 				</div>
 			)}
 		</div>

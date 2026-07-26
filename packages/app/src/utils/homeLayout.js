@@ -75,7 +75,11 @@ export const DEFAULT_HOME_ROWS = [
 	{id: 'tmdb_trending_tv_weekly', name: 'TMDB Trending TV (Weekly)', enabled: false, order: 56},
 	{id: 'tmdb_trending_all_weekly', name: 'TMDB Trending All (Weekly)', enabled: false, order: 57},
 	{id: 'radarr_calendar', name: 'Radarr Upcoming', enabled: false, order: 58},
-	{id: 'sonarr_calendar', name: 'Sonarr Upcoming', enabled: false, order: 59}
+	{id: 'sonarr_calendar', name: 'Sonarr Upcoming', enabled: false, order: 59},
+	// Both ids match the plugin's own section types, so neither needs an entry
+	// in the mapping tables below.
+	{id: 'seerr_watchlist', name: 'Your Watchlist', enabled: false, order: 60},
+	{id: 'librarybuttons', name: 'Library Buttons', enabled: false, order: 61}
 ];
 
 export const TV_TO_SERVER_ROW = {

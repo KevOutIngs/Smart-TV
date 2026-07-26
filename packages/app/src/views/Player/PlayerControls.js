@@ -13,15 +13,17 @@ import {
 	formatTime, formatEndTime, PLAYBACK_RATES, getQualityPresets,
 	IconPlay, IconPause, IconRewind, IconForward, IconSubtitle, IconSubtitleOff, IconAudio,
 	IconChapters, IconPrevious, IconNext, PlaybackRateLabel, IconQuality, IconInfo, IconCast, IconZoom,
-	IconShuffle, IconRepeat, IconRepeatOne
+	IconShuffle, IconRepeat, IconRepeatOne, IconSleep
 } from './PlayerConstants';
+import {SLEEP_TIMER_MINUTES} from './useSleepTimer';
 import { useSettings } from '../../context/SettingsContext';
 
 export const usePlayerButtons = ({
 	isPaused, audioStreams, subtitleStreams, chapters,
 	nextEpisode, isAudioMode, isLiveTV, hasNextTrack, hasPrevTrack,
 	shuffleMode, repeatMode, playbackRate, selectedQuality,
-	selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey
+	selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey,
+	sleepMinutes
 }) => {
 	const topButtons = useMemo(() => {
 		if (isAudioMode) {
@@ -72,6 +74,7 @@ export const usePlayerButtons = ({
 				...(audioStreams.length > 1 ? [{id: 'audio', icon: <IconAudio />, label: $L('Audio'), action: 'audio'}] : []),
 				{id: 'quality', icon: <IconQuality />, label: $L('Playback Quality'), action: 'quality'},
 				{id: 'zoom', icon: <IconZoom />, label: $L('Zoom').concat(` (${zoomModeLabel})`), action: 'zoom', active: zoomModeKey !== 'fit'},
+				{id: 'sleep', icon: <IconSleep />, label: $L('Sleep Timer'), action: 'sleep', active: sleepMinutes != null},
 				{id: 'info', icon: <IconInfo />, label: $L('Playback Information'), action: 'info'}
 			];
 		}
@@ -83,9 +86,10 @@ export const usePlayerButtons = ({
 			{id: 'cast', icon: <IconCast />, label: $L('Cast and Crew'), action: 'cast', disabled: !hasCastMembers},
 			{id: 'quality', icon: <IconQuality />, label: $L('Playback Quality'), action: 'quality', active: selectedQuality != null},
 			{id: 'zoom', icon: <IconZoom />, label: $L('Zoom').concat(` (${zoomModeLabel})`), action: 'zoom', active: zoomModeKey !== 'fit'},
+			{id: 'sleep', icon: <IconSleep />, label: $L('Sleep Timer'), action: 'sleep', active: sleepMinutes != null},
 			{id: 'info', icon: <IconInfo />, label: $L('Playback Information'), action: 'info'}
 		];
-	}, [audioStreams.length, chapters.length, subtitleStreams.length, isAudioMode, isLiveTV, playbackRate, selectedQuality, selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey]);
+	}, [audioStreams.length, chapters.length, subtitleStreams.length, isAudioMode, isLiveTV, playbackRate, selectedQuality, selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey, sleepMinutes]);
 
 	return {topButtons, bottomButtons};
 };
@@ -186,6 +190,9 @@ const PlayerControls = ({
 	handleSubtitleKeyDown,
 	handleSelectSpeed,
 	speedCaveat,
+	handleSelectSleep,
+	sleepMinutes,
+	sleepRemainingSeconds,
 	handleSelectQuality,
 	handleSelectChapter,
 	handleSelectCastMember,
@@ -451,6 +458,41 @@ const PlayerControls = ({
 							))}
 						</div>
 						{speedCaveat && <p className={css.modalFooter}>{speedCaveat}</p>}
+						<p className={css.modalFooter}>{$L('Press BACK to close')}</p>
+					</ModalContainer>
+				</div>
+			)}
+
+			{activeModal === 'sleep' && (
+				<div className={css.trackModal} onClick={closeModal}>
+					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="sleep" spotlightId="sleep-modal">
+						<h2 className={css.modalTitle}>{$L('Sleep Timer')}</h2>
+						<div className={css.trackList}>
+							<SpottableButton
+								className={`${css.trackItem} ${sleepMinutes == null ? css.selected : ''}`}
+								data-minutes="0"
+								data-selected={sleepMinutes == null ? 'true' : undefined}
+								onClick={handleSelectSleep}
+							>
+								<span className={css.trackName}>{$L('Off')}</span>
+							</SpottableButton>
+							{SLEEP_TIMER_MINUTES.map((minutes) => (
+								<SpottableButton
+									key={minutes}
+									className={`${css.trackItem} ${minutes === sleepMinutes ? css.selected : ''}`}
+									data-minutes={minutes}
+									data-selected={minutes === sleepMinutes ? 'true' : undefined}
+									onClick={handleSelectSleep}
+								>
+									<span className={css.trackName}>{$L('{count} minutes').replace('{count}', minutes)}</span>
+								</SpottableButton>
+							))}
+						</div>
+						{sleepMinutes != null && sleepRemainingSeconds > 0 && (
+							<p className={css.modalFooter}>
+								{$L('Stopping in {time}').replace('{time}', formatTime(sleepRemainingSeconds))}
+							</p>
+						)}
 						<p className={css.modalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>

@@ -73,12 +73,17 @@ const LiveTV = ({onPlayChannel, onRecordings, backHandlerRef}) => {
 	const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 	const [selectedProgram, setSelectedProgram] = useState(null);
 	const [channelNumberBuffer, setChannelNumberBuffer] = useState('');
+	// ProgramId to timer Id, so an already scheduled program offers Cancel
+	// instead of silently creating a duplicate timer.
+	const [timersByProgram, setTimersByProgram] = useState({});
 
 	const guideContentRef = useRef(null);
 	const timeSlotsRef = useRef(null);
 	const channelNumberTimeoutRef = useRef(null);
 	const currentChannelIndexRef = useRef(0);
 	const hasMoreChannelsRef = useRef(true);
+	// Nothing renders from this, it only stops a double press firing two requests.
+	const recordBusyRef = useRef(false);
 
 	// The window is captured once per day rather than recomputed from the live clock
 	// on every render. If it drifted mid-navigation the fetched programs would all
@@ -276,6 +281,69 @@ const LiveTV = ({onPlayChannel, onRecordings, backHandlerRef}) => {
 		}
 	}, [selectedProgram, onPlayChannel]);
 
+	// Timers only decide which buttons the popup shows, so a server without
+	// recording support just leaves the map empty and the buttons hidden.
+	const loadTimers = useCallback(async () => {
+		const result = await api.getLiveTvTimers().catch(() => null);
+		const map = {};
+		for (const timer of result?.Items || []) {
+			if (timer.ProgramId) map[timer.ProgramId] = timer.Id;
+		}
+		setTimersByProgram(map);
+	}, [api]);
+
+	useEffect(() => {
+		loadTimers();
+	}, [loadTimers]);
+
+	const handleRecordProgram = useCallback(async () => {
+		const program = selectedProgram?.program;
+		if (!program?.Id || recordBusyRef.current) return;
+		recordBusyRef.current = true;
+		try {
+			await api.createLiveTvTimer(program.Id);
+			// Re-read rather than guessing the new timer id, so the Cancel button
+			// that replaces this one always has something real to cancel.
+			await loadTimers();
+		} catch (err) {
+			console.error('Failed to create timer:', err);
+		} finally {
+			recordBusyRef.current = false;
+		}
+	}, [api, selectedProgram, loadTimers]);
+
+	const handleCancelProgramTimer = useCallback(async () => {
+		const program = selectedProgram?.program;
+		const timerId = program?.Id ? timersByProgram[program.Id] : null;
+		if (!timerId || recordBusyRef.current) return;
+		recordBusyRef.current = true;
+		try {
+			await api.cancelLiveTvTimer(timerId);
+			setTimersByProgram(prev => {
+				const next = {...prev};
+				delete next[program.Id];
+				return next;
+			});
+		} catch (err) {
+			console.error('Failed to cancel timer:', err);
+		} finally {
+			recordBusyRef.current = false;
+		}
+	}, [api, selectedProgram, timersByProgram]);
+
+	const handleRecordSeries = useCallback(async () => {
+		const program = selectedProgram?.program;
+		if (!program?.Id || recordBusyRef.current) return;
+		recordBusyRef.current = true;
+		try {
+			await api.createLiveTvSeriesTimer(program.Id);
+		} catch (err) {
+			console.error('Failed to create series timer:', err);
+		} finally {
+			recordBusyRef.current = false;
+		}
+	}, [api, selectedProgram]);
+
 	const handlePrevDay = useCallback(() => {
 		changeDay(-1);
 	}, [changeDay]);
@@ -391,6 +459,12 @@ const LiveTV = ({onPlayChannel, onRecordings, backHandlerRef}) => {
 			</div>
 		);
 	}
+
+	// There is nothing to schedule once a program has already finished.
+	const canSchedule = selectedProgram
+		? new Date(selectedProgram.program.EndDate).getTime() > Date.now()
+		: false;
+	const isSeriesProgram = Boolean(selectedProgram?.program.SeriesId || selectedProgram?.program.IsSeries);
 
 	return (
 		<div className={css.page}>
@@ -605,6 +679,34 @@ const LiveTV = ({onPlayChannel, onRecordings, backHandlerRef}) => {
 									spotlightId="popup-watch"
 								>
 									{$L('Watch Now')}
+								</SpottableButton>
+							)}
+							{canSchedule && (
+								timersByProgram[selectedProgram.program.Id] ? (
+									<SpottableButton
+										className={`${css.popupBtn} ${css.danger}`}
+										onClick={handleCancelProgramTimer}
+										spotlightId="popup-cancel-record"
+									>
+										{$L('Cancel Recording')}
+									</SpottableButton>
+								) : (
+									<SpottableButton
+										className={css.popupBtn}
+										onClick={handleRecordProgram}
+										spotlightId="popup-record"
+									>
+										{$L('Record')}
+									</SpottableButton>
+								)
+							)}
+							{canSchedule && isSeriesProgram && (
+								<SpottableButton
+									className={css.popupBtn}
+									onClick={handleRecordSeries}
+									spotlightId="popup-record-series"
+								>
+									{$L('Record Series')}
 								</SpottableButton>
 							)}
 							<SpottableButton

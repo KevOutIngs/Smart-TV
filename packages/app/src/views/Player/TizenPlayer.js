@@ -23,6 +23,7 @@ import {findPreferredAudioStream} from '../../utils/audioLanguage';
 import {saveSubtitlePref, getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
 import {api as jellyfinApi, createApiForServer, getServerUrl} from '../../services/jellyfinApi';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
+import useSleepTimer from './useSleepTimer';
 import AudioMode from './audio/AudioMode';
 import useAudioTransport from './audio/useAudioTransport';
 import useLyrics from './audio/useLyrics';
@@ -240,11 +241,20 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		return item?.Type === 'Episode' && Boolean(item?.SeriesId);
 	}, [castMembers.length, item]);
 
+	// handleBack is defined further down, so the timer reaches it through a ref
+	// rather than forcing the whole player to be reordered.
+	const handleBackRef = useRef(null);
+	const {sleepMinutes, remainingSeconds: sleepRemainingSeconds, startSleepTimer} = useSleepTimer({
+		onExpire: () => handleBackRef.current?.(),
+		ticking: activeModal === 'sleep'
+	});
+
 	const {topButtons, bottomButtons} = usePlayerButtons({
 		isPaused, audioStreams, subtitleStreams, chapters,
 		nextEpisode, isAudioMode, isLiveTV, hasNextTrack, hasPrevTrack,
 		shuffleMode, repeatMode, playbackRate, selectedQuality,
-		selectedSubtitleIndex, canDownloadRemoteSubtitles: !isAudioMode && Boolean(item?.Id), hasCastMembers, zoomModeLabel, zoomModeKey: zoomMode
+		selectedSubtitleIndex, canDownloadRemoteSubtitles: !isAudioMode && Boolean(item?.Id), hasCastMembers, zoomModeLabel, zoomModeKey: zoomMode,
+		sleepMinutes
 	});
 
 	useEffect(() => {
@@ -1411,6 +1421,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		onBack?.();
 	}, [onBack, cancelNextEpisodeCountdown, stopTimeUpdatePolling]);
 
+	useEffect(() => {
+		handleBackRef.current = handleBack;
+	}, [handleBack]);
+
 	// an error swallowed during pause means the pipeline may be dead, so after
 	// resuming check that playback actually moves and recover if it doesnt
 	const verifyResumeHealthy = useCallback(() => {
@@ -1511,6 +1525,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			}
 		});
 	}, [showControls]);
+
+	const handleSelectSleep = useCallback((e) => {
+		const minutes = parseInt(e.currentTarget.dataset.minutes, 10);
+		startSleepTimer(minutes || null);
+		closeModal();
+	}, [startSleepTimer, closeModal]);
 
 	// Track selection - using data attributes to avoid arrow functions in JSX
 	const handleSelectAudio = useCallback(async (e) => {
@@ -1897,6 +1917,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'chapter': openModal('chapter'); break;
 			case 'cast': handleOpenCast(); break;
 			case 'zoom': handleToggleZoom(); break;
+			case 'sleep': openModal('sleep'); break;
 			case 'info': openModal('info'); break;
 			case 'next': handlePlayNextEpisode(); break;
 			case 'nextTrack': handleNextTrack(); break;
@@ -2515,6 +2536,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				handleSubtitleKeyDown={handleSubtitleItemKeyDown}
 				handleSelectSpeed={handleSelectSpeed}
 				speedCaveat={$L('Audio is muted at speeds other than 1x on most Samsung TVs')}
+				handleSelectSleep={handleSelectSleep}
+				sleepMinutes={sleepMinutes}
+				sleepRemainingSeconds={sleepRemainingSeconds}
 				handleSelectQuality={handleSelectQuality}
 				handleSelectChapter={handleSelectChapter}
 				handleSelectCastMember={handleSelectCastMember}

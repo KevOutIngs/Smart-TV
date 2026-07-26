@@ -31,6 +31,7 @@ import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml} fro
 import {findPreferredAudioStream} from '../../utils/audioLanguage';
 import {saveSubtitlePref, getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
+import useSleepTimer from './useSleepTimer';
 import useSegmentPopups from './useSegmentPopups';
 import {
 	SpottableButton, NextEpisodeContainer, CONTROLS_HIDE_DELAY,
@@ -268,11 +269,20 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		return -1;
 	};
 
+	// handleBack is defined further down, so the timer reaches it through a ref
+	// rather than forcing the whole player to be reordered.
+	const handleBackRef = useRef(null);
+	const {sleepMinutes, remainingSeconds: sleepRemainingSeconds, startSleepTimer} = useSleepTimer({
+		onExpire: () => handleBackRef.current?.(),
+		ticking: activeModal === 'sleep'
+	});
+
 	const {topButtons, bottomButtons} = usePlayerButtons({
 		isPaused, audioStreams, subtitleStreams, chapters,
 		nextEpisode, isAudioMode, isLiveTV, hasNextTrack, hasPrevTrack,
 		shuffleMode, repeatMode, playbackRate, selectedQuality,
-		selectedSubtitleIndex, canDownloadRemoteSubtitles: !isAudioMode && Boolean(item?.Id), hasCastMembers, zoomModeLabel, zoomModeKey: zoomMode
+		selectedSubtitleIndex, canDownloadRemoteSubtitles: !isAudioMode && Boolean(item?.Id), hasCastMembers, zoomModeLabel, zoomModeKey: zoomMode,
+		sleepMinutes
 	});
 
 	useEffect(() => {
@@ -1608,6 +1618,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		onBack?.();
 	}, [onBack, cancelNextEpisodeCountdown]);
 
+	useEffect(() => {
+		handleBackRef.current = handleBack;
+	}, [handleBack]);
+
 	const handlePlayPause = useCallback(() => {
 		if (videoRef.current) {
 			showControls();
@@ -1686,6 +1700,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			}
 		});
 	}, [showControls]);
+
+	const handleSelectSleep = useCallback((e) => {
+		const minutes = parseInt(e.currentTarget.dataset.minutes, 10);
+		startSleepTimer(minutes || null);
+		closeModal();
+	}, [startSleepTimer, closeModal]);
 
 	const handleSubtitleKeyDown = useCallback((e) => {
 		if (e.keyCode === 39) { // Right -> Appearance
@@ -2076,6 +2096,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'chapter': openModal('chapter'); break;
 			case 'cast': handleOpenCast(); break;
 			case 'zoom': handleToggleZoom(); break;
+			case 'sleep': openModal('sleep'); break;
 			case 'info': openModal('info'); break;
 			case 'next': handlePlayNextEpisode(); break;
 			case 'nextTrack': handleNextTrack(); break;
@@ -2582,6 +2603,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				handleSelectSubtitle={handleSelectSubtitle}
 				handleSubtitleKeyDown={handleSubtitleKeyDown}
 				handleSelectSpeed={handleSelectSpeed}
+				handleSelectSleep={handleSelectSleep}
+				sleepMinutes={sleepMinutes}
+				sleepRemainingSeconds={sleepRemainingSeconds}
 				handleSelectQuality={handleSelectQuality}
 				handleSelectChapter={handleSelectChapter}
 				handleSelectCastMember={handleSelectCastMember}
