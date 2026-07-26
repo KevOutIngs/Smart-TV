@@ -16,170 +16,9 @@ import {
 
 export {DEFAULT_HOME_ROWS, TV_TO_SERVER_ROW, SERVER_TO_TV_ROW};
 
-const defaultSettings = {
-	preferTranscode: false,
-	forceDirectPlay: false,
-	experimentalTruehd: false,
-	maxBitrate: 0,
-	audioLanguage: '',
-	subtitleLanguage: '',
-	uiLanguage: 'en-US',
-	subtitleMode: 'default',
-	subtitleSize: 'medium',
-	subtitlePosition: 'bottom',
-	subtitleOpacity: 100,
-	subtitleBackground: 0,
-	subtitleBackgroundColor: '#000000',
-	subtitleColor: '#ffffff',
-	subtitleShadowColor: '#000000',
-	subtitleShadowOpacity: 100,
-	subtitleShadowBlur: 0.1,
-	subtitlePositionAbsolute: 90,
-	seekStep: 10,
-	autoPlay: true,
-	theme: 'dark',
-	visualTheme: 'moonfin',
-	customThemeId: '',
-	homeRows: DEFAULT_HOME_ROWS,
-	pluginSections: [],
-	displayFavoritesRows: false,
-	displayCollectionsRows: false,
-	displayGenresRows: false,
-	displayPlaylistsRows: false,
-	// Which rows the music library shows, and how they sort.
-	displayAudioLatest: true,
-	displayAudioLastPlayed: true,
-	displayAudioFavorites: true,
-	displayAudioPlaylists: true,
-	displayAudioAlbumArtists: true,
-	displayAudioArtists: true,
-	displayAudioAlbums: true,
-	audioSortOption: 'name',
-	customHomeRows: [],
-	mergeRadarrSonarrCalendars: false,
-	radarrCalendarShowCinema: true,
-	radarrCalendarShowDigital: true,
-	radarrCalendarShowPhysical: true,
-	radarrCalendarShowDate: true,
-	sonarrCalendarShowDate: true,
-	sonarrCalendarShowEpisodeInfo: true,
-	favoritesRowSortBy: 'SortName',
-	collectionsRowSortBy: 'SortName',
-	genresRowSortBy: 'SortName',
-	genresRowItemFilter: 'all',
-	playlistsRowSortBy: 'SortName',
-	audioRowsSortBy: 'SortName',
-	fullScreenRows: false,
-	showShuffleButton: true,
-	shuffleContentType: 'both',
-	showGenresButton: true,
-	showFavoritesButton: true,
-	showLibrariesInToolbar: true,
-	mergeContinueWatchingNextUp: false,
-	hiddenContinueWatchingItems: null,
-	hiddenNextUpSeries: null,
-	showHomeBackdrop: true,
-	backdropBlurHome: 20,
-	backdropBlurDetail: 20,
-	serverLogging: false,
-	featuredContentType: 'both',
-	featuredItemCount: 10,
-	featuredBarStyle: 'moonfin',
-	featuredTrailerPreview: true,
-	featuredTrailerMuted: false,
-	mediaBarSourceType: 'library',
-	mediaBarLibraryIds: [],
-	mediaBarCollectionIds: [],
-	unifiedLibraryMode: false,
-	useMoonfinPlugin: false,
-	mdblistEnabled: true,
-	mdblistRatingSources: ['stars', 'imdb', 'tmdb', 'tomatoes', 'metacritic'],
-	tmdbEpisodeRatingsEnabled: true,
-	imdbTop250MoviesEnabled: false,
-	imdbTop250TvShowsEnabled: false,
-	imdbMostPopularMoviesEnabled: false,
-	imdbMostPopularTvShowsEnabled: false,
-	imdbLowestRatedMoviesEnabled: false,
-	imdbTopEnglishMoviesEnabled: false,
-	sinceYouWatchedSource: 'local',
-	sinceYouWatchedSourceItem: 'recentlyWatched',
-	sinceYouWatchedSourceType: 'movies',
-	sinceYouWatchedIncludeWatched: false,
-	// Pulled from the server plugin, never pushed back. Empty until synced.
-	tmdbApiKey: '',
-	rewatchIncludeMovies: true,
-	rewatchIncludeShows: true,
-	rewatchIncludeCollections: true,
-	rewatchSortBy: 'recentlyWatched',
-	showClock: true,
-	clockDisplay: '24-hour',
-	autoLogin: true,
-	alwaysAuthenticate: false,
-	pinCodeProtection: false,
-	pinCode: '0000',
-	serverSortBy: 'name',
-	exitConfirmation: true,
-	updateNotificationsEnabled: true,
-	navbarPosition: 'top',
-	screensaverEnabled: true,
-	screensaverTimeout: 90,
-	screensaverDimmingLevel: 50,
-	screensaverShowClock: true,
-	screensaverMode: 'library',
-	watchedIndicatorBehavior: 'always',
-	cardFocusZoom: false,
-	useDetailedSubHeadings: true,
-	useSeriesThumbnails: true,
-	homeRowsPosterSize: 'default',
-	homeRowsImageType: 'poster',
-	homeRowsStyle: 'v2',
-	detailScreenStyle: 'v2',
-	detailExpandedTabs: true,
-	homeRowOverlay: 'off',
-	folderViewMode: 'local',
-	excludedGenres: [],
-	autoAdvance: true,
-	autoAdvanceInterval: 8,
-	nextUpBehavior: 'extended',
-	nextUpCountdownStyle: 'both',
-	nextUpTimeout: 7,
-	stillWatchingPrompt: true,
-	skipForwardLength: 30,
-	unpauseRewind: 0,
-	showDescriptionOnPause: false,
-	introAction: 'ask',
-	outroAction: 'ask',
-	seasonalTheme: 'none',
-	themeMusicEnabled: false,
-	themeMusicVolume: 30,
-	themeMusicOnHomeRows: false,
-	showRatingLabels: true,
-	showRatingBadges: true,
-	screensaverAgeFilter: false,
-	screensaverMaxRating: 13,
-	uiScale: 1.0,
-	enablePgsRendering: true,
-	syncplayEnabled: true,
-	syncplayAutoOpen: false,
-	showSyncPlayButton: true,
-	videoStartDelay: 0,
-	liveTvDirect: false,
-	stereoUpmixEnabled: false,
-	passthroughEnabled: true,
-	ac3Passthrough: true,
-	eac3Passthrough: true,
-	truehdPassthrough: true,
-	blockedRatings: [],
-	showSeerrButton: true,
-	performanceMode: 'auto',
-	focusBorderColor: '',
-	navbarOpacity: 100,
-	navbarColor: '',
-	// webOS TLS proxy fallback: when the WebView rejects a server's certificate
-	// (net::ERR_INSECURE_RESPONSE), allow the bundled Node service to fetch with
-	// certificate validation disabled. Off by default; local-only (not synced).
-	allowInsecureCerts: false
-};
+import {defaultSettings} from './defaultSettings';
+
+export {defaultSettings};
 
 const SERVER_TO_LOCAL = {
 	mediaBarMode: 'featuredBarStyle',
@@ -541,12 +380,14 @@ export function SettingsProvider({children}) {
 					stored.mdblistRatingSources = ['stars', ...stored.mdblistRatingSources];
 					migrated = true;
 				}
-				if (Array.isArray(stored.mdblistRatingSources) && stored.mdblistRatingSources.includes('popcorn')) {
-					// RT audience rating now uses the shared `tomatoes_audience` key
-					// (was the MDBList-native `popcorn`); migrate existing selections
-					// so they keep matching and sync consistently with the server.
+				if (Array.isArray(stored.mdblistRatingSources) &&
+					stored.mdblistRatingSources.some((s) => s === 'popcorn' || s === 'rtAudience')) {
+					// RT audience rating now uses the shared `tomatoes_audience` key.
+					// `popcorn` was the MDBList-native name; `rtAudience` is the legacy
+					// id Emby-family profiles can still sync down. Migrate both so they
+					// keep matching and sync consistently with the server.
 					stored.mdblistRatingSources = stored.mdblistRatingSources.map(
-						(s) => (s === 'popcorn' ? 'tomatoes_audience' : s)
+						(s) => (s === 'popcorn' || s === 'rtAudience' ? 'tomatoes_audience' : s)
 					);
 					migrated = true;
 				}
@@ -712,6 +553,14 @@ export function SettingsProvider({children}) {
 
 			const hasServerValues = resolved.tmdbApiKey !== undefined || SYNCABLE_KEYS.some(key => resolved[key] !== undefined);
 			if (!hasServerValues) return 'empty';
+			// Normalize legacy rating-source ids before applying: Emby-family profiles
+			// can still sync down `rtAudience`/`popcorn`, which would never match the
+			// `tomatoes_audience` key the ratings row filters on.
+			if (Array.isArray(resolved.mdblistRatingSources)) {
+				resolved.mdblistRatingSources = resolved.mdblistRatingSources.map(
+					(s) => (s === 'popcorn' || s === 'rtAudience' ? 'tomatoes_audience' : s)
+				);
+			}
 			setSettings(prev => {
 				const nextValues = {};
 				for (const key of SYNCABLE_KEYS) {
