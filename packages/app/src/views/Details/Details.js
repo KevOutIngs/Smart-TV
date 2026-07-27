@@ -29,7 +29,7 @@ import {arrange, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLa
 import {fetchPrerolls} from '../../utils/cinemaMode';
 import {DETAIL_ICON_PATHS} from './detailIcons';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
-import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled, isRatingSourceEnabled} from '../../services/mdblistApi';
+import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled, isRatingSourceAllowed} from '../../services/mdblistApi';
 import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
 
 import css from './Details.module.less';
@@ -437,7 +437,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	useEffect(() => {
 		if (!item || !episodes.length) return;
 		if (!settings.useMoonfinPlugin || !settings.tmdbEpisodeRatingsEnabled) return;
-		if (!isRatingSourceEnabled(settings, 'tmdb')) return;
+		if (!isRatingSourceAllowed(settings.mdblistRatingSources, 'tmdb')) return;
 		if (item.Type !== 'Season' && item.Type !== 'Episode') return;
 
 		const seasonNumber = item.Type === 'Season' ? item.IndexNumber : item.ParentIndexNumber;

@@ -1,5 +1,5 @@
 import {useState, useMemo, useCallback, useRef, useEffect, Fragment} from 'react';
-import {isMdblistEnabled, isRatingSourceEnabled} from '../../services/mdblistApi';
+import {isMdblistEnabled, isRatingSourceAllowed} from '../../services/mdblistApi';
 import $L from '@enact/i18n/$L';
 import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
@@ -170,7 +170,7 @@ const ModernDetailContent = (props) => {
 			let label = `S${item.ParentIndexNumber}:E${item.IndexNumber}`;
 			// The value is a score out of 10, not a percentage.
 			const rating = episodeRatings?.[item.IndexNumber];
-			const showEpisodeRating = settings.tmdbEpisodeRatingsEnabled && isRatingSourceEnabled(settings, 'tmdb');
+			const showEpisodeRating = settings.tmdbEpisodeRatingsEnabled && isRatingSourceAllowed(settings.mdblistRatingSources, 'tmdb');
 			if (showEpisodeRating && rating) label += ` · ${rating}`;
 			pieces.push(label);
 		}

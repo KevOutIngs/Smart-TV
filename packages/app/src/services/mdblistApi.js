@@ -58,11 +58,14 @@ export const isMdblistEnabled = (settings) =>
 
 /**
  * No stored list means the user hasn't narrowed the sources, so everything shows.
+ * Callers inside a hook should use the array form so the dependency they list is
+ * the value that actually gets read.
  */
-export const isRatingSourceEnabled = (settings, source) => {
-	const sources = settings?.mdblistRatingSources;
-	return !Array.isArray(sources) || sources.includes(source);
-};
+export const isRatingSourceAllowed = (sources, source) =>
+	!Array.isArray(sources) || sources.includes(source);
+
+export const isRatingSourceEnabled = (settings, source) =>
+	isRatingSourceAllowed(settings?.mdblistRatingSources, source);
 
 /**
  * An episode's TMDB rating keeps its own key because it's scored out of 10
