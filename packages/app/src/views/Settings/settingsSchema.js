@@ -415,6 +415,7 @@ export const SETTINGS_SCHEMA = [
 				rows: [
 					{kind: KIND.OPTION, key: 'introAction', label: () => $L('Intro Action'), options: getMediaSegmentActionOptions, fallback: () => $L('Ask to Skip'), icon: 'skip'},
 					{kind: KIND.OPTION, key: 'outroAction', label: () => $L('Outro Action'), options: getMediaSegmentActionOptions, fallback: () => $L('Ask to Skip'), icon: 'skip'},
+					{kind: KIND.TOGGLE, key: 'replaceSkipOutroWithNextUp', label: () => $L('Next Up Instead of Skip Outro'), desc: () => $L('Offer the next episode at the credits rather than a skip button'), icon: 'skip', when: (ctx) => ctx.settings.outroAction !== 'none'},
 					{kind: KIND.TOGGLE, key: 'autoPlay', label: () => $L('Auto Play Next'), desc: () => $L('Automatically play the next episode'), icon: 'playcircle'},
 					{kind: KIND.TOGGLE, key: 'cinemaModeEnabled', label: () => $L('Cinema Mode'), desc: () => $L('Play trailers/prerolls before a main feature'), icon: 'movies'},
 					{kind: KIND.OPTION, key: 'maxBitrate', label: () => $L('Maximum Bitrate'), options: getBitrateOptions, fallback: () => $L('Auto (Recommended)'), icon: 'download'},

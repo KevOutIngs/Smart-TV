@@ -139,6 +139,7 @@ export const defaultSettings = {
 	showDescriptionOnPause: false,
 	introAction: 'ask',
 	outroAction: 'ask',
+	replaceSkipOutroWithNextUp: false,
 	seasonalTheme: 'none',
 	themeMusicEnabled: false,
 	themeMusicVolume: 30,

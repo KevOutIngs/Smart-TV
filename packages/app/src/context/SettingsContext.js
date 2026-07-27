@@ -48,7 +48,9 @@ const SERVER_TO_LOCAL = {
 	clockBehavior: 'showClock',
 	stillWatchingBehavior: 'stillWatchingPrompt',
 	enableFolderView: 'folderViewMode',
-	homeRowInfoOverlay: 'homeRowOverlay'
+	homeRowInfoOverlay: 'homeRowOverlay',
+	autoplayNextEpisode: 'autoPlay',
+	mediaSegmentCountdown: 'nextUpCountdownStyle'
 };
 const LOCAL_TO_SERVER = Object.fromEntries(
 	Object.entries(SERVER_TO_LOCAL).map(([s, l]) => [l, s])
@@ -121,6 +123,11 @@ const VALUE_CONVERSIONS = {
 	homeRowOverlay: {
 		toServer: v => v === 'on',
 		fromServer: v => (v ? 'on' : 'off')
+	},
+	// Seconds here, milliseconds on the other clients.
+	nextUpTimeout: {
+		toServer: v => (typeof v === 'number' ? Math.round(v * 1000) : undefined),
+		fromServer: v => (typeof v === 'number' ? Math.round(v / 1000) : undefined)
 	}
 	// homeRows is missing on purpose. The home layout is two server fields that have to
 	// move together, so it gets resolved whole rather than a key at a time.
@@ -148,6 +155,8 @@ const SYNCABLE_KEYS = [
 	'displayFavoritesRows', 'displayCollectionsRows', 'displayGenresRows', 'displayPlaylistsRows',
 	'favoritesRowSortBy', 'collectionsRowSortBy', 'genresRowSortBy', 'genresRowItemFilter',
 	'stillWatchingPrompt', 'watchedIndicatorBehavior',
+	'autoPlay', 'nextUpBehavior', 'nextUpTimeout', 'nextUpCountdownStyle',
+	'replaceSkipOutroWithNextUp',
 	'backdropBlurHome', 'backdropBlurDetail',
 	'mediaBarSourceType', 'mediaBarLibraryIds', 'mediaBarCollectionIds',
 	'homeRows', 'homeRowsStyle', 'detailScreenStyle', 'detailExpandedTabs', 'fullScreenRows', 'homeRowsPosterSize', 'useSeriesThumbnails',
@@ -177,7 +186,11 @@ const profileToLocal = (serverProfile) => {
 		const localKey = SERVER_TO_LOCAL[key] || key;
 		if (SYNCABLE_KEYS.includes(localKey)) {
 			const conv = VALUE_CONVERSIONS[localKey];
-			local[localKey] = conv?.fromServer ? conv.fromServer(value) : value;
+			const converted = conv?.fromServer ? conv.fromServer(value) : value;
+			// A converter returns undefined when the stored value makes no sense here,
+			// so keep what we already have rather than blanking it.
+			if (converted === undefined) continue;
+			local[localKey] = converted;
 		}
 	}
 	// The TMDB key is read only. We pull it so online rows can call TMDB, but it

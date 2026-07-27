@@ -279,7 +279,8 @@ export const getUiLanguageOptions = () => [
 export const getNextUpCountdownStyleOptions = () => [
 	{ value: 'progressBar', label: $L('Progress Bar') },
 	{ value: 'timer', label: $L('Timer') },
-	{ value: 'both', label: $L('Both') }
+	{ value: 'both', label: $L('Both') },
+	{ value: 'none', label: $L('None') }
 ];
 
 export const getMediaSegmentActionOptions = () => [

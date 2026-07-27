@@ -879,7 +879,11 @@ export const getMediaSegments = async (itemId) => {
 	const segments = {
 		introStart: null,
 		introEnd: null,
-		creditsStart: null
+		creditsStart: null,
+		creditsEnd: null,
+		// Every segment the server knows about, so the skip prompt can offer recaps
+		// and previews as well as the two the rest of the player reads directly.
+		list: []
 	};
 
 	// Try the Media Segments API first (uses authenticated request). Emby has no
@@ -889,11 +893,14 @@ export const getMediaSegments = async (itemId) => {
 		if (data?.Items && data.Items.length > 0) {
 			for (const seg of data.Items) {
 				const type = seg.Type?.toLowerCase();
+				if (seg.StartTicks == null) continue;
+				segments.list.push({type: type === 'credits' ? 'outro' : type, start: seg.StartTicks, end: seg.EndTicks ?? null});
 				if (type === 'intro') {
 					segments.introStart = seg.StartTicks;
 					segments.introEnd = seg.EndTicks;
 				} else if (type === 'outro' || type === 'credits') {
 					segments.creditsStart = seg.StartTicks;
+					segments.creditsEnd = seg.EndTicks ?? null;
 				}
 			}
 			if (segments.introStart !== null || segments.creditsStart !== null) {
@@ -929,6 +936,13 @@ export const getMediaSegments = async (itemId) => {
 			);
 			if (creditsChapter) {
 				segments.creditsStart = creditsChapter.StartPositionTicks;
+			}
+
+			if (segments.introStart !== null) {
+				segments.list.push({type: 'intro', start: segments.introStart, end: segments.introEnd});
+			}
+			if (segments.creditsStart !== null) {
+				segments.list.push({type: 'outro', start: segments.creditsStart, end: segments.creditsEnd});
 			}
 
 			if (segments.introStart !== null || segments.creditsStart !== null) {

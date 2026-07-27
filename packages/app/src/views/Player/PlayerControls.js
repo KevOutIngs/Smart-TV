@@ -187,12 +187,10 @@ const PlayerControls = ({
 	chapters,
 	currentTime,
 	subtitleOffset,
-	showSkipIntro,
 	handleControlButtonClick,
 	handleProgressClick,
 	handleProgressKeyDown,
 	handleProgressBlur,
-	handleSkipIntro,
 	handleSelectAudio,
 	handleSelectSubtitle,
 	handleSubtitleKeyDown,
@@ -272,14 +270,6 @@ const PlayerControls = ({
 
 	return (
 		<>
-			{showSkipIntro && !isAudioMode && !isLiveTV && !activeModal && !controlsVisible && (
-				<div className={css.skipOverlay}>
-					<SpottableButton className={css.skipButton} onClick={handleSkipIntro} spotlightId="skip-intro-btn">
-						{$L('Skip Intro')}
-					</SpottableButton>
-				</div>
-			)}
-
 			<div className={`${css.playerControls} ${controlsVisible && !activeModal ? css.visible : ''} ${isAudioMode ? css.audioControls : ''}`}>
 				{!isAudioMode && (
 				<div className={css.controlsTop}>

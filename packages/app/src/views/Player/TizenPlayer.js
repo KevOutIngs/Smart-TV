@@ -31,7 +31,9 @@ import useAudioTransport from './audio/useAudioTransport';
 import useLyrics from './audio/useLyrics';
 import {handleAudioFocusKey, exitAudioPanel, nextAudioFocusRow, AUDIO_FOCUS_IDS} from './audio/audioFocus';
 import useSegmentPopups from './useSegmentPopups';
-import {SpottableButton, NextEpisodeContainer, CONTROLS_HIDE_DELAY, withTimeout} from './PlayerConstants';
+import {NextEpisodeContainer, CONTROLS_HIDE_DELAY, withTimeout} from './PlayerConstants';
+import NextUpOverlay from './NextUpOverlay';
+import SkipSegmentOverlay from './SkipSegmentOverlay';
 import {
 	toSubtitleLanguage,
 	mapSubtitleStreamsFromMediaSource,
@@ -1284,21 +1286,20 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		onPlayNext(episode, trackOptions);
 	}, [onPlayNext, stopTimeUpdatePolling]);
 
-	const onSeekToIntroEnd = useCallback(() => {
-		if (mediaSegments?.introEnd && avplayReadyRef.current) {
-			const seekMs = Math.floor(mediaSegments.introEnd / 10000);
-			avplaySeek(seekMs).catch(e => console.warn('[Player] Seek failed:', e));
+	const onSeekToSegmentEnd = useCallback((endTicks) => {
+		if (endTicks && avplayReadyRef.current) {
+			avplaySeek(Math.floor(endTicks / 10000)).catch(e => console.warn('[Player] Seek failed:', e));
 		}
-	}, [mediaSegments]);
+	}, []);
 
 	const {
-		showSkipIntro, showSkipCredits, showNextEpisode, nextEpisodeCountdown,
-		handleSkipIntro, handlePlayNextEpisode, cancelNextEpisodeCountdown,
+		skipSegment, showSkipCredits, showNextEpisode, nextEpisodeCountdown,
+		handleSkipSegment, handlePlayNextEpisode, cancelNextEpisodeCountdown,
 		checkSegments, handlePopupKeyDown, resetPopups
 	} = useSegmentPopups({
 		mediaSegments, nextEpisode, settings, runTimeRef,
 		activeModal, controlsVisible, hideControls, showControls,
-		onSeekToIntroEnd,
+		onSeekToSegmentEnd,
 		onPlayNext: onPlayNextWithCleanup,
 		currentIsPreroll: isPreroll(item)
 	});
@@ -2219,7 +2220,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 			// Left/Right when controls hidden -> show controls and focus on seekbar
 			if (!controlsVisible && !activeModal) {
-				if ((key === 'Enter' || e.keyCode === 13) && (showSkipIntro || showSkipCredits || showNextEpisode)) {
+				if ((key === 'Enter' || e.keyCode === 13) && (skipSegment || showSkipCredits || showNextEpisode)) {
 					return;
 				}
 				if (key === 'Enter' || e.keyCode === 13) {
@@ -2295,7 +2296,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 		window.addEventListener('keydown', handleKeyDown, true);
 		return () => window.removeEventListener('keydown', handleKeyDown, true);
-	}, [controlsVisible, activeModal, closeModal, hideControls, handleBack, showControls, handlePlayPause, handleForward, handleRewind, currentTime, duration, settings.seekStep, handlePopupKeyDown, bottomButtons.length, isAudioMode, focusRow, scheduleDeferredSeek, showSkipIntro, showSkipCredits, showNextEpisode, isLiveTV, isInGroup, verifyResumeHealthy]);
+	}, [controlsVisible, activeModal, closeModal, hideControls, handleBack, showControls, handlePlayPause, handleForward, handleRewind, currentTime, duration, settings.seekStep, handlePopupKeyDown, bottomButtons.length, isAudioMode, focusRow, scheduleDeferredSeek, skipSegment, showSkipCredits, showNextEpisode, isLiveTV, isInGroup, verifyResumeHealthy]);
 
 	// Calculate progress - use seekPosition when actively seeking for smooth scrubbing
 	const displayTime = isSeeking ? (seekPosition / 10000000) : currentTime;
@@ -2343,10 +2344,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			</div>
 		);
 	}
-
-	const nextCountdownStyle = settings.nextUpCountdownStyle ?? 'both';
-	const showNextCountdownTimer = nextEpisodeCountdown !== null && nextCountdownStyle !== 'progressBar';
-	const showNextCountdownBar = nextEpisodeCountdown !== null && nextCountdownStyle !== 'timer';
 
 	return (
 		<div className={css.container} ref={playerContainerRef} onClick={showControls}>
@@ -2429,62 +2426,30 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				</div>
 			)}
 
-			{/* Next Episode Overlay */}
 			{(showSkipCredits || showNextEpisode) && nextEpisode && !isAudioMode && !activeModal && !controlsVisible && (
-				<NextEpisodeContainer className={css.nextEpisodeOverlay} spotlightRestrict="self-only">
-					{settings.nextUpBehavior !== 'minimal' ? (
-						<div className={css.nextEpisodeCard}>
-							<div className={css.nextThumbnail}>
-								<img
-									src={getImageUrl(item._serverUrl || getServerUrl(), nextEpisode.Id, 'Primary', {maxWidth: 400, quality: 80})}
-									alt={nextEpisode.Name}
-									className={css.nextThumbnailImg}
-								/>
-								<div className={css.nextThumbnailGradient} />
-							</div>
-							<div className={css.nextInfo}>
-								<div className={css.nextLabelRow}>
-									<div className={css.nextLabel}>{$L('UP NEXT')}</div>
-									{showNextCountdownTimer && (
-										<div className={css.nextCountdownInline}>{$L('Starting in {countdown}s').replace('{countdown}', nextEpisodeCountdown)}</div>
-									)}
-								</div>
-								<div className={css.nextTitle}>{nextEpisode.Name}</div>
-								{nextEpisode.SeriesName && (
-									<div className={css.nextMeta}>
-										S{nextEpisode.ParentIndexNumber} E{nextEpisode.IndexNumber} &middot; {nextEpisode.SeriesName}
-									</div>
-								)}
-								<div className={css.nextActions}>
-									<SpottableButton className={css.nextPlayBtn} onClick={handlePlayNextEpisode} spotlightId="next-episode-play-btn" data-spot-default="true">{$L('Play Now')}</SpottableButton>
-									<SpottableButton className={css.nextCancelBtn} onClick={cancelNextEpisodeCountdown}>{$L('Hide')}</SpottableButton>
-								</div>
-							</div>
-							{showNextCountdownBar && (
-								<div className={css.nextProgressBar}>
-									<div className={css.nextProgressFill} style={{'--countdown-duration': `${settings.nextUpTimeout ?? 7}s`}} />
-								</div>
-							)}
-						</div>
-					) : (
-						<div className={css.nextEpisodeMinimal}>
-							<div className={css.nextLabel}>{$L('UP NEXT')}</div>
-							<div className={css.nextTitle}>{nextEpisode.Name}</div>
-							{showNextCountdownTimer && (
-								<div className={css.nextCountdownText}>{$L('Starting in {countdown}s').replace('{countdown}', nextEpisodeCountdown)}</div>
-							)}
-							<div className={css.nextActions}>
-								<SpottableButton className={css.nextPlayBtn} onClick={handlePlayNextEpisode} spotlightId="next-episode-play-btn" data-spot-default="true">{$L('Play Now')}</SpottableButton>
-								<SpottableButton className={css.nextCancelBtn} onClick={cancelNextEpisodeCountdown}>{$L('Hide')}</SpottableButton>
-							</div>
-							{showNextCountdownBar && (
-								<div className={css.nextProgressBarMinimal}>
-									<div className={css.nextProgressFill} style={{'--countdown-duration': `${settings.nextUpTimeout ?? 7}s`}} />
-								</div>
-							)}
-						</div>
-					)}
+				<NextEpisodeContainer spotlightRestrict="self-only">
+					<NextUpOverlay
+						episode={nextEpisode}
+						imageUrl={getImageUrl(item._serverUrl || getServerUrl(), nextEpisode.Id, 'Primary', {maxWidth: 400, quality: 80})}
+						countdown={nextEpisodeCountdown}
+						timeout={settings.nextUpTimeout ?? 7}
+						countdownStyle={settings.nextUpCountdownStyle ?? 'both'}
+						minimal={settings.nextUpBehavior === 'minimal'}
+						onPlay={handlePlayNextEpisode}
+						onDismiss={cancelNextEpisodeCountdown}
+					/>
 				</NextEpisodeContainer>
+			)}
+
+			{skipSegment && !isAudioMode && !isLiveTV && !activeModal && !controlsVisible && (
+				<SkipSegmentOverlay
+					type={skipSegment.type}
+					remainingSeconds={skipSegment.remainingSeconds}
+					progress={skipSegment.progress}
+					countdownStyle={settings.nextUpCountdownStyle ?? 'both'}
+					onSkip={handleSkipSegment}
+					spotlightId="skip-segment-btn"
+				/>
 			)}
 
 			<PlayerControls
@@ -2516,12 +2481,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				chapters={chapters}
 				currentTime={currentTime}
 				subtitleOffset={subtitleOffset}
-				showSkipIntro={showSkipIntro}
 				handleControlButtonClick={handleControlButtonClick}
 				handleProgressClick={handleProgressClick}
 				handleProgressKeyDown={handleProgressKeyDown}
 				handleProgressBlur={handleProgressBlur}
-				handleSkipIntro={handleSkipIntro}
 				handleSelectAudio={handleSelectAudio}
 				handleSelectSubtitle={handleSelectSubtitle}
 				handleSubtitleKeyDown={handleSubtitleItemKeyDown}

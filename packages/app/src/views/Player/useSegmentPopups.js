@@ -3,7 +3,8 @@ import Spotlight from '@enact/spotlight';
 import {isBackKey} from '../../utils/keys';
 
 /**
- * Shared hook for skip-intro, skip-credits, and next-episode popup logic.
+ * Drives the skip prompt for any segment the server marked up, plus the credits
+ * and next episode prompts that follow an episode into the one after it.
  */
 const useSegmentPopups = ({
 	mediaSegments,
@@ -14,17 +15,24 @@ const useSegmentPopups = ({
 	controlsVisible,
 	hideControls,
 	showControls,
-	onSeekToIntroEnd,
+	onSeekToSegmentEnd,
 	onPlayNext,
 	// A pre-roll runs straight into the feature, so it gets no credits or next-up prompt.
 	currentIsPreroll = false
 }) => {
-	const [showSkipIntro, setShowSkipIntro] = useState(false);
+	// The segment being offered right now, as {type, start, end, remainingSeconds, progress}.
+	const [skipSegment, setSkipSegment] = useState(null);
 	const [showSkipCredits, setShowSkipCredits] = useState(false);
 	const [showNextEpisode, setShowNextEpisode] = useState(false);
 	const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(null);
 
-	const skipIntroDismissedRef = useRef(false);
+	const dismissedSegmentsRef = useRef(new Set());
+	// Mirrored so the skip handler can stay stable, because the players keep
+	// checkSegments in a dependency array and it must not change every second.
+	const skipSegmentRef = useRef(null);
+	useEffect(() => {
+		skipSegmentRef.current = skipSegment;
+	}, [skipSegment]);
 	const hasTriggeredNextEpisodeRef = useRef(false);
 	const nextEpisodeTimerRef = useRef(null);
 	const nextEpisodeTimeoutRef = useRef(null);
@@ -63,45 +71,44 @@ const useSegmentPopups = ({
 		}
 		setNextEpisodeCountdown(timeout);
 
-		// A single timer drives the auto-advance; the progress bar animates purely
-		// in CSS, so no per-second re-render is needed for it.
 		nextEpisodeTimeoutRef.current = setTimeout(() => {
 			nextEpisodeTimeoutRef.current = null;
 			handlePlayNextEpisode();
 		}, timeout * 1000);
 
-		// Tick the numeric countdown only when the timer text is actually shown.
-		const style = settings.nextUpCountdownStyle ?? 'both';
-		if (style === 'timer' || style === 'both') {
-			let countdown = timeout;
-			nextEpisodeTimerRef.current = setInterval(() => {
-				countdown--;
-				setNextEpisodeCountdown(countdown);
-				if (countdown <= 0) {
-					clearInterval(nextEpisodeTimerRef.current);
-					nextEpisodeTimerRef.current = null;
-				}
-			}, 1000);
-		}
-	}, [handlePlayNextEpisode, settings.nextUpTimeout, settings.nextUpCountdownStyle]);
+		// Both the timer text and the ring read this, so it ticks whichever the
+		// viewer has chosen to see.
+		let countdown = timeout;
+		nextEpisodeTimerRef.current = setInterval(() => {
+			countdown--;
+			setNextEpisodeCountdown(countdown);
+			if (countdown <= 0) {
+				clearInterval(nextEpisodeTimerRef.current);
+				nextEpisodeTimerRef.current = null;
+			}
+		}, 1000);
+	}, [handlePlayNextEpisode, settings.nextUpTimeout]);
 
-	// --- Skip Intro ---
+	// --- Skip segment ---
 
-	const handleSkipIntro = useCallback(() => {
-		if (skipIntroDismissedRef.current) return;
-		skipIntroDismissedRef.current = true;
-		onSeekToIntroEnd?.();
-		setShowSkipIntro(false);
-	}, [onSeekToIntroEnd]);
+	// Takes the segment when called from the auto skip path, and falls back to
+	// whichever one is on screen when the viewer presses the button.
+	const handleSkipSegment = useCallback((segment) => {
+		const target = segment || skipSegmentRef.current;
+		if (!target?.end) return;
+		dismissedSegmentsRef.current.add(target.start);
+		onSeekToSegmentEnd?.(target.end);
+		setSkipSegment(null);
+	}, [onSeekToSegmentEnd]);
 
 	// --- Reset on new media ---
 
 	const resetPopups = useCallback(() => {
-		setShowSkipIntro(false);
+		setSkipSegment(null);
 		setShowSkipCredits(false);
 		setShowNextEpisode(false);
 		setNextEpisodeCountdown(null);
-		skipIntroDismissedRef.current = false;
+		dismissedSegmentsRef.current.clear();
 		hasTriggeredNextEpisodeRef.current = false;
 		if (nextEpisodeTimerRef.current) {
 			clearInterval(nextEpisodeTimerRef.current);
@@ -120,24 +127,41 @@ const useSegmentPopups = ({
 		const outroAction = settings.outroAction || 'ask';
 
 		if (mediaSegments) {
-			const {introStart, introEnd, creditsStart} = mediaSegments;
+			const {creditsStart} = mediaSegments;
 
-			if (introStart != null && introEnd != null && introAction !== 'none') {
-				const inIntro = ticks >= introStart && ticks < introEnd;
-				const nearIntro = ticks >= (introStart - 1) && ticks < (introEnd + 1);
-				if (inIntro && introAction === 'auto' && !skipIntroDismissedRef.current) {
-					handleSkipIntro();
+			// End credits are worth skipping on a normal episode too, so the outro
+			// keeps its own prompt unless the viewer asked for the next episode card
+			// in its place, and even then only when that card would really appear.
+			const nextUpWouldShow = Boolean(nextEpisode) && !currentIsPreroll &&
+				settings.nextUpBehavior !== 'disabled' && settings.stillWatchingPrompt !== false;
+			const outroBecomesNextUp = settings.replaceSkipOutroWithNextUp === true && nextUpWouldShow;
+
+			const active = (mediaSegments.list || []).find((seg) => {
+				if (seg.end == null || ticks < seg.start || ticks >= seg.end) return false;
+				if (seg.type === 'intro') return introAction !== 'none';
+				if (seg.type === 'outro') return outroAction !== 'none' && !outroBecomesNextUp;
+				return true;
+			});
+
+			if (active && !dismissedSegmentsRef.current.has(active.start)) {
+				const autoSkip = (active.type === 'intro' && introAction === 'auto') ||
+					(active.type === 'outro' && outroAction === 'auto');
+				if (autoSkip) {
+					handleSkipSegment(active);
+				} else {
+					const total = Math.max(1, (active.end - active.start) / 10000000);
+					const remaining = Math.max(0, Math.round((active.end - ticks) / 10000000));
+					setSkipSegment((prev) => (
+						prev && prev.type === active.type && prev.remainingSeconds === remaining
+							? prev
+							: {type: active.type, start: active.start, end: active.end, remainingSeconds: remaining, progress: remaining / total}
+					));
 				}
-				if (inIntro && introAction === 'ask' && !skipIntroDismissedRef.current) {
-					setShowSkipIntro(true);
-				}
-				if (!nearIntro) {
-					skipIntroDismissedRef.current = false;
-					setShowSkipIntro(false);
-				}
+			} else if (!active) {
+				setSkipSegment((prev) => (prev ? null : prev));
 			}
 
-			if (creditsStart != null && nextEpisode && !currentIsPreroll && !hasTriggeredNextEpisodeRef.current && outroAction !== 'none' && settings.stillWatchingPrompt !== false) {
+			if (creditsStart != null && outroBecomesNextUp && !hasTriggeredNextEpisodeRef.current && outroAction !== 'none') {
 				const inCredits = ticks >= creditsStart;
 				if (inCredits) {
 					setShowSkipCredits(prev => {
@@ -161,18 +185,20 @@ const useSegmentPopups = ({
 				setShowNextEpisode(true);
 			}
 		}
-	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.stillWatchingPrompt, nextEpisode, currentIsPreroll, runTimeRef, handlePlayNextEpisode, handleSkipIntro]);
+	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.replaceSkipOutroWithNextUp, settings.stillWatchingPrompt, nextEpisode, currentIsPreroll, runTimeRef, handlePlayNextEpisode, handleSkipSegment]);
 
 	// --- Auto-focus effects ---
 
+	// Keyed on which segment it is, not the object, because that carries a
+	// countdown that ticks every second and focus must only move when it appears.
+	const skipSegmentStart = skipSegment?.start ?? null;
 	useEffect(() => {
-		if (showSkipIntro && !activeModal) {
-			hideControls();
-			window.requestAnimationFrame(() => {
-				Spotlight.focus('skip-intro-btn');
-			});
-		}
-	}, [showSkipIntro, activeModal, hideControls]);
+		if (skipSegmentStart == null || activeModal) return;
+		hideControls();
+		window.requestAnimationFrame(() => {
+			Spotlight.focus('skip-segment-btn');
+		});
+	}, [skipSegmentStart, activeModal, hideControls]);
 
 	useEffect(() => {
 		if (showSkipCredits && nextEpisode && !activeModal) {
@@ -208,28 +234,30 @@ const useSegmentPopups = ({
 
 	const handlePopupKeyDown = useCallback((e) => {
 		const key = e.key || e.keyCode;
-		const skipIntroVisible = showSkipIntro && !activeModal && !controlsVisible;
+		const skipSegmentVisible = skipSegmentStart != null && !activeModal && !controlsVisible;
 		const nextEpisodeVisible = (showSkipCredits || showNextEpisode) && nextEpisode && !activeModal && !controlsVisible;
 
-		if (!skipIntroVisible && !nextEpisodeVisible) return false;
+		if (!skipSegmentVisible && !nextEpisodeVisible) return false;
 
 		const back = isBackKey(e) || key === 'GoBack';
 
-		// Skip intro popup
-		if (skipIntroVisible) {
+		const dismissSegment = () => {
+			dismissedSegmentsRef.current.add(skipSegmentStart);
+			setSkipSegment(null);
+		};
+
+		if (skipSegmentVisible) {
 			if (back) {
 				e.preventDefault();
 				e.stopPropagation();
-				skipIntroDismissedRef.current = true;
-				setShowSkipIntro(false);
+				dismissSegment();
 				return true;
 			}
 			if (key === 'Enter' || e.keyCode === 13) return false;
-			// Any other key: dismiss and show controls
+			// Any other key dismisses it and brings the controls back.
 			e.preventDefault();
 			e.stopPropagation();
-			skipIntroDismissedRef.current = true;
-			setShowSkipIntro(false);
+			dismissSegment();
 			showControls();
 			return true;
 		}
@@ -253,14 +281,14 @@ const useSegmentPopups = ({
 		}
 
 		return false;
-	}, [showSkipIntro, showSkipCredits, showNextEpisode, nextEpisode, activeModal, controlsVisible, showControls, cancelNextEpisodeCountdown]);
+	}, [skipSegmentStart, showSkipCredits, showNextEpisode, nextEpisode, activeModal, controlsVisible, showControls, cancelNextEpisodeCountdown]);
 
 	return {
-		showSkipIntro,
+		skipSegment,
 		showSkipCredits,
 		showNextEpisode,
 		nextEpisodeCountdown,
-		handleSkipIntro,
+		handleSkipSegment,
 		handlePlayNextEpisode,
 		cancelNextEpisodeCountdown,
 		checkSegments,
