@@ -1,5 +1,5 @@
 import {useState, useMemo, useCallback, useRef, useEffect, Fragment} from 'react';
-import {isMdblistEnabled} from '../../services/mdblistApi';
+import {isMdblistEnabled, isRatingSourceEnabled} from '../../services/mdblistApi';
 import $L from '@enact/i18n/$L';
 import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
@@ -168,8 +168,10 @@ const ModernDetailContent = (props) => {
 		if (isSeason && episodes.length) pieces.push($L('{count} Episodes').replace('{count}', episodes.length));
 		if (isEpisode && item.ParentIndexNumber != null && item.IndexNumber != null) {
 			let label = `S${item.ParentIndexNumber}:E${item.IndexNumber}`;
-			const rating = episodeRatings?.[item.Id];
-			if (settings.tmdbEpisodeRatingsEnabled && rating) label += ` · ${rating}%`;
+			// The value is a score out of 10, not a percentage.
+			const rating = episodeRatings?.[item.IndexNumber];
+			const showEpisodeRating = settings.tmdbEpisodeRatingsEnabled && isRatingSourceEnabled(settings, 'tmdb');
+			if (showEpisodeRating && rating) label += ` · ${rating}`;
 			pieces.push(label);
 		}
 		if (isSeries && item.Status === 'Continuing') pieces.push($L('Ongoing'));
@@ -178,7 +180,7 @@ const ModernDetailContent = (props) => {
 		if (runtime && endsAt) pieces.push(endsAt);
 		if (genres.length) pieces.push(genres.slice(0, 3).join(', '));
 		return pieces;
-	}, [year, officialRating, isSeries, seasonCount, isSeason, episodes.length, isEpisode, item.ParentIndexNumber, item.IndexNumber, item.Id, item.Status, episodeRatings, settings.tmdbEpisodeRatingsEnabled, runtime, endsAt, genres]);
+	}, [year, officialRating, isSeries, seasonCount, isSeason, episodes.length, isEpisode, item.ParentIndexNumber, item.IndexNumber, item.Status, episodeRatings, settings.tmdbEpisodeRatingsEnabled, settings.mdblistRatingSources, runtime, endsAt, genres]);
 
 	const handleCastClick = useCallback((ev) => {
 		const personId = ev.currentTarget.dataset.personId;

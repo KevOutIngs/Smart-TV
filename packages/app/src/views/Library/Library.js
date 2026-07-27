@@ -10,7 +10,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import MusicBrowse from '../MusicBrowse';
 import {getImageUrl, getPrimaryImageId, formatDuration} from '../../utils/helpers';
 import {useSettings} from '../../context/SettingsContext';
-import {fetchRatings, fetchEpisodeRatings, buildDisplayRatings} from '../../services/mdblistApi';
+import {fetchRatings, fetchEpisodeRatings, buildDisplayRatings, isRatingSourceEnabled} from '../../services/mdblistApi';
 import {getRtFallbackIcon} from '../../components/icons/rtIcons';
 import {useStorage} from '../../hooks/useStorage';
 import {KEYS} from '../../utils/keys';
@@ -612,8 +612,9 @@ onFocus={() => {
 				: '';
 			// Episodes have no MDBList ratings, so show the TMDB episode rating when
 			// that feature is on.
+			const episodeRatingsEnabled = settings?.tmdbEpisodeRatingsEnabled && isRatingSourceEnabled(settings, 'tmdb');
 			const fetchPromise = item.Type === 'Episode'
-				? (settings?.tmdbEpisodeRatingsEnabled
+				? (episodeRatingsEnabled
 					? fetchEpisodeRatings(effectiveServerUrl, item, {signal})
 					: Promise.resolve([]))
 				: fetchRatings(effectiveServerUrl, item, {signal, sourcesKey});
@@ -737,7 +738,9 @@ if (focusedItem && focusedItem.CommunityRating && showCommunityRating) {
 		</span>
 	);
 }
-if (focusedItem && !(settings?.mdblistEnabled && settings?.useMoonfinPlugin) && focusedItem.CriticRating != null) {
+// The server's own critic rating stands in until plugin ratings actually
+// arrive, so it stays visible when there's no API key or nothing came back.
+if (focusedItem && focusedRatings.length === 0 && focusedItem.CriticRating != null) {
 	ratingElements.push(
 		<span key="rt" className={css.pluginRating}>
 			<img className={css.ratingIcon} src={getRtFallbackIcon(focusedItem.CriticRating)} alt="Rotten Tomatoes" />

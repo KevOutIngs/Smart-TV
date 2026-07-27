@@ -57,6 +57,20 @@ export const isMdblistEnabled = (settings) =>
 	!!settings?.useMoonfinPlugin && settings?.mdblistEnabled !== false;
 
 /**
+ * No stored list means the user hasn't narrowed the sources, so everything shows.
+ */
+export const isRatingSourceEnabled = (settings, source) => {
+	const sources = settings?.mdblistRatingSources;
+	return !Array.isArray(sources) || sources.includes(source);
+};
+
+/**
+ * An episode's TMDB rating keeps its own key because it's scored out of 10
+ * rather than 100, but the picker only offers TMDB, so it follows that choice.
+ */
+export const getSelectionSource = (source) => source === 'tmdb_episode' ? 'tmdb' : source;
+
+/**
  * Returns 'movie' or 'show', or null for unsupported types. Episodes and
  * Seasons are unsupported because MDBList has no ratings for them, and their
  * TMDB provider ids live in a different id space than show ids. Episodes get

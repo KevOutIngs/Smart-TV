@@ -29,7 +29,7 @@ import {arrange, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLa
 import {fetchPrerolls} from '../../utils/cinemaMode';
 import {DETAIL_ICON_PATHS} from './detailIcons';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
-import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled} from '../../services/mdblistApi';
+import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled, isRatingSourceEnabled} from '../../services/mdblistApi';
 import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
 
 import css from './Details.module.less';
@@ -437,6 +437,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	useEffect(() => {
 		if (!item || !episodes.length) return;
 		if (!settings.useMoonfinPlugin || !settings.tmdbEpisodeRatingsEnabled) return;
+		if (!isRatingSourceEnabled(settings, 'tmdb')) return;
 		if (item.Type !== 'Season' && item.Type !== 'Episode') return;
 
 		const seasonNumber = item.Type === 'Season' ? item.IndexNumber : item.ParentIndexNumber;
@@ -457,7 +458,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			setEpisodeRatings(ratingsMap);
 		});
 		return () => { cancelled = true; };
-	}, [item, episodes.length, settings.useMoonfinPlugin, settings.tmdbEpisodeRatingsEnabled, effectiveServerUrl]);
+	}, [item, episodes.length, settings.useMoonfinPlugin, settings.tmdbEpisodeRatingsEnabled, settings.mdblistRatingSources, effectiveServerUrl]);
 
 	// Auto-focus the primary button when content loads
 	useEffect(() => {
@@ -2129,7 +2130,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 													{epRuntime && <span>{epRuntime}</span>}
 													{episodeRatings[ep.IndexNumber] != null && (
 														<span className={css.tmdbBadge}>
-															<svg className={css.tmdbIcon} viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+															<img className={css.tmdbIcon} src={`${effectiveServerUrl}/Moonfin/Assets/tmdb.svg`} alt="TMDB" />
 															{episodeRatings[ep.IndexNumber].toFixed(1)}
 														</span>
 													)}
@@ -2723,7 +2724,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 													{epRuntime && <span className={css.episodeEpRuntime}>{epRuntime}</span>}
 													{episodeRatings[ep.IndexNumber] != null && (
 														<span className={css.tmdbBadge}>
-															<svg className={css.tmdbIcon} viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+															<img className={css.tmdbIcon} src={`${effectiveServerUrl}/Moonfin/Assets/tmdb.svg`} alt="TMDB" />
 															{episodeRatings[ep.IndexNumber].toFixed(1)}
 														</span>
 													)}
