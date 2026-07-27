@@ -23,6 +23,9 @@ export const defaultSettings = {
 	subtitlePositionAbsolute: 90,
 	seekStep: 10,
 	autoPlay: true,
+	// Off by default because every intro costs a full player teardown and reopen before
+	// the film, which is slow on older sets.
+	cinemaModeEnabled: false,
 	theme: 'dark',
 	visualTheme: 'moonfin',
 	customThemeId: '',

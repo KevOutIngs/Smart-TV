@@ -8,6 +8,7 @@ import {createPortal} from 'react-dom';
 
 import {useAuth} from '../../context/AuthContext';
 import {useSettings} from '../../context/SettingsContext';
+import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as jellyfinApi from '../../services/jellyfinApi';
 import MediaRow from '../../components/MediaRow';
 import MediaCard from '../../components/MediaCard';
@@ -25,6 +26,7 @@ import DeleteItemDialog from '../../components/DeleteItemDialog';
 import ChangeArtworkModal from '../../components/ChangeArtworkModal';
 import IdentifyModal from '../../components/IdentifyModal';
 import {arrange, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
+import {fetchPrerolls} from '../../utils/cinemaMode';
 import {DETAIL_ICON_PATHS} from './detailIcons';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
 import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled} from '../../services/mdblistApi';
@@ -153,6 +155,7 @@ const getMediaBadges = (item, versionIndex = 0) => {
 const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onSelectStudio, onItemDeleted, backHandlerRef}) => {
 	const {api, serverUrl, user} = useAuth();
 	const {settings} = useSettings();
+	const {isInGroup: isSyncPlayInGroup} = useSyncPlay();
 
 	// Cross-server support
 	const effectiveApi = useMemo(() => {
@@ -473,7 +476,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	// === HANDLERS ===
 
-	const handlePlay = useCallback(() => {
+	const handlePlay = useCallback(async () => {
 		if (!item) return;
 
 		const supportsSelection = item.MediaType === 'Video' &&
@@ -519,9 +522,19 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				}
 			}
 		} else {
-			onPlay?.(item, false, playbackOptions);
+			// A SyncPlay group queues the pressed item for everyone, so intros stay out of it.
+			const prerolls = isSyncPlayInGroup
+				? []
+				: tagWithServerInfo(await fetchPrerolls(effectiveApi, item, settings));
+			if (prerolls.length > 0) {
+				// The version, audio and subtitle picks belong to the movie, and the queue
+				// starts on an intro, so applying them here would target the wrong file.
+				onPlay?.(prerolls[0], false, {videoQueue: [...prerolls, item]});
+			} else {
+				onPlay?.(item, false, playbackOptions);
+			}
 		}
-	}, [item, episodes, nextUp, seasons, albumTracks, playlistItems, onPlay, onSelectItem, selectedAudioIndex, selectedSubtitleIndex, selectedVersionIndex]);
+	}, [item, episodes, nextUp, seasons, albumTracks, playlistItems, onPlay, onSelectItem, selectedAudioIndex, selectedSubtitleIndex, selectedVersionIndex, effectiveApi, settings, tagWithServerInfo, isSyncPlayInGroup]);
 
 	const handleResume = useCallback(() => {
 		if (!item) return;

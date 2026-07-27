@@ -953,6 +953,9 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 		getThemeSongs: (itemId, inheritFromParent = true) =>
 			serverRequest(`/Items/${itemId}/ThemeSongs?UserId=${userId}&InheritFromParent=${inheritFromParent}`),
 
+		getIntros: (itemId) =>
+			serverRequest(`/Users/${userId}/Items/${itemId}/Intros`),
+
 		searchRemote: searchRemoteVia(serverRequest),
 
 		applyRemoteSearchResult: applyRemoteSearchResultVia(serverRequest),

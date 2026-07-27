@@ -815,5 +815,7 @@
 	"Could not refresh metadata.": "Could not refresh metadata.",
 	"This server does not have the Moonfin plugin installed.": "This server does not have the Moonfin plugin installed.",
 	"Up": "Up",
-	"Down": "Down"
+	"Down": "Down",
+	"Cinema Mode": "Cinema Mode",
+	"Play trailers/prerolls before a main feature": "Play trailers/prerolls before a main feature"
 }

@@ -15,6 +15,7 @@ import {useSettings} from '../../context/SettingsContext';
 import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as syncPlayService from '../../services/syncPlay';
 import {KEYS, isBackKey} from '../../utils/keys';
+import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
 import {getImageUrl} from '../../utils/helpers';
 import {initPgsCanvasRenderer, disposePgsRenderer, clearPgsCanvas} from '../../utils/pgsRenderer';
 import {supportsAssRenderer, initAssCanvasRenderer, disposeAssRenderer, setAssTime} from '../../utils/assRenderer';
@@ -1087,20 +1088,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 						if (stillCurrent()) setMediaSegments({introStart: null, introEnd: null, creditsStart: null});
 					});
 
-					if (item.Type === 'Episode') {
-						// A shuffle queue sets the order, so the next episode comes from
-						// it rather than the sequential air-order lookup.
-						if (videoQueue?.length) {
-							const idx = videoQueue.findIndex(e => String(e.Id) === String(item.Id));
-							if (stillCurrent()) setNextEpisode(idx >= 0 && idx < videoQueue.length - 1 ? videoQueue[idx + 1] : null);
-						} else {
-							withTimeout(playback.getNextEpisode(item), 4000).then((next) => {
-								if (stillCurrent()) setNextEpisode(next);
-							}).catch((nextErr) => {
-								console.warn('[Player] Next episode lookup skipped:', nextErr?.message || nextErr);
-								if (stillCurrent()) setNextEpisode(null);
-							});
-						}
+					// A queue sets the order itself, whatever the item type. Only a lone
+					// episode falls back to the sequential air-order lookup.
+					if (videoQueue?.length) {
+						if (stillCurrent()) setNextEpisode(nextInQueue(videoQueue, item));
+					} else if (item.Type === 'Episode') {
+						withTimeout(playback.getNextEpisode(item), 4000).then((next) => {
+							if (stillCurrent()) setNextEpisode(next);
+						}).catch((nextErr) => {
+							console.warn('[Player] Next episode lookup skipped:', nextErr?.message || nextErr);
+							if (stillCurrent()) setNextEpisode(null);
+						});
 					}
 				}
 
@@ -1158,7 +1156,15 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				console.log(`[Player] Loaded ${displayTitle} via ${result.playMethod} (AVPlay native)${isLiveTV ? ' [Live TV]' : ''}`);
 			} catch (err) {
 				console.error('[Player] Failed to load media:', err);
-				if (stillCurrent()) setError(err.message || $L('Failed to load media'));
+				// A pre-roll that cant even load gets skipped, not surfaced.
+				const skipTo = isPreroll(item) ? nextInQueue(videoQueue, item) : null;
+				if (stillCurrent()) {
+					if (skipTo && onPlayNext) {
+						onPlayNext(skipTo);
+					} else {
+						setError(err.message || $L('Failed to load media'));
+					}
+				}
 			} finally {
 				if (stillCurrent()) setIsLoading(false);
 			}
@@ -1215,7 +1221,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			burnInSubtitleRef.current = null;
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [item, resume, videoQueue, selectedQuality, settings.maxBitrate, settings.preferTranscode, settings.forceDirectPlay, settings.subtitleMode, settings.introAction, settings.outroAction]);
+	}, [item, resume, videoQueue, onPlayNext, selectedQuality, settings.maxBitrate, settings.preferTranscode, settings.forceDirectPlay, settings.subtitleMode, settings.introAction, settings.outroAction]);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return () => {};
@@ -1319,7 +1325,8 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		mediaSegments, nextEpisode, settings, runTimeRef,
 		activeModal, controlsVisible, hideControls, showControls,
 		onSeekToIntroEnd,
-		onPlayNext: onPlayNextWithCleanup
+		onPlayNext: onPlayNextWithCleanup,
+		currentIsPreroll: isPreroll(item)
 	});
 
 	// ==============================
@@ -1352,6 +1359,16 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const handleError = useCallback(async () => {
 		console.error('[Player] Playback error');
 
+		// A broken pre-roll skips to the feature rather than surfacing an error or
+		// spending the transcode fallback on it.
+		const skipTo = isPreroll(item) ? nextInQueue(videoQueue, item) : null;
+		if (skipTo && onPlayNext) {
+			cleanupAVPlay();
+			avplayReadyRef.current = false;
+			onPlayNext(skipTo);
+			return;
+		}
+
 		if (!hasTriedTranscode && playMethod !== playback.PlayMethod.Transcode) {
 			console.log('[Player] DirectPlay failed, falling back to transcode...');
 			setHasTriedTranscode(true);
@@ -1383,7 +1400,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		}
 
 		setError($L('Playback failed. The file format may not be supported.'));
-	}, [hasTriedTranscode, playMethod, item, selectedQuality, settings.maxBitrate, settings.stereoUpmixEnabled, restartFromResult, mediaSourceId]);
+	}, [hasTriedTranscode, playMethod, item, selectedQuality, settings.maxBitrate, settings.stereoUpmixEnabled, restartFromResult, mediaSourceId, videoQueue, onPlayNext]);
 
 	// Reload the current item from its last position, used when a suspended
 	// session cant be restored after the app returns to the foreground

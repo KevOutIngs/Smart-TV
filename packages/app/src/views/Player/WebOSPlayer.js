@@ -33,6 +33,7 @@ import {saveSubtitlePref, getItemSubtitlePref, getSeriesSubtitlePref} from '../.
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
 import useSleepTimer from './useSleepTimer';
 import useSegmentPopups from './useSegmentPopups';
+import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
 import {
 	SpottableButton, NextEpisodeContainer, CONTROLS_HIDE_DELAY,
 	withTimeout
@@ -855,20 +856,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 						setMediaSegments({introStart: null, introEnd: null, creditsStart: null});
 					}
 
-					if (item.Type === 'Episode') {
-						// A shuffle queue sets the order, so the next episode comes from
-						// it rather than the sequential air-order lookup.
-						if (videoQueue?.length) {
-							const idx = videoQueue.findIndex(e => String(e.Id) === String(item.Id));
-							setNextEpisode(idx >= 0 && idx < videoQueue.length - 1 ? videoQueue[idx + 1] : null);
-						} else {
-							try {
-								const next = await withTimeout(playback.getNextEpisode(item), 4000);
-								setNextEpisode(next);
-							} catch (nextErr) {
-								console.warn('[Player] Next episode lookup skipped:', nextErr?.message || nextErr);
-								setNextEpisode(null);
-							}
+					// A queue sets the order itself, whatever the item type. Only a lone
+					// episode falls back to the sequential air-order lookup.
+					if (videoQueue?.length) {
+						setNextEpisode(nextInQueue(videoQueue, item));
+					} else if (item.Type === 'Episode') {
+						try {
+							const next = await withTimeout(playback.getNextEpisode(item), 4000);
+							setNextEpisode(next);
+						} catch (nextErr) {
+							console.warn('[Player] Next episode lookup skipped:', nextErr?.message || nextErr);
+							setNextEpisode(null);
 						}
 					}
 				}
@@ -876,7 +874,13 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				console.log(`[Player] Loaded ${displayTitle} via ${result.playMethod}${isLiveTV ? ' [Live TV]' : ''}`);
 			} catch (err) {
 				console.error('[Player] Failed to load media:', err);
-				setError(err.message || $L('Failed to load media'));
+				// A pre-roll that cant even load gets skipped, not surfaced.
+				const skipTo = isPreroll(item) ? nextInQueue(videoQueue, item) : null;
+				if (skipTo && onPlayNext) {
+					onPlayNext(skipTo);
+				} else {
+					setError(err.message || $L('Failed to load media'));
+				}
 			} finally {
 				setIsLoading(false);
 			}
@@ -935,7 +939,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			}
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [item, resume, videoQueue, selectedQuality, settings.maxBitrate, settings.preferTranscode, settings.forceDirectPlay, settings.subtitleMode, settings.introAction, settings.outroAction, initialAudioIndex, initialSubtitleIndex]);
+	}, [item, resume, videoQueue, onPlayNext, selectedQuality, settings.maxBitrate, settings.preferTranscode, settings.forceDirectPlay, settings.subtitleMode, settings.introAction, settings.outroAction, initialAudioIndex, initialSubtitleIndex]);
 
 	useEffect(() => {
 		if (mediaUrl) {
@@ -1298,7 +1302,8 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		mediaSegments, nextEpisode, settings, runTimeRef,
 		activeModal, controlsVisible, hideControls, showControls,
 		onSeekToIntroEnd,
-		onPlayNext: onPlayNextWithCleanup
+		onPlayNext: onPlayNextWithCleanup,
+		currentIsPreroll: isPreroll(item)
 	});
 
 	const handleLoadedMetadata = useCallback(() => {
@@ -1462,6 +1467,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		let errorMessage = $L('Playback failed.');
 
 		try {
+		// A broken pre-roll skips to the feature rather than surfacing an error or
+		// spending the transcode fallback on it.
+		const skipTo = isPreroll(item) ? nextInQueue(videoQueue, item) : null;
+		if (skipTo && onPlayNext) {
+			isCleaningUpRef.current = true;
+			destroyHlsPlayer();
+			await cleanupVideoElement(videoRef.current);
+			onPlayNext(skipTo);
+			return;
+		}
+
 		if (video?.error) {
 			switch (video.error.code) {
 				case 1:
@@ -1585,7 +1601,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		} finally {
 			isHandlingErrorRef.current = false;
 		}
-	}, [hasTriedTranscode, playMethod, item, selectedQuality, settings.maxBitrate, settings.stereoUpmixEnabled, mediaSourceId, isPaused]);
+	}, [hasTriedTranscode, playMethod, item, selectedQuality, settings.maxBitrate, settings.stereoUpmixEnabled, mediaSourceId, isPaused, videoQueue, onPlayNext]);
 
 	useEffect(() => {
 		handlersRef.current = {

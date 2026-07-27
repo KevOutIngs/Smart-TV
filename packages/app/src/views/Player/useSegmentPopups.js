@@ -15,7 +15,9 @@ const useSegmentPopups = ({
 	hideControls,
 	showControls,
 	onSeekToIntroEnd,
-	onPlayNext
+	onPlayNext,
+	// A pre-roll runs straight into the feature, so it gets no credits or next-up prompt.
+	currentIsPreroll = false
 }) => {
 	const [showSkipIntro, setShowSkipIntro] = useState(false);
 	const [showSkipCredits, setShowSkipCredits] = useState(false);
@@ -135,7 +137,7 @@ const useSegmentPopups = ({
 				}
 			}
 
-			if (creditsStart != null && nextEpisode && !hasTriggeredNextEpisodeRef.current && outroAction !== 'none' && settings.stillWatchingPrompt !== false) {
+			if (creditsStart != null && nextEpisode && !currentIsPreroll && !hasTriggeredNextEpisodeRef.current && outroAction !== 'none' && settings.stillWatchingPrompt !== false) {
 				const inCredits = ticks >= creditsStart;
 				if (inCredits) {
 					setShowSkipCredits(prev => {
@@ -152,14 +154,14 @@ const useSegmentPopups = ({
 			}
 		}
 
-		if (nextEpisode && runTimeRef.current > 0 && settings.nextUpBehavior !== 'disabled' && settings.stillWatchingPrompt !== false) {
+		if (nextEpisode && !currentIsPreroll && runTimeRef.current > 0 && settings.nextUpBehavior !== 'disabled' && settings.stillWatchingPrompt !== false) {
 			const remaining = runTimeRef.current - ticks;
 			const nearEnd = remaining < 300000000;
 			if (nearEnd && !hasTriggeredNextEpisodeRef.current) {
 				setShowNextEpisode(true);
 			}
 		}
-	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.stillWatchingPrompt, nextEpisode, runTimeRef, handlePlayNextEpisode, handleSkipIntro]);
+	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.stillWatchingPrompt, nextEpisode, currentIsPreroll, runTimeRef, handlePlayNextEpisode, handleSkipIntro]);
 
 	// --- Auto-focus effects ---
 

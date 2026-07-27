@@ -416,6 +416,7 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'introAction', label: () => $L('Intro Action'), options: getMediaSegmentActionOptions, fallback: () => $L('Ask to Skip'), icon: 'skip'},
 					{kind: KIND.OPTION, key: 'outroAction', label: () => $L('Outro Action'), options: getMediaSegmentActionOptions, fallback: () => $L('Ask to Skip'), icon: 'skip'},
 					{kind: KIND.TOGGLE, key: 'autoPlay', label: () => $L('Auto Play Next'), desc: () => $L('Automatically play the next episode'), icon: 'playcircle'},
+					{kind: KIND.TOGGLE, key: 'cinemaModeEnabled', label: () => $L('Cinema Mode'), desc: () => $L('Play trailers/prerolls before a main feature'), icon: 'movies'},
 					{kind: KIND.OPTION, key: 'maxBitrate', label: () => $L('Maximum Bitrate'), options: getBitrateOptions, fallback: () => $L('Auto (Recommended)'), icon: 'download'},
 					{kind: KIND.OPTION, key: 'seekStep', label: () => $L('Seek Step'), options: getSeekStepOptions, fallback: () => $L('10 seconds'), icon: 'skip'},
 					{kind: KIND.SLIDER, key: 'skipForwardLength', label: () => $L('Skip Forward Length'), min: 5, max: 30, step: 5, format: seconds, icon: 'fifteenforward'},
