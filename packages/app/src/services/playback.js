@@ -3,6 +3,7 @@ import {getDeviceProfile, getDeviceCapabilities} from './deviceProfile';
 import {getPlayMethod, getMimeType, isAudioStreamPlayable} from './video';
 import {getFromStorage} from './storage';
 import {TEXT_SUBTITLE_CODECS, isAssSubtitleCodec, isPgsSubtitleCodec, isBurnInSubtitleCodec} from '../utils/subtitleCodecs';
+import {findNextInSeason, findNextSeason, firstPlayableEpisode} from '../utils/nextEpisode';
 
 export const PlayMethod = {
 	DirectPlay: 'DirectPlay',
@@ -950,27 +951,18 @@ export const getNextEpisode = async (item) => {
 		const seasonId = item.SeasonId || item.ParentId;
 		if (!seasonId) return null;
 
-		const episodesResult = await jellyfinApi.api.getEpisodes(item.SeriesId, seasonId);
-		const episodes = episodesResult.Items || [];
-		// String-coerce ids: Emby returns numeric ids, so a raw === can miss.
-		const currentIndex = episodes.findIndex(ep => String(ep.Id) === String(item.Id));
+		const api = getApiForItem(item);
+		const episodesResult = await api.getEpisodes(item.SeriesId, seasonId);
+		const next = findNextInSeason(episodesResult.Items, item.Id);
+		if (next) return next;
 
-		if (currentIndex >= 0 && currentIndex < episodes.length - 1) {
-			return episodes[currentIndex + 1];
-		}
+		// End of season, so roll into the first episode of the next one.
+		const seasonsResult = await api.getSeasons(item.SeriesId);
+		const nextSeason = findNextSeason(seasonsResult.Items, seasonId, item.ParentIndexNumber);
+		if (!nextSeason) return null;
 
-		// End of season - roll into the first episode of the next season.
-		const seasonsResult = await jellyfinApi.api.getSeasons(item.SeriesId);
-		const seasons = seasonsResult.Items || [];
-		const currentSeasonIndex = seasons.findIndex(s => String(s.Id) === String(seasonId));
-
-		if (currentSeasonIndex >= 0 && currentSeasonIndex < seasons.length - 1) {
-			const nextSeason = seasons[currentSeasonIndex + 1];
-			const nextSeasonEpisodes = await jellyfinApi.api.getEpisodes(item.SeriesId, nextSeason.Id);
-			return nextSeasonEpisodes.Items?.[0] || null;
-		}
-
-		return null;
+		const nextSeasonEpisodes = await api.getEpisodes(item.SeriesId, nextSeason.Id);
+		return firstPlayableEpisode(nextSeasonEpisodes.Items);
 	} catch (e) {
 		console.warn('[playback] Failed to get next episode:', e.message);
 		return null;

@@ -1064,16 +1064,14 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 						if (stillCurrent()) setMediaSegments({introStart: null, introEnd: null, creditsStart: null});
 					});
 
-					// A queue sets the order itself, whatever the item type. Only a lone
-					// episode falls back to the sequential air-order lookup.
-					if (videoQueue?.length) {
-						if (stillCurrent()) setNextEpisode(nextInQueue(videoQueue, item));
+					// A queue sets its own order. Running off the end of one, or playing a
+					// lone episode, falls back to the air order lookup.
+					const queued = videoQueue?.length ? nextInQueue(videoQueue, item) : null;
+					if (queued) {
+						if (stillCurrent()) setNextEpisode(queued);
 					} else if (item.Type === 'Episode') {
-						withTimeout(playback.getNextEpisode(item), 4000).then((next) => {
+						playback.getNextEpisode(item).then((next) => {
 							if (stillCurrent()) setNextEpisode(next);
-						}).catch((nextErr) => {
-							console.warn('[Player] Next episode lookup skipped:', nextErr?.message || nextErr);
-							if (stillCurrent()) setNextEpisode(null);
 						});
 					}
 				}

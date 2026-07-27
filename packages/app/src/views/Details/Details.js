@@ -10,6 +10,7 @@ import {useAuth} from '../../context/AuthContext';
 import {useSettings} from '../../context/SettingsContext';
 import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as jellyfinApi from '../../services/jellyfinApi';
+import * as playback from '../../services/playback';
 import MediaRow from '../../components/MediaRow';
 import MediaCard from '../../components/MediaCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -192,6 +193,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const [extras, setExtras] = useState([]);
 	const [cast, setCast] = useState([]);
 	const [nextUp, setNextUp] = useState([]);
+	const [nextEpisode, setNextEpisode] = useState(null);
 	const [collectionItems, setCollectionItems] = useState([]);
 	const [parentCollection, setParentCollection] = useState([]);
 	const [parentCollectionName, setParentCollectionName] = useState('');
@@ -459,6 +461,20 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		});
 		return () => { cancelled = true; };
 	}, [item, episodes.length, settings.useMoonfinPlugin, settings.tmdbEpisodeRatingsEnabled, settings.mdblistRatingSources, effectiveServerUrl]);
+
+	// The card has to reach into the next season, which the current season's
+	// episode list cant answer on its own.
+	useEffect(() => {
+		if (item?.Type !== 'Episode') {
+			setNextEpisode(null);
+			return undefined;
+		}
+		let cancelled = false;
+		playback.getNextEpisode(item).then((next) => {
+			if (!cancelled) setNextEpisode(next);
+		});
+		return () => { cancelled = true; };
+	}, [item]);
 
 	// Keyed on the id rather than the item, because marking watched or favourite
 	// builds a new item object, which would otherwise yank focus back to Play.
@@ -2662,14 +2678,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 							</RowContainer>
 						)}
 
-						{/* Next Episode (for Episode type) */}
-						{isEpisode && episodes.length > 0 && (() => {
-							const currentIndex = episodes.findIndex(ep => ep.Id === item.Id);
-							const nextEp = currentIndex >= 0 && currentIndex < episodes.length - 1
-								? episodes[currentIndex + 1]
-								: null;
-							return nextEp ? renderNextUpCard(nextEp, 'Next Episode') : null;
-						})()}
+						{isEpisode && nextEpisode && renderNextUpCard(nextEpisode, 'Next Episode')}
 
 						{/* Episodes (for Episode type - same season horizontal cards) */}
 						{isEpisode && episodes.length > 0 && (
