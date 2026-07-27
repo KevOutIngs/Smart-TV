@@ -160,7 +160,9 @@ export const fetchRatings = async (serverUrl, item, options = {}) => {
 	if (!baseUrl) return [];
 
 	try {
-		const url = `${baseUrl}/Moonfin/MdbList/Ratings?type=${encodeURIComponent(contentType)}&tmdbId=${encodeURIComponent(tmdbId)}`;
+		// profile=tv makes the plugin filter with the same profile this app syncs its
+		// settings to, rather than the global one.
+		const url = `${baseUrl}/Moonfin/MdbList/Ratings?type=${encodeURIComponent(contentType)}&tmdbId=${encodeURIComponent(tmdbId)}&profile=tv`;
 		const fetchOptions = {
 			headers: {
 				'Authorization': getAuthHeader()
