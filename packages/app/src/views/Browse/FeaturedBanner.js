@@ -39,6 +39,12 @@ const FeaturedBanner = memo(({
 
 	const currentFeatured = featuredItems[currentIndex];
 
+	// A trailer outlives the carousel interval, so finishing one moves the hero on
+	// itself rather than waiting out another full turn on a still backdrop.
+	const handleTrailerEnded = useCallback(() => {
+		if (featuredItems.length > 1) setCurrentIndex((prev) => (prev + 1) % featuredItems.length);
+	}, [featuredItems.length]);
+
 	const {trailerActive, trailerContainerRef} = useTrailerPreview({
 		currentItem: currentFeatured,
 		// The banner stays mounted behind the settings overlay so the hero keeps its
@@ -47,7 +53,8 @@ const FeaturedBanner = memo(({
 		enabled: settingsLoaded && settings.featuredTrailerPreview,
 		preferMuted: settings.featuredTrailerMuted,
 		api,
-		getItemServerUrl
+		getItemServerUrl,
+		onEnded: handleTrailerEnded
 	});
 
 	useEffect(() => {
