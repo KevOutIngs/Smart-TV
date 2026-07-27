@@ -165,9 +165,12 @@ const determinePlayMethod = (mediaSource, capabilities, options = {}, passthroug
 
 	const mediaStreams = mediaSource?.MediaStreams || [];
 	const hasVideoStream = mediaStreams.some((s) => s.Type === 'Video');
-	const hasAudioStream = mediaStreams.some((s) => s.Type === 'Audio');
-	const isAudioOnly = hasAudioStream && !hasVideoStream;
-	if (isAudioOnly) {
+	const audioStream = mediaStreams.find((s) => s.Type === 'Audio');
+	if (audioStream && !hasVideoStream) {
+		// A profile can name a container without naming its codecs, so the server
+		// offers DirectPlay for things this device cant decode. DirectStream only
+		// swaps the container, so neither is safe until the codec is checked.
+		if (!isAudioStreamPlayable(audioStream, capabilities, passthroughSettings)) return PlayMethod.Transcode;
 		if (mediaSource.SupportsDirectPlay) return PlayMethod.DirectPlay;
 		if (mediaSource.SupportsDirectStream) return PlayMethod.DirectStream;
 		return PlayMethod.Transcode;
