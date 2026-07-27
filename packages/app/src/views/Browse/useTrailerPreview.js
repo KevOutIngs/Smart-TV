@@ -223,12 +223,14 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 			const playPromise = video.play();
 			if (playPromise) {
 				playPromise.catch(() => {
-					// autoplay with audio can get blocked, so retry muted to keep previews working
-					if (!video || video.muted) return;
+					// Stopping a preview pauses the element, which rejects this same
+					// promise, so without the id check one just turned off would restart.
+					if (trailerVideoIdRef.current !== requestId) return;
+					// Autoplay with audio can get blocked, so retry muted.
+					if (video.muted) return;
 					video.muted = true;
 					video.volume = 0;
-					const retryPromise = video.play();
-					if (retryPromise) retryPromise.catch(() => {});
+					video.play()?.catch(() => {});
 				});
 			}
 		};

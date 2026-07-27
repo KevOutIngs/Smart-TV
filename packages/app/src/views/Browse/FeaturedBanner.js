@@ -21,6 +21,7 @@ const FeaturedBanner = memo(({
 	serverUrl,
 	api,
 	settings,
+	settingsLoaded,
 	getItemServerUrl,
 	onSelectItem,
 	onNavigateDown,
@@ -40,7 +41,7 @@ const FeaturedBanner = memo(({
 	const {trailerActive, trailerContainerRef} = useTrailerPreview({
 		currentItem: currentFeatured,
 		isVisible,
-		enabled: settings.featuredTrailerPreview,
+		enabled: settingsLoaded && settings.featuredTrailerPreview,
 		preferMuted: settings.featuredTrailerMuted,
 		api,
 		getItemServerUrl

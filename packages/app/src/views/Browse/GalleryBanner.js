@@ -27,6 +27,7 @@ const GalleryBanner = memo(({
 	featuredItems,
 	api,
 	settings,
+	settingsLoaded,
 	getItemServerUrl,
 	onSelectItem,
 	onNavigateDown,
@@ -46,7 +47,7 @@ const GalleryBanner = memo(({
 	const {trailerActive, trailerContainerRef} = useTrailerPreview({
 		currentItem: currentFeatured,
 		isVisible,
-		enabled: settings.featuredTrailerPreview,
+		enabled: settingsLoaded && settings.featuredTrailerPreview,
 		preferMuted: settings.featuredTrailerMuted,
 		api,
 		getItemServerUrl
