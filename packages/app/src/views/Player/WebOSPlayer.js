@@ -37,6 +37,7 @@ import SkipSegmentOverlay from './SkipSegmentOverlay';
 import useSleepTimer from './useSleepTimer';
 import useSegmentPopups from './useSegmentPopups';
 import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
+import {driftAction, driftMs, needsSeek, DRIFT_CHECK_MS, SPEED_DURATION_MS} from '../../utils/syncDrift';
 import {
 	NextEpisodeContainer, CONTROLS_HIDE_DELAY,
 	withTimeout
@@ -2097,17 +2098,24 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					// Executing on time seeks to the commanded position. A late
 					// arrival seeks ahead by the elapsed time to catch up.
 					const target = delay > 0 ? PositionTicks : syncPlayService.getAdjustedPosition(PositionTicks, When);
-					if (target != null) seekToTicks(target);
+					// A seek costs a rebuffer that the whole group then waits on, so a
+					// difference this small is left alone.
+					if (target != null && needsSeek(positionRef.current, target)) seekToTicks(target);
+					syncPlayService.setSyncReference(target != null ? target : positionRef.current);
 					videoRef.current.play()?.catch?.(() => {});
 					break;
 				}
 				case 'Pause': {
 					videoRef.current.pause();
-					if (PositionTicks != null) seekToTicks(PositionTicks);
+					syncPlayService.clearSyncReference();
+					if (PositionTicks != null && needsSeek(positionRef.current, PositionTicks)) seekToTicks(PositionTicks);
 					break;
 				}
 				case 'Seek': {
-					if (PositionTicks != null) seekToTicks(PositionTicks);
+					if (PositionTicks != null) {
+						if (needsSeek(positionRef.current, PositionTicks)) seekToTicks(PositionTicks);
+						syncPlayService.setSyncReference(PositionTicks);
+					}
 					break;
 				}
 				default:
@@ -2128,6 +2136,41 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		}
 		execute();
 	}, [lastCommand, seekToTicks, handleBack]);
+
+	// Commands alone cant hold this in step, because the decoder loses a little
+	// wall clock time on every rebuffer and nothing measured it afterwards.
+	useEffect(() => {
+		if (!isInGroup || isPaused) return undefined;
+
+		let restoreTimer = null;
+		// Back to whatever speed the viewer picked, which is not always 1x.
+		const restoreRate = () => {
+			if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+		};
+		const interval = setInterval(() => {
+			const video = videoRef.current;
+			if (!video || video.paused || syncPlayCommandRef.current) return;
+			const expected = syncPlayService.getExpectedPositionTicks();
+			const action = driftAction(driftMs(positionRef.current, expected));
+
+			if (action.type === 'seek') {
+				suppressBufferingUntilRef.current = Date.now() + syncPlayService.BUFFERING_SUPPRESS_MS;
+				seekToTicks(expected);
+			} else if (action.type === 'rate' && !restoreTimer) {
+				video.playbackRate = action.rate;
+				restoreTimer = setTimeout(() => {
+					restoreTimer = null;
+					restoreRate();
+				}, SPEED_DURATION_MS);
+			}
+		}, DRIFT_CHECK_MS);
+
+		return () => {
+			clearInterval(interval);
+			if (restoreTimer) clearTimeout(restoreTimer);
+			restoreRate();
+		};
+	}, [isInGroup, isPaused, playbackRate, seekToTicks]);
 
 	useEffect(() => {
 		if (!isInGroup || !videoRef.current) return;

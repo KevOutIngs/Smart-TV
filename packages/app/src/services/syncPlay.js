@@ -1,6 +1,8 @@
 import {getServerUrl, getAuthHeader, getApiKey, getDeviceId} from './jellyfinApi';
+import {expectedPositionTicks} from '../utils/syncDrift';
 
 let ws = null;
+let syncReference = null;
 let currentGroup = null;
 let serverTimeOffset = 0;
 let lastPing = 500;
@@ -17,6 +19,11 @@ const MAX_TIME_SYNC_MEASUREMENTS = 8;
 const TIME_SYNC_INTERVAL_MS = 30000;
 const TIME_SYNC_BURST_COUNT = 5;
 const TIME_SYNC_BURST_SPACING_MS = 1000;
+// A measurement slower than this says more about the network at that moment
+// than about the clock, so it is thrown away rather than averaged in.
+const MAX_TIME_SYNC_RTT_MS = 5000;
+// How far a late command is allowed to skip ahead to catch up.
+const MAX_LATE_CATCH_UP_MS = 15000;
 
 // Buffering fired this soon after executing a SyncPlay command is the seek
 // itself, not a stall. Reporting it would bounce the whole group into Waiting
@@ -164,7 +171,7 @@ const measureTimeSync = async () => {
 
 		const rtt = (t3 - t0) - (t2 - t1);
 		const offset = ((t1 - t0) + (t2 - t3)) / 2;
-		if (rtt < 0) return;
+		if (rtt < 0 || rtt > MAX_TIME_SYNC_RTT_MS) return;
 
 		timeSyncMeasurements.push({offset, rtt});
 		if (timeSyncMeasurements.length > MAX_TIME_SYNC_MEASUREMENTS) {
@@ -176,7 +183,10 @@ const measureTimeSync = async () => {
 			if (m.rtt < best.rtt) best = m;
 		}
 		serverTimeOffset = Math.round(best.offset);
-		lastPing = Math.max(0, Math.round(best.rtt / 2));
+		// The server wants the round trip, not one leg of it. It schedules an
+		// unpause at max(highest ping x 2, 500ms), so halving this here made the
+		// group start before the slowest member had the command.
+		lastPing = Math.max(0, Math.round(best.rtt));
 	} catch {
 		// ignore
 	}
@@ -446,6 +456,20 @@ export const getDelayToWhen = (when) => {
 export const getAdjustedPosition = (positionTicks, when) => {
 	if (positionTicks == null) return null;
 	if (!when) return positionTicks;
-	const elapsedMs = Math.max(0, serverNow() - new Date(when).getTime());
+	// Clamped so a bad clock offset early in a session cant throw the position
+	// minutes down the file.
+	const elapsedMs = Math.min(MAX_LATE_CATCH_UP_MS, Math.max(0, serverNow() - new Date(when).getTime()));
 	return positionTicks + Math.floor(elapsedMs * 10000);
 };
+
+// Where the group was last known to be, so playback can be measured against it
+// between commands rather than only when one arrives.
+export const setSyncReference = (positionTicks) => {
+	syncReference = positionTicks == null ? null : {positionTicks, serverTimeMs: serverNow()};
+};
+
+export const clearSyncReference = () => {
+	syncReference = null;
+};
+
+export const getExpectedPositionTicks = () => expectedPositionTicks(syncReference, serverNow());

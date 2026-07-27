@@ -16,6 +16,7 @@ import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as syncPlayService from '../../services/syncPlay';
 import {KEYS, isBackKey} from '../../utils/keys';
 import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
+import {driftAction, driftMs, needsSeek, DRIFT_CHECK_MS, SPEED_DURATION_MS} from '../../utils/syncDrift';
 import {getImageUrl} from '../../utils/helpers';
 import {initPgsCanvasRenderer, disposePgsRenderer, clearPgsCanvas} from '../../utils/pgsRenderer';
 import {supportsAssRenderer, initAssCanvasRenderer, disposeAssRenderer, setAssTime} from '../../utils/assRenderer';
@@ -2035,8 +2036,13 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					let target = delay > 0 ? PositionTicks : syncPlayService.getAdjustedPosition(PositionTicks, When);
 					if (target != null) {
 						if (runTimeRef.current > 0) target = Math.min(runTimeRef.current, target);
-						avplaySeek(Math.floor(target / 10000)).catch(() => {});
+						// Every seek costs a rebuffer here, which the group then waits
+						// on, so a difference this small is left alone.
+						if (needsSeek(positionRef.current, target)) {
+							avplaySeek(Math.floor(target / 10000)).catch(() => {});
+						}
 					}
+					syncPlayService.setSyncReference(target != null ? target : positionRef.current);
 					avplayPlay();
 					setIsPaused(false);
 					break;
@@ -2044,14 +2050,18 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				case 'Pause': {
 					avplayPause();
 					setIsPaused(true);
-					if (PositionTicks != null) {
+					syncPlayService.clearSyncReference();
+					if (PositionTicks != null && needsSeek(positionRef.current, PositionTicks)) {
 						avplaySeek(Math.floor(PositionTicks / 10000)).catch(() => {});
 					}
 					break;
 				}
 				case 'Seek': {
 					if (PositionTicks != null) {
-						avplaySeek(Math.floor(PositionTicks / 10000)).catch(() => {});
+						if (needsSeek(positionRef.current, PositionTicks)) {
+							avplaySeek(Math.floor(PositionTicks / 10000)).catch(() => {});
+						}
+						syncPlayService.setSyncReference(PositionTicks);
 					}
 					break;
 				}
@@ -2073,6 +2083,40 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		}
 		execute();
 	}, [lastCommand, handleBack]);
+
+	// Commands alone cant hold this in step, because the decoder loses a little
+	// wall clock time on every rebuffer and nothing measured it afterwards.
+	useEffect(() => {
+		if (!isInGroup || isPaused) return undefined;
+
+		let restoreTimer = null;
+		// Back to whatever speed the viewer picked, which is not always 1x.
+		const restoreRate = () => avplaySetSpeed(playbackRate);
+		const interval = setInterval(() => {
+			if (syncPlayCommandRef.current || avplayGetState() !== 'PLAYING') return;
+			const expected = syncPlayService.getExpectedPositionTicks();
+			const action = driftAction(driftMs(positionRef.current, expected));
+
+			if (action.type === 'seek') {
+				syncPlayCommandRef.current = true;
+				suppressBufferingUntilRef.current = Date.now() + syncPlayService.BUFFERING_SUPPRESS_MS;
+				const done = () => { syncPlayCommandRef.current = false; };
+				avplaySeek(Math.floor(expected / 10000)).then(done, done);
+			} else if (action.type === 'rate' && !restoreTimer) {
+				avplaySetSpeed(action.rate);
+				restoreTimer = setTimeout(() => {
+					restoreTimer = null;
+					restoreRate();
+				}, SPEED_DURATION_MS);
+			}
+		}, DRIFT_CHECK_MS);
+
+		return () => {
+			clearInterval(interval);
+			if (restoreTimer) clearTimeout(restoreTimer);
+			restoreRate();
+		};
+	}, [isInGroup, isPaused, playbackRate]);
 
 	useEffect(() => {
 		if (!isInGroup) return;
