@@ -460,15 +460,16 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		return () => { cancelled = true; };
 	}, [item, episodes.length, settings.useMoonfinPlugin, settings.tmdbEpisodeRatingsEnabled, settings.mdblistRatingSources, effectiveServerUrl]);
 
-	// Auto-focus the primary button when content loads
+	// Keyed on the id rather than the item, because marking watched or favourite
+	// builds a new item object, which would otherwise yank focus back to Play.
+	const loadedItemId = item?.Id;
 	useEffect(() => {
-		if (!isLoading && item) {
-			const timer = setTimeout(() => {
-				Spotlight.focus('details-primary-btn');
-			}, 150);
-			return () => clearTimeout(timer);
-		}
-	}, [isLoading, item]);
+		if (isLoading || !loadedItemId) return undefined;
+		const timer = setTimeout(() => {
+			Spotlight.focus('details-primary-btn');
+		}, 150);
+		return () => clearTimeout(timer);
+	}, [isLoading, loadedItemId]);
 
 	const logoUrl = useMemo(
 			() => (item ? getLogoUrl(effectiveServerUrl, item, {maxWidth: 400, quality: 90}) : null),

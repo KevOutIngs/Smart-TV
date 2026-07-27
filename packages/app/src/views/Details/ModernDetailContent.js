@@ -88,10 +88,10 @@ const ModernDetailContent = (props) => {
 		scrollToRef.current = fn;
 	}, []);
 	const handleActionsFocus = useCallback((ev) => {
-		// Only scroll to the top when focus enters the row from outside, not when
-		// moving between buttons, otherwise the content below redraws every step.
-		if (ev.currentTarget.contains(ev.relatedTarget)) return;
-		if (scrollToRef.current) scrollToRef.current({position: {y: 0}, animate: true});
+		// Only the focus the page opens with has no related target. Pull the view up
+		// for that one, since the row sits below the hero, and leave the rest alone.
+		if (ev.relatedTarget) return;
+		scrollToRef.current?.({position: {y: 0}, animate: false});
 	}, []);
 	const handleActionsKeyDown = useCallback((ev) => {
 		// Down moves into the tab bar, which 5-way doesn't reach on its own.
