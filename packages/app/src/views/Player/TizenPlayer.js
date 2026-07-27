@@ -21,7 +21,8 @@ import {initPgsCanvasRenderer, disposePgsRenderer, clearPgsCanvas} from '../../u
 import {supportsAssRenderer, initAssCanvasRenderer, disposeAssRenderer, setAssTime} from '../../utils/assRenderer';
 import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml} from '../../utils/subtitleConstants';
 import {findPreferredAudioStream} from '../../utils/audioLanguage';
-import {saveSubtitlePref, getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
+import {saveSubtitlePref} from '../../services/subtitlePrefs';
+import {resolveInitialSubtitle} from './initialSubtitle';
 import {api as jellyfinApi, createApiForServer, getServerUrl} from '../../services/jellyfinApi';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
 import useSleepTimer from './useSleepTimer';
@@ -835,7 +836,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				const savedPosition = isLiveTV ? 0 : (item.UserData?.PlaybackPositionTicks || 0);
 				const startPosition = initialStartPositionTicks != null ? initialStartPositionTicks : ((!isLiveTV && resume !== false) ? savedPosition : 0);
 				const effectiveBitrate = selectedQuality || settings.maxBitrate || undefined;
-				const result = await playback.getPlaybackInfo(item.Id, {
+				const playbackInfoOptions = {
 					startPositionTicks: startPosition,
 					maxBitrate: effectiveBitrate,
 					preferTranscode: settings.preferTranscode,
@@ -846,20 +847,23 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					subtitleStreamIndex: initialSubtitleIndex != null ? initialSubtitleIndex : undefined,
 					isLiveTV,
 					stereoUpmixEnabled: settings.stereoUpmixEnabled
-				});
+				};
+				let result = await playback.getPlaybackInfo(item.Id, playbackInfoOptions);
 				if (!stillCurrent()) return;
 
-				setPlayMethod(result.playMethod);
-				setMediaSourceId(result.mediaSourceId);
-				setVideoAspectRatio(getVideoDisplayAspectRatio(result.mediaSource));
-				playSessionRef.current = result.playSessionId;
-				positionRef.current = startPosition;
-				runTimeRef.current = result.runTimeTicks || 0;
-				setDuration((result.runTimeTicks || 0) / 10000000);
+				const applyPlaybackResult = (r) => {
+					setPlayMethod(r.playMethod);
+					setMediaSourceId(r.mediaSourceId);
+					setVideoAspectRatio(getVideoDisplayAspectRatio(r.mediaSource));
+					playSessionRef.current = r.playSessionId;
+					runTimeRef.current = r.runTimeTicks || 0;
+					setDuration((r.runTimeTicks || 0) / 10000000);
+					setAudioStreams(r.audioStreams || []);
+					setSubtitleStreams(r.subtitleStreams || []);
+				};
 
-				// Set streams
-				setAudioStreams(result.audioStreams || []);
-				setSubtitleStreams(result.subtitleStreams || []);
+				applyPlaybackResult(result);
+				positionRef.current = startPosition;
 
 				// Chapters are an Item property, not MediaSource - result.chapters may be empty.
 				// Fetched off the critical path, they only feed the chapter picker
@@ -894,6 +898,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				}
 
 				let pendingSubAction = null;
+				let burnInPendingSub = null;
 
 				// pick the render path synchronously so playback never waits on
 				// subtitle downloads or server side extraction. The actual data
@@ -911,9 +916,13 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					if (!sub) return;
 					setSelectedSubtitleIndex(sub.index);
 					pendingSubAction = decideSubtitleAction(sub);
-					// a preselected burn in track was already negotiated into the
-					// stream, remember it so deselecting later reloads without it
-					if (sub.isBurnIn) burnInSubtitleRef.current = sub.index;
+					if (sub.isBurnIn) {
+						// The server bakes these into the video, so the track only exists
+						// once the stream was negotiated with its index. Ask for it below
+						// when that hasn't happened yet.
+						if (sub.index === initialSubtitleIndex) burnInSubtitleRef.current = sub.index;
+						else burnInPendingSub = sub;
+					}
 					console.log('[Player] Initial subtitle action:', pendingSubAction.type, 'codec:', sub.codec);
 				};
 
@@ -1001,58 +1010,25 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					setSubtitleTrackEvents(null);
 				};
 
-				// A remembered pick wins so a chosen track survives across plays and
-				// episodes. The per-item index restores the exact track on a replay, and
-				// the per-series language carries to other episodes, matched by language
-				// because the same track sits at a different index in each episode.
-				let subtitleResolved = false;
-				const savedItemIndex = await getItemSubtitlePref(item.Id);
-				if (savedItemIndex !== undefined) {
-					if (savedItemIndex < 0) {
-						turnSubtitlesOff();
-						subtitleResolved = true;
-					} else {
-						const savedStream = result.subtitleStreams?.find(s => s.index === savedItemIndex);
-						if (savedStream) {
-							selectInitialSubtitle(savedStream);
-							subtitleResolved = true;
-						}
-					}
-				}
-				if (!subtitleResolved && item.SeriesId) {
-					const savedLanguage = await getSeriesSubtitlePref(item.SeriesId);
-					if (savedLanguage !== undefined) {
-						if (!savedLanguage) {
-							turnSubtitlesOff();
-							subtitleResolved = true;
-						} else {
-							const savedStream = result.subtitleStreams?.find(s => s.language === savedLanguage);
-							if (savedStream) {
-								selectInitialSubtitle(savedStream);
-								subtitleResolved = true;
-							}
-						}
-					}
-				}
+				const initialSubtitleChoice = await resolveInitialSubtitle(result, item, initialSubtitleIndex, settings);
+				if (initialSubtitleChoice === null) turnSubtitlesOff();
+				else selectInitialSubtitle(initialSubtitleChoice);
 
-				if (subtitleResolved) {
-					// already applied from the remembered pick
-				} else if (initialSubtitleIndex !== undefined && initialSubtitleIndex !== null) {
-					if (initialSubtitleIndex >= 0) {
-						selectInitialSubtitle(result.subtitleStreams?.find(s => s.index === initialSubtitleIndex));
-					} else {
-						turnSubtitlesOff();
+				// Without this the track reads as selected and nothing ever renders,
+				// because the server was never asked to bake it in.
+				if (burnInPendingSub) {
+					try {
+						const renegotiated = await playback.getPlaybackInfo(item.Id, {
+							...playbackInfoOptions,
+							subtitleStreamIndex: burnInPendingSub.index
+						});
+						if (!stillCurrent()) return;
+						result = renegotiated;
+						applyPlaybackResult(result);
+						burnInSubtitleRef.current = burnInPendingSub.index;
+					} catch (err) {
+						console.error('[Player] Burn in subtitle negotiation failed:', err);
 					}
-				} else if (settings.subtitleMode === 'always') {
-					const defaultSub = result.subtitleStreams?.find(s => s.isDefault) || result.subtitleStreams?.[0];
-					selectInitialSubtitle(defaultSub);
-				} else if (settings.subtitleMode === 'forced') {
-					selectInitialSubtitle(result.subtitleStreams?.find(s => s.isForced));
-				} else if (settings.subtitleMode === 'default' &&
-						result.defaultSubtitleStreamIndex != null && result.defaultSubtitleStreamIndex >= 0) {
-					// Honor the Jellyfin user's subtitle preference, computed server side
-					// from their SubtitleMode and SubtitleLanguagePreference
-					selectInitialSubtitle(result.subtitleStreams?.find(s => s.index === result.defaultSubtitleStreamIndex));
 				}
 
 				// Build title and subtitle

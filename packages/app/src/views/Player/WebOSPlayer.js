@@ -29,7 +29,8 @@ import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as syncPlayService from '../../services/syncPlay';
 import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml} from '../../utils/subtitleConstants';
 import {findPreferredAudioStream} from '../../utils/audioLanguage';
-import {saveSubtitlePref, getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
+import {saveSubtitlePref} from '../../services/subtitlePrefs';
+import {resolveInitialSubtitle} from './initialSubtitle';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
 import useSleepTimer from './useSleepTimer';
 import useSegmentPopups from './useSegmentPopups';
@@ -609,7 +610,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					isLiveTV,
 					hasUserData: !!item.UserData
 				});
-				const result = await playback.getPlaybackInfo(item.Id, {
+				const playbackInfoOptions = {
 					startPositionTicks: startPosition,
 					maxBitrate: selectedQuality || settings.maxBitrate,
 					enableDirectPlay: !settings.preferTranscode,
@@ -621,7 +622,28 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					item: item,
 					isLiveTV,
 					stereoUpmixEnabled: settings.stereoUpmixEnabled
-				});
+				};
+				let result = await playback.getPlaybackInfo(item.Id, playbackInfoOptions);
+
+				// The track has to be settled before the url reaches the video element,
+				// because a burn in one needs the stream negotiated again and swapping
+				// the source afterwards would restart playback.
+				const initialSubtitleChoice = await resolveInitialSubtitle(result, item, initialSubtitleIndex, settings);
+				if (initialSubtitleChoice?.isBurnIn) {
+					let bakedIn = initialSubtitleChoice.index === initialSubtitleIndex;
+					if (!bakedIn) {
+						try {
+							result = await playback.getPlaybackInfo(item.Id, {
+								...playbackInfoOptions,
+								subtitleStreamIndex: initialSubtitleChoice.index
+							});
+							bakedIn = true;
+						} catch (err) {
+							console.error('[Player] Burn in subtitle negotiation failed:', err);
+						}
+					}
+					if (bakedIn) burnInSubtitleRef.current = initialSubtitleChoice.index;
+				}
 
 				setMediaUrl(result.url);
 				setMimeType(result.mimeType || 'video/mp4');
@@ -741,88 +763,13 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					setSelectedSubtitleIndex(-1);
 					setSubtitleTrackEvents(null);
 				};
-				const applySavedSubtitle = async (sub) => {
-					setSelectedSubtitleIndex(sub.index);
-					if (sub.isBurnIn) burnInSubtitleRef.current = sub.index;
-					await loadSubtitleData(sub);
-				};
-
-				// A remembered pick wins so a chosen track survives across plays and
-				// episodes. The per-item index restores the exact track on a replay, and
-				// the per-series language carries to other episodes, matched by language
-				// because the same track sits at a different index in each episode.
-				let subtitleResolved = false;
-				const savedItemIndex = await getItemSubtitlePref(item.Id);
-				if (savedItemIndex !== undefined) {
-					if (savedItemIndex < 0) {
-						turnSubtitlesOff();
-						subtitleResolved = true;
-					} else {
-						const savedStream = result.subtitleStreams?.find(s => s.index === savedItemIndex);
-						if (savedStream) {
-							await applySavedSubtitle(savedStream);
-							subtitleResolved = true;
-						}
-					}
-				}
-				if (!subtitleResolved && item.SeriesId) {
-					const savedLanguage = await getSeriesSubtitlePref(item.SeriesId);
-					if (savedLanguage !== undefined) {
-						if (!savedLanguage) {
-							turnSubtitlesOff();
-							subtitleResolved = true;
-						} else {
-							const savedStream = result.subtitleStreams?.find(s => s.language === savedLanguage);
-							if (savedStream) {
-								await applySavedSubtitle(savedStream);
-								subtitleResolved = true;
-							}
-						}
-					}
-				}
-
-				if (subtitleResolved) {
-					// already applied from the remembered pick
-				} else if (initialSubtitleIndex !== undefined && initialSubtitleIndex !== null) {
-					if (initialSubtitleIndex >= 0) {
-						const selectedSub = result.subtitleStreams?.find(s => s.index === initialSubtitleIndex);
-						if (selectedSub) {
-							setSelectedSubtitleIndex(initialSubtitleIndex);
-							// a preselected burn in track was already negotiated into the
-							// stream, remember it so deselecting later reloads without it
-							if (selectedSub.isBurnIn) burnInSubtitleRef.current = initialSubtitleIndex;
-							await loadSubtitleData(selectedSub);
-						} else {
-							console.error('[Player] initialSubtitleIndex', initialSubtitleIndex, 'not found in subtitleStreams');
-						}
-					} else {
-						turnSubtitlesOff();
-					}
-				} else if (settings.subtitleMode === 'always') {
-					const defaultSub = result.subtitleStreams?.find(s => s.isDefault);
-					if (defaultSub) {
-						setSelectedSubtitleIndex(defaultSub.index);
-						await loadSubtitleData(defaultSub);
-					} else if (result.subtitleStreams?.length > 0) {
-						const firstSub = result.subtitleStreams[0];
-						setSelectedSubtitleIndex(firstSub.index);
-						await loadSubtitleData(firstSub);
-					}
-				} else if (settings.subtitleMode === 'forced') {
-					const forcedSub = result.subtitleStreams?.find(s => s.isForced);
-					if (forcedSub) {
-						setSelectedSubtitleIndex(forcedSub.index);
-						await loadSubtitleData(forcedSub);
-					}
-				} else if (settings.subtitleMode === 'default' &&
-						result.defaultSubtitleStreamIndex != null && result.defaultSubtitleStreamIndex >= 0) {
-					// Honor the Jellyfin user's subtitle preference, computed server-side
-					// from their SubtitleMode + SubtitleLanguagePreference (#186).
-					const serverSub = result.subtitleStreams?.find(s => s.index === result.defaultSubtitleStreamIndex);
-					if (serverSub) {
-						setSelectedSubtitleIndex(serverSub.index);
-						await loadSubtitleData(serverSub);
-					}
+				if (initialSubtitleChoice === null) {
+					turnSubtitlesOff();
+				} else if (initialSubtitleChoice) {
+					setSelectedSubtitleIndex(initialSubtitleChoice.index);
+					// A burn in track is already part of the video by now, so there is
+					// nothing to fetch and render on top of it.
+					if (!initialSubtitleChoice.isBurnIn) await loadSubtitleData(initialSubtitleChoice);
 				}
 
 				let displayTitle = item.Name;
