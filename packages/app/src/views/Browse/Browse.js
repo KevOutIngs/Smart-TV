@@ -2053,6 +2053,7 @@ const Browse = ({
 					settings.featuredBarStyle === 'gallery' ? (
 						<GalleryBanner
 							isVisible={browseMode === 'featured'}
+							browseVisible={isVisible}
 							featuredItems={featuredItems}
 							api={api}
 							settings={settings}
@@ -2096,6 +2097,7 @@ const Browse = ({
 					) : (
 						<FeaturedBanner
 							isVisible={browseMode === 'featured'}
+							browseVisible={isVisible}
 							featuredItems={featuredItems}
 							serverUrl={serverUrl}
 							api={api}

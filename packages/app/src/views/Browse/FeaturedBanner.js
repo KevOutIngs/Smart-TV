@@ -17,6 +17,7 @@ const SpottableButton = Spottable('button');
 
 const FeaturedBanner = memo(({
 	isVisible,
+	browseVisible = true,
 	featuredItems,
 	serverUrl,
 	api,
@@ -40,7 +41,9 @@ const FeaturedBanner = memo(({
 
 	const {trailerActive, trailerContainerRef} = useTrailerPreview({
 		currentItem: currentFeatured,
-		isVisible,
+		// The banner stays mounted behind the settings overlay so the hero keeps its
+		// place, but the trailer has to stop or it plays on underneath it.
+		isVisible: isVisible && browseVisible,
 		enabled: settingsLoaded && settings.featuredTrailerPreview,
 		preferMuted: settings.featuredTrailerMuted,
 		api,
