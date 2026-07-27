@@ -551,7 +551,9 @@ export const SETTINGS_SCHEMA = [
 				label: () => $L('Debugging'),
 				description: () => $L('Logging options'),
 				rows: [
-					{kind: KIND.TOGGLE, key: 'serverLogging', label: () => $L('Server Logging'), desc: () => $L('Send logs to Jellyfin server for troubleshooting'), icon: 'info'}
+					{kind: KIND.TOGGLE, key: 'serverLogging', label: () => $L('Server Logging'), desc: () => $L('Send logs to Jellyfin server for troubleshooting'), icon: 'info'},
+					{kind: KIND.TOGGLE, key: 'diagnosticLoggingEnabled', label: () => $L('Diagnostic Logging'), desc: () => $L('Record server requests so connection problems can be traced'), icon: 'dns'},
+					{kind: KIND.NAV, id: 'diagnostics', label: () => $L('View Logs'), desc: () => $L('Read the recorded log and send a report'), icon: 'description', action: (ctx) => ctx.actions.openDiagnostics()}
 				]
 			},
 			{

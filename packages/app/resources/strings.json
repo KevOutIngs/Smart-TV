@@ -817,5 +817,21 @@
 	"Up": "Up",
 	"Down": "Down",
 	"Cinema Mode": "Cinema Mode",
-	"Play trailers/prerolls before a main feature": "Play trailers/prerolls before a main feature"
+	"Play trailers/prerolls before a main feature": "Play trailers/prerolls before a main feature",
+	"Diagnostic Logging": "Diagnostic Logging",
+	"Record server requests so connection problems can be traced": "Record server requests so connection problems can be traced",
+	"View Logs": "View Logs",
+	"Read the recorded log and send a report": "Read the recorded log and send a report",
+	"Logs": "Logs",
+	"Server requests recorded on this device. Video and image traffic is not included.": "Server requests recorded on this device. Video and image traffic is not included.",
+	"Nothing recorded yet.": "Nothing recorded yet.",
+	"Turn on Diagnostic Logging to start recording.": "Turn on Diagnostic Logging to start recording.",
+	"Logs cleared": "Logs cleared",
+	"Report sent to the server": "Report sent to the server",
+	"The server is not accepting client logs. Enable them in the server dashboard.": "The server is not accepting client logs. Enable them in the server dashboard.",
+	"Could not send the report.": "Could not send the report.",
+	"Send Report": "Send Report",
+	"Sending...": "Sending...",
+	"Auth": "Auth",
+	"Navigation": "Navigation"
 }

@@ -155,6 +155,7 @@ const SYNCABLE_KEYS = [
 	'syncplayEnabled', 'syncplayAutoOpen',
 	'showSyncPlayButton',
 	'videoStartDelay', 'liveTvDirect', 'cinemaModeEnabled',
+	'diagnosticLoggingEnabled',
 	'uiLanguage',
 	'blockedRatings',
 	'customHomeRows',

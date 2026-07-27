@@ -10,6 +10,8 @@ import ilib from 'ilib';
 import {AuthProvider, useAuth} from '../context/AuthContext';
 import {useSettings} from '../context/SettingsContext';
 import * as connectionPool from '../services/connectionPool';
+import * as jellyfinApi from '../services/jellyfinApi';
+import serverLogger from '../services/serverLogger';
 import {isBackKey, KEYS} from '../utils/keys';
 import {applyPerfTier} from '../utils/perfTier';
 import {isTizen, isWebOS} from '../platform';
@@ -200,6 +202,23 @@ const AppContent = (props) => {
 	useEffect(() => {
 		window.dispatchEvent(new CustomEvent('moonfin:screensaver', {detail: {active: showScreensaver}}));
 	}, [showScreensaver]);
+
+	// The logging switches used to reach the logger only from the settings toggle, so
+	// turning one on and restarting the TV left it doing nothing until Settings was opened
+	// again. Following the settings here is what makes them survive a restart.
+	useEffect(() => {
+		serverLogger.init({
+			getAuth: () => ({serverUrl: jellyfinApi.getServerUrl(), accessToken: jellyfinApi.getApiKey()})
+		});
+	}, []);
+
+	useEffect(() => {
+		serverLogger.setEnabled(settings.serverLogging === true);
+	}, [settings.serverLogging]);
+
+	useEffect(() => {
+		serverLogger.setRecording(settings.diagnosticLoggingEnabled === true);
+	}, [settings.diagnosticLoggingEnabled]);
 
 	useEffect(() => {
 		if (!isAuthenticated) {

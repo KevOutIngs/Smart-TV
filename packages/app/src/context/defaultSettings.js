@@ -71,6 +71,7 @@ export const defaultSettings = {
 	backdropBlurHome: 20,
 	backdropBlurDetail: 20,
 	serverLogging: false,
+	diagnosticLoggingEnabled: false,
 	featuredContentType: 'both',
 	featuredItemCount: 10,
 	featuredBarStyle: 'moonfin',
