@@ -14,7 +14,7 @@ import DetailsTabBar from '../../components/DetailsTabBar';
 import GameCard from '../../components/GameCard';
 import {KEYS} from '../../utils/keys';
 import {getImageUrl} from '../../utils/helpers';
-import {isGameLibrary} from '../../utils/gameLibrary';
+import {isGameLibrary, resolveGameLibraryId} from '../../utils/gameLibrary';
 import {groupSearchResults, aspectClassForType, isCircleType, filterByName, fetchAllGames, filterGames} from '../../utils/searchGroups';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
 import useStorage from '../../hooks/useStorage';
@@ -106,7 +106,9 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 				const views = await api.getLibraries();
 				if (cancelled) return;
 				const libs = views?.Items || [];
-				gameLibrariesRef.current = libs.filter((lib) => isGameLibrary(lib.CollectionType, lib.Name));
+				gameLibrariesRef.current = libs
+					.filter((lib) => isGameLibrary(lib.Id, lib.CollectionType, lib.Name))
+					.map((lib) => ({...lib, Id: resolveGameLibraryId(lib)}));
 				hasLiveTvRef.current = libs.some((lib) => lib.CollectionType === 'livetv');
 			} catch (_err) {
 				void _err;

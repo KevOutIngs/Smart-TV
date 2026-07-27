@@ -251,6 +251,49 @@ const addToCollectionVia = (send) => async (collectionId, itemIds) => {
 	return send(path, {method: 'POST', body: {Ids: itemIds}});
 };
 
+// The casing the remote search endpoint wants in its path.
+const REMOTE_SEARCH_TYPES = {
+	movie: 'Movie',
+	series: 'Series',
+	boxset: 'BoxSet',
+	person: 'Person',
+	musicalbum: 'MusicAlbum',
+	musicartist: 'MusicArtist',
+	book: 'Book',
+	trailer: 'Trailer',
+	musicvideo: 'MusicVideo'
+};
+
+// Looks an item up with the metadata providers so an admin can correct a bad match. Older
+// servers only answer the un-normalized path, so that is kept as a fallback.
+const searchRemoteVia = (send) => async (itemType, searchInfo) => {
+	const body = {SearchInfo: searchInfo, IncludeDisabledProviders: false};
+	const normalized = REMOTE_SEARCH_TYPES[(itemType || '').toLowerCase()] || itemType;
+	try {
+		return await send(`/Items/RemoteSearch/${normalized}`, {method: 'POST', body});
+	} catch (err) {
+		if (normalized === itemType) throw err;
+		return send(`/Items/RemoteSearch/${itemType}`, {method: 'POST', body});
+	}
+};
+
+const applyRemoteSearchResultVia = (send) => async (itemId, result, replaceAllImages = true) => {
+	const query = `?replaceAllImages=${replaceAllImages}`;
+	try {
+		return await send(`/Items/RemoteSearch/Apply/${itemId}${query}`, {method: 'POST', body: result});
+	} catch {
+		return send(`/Items/${itemId}/RemoteSearch/Apply${query}`, {method: 'POST', body: result});
+	}
+};
+
+const refreshItemVia = (send) => (itemId, {recursive, replaceAllMetadata, replaceAllImages} = {}) => {
+	const params = [];
+	if (recursive != null) params.push(`Recursive=${recursive}`);
+	if (replaceAllMetadata != null) params.push(`ReplaceAllMetadata=${replaceAllMetadata}`);
+	if (replaceAllImages != null) params.push(`ReplaceAllImages=${replaceAllImages}`);
+	return send(`/Items/${itemId}/Refresh${params.length ? `?${params.join('&')}` : ''}`, {method: 'POST'});
+};
+
 export const api = {
 	getPublicInfo: () => request('/System/Info/Public'),
 
@@ -521,6 +564,12 @@ export const api = {
 		request(`/LiveTv/SeriesTimers/${seriesTimerId}`, {
 			method: 'DELETE'
 		}),
+
+	searchRemote: searchRemoteVia(request),
+
+	applyRemoteSearchResult: applyRemoteSearchResultVia(request),
+
+	refreshItem: refreshItemVia(request),
 
 	deleteItem: (itemId) =>
 		request(`/Items/${itemId}`, {
@@ -903,6 +952,12 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 
 		getThemeSongs: (itemId, inheritFromParent = true) =>
 			serverRequest(`/Items/${itemId}/ThemeSongs?UserId=${userId}&InheritFromParent=${inheritFromParent}`),
+
+		searchRemote: searchRemoteVia(serverRequest),
+
+		applyRemoteSearchResult: applyRemoteSearchResultVia(serverRequest),
+
+		refreshItem: refreshItemVia(serverRequest),
 
 		getRemoteImages: (itemId, imageType) =>
 			serverRequest(`/Items/${itemId}/RemoteImages?Type=${imageType}&IncludeAllLanguages=true`),

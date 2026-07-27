@@ -41,7 +41,7 @@ import {useThemeMusic} from '../hooks/useThemeMusic';
 import {buildThemeCssVars, toSafeRgbTriplet} from '../theme/themeSpec';
 import Login from '../views/Login';
 import Browse from '../views/Browse';
-import {isGameLibrary} from '../utils/gameLibrary';
+import {isGameLibrary, refreshGameLibraries, resolveGameLibraryId} from '../utils/gameLibrary';
 
 const Details = lazy(() => import('../views/Details'));
 const Library = lazy(() => import('../views/Library'));
@@ -251,6 +251,9 @@ const AppContent = (props) => {
 				}
 				libs.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
 				setLibraries(libs);
+				// Warm the plugin's game library list so selecting a tile can tell a game
+				// library from a normal one without waiting on a request.
+				refreshGameLibraries();
 			} catch (err) {
 				console.error('Failed to fetch libraries:', err);
 			}
@@ -641,8 +644,10 @@ const AppContent = (props) => {
 			navigateTo(PANELS.LIVETV);
 			return;
 		}
-		if (isGameLibrary(library.CollectionType, library.Name)) {
-			setSelectedGameLibrary(library);
+		if (isGameLibrary(library.Id, library.CollectionType, library.Name)) {
+			// Every /Moonfin/Games call matches on the plugin's id, which is not always the
+			// user-view id this library arrived with.
+			setSelectedGameLibrary({...library, Id: resolveGameLibraryId(library)});
 			navigateTo(PANELS.GAMES);
 			return;
 		}

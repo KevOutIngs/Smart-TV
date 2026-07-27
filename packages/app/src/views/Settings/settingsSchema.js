@@ -175,7 +175,8 @@ export const SETTINGS_SCHEMA = [
 				rows: [
 					{kind: KIND.OPTION, key: 'detailScreenStyle', label: () => $L('Detail Screen Style'), options: getDetailScreenStyleOptions, fallback: () => $L('Modern'), icon: 'appscontents'},
 					{kind: KIND.OPTION, key: 'backdropBlurDetail', label: () => $L('Details Background Blur'), options: getBlurOptions, fallback: () => $L('Medium'), when: (ctx) => ctx.settings.detailScreenStyle === 'v1'},
-					{kind: KIND.TOGGLE, key: 'detailExpandedTabs', label: () => $L('Expanded Tabs'), desc: () => $L('Keep detail tabs expanded and follow focus'), icon: 'appscontents', when: (ctx) => ctx.settings.detailScreenStyle !== 'v1'}
+					{kind: KIND.TOGGLE, key: 'detailExpandedTabs', label: () => $L('Expanded Tabs'), desc: () => $L('Keep detail tabs expanded and follow focus'), icon: 'appscontents', when: (ctx) => ctx.settings.detailScreenStyle !== 'v1'},
+					{kind: KIND.NAV, id: 'detailButtons', label: () => $L('Details Buttons'), desc: () => $L('Enable/disable and reorder the action row buttons'), icon: 'arrowupdown', action: (ctx) => ctx.actions.openDetailButtons()}
 				]
 			},
 			{
@@ -423,7 +424,9 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.TOGGLE, key: 'stereoUpmixEnabled', label: () => $L('Stereo to Surround Upmix'), desc: () => $L('Upmix stereo audio to 5.1 surround via server transcoding'), icon: 'music'},
 					{kind: KIND.DIVIDER, id: 'transcode'},
 					{kind: KIND.TOGGLE, key: 'preferTranscode', label: () => $L('Prefer Transcoding'), desc: () => $L('Request transcoded streams when available'), icon: 'gear'},
-					{kind: KIND.TOGGLE, key: 'forceDirectPlay', label: () => $L('Force Direct Play'), desc: () => $L('Skip codec checks and always attempt DirectPlay (debug)'), icon: 'play'}
+					{kind: KIND.TOGGLE, key: 'forceDirectPlay', label: () => $L('Force Direct Play'), desc: () => $L('Skip codec checks and always attempt DirectPlay (debug)'), icon: 'play'},
+					{kind: KIND.DIVIDER, id: 'playerButtons'},
+					{kind: KIND.NAV, id: 'osdButtons', label: () => $L('Player Buttons'), desc: () => $L('Enable/disable and reorder the playback control buttons'), icon: 'arrowupdown', action: (ctx) => ctx.actions.openOsdButtons()}
 				]
 			},
 			{

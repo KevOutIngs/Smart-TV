@@ -1,4 +1,4 @@
-import {useState, useMemo, useCallback, useRef, useEffect} from 'react';
+import {useState, useMemo, useCallback, useRef, useEffect, Fragment} from 'react';
 import {isMdblistEnabled} from '../../services/mdblistApi';
 import $L from '@enact/i18n/$L';
 import Spottable from '@enact/spotlight/Spottable';
@@ -12,6 +12,7 @@ import DetailsTabBar from '../../components/DetailsTabBar';
 import {getImageUrl, formatDuration} from '../../utils/helpers';
 import {KEYS} from '../../utils/keys';
 import {DETAIL_ICON_PATHS} from './detailIcons';
+import {arrange, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
 
 import css from './ModernDetailContent.module.less';
 
@@ -52,7 +53,7 @@ const ModernDetailContent = (props) => {
 		handleOpenVersionModal, handleOpenAudioModal, handleOpenSubtitleModal, handleOpenMediaInfo, handleOpenPlaylistModal, handleOpenCollectionModal, handleOpenDeleteDialog,
 		handleChapterSelect, handleExtraSelect, handleTrackPlay,
 		onSelectItem, onSelectPerson, onSelectStudio,
-		canChangeArtwork, handleOpenArtworkModal
+		canChangeArtwork, handleOpenArtworkModal, handleOpenIdentifyModal
 	} = props;
 
 	const hasTrailer = item.LocalTrailerCount > 0 || (item.RemoteTrailers?.length > 0) || isSeries;
@@ -440,35 +441,43 @@ const ModernDetailContent = (props) => {
 		}
 	};
 
-	const renderActionButtons = () => (
-		<RowContainer className={css.actions} spotlightId="details-action-buttons" onFocus={handleActionsFocus} onKeyDown={handleActionsKeyDown}>
-			{hasPlaybackPosition && !isBook && (
-				<ActionButton primary path={DETAIL_ICON_PATHS.play} label={$L('Resume')} detail={resumeTimeText} onClick={handleResume} spotlightId="details-primary-btn" />
-			)}
-			{(isBook ? isReadableBook : true) && (
-				<ActionButton
-					primary={!hasPlaybackPosition}
-					path={isBook ? DETAIL_ICON_PATHS.book : hasPlaybackPosition ? DETAIL_ICON_PATHS.restart : DETAIL_ICON_PATHS.play}
-					label={isBook ? $L('Read') : hasPlaybackPosition ? $L('Restart') : $L('Play')}
-					onClick={handlePlay}
-					spotlightId={hasPlaybackPosition ? undefined : 'details-primary-btn'}
-				/>
-			)}
-			{(isSeries || isSeason) && <ActionButton path={DETAIL_ICON_PATHS.shuffle} label={$L('Shuffle')} onClick={handleShuffle} />}
-			{hasMultipleVersions && <ActionButton path={DETAIL_ICON_PATHS.version} label={$L('Version')} onClick={handleOpenVersionModal} />}
-			{hasMultipleAudio && <ActionButton path={DETAIL_ICON_PATHS.audio} label={$L('Audio')} onClick={handleOpenAudioModal} />}
-			{supportsMediaSourceSelection && <ActionButton path={DETAIL_ICON_PATHS.subtitle} label={$L('Subtitle')} onClick={handleOpenSubtitleModal} />}
-			{hasTrailer && <ActionButton path={DETAIL_ICON_PATHS.trailer} label={$L('Trailer')} onClick={handleTrailer} />}
-			<ActionButton path={DETAIL_ICON_PATHS.watched} label={played ? $L('Watched') : $L('Mark Watched')} active={played} onClick={handleToggleWatched} spotlightId="details-watched-btn" />
-			<ActionButton path={DETAIL_ICON_PATHS.favorite} label={isFavorite ? $L('Favorited') : $L('Favorite')} active={isFavorite} onClick={handleToggleFavorite} spotlightId="details-favorite-btn" />
-			{isEpisode && item.SeriesId && <ActionButton path={DETAIL_ICON_PATHS.series} label={$L('Series')} onClick={handleGoToSeries} />}
-			{supportsMediaSourceSelection && <ActionButton path={DETAIL_ICON_PATHS.mediaInfo} label={$L('Media Info')} onClick={handleOpenMediaInfo} />}
-			<ActionButton path={DETAIL_ICON_PATHS.playlist} label={$L('Add to Playlist')} onClick={handleOpenPlaylistModal} />
-			{handleOpenCollectionModal && <ActionButton path={DETAIL_ICON_PATHS.collection} label={$L('Add to Collection')} onClick={handleOpenCollectionModal} />}
-			{item.CanDelete && <ActionButton path={DETAIL_ICON_PATHS.delete} label={$L('Delete')} onClick={handleOpenDeleteDialog} />}
-			{canChangeArtwork && <ActionButton path={DETAIL_ICON_PATHS.artwork} label={$L('Change Artwork')} onClick={handleOpenArtworkModal} spotlightId="details-artwork-btn" />}
-		</RowContainer>
-	);
+	// Declaration order is where a button the user never placed ends up, so keep it stable.
+	const renderActionButtons = () => {
+		const customizable = arrange([
+			{id: 'shuffle', when: isSeries || isSeason, render: () => <ActionButton path={DETAIL_ICON_PATHS.shuffle} label={$L('Shuffle')} onClick={handleShuffle} />},
+			{id: 'version', when: hasMultipleVersions, render: () => <ActionButton path={DETAIL_ICON_PATHS.version} label={$L('Version')} onClick={handleOpenVersionModal} />},
+			{id: 'audio', when: hasMultipleAudio, render: () => <ActionButton path={DETAIL_ICON_PATHS.audio} label={$L('Audio')} onClick={handleOpenAudioModal} />},
+			{id: 'subtitles', when: supportsMediaSourceSelection, render: () => <ActionButton path={DETAIL_ICON_PATHS.subtitle} label={$L('Subtitle')} onClick={handleOpenSubtitleModal} />},
+			{id: 'trailer', when: hasTrailer, render: () => <ActionButton path={DETAIL_ICON_PATHS.trailer} label={$L('Trailer')} onClick={handleTrailer} />},
+			{id: 'watched', when: true, render: () => <ActionButton path={DETAIL_ICON_PATHS.watched} label={played ? $L('Watched') : $L('Mark Watched')} active={played} onClick={handleToggleWatched} spotlightId="details-watched-btn" />},
+			{id: 'favorite', when: true, render: () => <ActionButton path={DETAIL_ICON_PATHS.favorite} label={isFavorite ? $L('Favorited') : $L('Favorite')} active={isFavorite} onClick={handleToggleFavorite} spotlightId="details-favorite-btn" />},
+			{id: 'goToSeries', when: isEpisode && item.SeriesId, render: () => <ActionButton path={DETAIL_ICON_PATHS.series} label={$L('Series')} onClick={handleGoToSeries} />},
+			{id: 'mediaInfo', when: supportsMediaSourceSelection, render: () => <ActionButton path={DETAIL_ICON_PATHS.mediaInfo} label={$L('Media Info')} onClick={handleOpenMediaInfo} />},
+			{id: 'playlist', when: true, render: () => <ActionButton path={DETAIL_ICON_PATHS.playlist} label={$L('Add to Playlist')} onClick={handleOpenPlaylistModal} />},
+			{id: 'collection', when: Boolean(handleOpenCollectionModal), render: () => <ActionButton path={DETAIL_ICON_PATHS.collection} label={$L('Add to Collection')} onClick={handleOpenCollectionModal} />},
+			{id: 'deleteFiles', when: item.CanDelete, render: () => <ActionButton path={DETAIL_ICON_PATHS.delete} label={$L('Delete')} onClick={handleOpenDeleteDialog} />},
+			{id: 'artwork', when: canChangeArtwork, render: () => <ActionButton path={DETAIL_ICON_PATHS.artwork} label={$L('Change Artwork')} onClick={handleOpenArtworkModal} spotlightId="details-artwork-btn" />},
+			{id: 'admin', when: Boolean(handleOpenIdentifyModal), render: () => <ActionButton path={DETAIL_ICON_PATHS.admin} label={$L('Admin Controls')} onClick={handleOpenIdentifyModal} />}
+		].filter((btn) => btn.when), {order: settings[DETAIL_ORDER_KEY], hidden: settings[DETAIL_HIDDEN_KEY]});
+
+		return (
+			<RowContainer className={css.actions} spotlightId="details-action-buttons" onFocus={handleActionsFocus} onKeyDown={handleActionsKeyDown}>
+				{hasPlaybackPosition && !isBook && (
+					<ActionButton primary path={DETAIL_ICON_PATHS.play} label={$L('Resume')} detail={resumeTimeText} onClick={handleResume} spotlightId="details-primary-btn" />
+				)}
+				{(isBook ? isReadableBook : true) && (
+					<ActionButton
+						primary={!hasPlaybackPosition}
+						path={isBook ? DETAIL_ICON_PATHS.book : hasPlaybackPosition ? DETAIL_ICON_PATHS.restart : DETAIL_ICON_PATHS.play}
+						label={isBook ? $L('Read') : hasPlaybackPosition ? $L('Restart') : $L('Play')}
+						onClick={handlePlay}
+						spotlightId={hasPlaybackPosition ? undefined : 'details-primary-btn'}
+					/>
+				)}
+				{customizable.map((btn) => <Fragment key={btn.id}>{btn.render()}</Fragment>)}
+			</RowContainer>
+		);
+	};
 
 	const heroTitle = () => {
 		if (logoUrl && !isPerson) {

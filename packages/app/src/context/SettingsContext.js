@@ -162,6 +162,7 @@ const SYNCABLE_KEYS = [
 	'radarrCalendarShowCinema', 'radarrCalendarShowDigital', 'radarrCalendarShowPhysical',
 	'radarrCalendarShowDate', 'sonarrCalendarShowDate', 'sonarrCalendarShowEpisodeInfo',
 	'showSeerrButton',
+	'detailButtonOrderTv', 'hiddenDetailButtonsTv', 'osdButtonOrderTv', 'hiddenOsdButtonsTv',
 	'focusBorderColor',
 	'navbarOpacity',
 	'navbarColor',

@@ -21,6 +21,10 @@ import {getSeerrHomeRowConfigs, SEERR_CONFIG_TO_SECTION} from '../../utils/seerr
 import {TMDB_PRESETS, detectCustomSource, validateCustomRow} from '../../utils/externalHomeRows';
 import {MATERIAL_ICON_PATHS} from './materialIconMap';
 import {
+	ordered, hiddenSet, DETAIL_BUTTONS, OSD_BUTTONS,
+	DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY, OSD_ORDER_KEY, OSD_HIDDEN_KEY
+} from '../../utils/buttonLayout';
+import {
 	getHomeRowsStyleOptions,
 	getLabel,
 	getRatingSourceOptions
@@ -351,6 +355,12 @@ const renderChevron = () => (
 	</div>
 );
 
+// The details row and the player controls are arranged the same way, so one view drives both
+// and only the storage keys differ.
+const buttonLayoutKeys = (kind) => (kind === 'osd'
+	? {catalogue: OSD_BUTTONS, orderKey: OSD_ORDER_KEY, hiddenKey: OSD_HIDDEN_KEY}
+	: {catalogue: DETAIL_BUTTONS, orderKey: DETAIL_ORDER_KEY, hiddenKey: DETAIL_HIDDEN_KEY});
+
 const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	const { api, serverUrl, accessToken, hasMultipleServers, logoutAll } = useAuth();
 	const { settings, updateSetting, updateSettings, resetSettings, availableThemes, activeThemeId, selectThemeById, saveStoreTheme, deleteStoreTheme } = useSettings();
@@ -408,6 +418,8 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 
 	const [serverVersion, setServerVersion] = useState(null);
 	const [tempHomeRows, setTempHomeRows] = useState([]);
+	const [tempButtons, setTempButtons] = useState([]);
+	const [buttonLayoutKind, setButtonLayoutKind] = useState('detail');
 	const [tempPluginSections, setTempPluginSections] = useState([]);
 	const [allLibraries, setAllLibraries] = useState([]);
 	const [hiddenLibraries, setHiddenLibraries] = useState([]);
@@ -990,6 +1002,46 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		});
 	}, [settings]);
 
+	const openButtonLayout = useCallback((kind) => {
+		const {catalogue, orderKey, hiddenKey} = buttonLayoutKeys(kind);
+		const off = hiddenSet(settings[hiddenKey]);
+		setButtonLayoutKind(kind);
+		setTempButtons(ordered(catalogue, settings[orderKey]).map((btn) => ({...btn, enabled: !off.has(btn.id)})));
+		pushView({view: 'buttonLayout', returnFocusTo: kind === 'osd' ? 'setting-osdButtons' : 'setting-detailButtons'});
+	}, [settings, pushView]);
+
+	const openDetailButtons = useCallback(() => openButtonLayout('detail'), [openButtonLayout]);
+	const openOsdButtons = useCallback(() => openButtonLayout('osd'), [openButtonLayout]);
+
+	const saveButtonLayout = useCallback(() => {
+		const {orderKey, hiddenKey} = buttonLayoutKeys(buttonLayoutKind);
+		updateSettings({
+			[orderKey]: tempButtons.map((btn) => btn.id),
+			[hiddenKey]: tempButtons.filter((btn) => !btn.enabled).map((btn) => btn.id)
+		});
+		popView();
+	}, [buttonLayoutKind, tempButtons, updateSettings, popView]);
+
+	const resetButtonLayout = useCallback(() => {
+		setTempButtons(buttonLayoutKeys(buttonLayoutKind).catalogue.map((btn) => ({...btn, enabled: true})));
+	}, [buttonLayoutKind]);
+
+	const toggleLayoutButton = useCallback((id) => {
+		setTempButtons((prev) => prev.map((btn) => (btn.id === id ? {...btn, enabled: !btn.enabled} : btn)));
+	}, []);
+
+	const moveLayoutButton = useCallback((id, delta) => {
+		setTempButtons((prev) => {
+			const index = prev.findIndex((btn) => btn.id === id);
+			const target = index + delta;
+			if (index < 0 || target < 0 || target >= prev.length) return prev;
+			const next = [...prev];
+			next[index] = prev[target];
+			next[target] = prev[index];
+			return next;
+		});
+	}, []);
+
 	const togglePluginSection = useCallback((sectionId) => {
 		setTempPluginSections((prev) => prev.map((section) => (section.id === sectionId ? {...section, enabled: !section.enabled} : section)));
 	}, []);
@@ -1558,6 +1610,8 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			openThemes,
 			openThemeStore,
 			openHomeRows,
+			openDetailButtons,
+			openOsdButtons,
 			openPinCode,
 			openLibraries,
 			openRatingSources,
@@ -1574,6 +1628,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	}), [
 		settings, capabilities, seerr, seerrLabel, isSeerr, serverUrl,
 		serverVersion, availableThemes, activeThemeId, openThemes, openThemeStore, openHomeRows,
+		openDetailButtons, openOsdButtons,
 		openPinCode, openLibraries, openRatingSources, openExcludedGenres, openMediaBarLibraries,
 		openMediaBarCollections, openImdbLists, openExternalTmdbLists, openExternalCalendars,
 		openExternalCustomRows, openSeerrHomeRows, handleMoonfinToggle
@@ -2080,6 +2135,63 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		</ViewContainer>
 	);
 
+	const renderButtonLayoutView = () => (
+		<ViewContainer className={css.viewContainer} spotlightId='button-layout-view'>
+			<div className={css.listContent} onFocus={handleListFocus}>
+				<div className={css.listInner}>
+					{renderSectionTitle(buttonLayoutKind === 'osd' ? $L('Player Buttons') : $L('Details Buttons'))}
+					<div className={css.viewDescription}>
+						{buttonLayoutKind === 'osd'
+							? $L('Enable/disable and reorder the buttons around the playback controls.')
+							: $L('Enable/disable and reorder the buttons on the details screen action row.')}
+					</div>
+					{tempButtons.map((btn, index) => (
+						<div key={btn.id} className={css.homeRowItem}>
+							<SpottableDiv
+								className={css.listItem}
+								onClick={() => toggleLayoutButton(btn.id)}
+								spotlightId={`layoutbtn-${btn.id}`}
+							>
+								<div className={css.listItemBody}>
+									<div className={css.listItemHeading}>{$L(btn.label)}</div>
+								</div>
+								<div className={css.listItemTrailing}>{renderToggle(btn.enabled)}</div>
+							</SpottableDiv>
+							<div className={css.homeRowControls}>
+								<Button
+									onClick={() => moveLayoutButton(btn.id, -1)}
+									disabled={index === 0}
+									size='small'
+									aria-label={$L('Up')}
+									spotlightId={`layoutbtn-up-${btn.id}`}
+								>
+									<IconArrowUp />
+								</Button>
+								<Button
+									onClick={() => moveLayoutButton(btn.id, 1)}
+									disabled={index === tempButtons.length - 1}
+									size='small'
+									aria-label={$L('Down')}
+									spotlightId={`layoutbtn-down-${btn.id}`}
+								>
+									<IconArrowDown />
+								</Button>
+							</div>
+						</div>
+					))}
+					<div className={css.actionBar}>
+						<Button onClick={resetButtonLayout} size='small' spotlightId='layoutbtn-reset'>
+							{$L('Reset to Default')}
+						</Button>
+						<Button onClick={saveButtonLayout} size='small' spotlightId='layoutbtn-save'>
+							{$L('Save')}
+						</Button>
+					</div>
+				</div>
+			</div>
+		</ViewContainer>
+	);
+
 	const renderRatingSourcesView = () => (
 		<ViewContainer className={css.viewContainer} spotlightId='rating-sources-view'>
 			<div className={css.listContent} onFocus={handleListFocus}>
@@ -2339,6 +2451,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			{currentView.view === 'themes' && renderThemesView()}
 			{currentView.view === 'themeStore' && renderThemeStoreView()}
 			{currentView.view === 'homeRows' && renderHomeRowsView()}
+			{currentView.view === 'buttonLayout' && renderButtonLayoutView()}
 			{currentView.view === 'seerrHomeRows' && renderSeerrHomeRowsView()}
 			{currentView.view === 'imdbLists' && renderImdbListsView()}
 			{currentView.view === 'externalTmdbLists' && renderExternalTmdbListsView()}
