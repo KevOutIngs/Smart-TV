@@ -434,14 +434,14 @@ const Browse = ({
 			if (unifiedMode) {
 				[resumeItems, nextUp] = await Promise.all([
 					connectionPool.getResumeItemsFromAllServers(),
-					connectionPool.getNextUpFromAllServers()
+					connectionPool.getNextUpFromAllServers(settings.nextUpMaxDays)
 				]);
 				resumeItems = {Items: resumeItems};
 				nextUp = {Items: nextUp};
 			} else {
 				[resumeItems, nextUp] = await Promise.all([
 					api.getResumeItems(),
-					api.getNextUp()
+					api.getNextUp(24, null, settings.nextUpMaxDays)
 				]);
 			}
 
@@ -477,7 +477,7 @@ const Browse = ({
 		} catch (e) {
 			console.warn('[Browse] Background refresh failed:', e);
 		}
-	}, [api, unifiedMode, saveBrowseCache]); // eslint-disable-line no-use-before-define
+	}, [api, unifiedMode, saveBrowseCache, settings.nextUpMaxDays]); // eslint-disable-line no-use-before-define
 
 	const uiPanelStyle = useMemo(() => {
 		return {
@@ -1026,7 +1026,7 @@ const Browse = ({
 					const [libsArray, resumeArray, nextUpArray] = await Promise.all([
 						connectionPool.getLibrariesFromAllServers(),
 						connectionPool.getResumeItemsFromAllServers(),
-						connectionPool.getNextUpFromAllServers()
+						connectionPool.getNextUpFromAllServers(settings.nextUpMaxDays)
 					]);
 					libs = libsArray;
 					resumeItems = {Items: resumeArray};
@@ -1038,7 +1038,7 @@ const Browse = ({
 					const results = await Promise.all([
 						api.getLibraries().catch(() => ({Items: []})),
 						api.getResumeItems().catch(() => ({Items: []})),
-						api.getNextUp().catch(() => ({Items: []})),
+						api.getNextUp(24, null, settings.nextUpMaxDays).catch(() => ({Items: []})),
 						api.getUserConfiguration().catch(() => null),
 						settings.mergeContinueWatchingNextUp ? api.getItems({
 							IncludeItemTypes: 'Episode',
@@ -1742,6 +1742,7 @@ const Browse = ({
 		settings.uiLanguage,
 		settings.pluginSections,
 		settings.mergeContinueWatchingNextUp,
+		settings.nextUpMaxDays,
 		settings.sinceYouWatchedSource,
 		settings.sinceYouWatchedSourceItem,
 		settings.sinceYouWatchedSourceType,

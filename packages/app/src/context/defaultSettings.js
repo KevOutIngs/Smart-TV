@@ -65,6 +65,7 @@ export const defaultSettings = {
 	showFavoritesButton: true,
 	showLibrariesInToolbar: true,
 	mergeContinueWatchingNextUp: false,
+	nextUpMaxDays: 365,
 	hiddenContinueWatchingItems: null,
 	hiddenNextUpSeries: null,
 	showHomeBackdrop: true,

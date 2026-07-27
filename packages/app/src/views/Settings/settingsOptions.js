@@ -232,6 +232,15 @@ export const getHomeRowOverlayOptions = () => [
 	{ value: 'on', label: $L('On') }
 ];
 
+export const getNextUpMaxDaysOptions = () => [
+	{ value: 0, label: $L('No limit') },
+	{ value: 30, label: $L('30 days') },
+	{ value: 90, label: $L('90 days') },
+	{ value: 180, label: $L('180 days') },
+	{ value: 365, label: $L('365 days') },
+	{ value: 730, label: $L('730 days') }
+];
+
 export const getAudioLanguageOptions = () => [
 	{ value: '', label: $L('Auto') },
 	{ value: 'eng', label: $L('English') },

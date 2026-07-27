@@ -22,6 +22,7 @@ import {
 	getNavPositionOptions,
 	getNextUpBehaviorOptions,
 	getNextUpCountdownStyleOptions,
+	getNextUpMaxDaysOptions,
 	getPerformanceModeOptions,
 	getPosterSizeOptions,
 	getRewatchSortOptions,
@@ -203,6 +204,7 @@ export const SETTINGS_SCHEMA = [
 				rows: [
 					{kind: KIND.OPTION, key: 'homeRowsStyle', label: () => $L('Row Type'), options: getHomeRowsStyleOptions, fallback: () => $L('Modern'), icon: 'appscontents'},
 					{kind: KIND.TOGGLE, key: 'mergeContinueWatchingNextUp', label: () => $L('Merge Continue Watching and Next Up'), desc: () => $L('Combine both rows into a single home section'), icon: 'arrowupdown'},
+					{kind: KIND.OPTION, key: 'nextUpMaxDays', label: () => $L('Max Days In Next Up'), options: getNextUpMaxDaysOptions, fallback: () => $L('365 days'), desc: () => $L('How long a show stays in Next Up after you last watched it'), icon: 'recording'},
 					{kind: KIND.TOGGLE, key: 'useSeriesThumbnails', label: () => $L('Display Series Thumbnails'), desc: () => $L('For TV series, use the main series artwork instead of the episode thumbnail'), icon: 'aspectratio'},
 					{kind: KIND.TOGGLE, key: 'fullScreenRows', label: () => $L('Expanded Home Rows'), desc: () => $L('Limit home rows to 1 row per screen'), icon: 'aspectratio'},
 					{kind: KIND.OPTION, key: 'homeRowsPosterSize', label: () => $L('Home Row Card Display Size'), options: getPosterSizeOptions, fallback: () => $L('Default'), icon: 'aspectratio'},

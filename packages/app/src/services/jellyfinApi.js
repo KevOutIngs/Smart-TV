@@ -97,6 +97,17 @@ const DEFAULT_TIMEOUT_MS = 15000;
 const PLAYBACK_TIMEOUT_MS = 120000;
 export const HOME_ROW_ITEM_FIELDS = 'PrimaryImageAspectRatio,Overview,Genres,GenreItems,ProductionYear,RunTimeTicks,CommunityRating,CriticRating,ProviderIds,ImageTags,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ParentThumbItemId,SeriesPrimaryImageTag,SeriesName,ParentIndexNumber,IndexNumber,UserData,AlbumArtist,AlbumId,AlbumPrimaryImageTag';
 
+// The home Next Up row asks the server for a window instead of the whole watch
+// history, which is what keeps the query fast on a large library. A series page
+// skips it, since a window there would hide the episode the user opened it for.
+// Emby has no equivalent parameter, so it keeps the unbounded query.
+const nextUpCutoffQuery = (seriesId, maxDays, type) => {
+	if (seriesId || type === 'emby') return '';
+	if (typeof maxDays !== 'number' || maxDays <= 0) return '';
+	const cutoff = new Date(Date.now() - maxDays * 86400000);
+	return `&NextUpDateCutoff=${encodeURIComponent(cutoff.toISOString())}`;
+};
+
 // Routes through the webOS TLS proxy fallback (secureFetch) so Let's-Encrypt
 // servers work on old TVs whose CA store rejects them; native fetch elsewhere.
 const fetchWithTimeout = (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) =>
@@ -365,9 +376,10 @@ export const api = {
 	getResumeAudioItems: (limit = 20) =>
 		request(`/Users/${currentUser}/Items/Resume?Limit=${limit}&MediaTypes=Audio&Fields=${encodeURIComponent(HOME_ROW_ITEM_FIELDS)}`),
 
-	getNextUp: (limit = 24, seriesId = null) => {
+	getNextUp: (limit = 24, seriesId = null, maxDays = 0) => {
 		let url = `/Shows/NextUp?UserId=${currentUser}&Limit=${limit}&Fields=${encodeURIComponent(HOME_ROW_ITEM_FIELDS)}`;
 		if (seriesId) url += `&SeriesId=${seriesId}`;
+		url += nextUpCutoffQuery(seriesId, maxDays, serverType);
 		return request(url);
 	},
 
@@ -787,9 +799,10 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 		getResumeItems: () =>
 			serverRequest(`/Users/${userId}/Items/Resume?Limit=12&Recursive=true&Fields=PrimaryImageAspectRatio,Overview,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ProviderIds&MediaTypes=Video&EnableTotalRecordCount=false&ExcludeItemTypes=Book`),
 
-		getNextUp: (limit = 12, seriesId = null) => {
+		getNextUp: (limit = 12, seriesId = null, maxDays = 0) => {
 			let endpoint = `/Shows/NextUp?UserId=${userId}&Limit=${limit}&Fields=PrimaryImageAspectRatio,Overview,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ProviderIds`;
 			if (seriesId) endpoint += `&SeriesId=${seriesId}`;
+			endpoint += nextUpCutoffQuery(seriesId, maxDays, serverTypeOverride);
 			return serverRequest(endpoint);
 		},
 
