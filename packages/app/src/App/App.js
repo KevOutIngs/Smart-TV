@@ -125,7 +125,7 @@ const PANELS = {
 
 const AppContent = (props) => {
 	const {isAuthenticated, isLoading, logout, serverUrl, serverName, api, user, hasMultipleServers, accessToken, connectionState, revalidateSession} = useAuth();
-	const {settings, activeTheme, syncOnLogin} = useSettings();
+	const {settings, activeTheme, syncOnLogin, loaded: settingsLoaded} = useSettings();
 	const {streamNotification, dismissStreamNotification, adminMessage, dismissAdminMessage} = useSeerr();
 	const themeMusic = useThemeMusic();
 	const {openDialog: openSyncPlay, closeDialog: closeSyncPlay, isDialogOpen: syncPlayDialogOpen, playQueueItem, clearPlayQueueItem, isInGroup: isSyncPlayInGroup, setNewQueue: syncPlaySetNewQueue, displayMessage: syncPlayMessage, clearDisplayMessage: clearSyncPlayMessage} = useSyncPlay();
@@ -971,7 +971,10 @@ const AppContent = (props) => {
 		}
 	}, [handlePinSubmit]);
 
-	if (isLoading || !authChecked) {
+	// Stored settings have to be in before anything renders, because
+	// pinCodeProtection reads as off until then and a protected profile would
+	// come up unlocked.
+	if (isLoading || !authChecked || !settingsLoaded) {
 		return (
 			<div className={css.loading}>
 				<LoadingSpinner />

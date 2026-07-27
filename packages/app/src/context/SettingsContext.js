@@ -414,6 +414,11 @@ export function SettingsProvider({children}) {
 				persistBootLocale(merged.uiLanguage);
 			}
 			setLoaded(true);
+		}).catch((err) => {
+			// The app shows nothing until this resolves, so a store that fails or a
+			// stored value that wont parse has to fall back rather than hang.
+			console.warn('[Settings] Could not read stored settings:', err?.message || err);
+			setLoaded(true);
 		});
 	}, []);
 
