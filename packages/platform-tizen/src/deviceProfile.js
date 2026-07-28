@@ -468,7 +468,11 @@ export const getJellyfinDeviceProfile = async () => {
 	// Samsung specs officially list VP9/AV1 as WebM-only, but in practice
 	// Samsung TVs' hardware decoders handle VP9/AV1 in MKV containers fine.
 	// This is confirmed by users and matches behavior of other Jellyfin clients.
-	const generalVideoCodecs = ['h264'];
+	// MPEG2 sits in the spec tables against the general container list with no
+	// MKV restriction (unlike HEVC, which is called out as MKV/MP4/TS only),
+	// every Samsung set carries an MPEG2 broadcast decoder, and a QN85B confirms
+	// MKV works.
+	const generalVideoCodecs = ['h264', 'mpeg2video'];
 	if (caps.hevc) generalVideoCodecs.push('hevc');
 	if (caps.vp9) generalVideoCodecs.push('vp9');
 	if (caps.av1) generalVideoCodecs.push('av1');
@@ -573,20 +577,6 @@ export const getJellyfinDeviceProfile = async () => {
 	const tsAudio = caps.eac3 ? 'eac3,ac3,aac' : (caps.ac3 ? 'ac3,aac' : 'aac');
 	const transcodingProfiles = [];
 
-	if (caps.av1) {
-		transcodingProfiles.push({
-			Container: 'mp4',
-			Type: 'Video',
-			AudioCodec: tsAudio,
-			VideoCodec: 'av1',
-			Context: 'Streaming',
-			Protocol: 'hls',
-			MaxAudioChannels: maxAudioChannels,
-			MinSegments: '2',
-			SegmentLength: '6'
-		});
-	}
-
 	// hevc inside HLS TS only demuxes reliably from Tizen 6 up. Short segments
 	// and non keyframe breaks stall AVPlay on segment boundaries, so use longer
 	// keyframe aligned ones. VBR AAC in TS comes out LATM framed, which older
@@ -613,6 +603,24 @@ export const getJellyfinDeviceProfile = async () => {
 			Protocol: 'http'
 		}
 	);
+
+	// The server walks these in order and takes the first workable profile, and
+	// this one only offers AV1, which many servers have no encoder for. It has
+	// to sit after the TS profile or every transcode on an AV1 capable set
+	// demands an AV1 encode and dies on servers that cant provide one.
+	if (caps.av1) {
+		transcodingProfiles.push({
+			Container: 'mp4',
+			Type: 'Video',
+			AudioCodec: tsAudio,
+			VideoCodec: 'av1',
+			Context: 'Streaming',
+			Protocol: 'hls',
+			MaxAudioChannels: maxAudioChannels,
+			MinSegments: '2',
+			SegmentLength: '6'
+		});
+	}
 
 	// H.264 Level per Samsung spec tables:
 	// 2018-2019: FHD Level 4.1, UHD Level 5.1

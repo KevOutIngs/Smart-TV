@@ -641,24 +641,19 @@ export const getJellyfinDeviceProfile = async (options = {}) => {
 
 	if (caps.hasNativeHls) {
 		const hlsAudioCodecs = caps.eac3 ? 'aac,mp2,ac3,eac3' : (caps.ac3 ? 'aac,mp2,ac3' : 'aac,mp2');
-		const hlsVideoCodec = caps.dolbyVision ? 'hevc,dvh1,dvhe' : 'hevc';
+		// One profile with h264 at the end, not a separate hevc profile. The
+		// server takes the first workable profile and picks the codec within it,
+		// so a lone hevc profile demands an hevc encode from servers that dont
+		// allow one, while a combined list lets them fall back to h264.
+		const hlsVideoCodec = caps.hevc
+			? (caps.dolbyVision ? 'hevc,dvh1,dvhe,h264' : 'hevc,h264')
+			: 'h264';
 		transcodingProfiles = [
-			...(caps.hevc ? [{
-				Container: hlsContainer,
-				Type: 'Video',
-				AudioCodec: hlsAudioCodecs,
-				VideoCodec: hlsVideoCodec,
-				Context: 'Streaming',
-				Protocol: 'hls',
-				MaxAudioChannels: maxAudioChannels,
-				MinSegments: '1',
-				BreakOnNonKeyFrames: false
-			}] : []),
 			{
 				Container: hlsContainer,
 				Type: 'Video',
 				AudioCodec: hlsAudioCodecs,
-				VideoCodec: 'h264',
+				VideoCodec: hlsVideoCodec,
 				Context: 'Streaming',
 				Protocol: 'hls',
 				MaxAudioChannels: maxAudioChannels,
