@@ -11,11 +11,19 @@
  *   --legacy               - Target Tizen 2.4 (strips Smart Hub Preview service
  *                            and Tizen 4+ metadata from config.xml)
  *   --oblong               - Use oblong (512x423) launcher icon instead of square
+ *
+ * Environment overrides (all optional, for installs in unusual places):
+ *   TIZEN_CLI              - Full path to tizen / tizen.bat
+ *   TIZEN_STUDIO_HOME      - Tizen tooling install root
+ *   TIZEN_SIGN_PROFILE     - Signing profile name (default: Moonfin)
+ *   TIZEN_CERT_DIR         - Folder holding author.p12 and distributor.p12
+ *   TIZEN_PROFILES_XML     - Full path to profiles.xml
  */
 
 const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(ROOT, '..', '..');
@@ -40,10 +48,31 @@ if (versionArg) {
 	console.log();
 }
 
+const isWindows = process.platform === 'win32';
+// HOME is not set on native Windows shells, so fall back to USERPROFILE.
+const HOME_DIR = process.env.HOME || process.env.USERPROFILE || '';
+
 // Samsung certificate signing configuration
 const SAMSUNG_CERT_PROFILE = process.env.TIZEN_SIGN_PROFILE || 'Moonfin';
-const SAMSUNG_CERT_DIR = path.join(process.env.HOME, 'SamsungCertificate', 'Moonfin');
-const TIZEN_PROFILES_XML = path.join(process.env.HOME, 'tizen-studio-data', 'profile', 'profiles.xml');
+const SAMSUNG_CERT_DIR = process.env.TIZEN_CERT_DIR ||
+	(HOME_DIR ? path.join(HOME_DIR, 'SamsungCertificate', SAMSUNG_CERT_PROFILE) : '');
+
+// The data folder sits in the drive root on Windows and in the user home
+// everywhere else.
+function findProfilesXml() {
+	const candidates = [
+		process.env.TIZEN_PROFILES_XML,
+		HOME_DIR && path.join(HOME_DIR, 'tizen-studio-data', 'profile', 'profiles.xml'),
+		'C:\\tizen-studio-data\\profile\\profiles.xml',
+		process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'tizen-studio-data', 'profile', 'profiles.xml')
+	];
+	for (const candidate of candidates) {
+		if (candidate && fs.existsSync(candidate)) return candidate;
+	}
+	return null;
+}
+
+const TIZEN_PROFILES_XML = findProfilesXml();
 
 // ANSI colors
 const green = (text) => `\x1b[32m${text}\x1b[0m`;
@@ -81,65 +110,192 @@ function runLintGate(cwd) {
 	return result.status === 0 && !hasWarnings;
 }
 
+let crcTable = null;
+function crc32(buf) {
+	if (typeof zlib.crc32 === 'function') return zlib.crc32(buf) >>> 0;
+	if (!crcTable) {
+		crcTable = new Int32Array(256);
+		for (let i = 0; i < 256; i++) {
+			let c = i;
+			for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+			crcTable[i] = c;
+		}
+	}
+	let crc = -1;
+	for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ crcTable[(crc ^ buf[i]) & 0xFF];
+	return (crc ^ -1) >>> 0;
+}
+
+function listFilesRecursive(dir, base = dir) {
+	const out = [];
+	for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+		const abs = path.join(dir, entry.name);
+		if (entry.isDirectory()) out.push(...listFilesRecursive(abs, base));
+		else if (entry.isFile()) out.push({abs, rel: path.relative(base, abs).split(path.sep).join('/')});
+	}
+	return out;
+}
+
+const ZIP_LOCAL_SIG = 0x04034b50;
+const ZIP_CENTRAL_SIG = 0x02014b50;
+const ZIP_END_SIG = 0x06054b50;
+const ZIP_VERSION = 20;
+const ZIP_MADE_BY_UNIX = 0x0314;
+const ZIP_UTF8_NAMES = 0x0800;
+const ZIP_DEFLATE = 8;
+const ZIP_STORE = 0;
+const ZIP_FILE_MODE = (0o100644 << 16) >>> 0;
+// 1980-01-01, the earliest date a zip can express. Pinning it keeps two builds
+// of the same files byte for byte identical.
+const ZIP_EPOCH_TIME = 0;
+const ZIP_EPOCH_DATE = 0x0021;
+
+/**
+ * Writes a .wgt, which is a plain zip, without needing a zip binary on PATH.
+ */
 function zipDirToFile(srcDir, outputFile) {
-	// zip -qr <output> . (cwd=srcDir) -> creates a valid zip-based .wgt artifact
-	const result = spawnSync('zip', ['-qr', outputFile, '.'], {
-		cwd: srcDir,
-		stdio: 'inherit'
+	try {
+		const files = listFilesRecursive(srcDir).sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+		const localParts = [];
+		const centralParts = [];
+		let offset = 0;
+		let centralSize = 0;
+
+		for (const file of files) {
+			const data = fs.readFileSync(file.abs);
+			const deflated = zlib.deflateRawSync(data, {level: 9});
+			const useDeflate = deflated.length < data.length;
+			const payload = useDeflate ? deflated : data;
+			const method = useDeflate ? ZIP_DEFLATE : ZIP_STORE;
+			const name = Buffer.from(file.rel, 'utf8');
+			const crc = crc32(data);
+
+			const local = Buffer.alloc(30);
+			local.writeUInt32LE(ZIP_LOCAL_SIG, 0);
+			local.writeUInt16LE(ZIP_VERSION, 4);
+			local.writeUInt16LE(ZIP_UTF8_NAMES, 6);
+			local.writeUInt16LE(method, 8);
+			local.writeUInt16LE(ZIP_EPOCH_TIME, 10);
+			local.writeUInt16LE(ZIP_EPOCH_DATE, 12);
+			local.writeUInt32LE(crc, 14);
+			local.writeUInt32LE(payload.length, 18);
+			local.writeUInt32LE(data.length, 22);
+			local.writeUInt16LE(name.length, 26);
+			localParts.push(local, name, payload);
+
+			const central = Buffer.alloc(46);
+			central.writeUInt32LE(ZIP_CENTRAL_SIG, 0);
+			central.writeUInt16LE(ZIP_MADE_BY_UNIX, 4);
+			central.writeUInt16LE(ZIP_VERSION, 6);
+			central.writeUInt16LE(ZIP_UTF8_NAMES, 8);
+			central.writeUInt16LE(method, 10);
+			central.writeUInt16LE(ZIP_EPOCH_TIME, 12);
+			central.writeUInt16LE(ZIP_EPOCH_DATE, 14);
+			central.writeUInt32LE(crc, 16);
+			central.writeUInt32LE(payload.length, 20);
+			central.writeUInt32LE(data.length, 24);
+			central.writeUInt16LE(name.length, 28);
+			central.writeUInt32LE(ZIP_FILE_MODE, 38);
+			central.writeUInt32LE(offset, 42);
+			centralParts.push(central, name);
+
+			offset += local.length + name.length + payload.length;
+			centralSize += central.length + name.length;
+		}
+
+		const end = Buffer.alloc(22);
+		end.writeUInt32LE(ZIP_END_SIG, 0);
+		end.writeUInt16LE(files.length, 8);
+		end.writeUInt16LE(files.length, 10);
+		end.writeUInt32LE(centralSize, 12);
+		end.writeUInt32LE(offset, 16);
+
+		fs.writeFileSync(outputFile, Buffer.concat([...localParts, ...centralParts, end]));
+		return true;
+	} catch (e) {
+		error('Packaging failed: ' + e.message);
+		return false;
+	}
+}
+
+// Covers both Tizen Studio, which Samsung has retired, and the VS Code
+// extension that replaced it. Some installers nest everything one level deeper
+// under sdk/, so both layouts get probed.
+function tizenSdkRoots() {
+	return [
+		process.env.TIZEN_STUDIO_HOME,
+		'C:\\tizen-studio',
+		process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'tizen-studio'),
+		process.env.USERPROFILE && path.join(process.env.USERPROFILE, 'tizen-studio'),
+		HOME_DIR && path.join(HOME_DIR, '.tizen-extension-platform', 'server', 'sdktools', 'data'),
+		'/usr/local/tizen-studio',
+		HOME_DIR && path.join(HOME_DIR, 'tizen-studio')
+	].filter(Boolean);
+}
+
+// Always resolve to a full path, never the bare name. Tizen's launcher works out
+// its own install root from the path it was started with, so calling it by name
+// makes it search from the working directory, miss sdk.info and fail to start.
+function resolveOnPath(cmd) {
+	try {
+		const out = execSync(`${isWindows ? 'where' : 'which'} ${cmd}`, {stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8'});
+		const hits = out.split(/\r?\n/).map(s => s.trim()).filter(s => s && fs.existsSync(s));
+		if (!hits.length) return null;
+		return isWindows ? (hits.find(h => /\.(bat|cmd|exe)$/i.test(h)) || hits[0]) : hits[0];
+	} catch (e) {
+		return null;
+	}
+}
+
+// An install can be present but unable to start. It still exits 0 in that case,
+// so go by what it printed rather than the exit code alone.
+function tizenCLIWorks(cliPath) {
+	const result = spawnSync(`"${cliPath}" version`, {
+		encoding: 'utf8',
+		shell: true,
+		cwd: path.dirname(cliPath)
 	});
+	if (result.error) return false;
+	const output = `${result.stdout || ''}${result.stderr || ''}`;
+	if (/ClassNotFoundException|NoClassDefFoundError|sdk\.info/i.test(output)) return false;
 	return result.status === 0;
 }
 
 function findTizenCLI() {
-	const possiblePaths = [
-		// Windows
-		'C:\\tizen-studio\\tools\\ide\\bin\\tizen.bat',
-		process.env.LOCALAPPDATA + '\\tizen-studio\\tools\\ide\\bin\\tizen.bat',
-		process.env.USERPROFILE + '\\tizen-studio\\tools\\ide\\bin\\tizen.bat',
-		// Tizen VS Code Extension path
-		process.env.USERPROFILE + '\\.tizen-extension-platform\\server\\sdktools\\data\\tools\\ide\\bin\\tizen.bat',
-		// macOS/Linux
-		'/usr/local/tizen-studio/tools/ide/bin/tizen',
-		process.env.HOME + '/tizen-studio/tools/ide/bin/tizen',
-	];
-	
-	for (const p of possiblePaths) {
-		if (p && fs.existsSync(p)) return p;
+	const exe = isWindows ? 'tizen.bat' : 'tizen';
+	const candidates = [process.env.TIZEN_CLI];
+	for (const root of tizenSdkRoots()) {
+		candidates.push(path.join(root, 'tools', 'ide', 'bin', exe));
+		candidates.push(path.join(root, 'sdk', 'tools', 'ide', 'bin', exe));
 	}
-	
-	// Try PATH
-	try {
-		execSync('tizen version', { stdio: 'pipe' });
-		return 'tizen';
-	} catch (e) {
-		return null;
+	candidates.push(resolveOnPath('tizen'));
+
+	const seen = new Set();
+	const broken = [];
+	for (const candidate of candidates) {
+		if (!candidate || seen.has(candidate) || !fs.existsSync(candidate)) continue;
+		seen.add(candidate);
+		if (tizenCLIWorks(candidate)) return candidate;
+		broken.push(candidate);
 	}
+
+	for (const cliPath of broken) warn(`Tizen CLI at ${cliPath} is installed but can't start, so it will be skipped`);
+	return null;
 }
 
 function findSDB() {
-	const possiblePaths = [
-		// Windows
-		'C:\\tizen-studio\\tools\\sdb.exe',
-		process.env.LOCALAPPDATA + '\\tizen-studio\\tools\\sdb.exe',
-		process.env.USERPROFILE + '\\tizen-studio\\tools\\sdb.exe',
-		// Tizen VS Code Extension path
-		process.env.USERPROFILE + '\\.tizen-extension-platform\\server\\sdktools\\data\\tools\\sdb.exe',
-		// macOS/Linux
-		'/usr/local/tizen-studio/tools/sdb',
-		process.env.HOME + '/tizen-studio/tools/sdb',
-	];
-	
-	for (const p of possiblePaths) {
-		if (p && fs.existsSync(p)) return p;
+	const exe = isWindows ? 'sdb.exe' : 'sdb';
+	const candidates = [];
+	for (const root of tizenSdkRoots()) {
+		candidates.push(path.join(root, 'tools', exe));
+		candidates.push(path.join(root, 'sdk', 'tools', exe));
 	}
-	
-	// Try PATH
-	try {
-		execSync('sdb version', { stdio: 'pipe' });
-		return 'sdb';
-	} catch (e) {
-		return null;
+	candidates.push(resolveOnPath('sdb'));
+
+	for (const candidate of candidates) {
+		if (candidate && fs.existsSync(candidate)) return candidate;
 	}
+	return null;
 }
 
 function copyDir(src, dest) {
@@ -196,18 +352,20 @@ async function main() {
 	if (isOblong) console.log(cyan('  Icon: oblong (512x423)'));
 	console.log(cyan('═'.repeat(50)) + '\n');
 	
-	// Step 1: Find Tizen CLI
-	const tizenCLI = findTizenCLI();
+	// Step 1: Find Tizen CLI. It is optional, and only needed to sign a build or
+	// to install straight to a TV.
+	const tizenCLI = skipTizenCLI ? null : findTizenCLI();
 	if (!tizenCLI) {
-		if (skipTizenCLI) {
-			warn('Tizen CLI not found — using CI fallback packaging mode (--skip-tizen-cli).');
-		} else {
-			error('Tizen CLI not found!');
-			console.log('\nPlease install Tizen Studio from:');
-			console.log('https://developer.samsung.com/smarttv/develop/getting-started/setting-up-sdk/installing-tv-sdk.html');
-			console.log('\nOr run with --skip-tizen-cli for CI fallback packaging.');
+		if (isSigned) {
+			error('--signed requires the Tizen CLI, which was not found.');
+			console.log('\nSamsung has retired Tizen Studio. The CLI now ships with the Tizen');
+			console.log('VS Code extension: https://samsungtizenos.com/');
+			console.log('\nIf yours is installed somewhere unusual, set TIZEN_CLI to it.');
 			process.exit(1);
 		}
+		warn(skipTizenCLI
+			? 'Skipping Tizen CLI by request, packaging unsigned .wgt directly.'
+			: 'Tizen CLI not found, packaging unsigned .wgt directly.');
 	} else {
 		success(`Found Tizen CLI: ${tizenCLI}`);
 	}
@@ -458,59 +616,55 @@ async function main() {
 
 	// Step 7: Package WGT
 
-	if (!tizenCLI) {
-		log('Packaging fallback .wgt via zip (no Tizen CLI)...');
-		if (!zipDirToFile(DIST, finalWgt)) {
-			error('Fallback zip packaging failed! Ensure "zip" is available on PATH.');
-			process.exit(1);
-		}
-	} else {
+	// Signing needs the CLI, the .p12 pair and a matching profile entry. If any of
+	// them is missing the build goes out unsigned, and the Tizen CLI can't produce
+	// an unsigned package because it always wants an active profile.
+	let canSign = false;
+	if (tizenCLI) {
 		log('Verifying Samsung certificate...');
 		const authorP12 = path.join(SAMSUNG_CERT_DIR, 'author.p12');
 		const distributorP12 = path.join(SAMSUNG_CERT_DIR, 'distributor.p12');
+		const hasCerts = !!SAMSUNG_CERT_DIR && fs.existsSync(authorP12) && fs.existsSync(distributorP12);
 
-		if (!fs.existsSync(authorP12) || !fs.existsSync(distributorP12)) {
-			warn('Samsung certificate files not found at: ' + SAMSUNG_CERT_DIR);
+		if (!hasCerts) {
+			warn('Samsung certificate files not found' + (SAMSUNG_CERT_DIR ? ' at: ' + SAMSUNG_CERT_DIR : ''));
 			warn('Expected: author.p12 and distributor.p12');
-			warn('Please create a Samsung certificate via Tizen Studio Certificate Manager.');
-			if (isSigned) {
-				error('Cannot create signed build without Samsung certificates!');
-				process.exit(1);
-			}
-			warn('Falling back to unsigned build...');
+			warn('Create them with the certificate manager in your Tizen tooling,');
+			warn('or set TIZEN_CERT_DIR to the folder that already holds them.');
 		} else {
 			success(`Found Samsung certificates in ${SAMSUNG_CERT_DIR}`);
 		}
 
-		if (!fs.existsSync(TIZEN_PROFILES_XML)) {
-			warn('Tizen profiles.xml not found at: ' + TIZEN_PROFILES_XML);
-			if (isSigned) {
-				error('Cannot create signed build without profiles.xml!');
-				process.exit(1);
-			}
+		let hasProfile = false;
+		if (!TIZEN_PROFILES_XML) {
+			warn('Tizen profiles.xml not found, set TIZEN_PROFILES_XML to point at it');
 		} else {
 			const profileContent = fs.readFileSync(TIZEN_PROFILES_XML, 'utf8');
-			if (profileContent.includes(`name="${SAMSUNG_CERT_PROFILE}"`)) {
+			hasProfile = profileContent.includes(`name="${SAMSUNG_CERT_PROFILE}"`);
+			if (hasProfile) {
 				success(`Signing profile "${SAMSUNG_CERT_PROFILE}" found in profiles.xml`);
 			} else {
-				warn(`Profile "${SAMSUNG_CERT_PROFILE}" not found in profiles.xml`);
-				warn('Available profiles can be managed via Tizen Studio Certificate Manager');
+				warn(`Profile "${SAMSUNG_CERT_PROFILE}" not found in ${TIZEN_PROFILES_XML}`);
+				warn('Set TIZEN_SIGN_PROFILE to one of your own profiles, or create it');
+				warn('with the certificate manager in your Tizen tooling.');
 			}
 		}
 
-		log(`Packaging ${isSigned ? 'signed' : 'unsigned'} .wgt with profile "${SAMSUNG_CERT_PROFILE}"...`);
-
-		let packageCmd;
-		const hasCerts = fs.existsSync(authorP12) && fs.existsSync(distributorP12) && fs.existsSync(TIZEN_PROFILES_XML);
-		if (hasCerts) {
-			// Always sign with the Samsung certificate profile when certs are available
-			packageCmd = `"${tizenCLI}" package -t wgt --sign "${SAMSUNG_CERT_PROFILE}" -- "${DIST}" -o "${REPO_ROOT}"`;
-		} else {
-			// Fallback: package without explicit profile
-			packageCmd = `"${tizenCLI}" package -t wgt -- "${DIST}" -o "${REPO_ROOT}"`;
+		canSign = hasCerts && hasProfile;
+		if (isSigned && !canSign) {
+			error("Can't create a signed build without both certificates and a matching profile!");
+			process.exit(1);
 		}
+		if (!canSign) warn('Falling back to unsigned build...');
+	}
 
-		if (!run(packageCmd)) {
+	if (!canSign) {
+		log('Packaging unsigned .wgt...');
+		if (!zipDirToFile(DIST, finalWgt)) process.exit(1);
+	} else {
+		log(`Packaging signed .wgt with profile "${SAMSUNG_CERT_PROFILE}"...`);
+
+		if (!run(`"${tizenCLI}" package -t wgt --sign "${SAMSUNG_CERT_PROFILE}" -- "${DIST}" -o "${REPO_ROOT}"`)) {
 			error('Packaging failed!');
 			process.exit(1);
 		}

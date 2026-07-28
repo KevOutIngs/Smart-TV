@@ -1,6 +1,7 @@
 import {isWebOS, isLegacyTizen} from '../platform';
 import {fetchWithTimeout} from '../utils/fetchTimeout';
 import {mediaServerQueue} from '../utils/requestQueue';
+import {normalizeWatchlistBody} from './seerrApi.watchlistShape';
 
 let moonfinMode = false;
 let jellyfinServerUrl = null;
@@ -831,6 +832,11 @@ export const getRecentlyAdded = async (take = 20) => {
 return request(`/media?filter=allavailable&sort=mediaAdded&take=${take}`);
 };
 
+// The watchlist response needs reshaping before anything downstream can use it.
+// seerrApi.watchlistShape.js explains why.
+export const getWatchlist = async (page = 1) =>
+normalizeWatchlistBody(await request(`/discover/watchlist?page=${page}`));
+
 export const REQUEST_STATUS = {
 PENDING: 1,
 APPROVED: 2,
@@ -1039,6 +1045,7 @@ declineRequest,
 retryRequest,
 getMyRequests,
 getRecentlyAdded,
+getWatchlist,
 REQUEST_STATUS,
 getRequestStatusText,
 requestMovie,

@@ -94,8 +94,19 @@ export const getDeviceInfo = () => ({appName: APP_NAME, appVersion: APP_VERSION,
 export const buildEmbyAuthHeader = (token) => buildAuthHeader('emby', token);
 
 const DEFAULT_TIMEOUT_MS = 15000;
-const PLAYBACK_TIMEOUT_MS = 30000;
+const PLAYBACK_TIMEOUT_MS = 120000;
 export const HOME_ROW_ITEM_FIELDS = 'PrimaryImageAspectRatio,Overview,Genres,GenreItems,ProductionYear,RunTimeTicks,CommunityRating,CriticRating,ProviderIds,ImageTags,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ParentThumbItemId,SeriesPrimaryImageTag,SeriesName,ParentIndexNumber,IndexNumber,UserData,AlbumArtist,AlbumId,AlbumPrimaryImageTag';
+
+// The home Next Up row asks the server for a window instead of the whole watch
+// history, which is what keeps the query fast on a large library. A series page
+// skips it, since a window there would hide the episode the user opened it for.
+// Emby has no equivalent parameter, so it keeps the unbounded query.
+const nextUpCutoffQuery = (seriesId, maxDays, type) => {
+	if (seriesId || type === 'emby') return '';
+	if (typeof maxDays !== 'number' || maxDays <= 0) return '';
+	const cutoff = new Date(Date.now() - maxDays * 86400000);
+	return `&NextUpDateCutoff=${encodeURIComponent(cutoff.toISOString())}`;
+};
 
 // Routes through the webOS TLS proxy fallback (secureFetch) so Let's-Encrypt
 // servers work on old TVs whose CA store rejects them; native fetch elsewhere.
@@ -216,6 +227,84 @@ export const resolveItemsByProviderIds = async (items) => {
 	});
 };
 
+// Servers disagree about how the collection endpoints want their arguments, and
+// the ones that reject a shape answer with one of these rather than a 5xx. Both
+// writers below walk the accepted shapes and only give up once all have failed.
+const COLLECTION_RETRY_STATUSES = [400, 404, 405, 415, 422];
+const canRetryCollection = (err) => COLLECTION_RETRY_STATUSES.includes(err?.status);
+
+const createCollectionVia = (send) => async (name, itemIds = []) => {
+	const encoded = encodeURIComponent(name);
+	const ids = itemIds.join(',');
+	// Some builds match the query keys case sensitively, so send both spellings.
+	const query = `Name=${encoded}&name=${encoded}${ids ? `&Ids=${ids}&ids=${ids}` : ''}`;
+	try {
+		return await send(`/Collections?${query}`, {method: 'POST'});
+	} catch (err) {
+		if (!canRetryCollection(err)) throw err;
+		return send(`/Collections?${query}`, {
+			method: 'POST',
+			body: {Name: name, ...(ids ? {Ids: itemIds} : {})}
+		});
+	}
+};
+
+const addToCollectionVia = (send) => async (collectionId, itemIds) => {
+	const ids = itemIds.join(',');
+	const path = `/Collections/${collectionId}/Items`;
+	for (const key of ['Ids', 'ids']) {
+		try {
+			return await send(`${path}?${key}=${ids}`, {method: 'POST'});
+		} catch (err) {
+			if (!canRetryCollection(err)) throw err;
+		}
+	}
+	return send(path, {method: 'POST', body: {Ids: itemIds}});
+};
+
+// The casing the remote search endpoint wants in its path.
+const REMOTE_SEARCH_TYPES = {
+	movie: 'Movie',
+	series: 'Series',
+	boxset: 'BoxSet',
+	person: 'Person',
+	musicalbum: 'MusicAlbum',
+	musicartist: 'MusicArtist',
+	book: 'Book',
+	trailer: 'Trailer',
+	musicvideo: 'MusicVideo'
+};
+
+// Looks an item up with the metadata providers so an admin can correct a bad match. Older
+// servers only answer the un-normalized path, so that is kept as a fallback.
+const searchRemoteVia = (send) => async (itemType, searchInfo) => {
+	const body = {SearchInfo: searchInfo, IncludeDisabledProviders: false};
+	const normalized = REMOTE_SEARCH_TYPES[(itemType || '').toLowerCase()] || itemType;
+	try {
+		return await send(`/Items/RemoteSearch/${normalized}`, {method: 'POST', body});
+	} catch (err) {
+		if (normalized === itemType) throw err;
+		return send(`/Items/RemoteSearch/${itemType}`, {method: 'POST', body});
+	}
+};
+
+const applyRemoteSearchResultVia = (send) => async (itemId, result, replaceAllImages = true) => {
+	const query = `?replaceAllImages=${replaceAllImages}`;
+	try {
+		return await send(`/Items/RemoteSearch/Apply/${itemId}${query}`, {method: 'POST', body: result});
+	} catch {
+		return send(`/Items/${itemId}/RemoteSearch/Apply${query}`, {method: 'POST', body: result});
+	}
+};
+
+const refreshItemVia = (send) => (itemId, {recursive, replaceAllMetadata, replaceAllImages} = {}) => {
+	const params = [];
+	if (recursive != null) params.push(`Recursive=${recursive}`);
+	if (replaceAllMetadata != null) params.push(`ReplaceAllMetadata=${replaceAllMetadata}`);
+	if (replaceAllImages != null) params.push(`ReplaceAllImages=${replaceAllImages}`);
+	return send(`/Items/${itemId}/Refresh${params.length ? `?${params.join('&')}` : ''}`, {method: 'POST'});
+};
+
 export const api = {
 	getPublicInfo: () => request('/System/Info/Public'),
 
@@ -256,7 +345,7 @@ export const api = {
 
 	getItem: (itemId) => request(`/Users/${currentUser}/Items/${itemId}`),
 
-	getLocalTrailers: (itemId) => request(`/Users/${currentUser}/Items/${itemId}/LocalTrailers`),
+	getLocalTrailers: (itemId) => request(`/Items/${itemId}/LocalTrailers?userId=${currentUser}`),
 
 	getItemForDetail: (itemId) =>
 		request(`/Users/${currentUser}/Items/${itemId}?Fields=Overview,Genres,OfficialRating,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ProviderIds,RunTimeTicks,ProductionYear,Chapters,People,Studios,Taglines,RemoteTrailers,MediaSources,MediaSourceCount,CommunityRating,CriticRating`),
@@ -287,9 +376,10 @@ export const api = {
 	getResumeAudioItems: (limit = 20) =>
 		request(`/Users/${currentUser}/Items/Resume?Limit=${limit}&MediaTypes=Audio&Fields=${encodeURIComponent(HOME_ROW_ITEM_FIELDS)}`),
 
-	getNextUp: (limit = 24, seriesId = null) => {
+	getNextUp: (limit = 24, seriesId = null, maxDays = 0) => {
 		let url = `/Shows/NextUp?UserId=${currentUser}&Limit=${limit}&Fields=${encodeURIComponent(HOME_ROW_ITEM_FIELDS)}`;
 		if (seriesId) url += `&SeriesId=${seriesId}`;
+		url += nextUpCutoffQuery(seriesId, maxDays, serverType);
 		return request(url);
 	},
 
@@ -347,7 +437,7 @@ export const api = {
 		request(`/Shows/${seriesId}/Seasons?UserId=${currentUser}&Fields=PrimaryImageAspectRatio`),
 
 	getEpisodes: (seriesId, seasonId) =>
-		request(`/Shows/${seriesId}/Episodes?UserId=${currentUser}&SeasonId=${seasonId}&Fields=PrimaryImageAspectRatio,Overview`),
+		request(`/Shows/${seriesId}/Episodes?UserId=${currentUser}&SeasonId=${seasonId}&Fields=PrimaryImageAspectRatio,Overview,LocationType`),
 
 	getSimilar: (itemId, limit = 15) =>
 		request(`/Items/${itemId}/Similar?UserId=${currentUser}&Limit=${limit}&Fields=PrimaryImageAspectRatio,ProductionYear`),
@@ -447,16 +537,51 @@ export const api = {
 	getLiveTvTimers: () =>
 		request(`/LiveTv/Timers`),
 
-	createLiveTvTimer: (programId) =>
-		request(`/LiveTv/Timers`, {
-			method: 'POST',
-			body: {ProgramId: programId}
-		}),
+	// Both timer kinds are created from the server's own defaults for a program
+	// rather than a hand built body. The series endpoint needs a fully populated
+	// SeriesTimerInfoDto, and a single timer inherits whatever recording padding
+	// the user set server side.
+	getLiveTvTimerDefaults: (programId) =>
+		request(`/LiveTv/Timers/Defaults?ProgramId=${programId}`),
+
+	createLiveTvTimer: async (programId) => {
+		let payload;
+		try {
+			payload = {...(await api.getLiveTvTimerDefaults(programId))};
+			if (payload.ProgramId == null) payload.ProgramId = programId;
+		} catch {
+			// Older servers have no defaults endpoint but still accept a bare id.
+			payload = {ProgramId: programId};
+		}
+		return request(`/LiveTv/Timers`, {method: 'POST', body: payload});
+	},
 
 	cancelLiveTvTimer: (timerId) =>
 		request(`/LiveTv/Timers/${timerId}`, {
 			method: 'DELETE'
 		}),
+
+	getLiveTvSeriesTimers: () =>
+		request(`/LiveTv/SeriesTimers`),
+
+	// No bare id fallback here, a series timer is only valid as a fully
+	// populated dto and the defaults call is the only thing that produces one.
+	createLiveTvSeriesTimer: async (programId) => {
+		const payload = {...(await api.getLiveTvTimerDefaults(programId))};
+		if (payload.ProgramId == null) payload.ProgramId = programId;
+		return request(`/LiveTv/SeriesTimers`, {method: 'POST', body: payload});
+	},
+
+	cancelLiveTvSeriesTimer: (seriesTimerId) =>
+		request(`/LiveTv/SeriesTimers/${seriesTimerId}`, {
+			method: 'DELETE'
+		}),
+
+	searchRemote: searchRemoteVia(request),
+
+	applyRemoteSearchResult: applyRemoteSearchResultVia(request),
+
+	refreshItem: refreshItemVia(request),
 
 	deleteItem: (itemId) =>
 		request(`/Items/${itemId}`, {
@@ -539,6 +664,9 @@ export const api = {
 		request(`/Playlists/${playlistId}/Items?EntryIds=${entryIds.join(',')}`, {
 			method: 'DELETE'
 		}),
+
+	createCollection: createCollectionVia(request),
+	addToCollection: addToCollectionVia(request),
 
 	getRemoteImages: (itemId, imageType) =>
 		request(`/Items/${itemId}/RemoteImages?Type=${imageType}&IncludeAllLanguages=true`),
@@ -671,9 +799,10 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 		getResumeItems: () =>
 			serverRequest(`/Users/${userId}/Items/Resume?Limit=12&Recursive=true&Fields=PrimaryImageAspectRatio,Overview,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ProviderIds&MediaTypes=Video&EnableTotalRecordCount=false&ExcludeItemTypes=Book`),
 
-		getNextUp: (limit = 12, seriesId = null) => {
+		getNextUp: (limit = 12, seriesId = null, maxDays = 0) => {
 			let endpoint = `/Shows/NextUp?UserId=${userId}&Limit=${limit}&Fields=PrimaryImageAspectRatio,Overview,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ProviderIds`;
 			if (seriesId) endpoint += `&SeriesId=${seriesId}`;
+			endpoint += nextUpCutoffQuery(seriesId, maxDays, serverTypeOverride);
 			return serverRequest(endpoint);
 		},
 
@@ -722,7 +851,7 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 			serverRequest(`/Items/${itemId}/PlaybackInfo?UserId=${userId}`, {timeoutMs: PLAYBACK_TIMEOUT_MS}),
 
 		getLocalTrailers: (itemId) =>
-			serverRequest(`/Users/${userId}/Items/${itemId}/LocalTrailers`),
+			serverRequest(`/Items/${itemId}/LocalTrailers?userId=${userId}`),
 
 		getStudioCompanies: (tmdbId, mediaType) =>
 			serverRequest(`/Moonfin/Tmdb/ProductionCompanies?tmdbId=${encodeURIComponent(tmdbId)}&type=${mediaType === 'tv' ? 'tv' : 'movie'}`),
@@ -820,6 +949,9 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 				method: 'POST'
 			}),
 
+		createCollection: createCollectionVia(serverRequest),
+		addToCollection: addToCollectionVia(serverRequest),
+
 		removeFromPlaylist: (playlistId, entryIds) =>
 			serverRequest(`/Playlists/${playlistId}/Items?EntryIds=${entryIds.join(',')}`, {
 				method: 'DELETE'
@@ -833,6 +965,15 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 
 		getThemeSongs: (itemId, inheritFromParent = true) =>
 			serverRequest(`/Items/${itemId}/ThemeSongs?UserId=${userId}&InheritFromParent=${inheritFromParent}`),
+
+		getIntros: (itemId) =>
+			serverRequest(`/Users/${userId}/Items/${itemId}/Intros`),
+
+		searchRemote: searchRemoteVia(serverRequest),
+
+		applyRemoteSearchResult: applyRemoteSearchResultVia(serverRequest),
+
+		refreshItem: refreshItemVia(serverRequest),
 
 		getRemoteImages: (itemId, imageType) =>
 			serverRequest(`/Items/${itemId}/RemoteImages?Type=${imageType}&IncludeAllLanguages=true`),

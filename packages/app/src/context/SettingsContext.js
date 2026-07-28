@@ -16,170 +16,9 @@ import {
 
 export {DEFAULT_HOME_ROWS, TV_TO_SERVER_ROW, SERVER_TO_TV_ROW};
 
-const defaultSettings = {
-	preferTranscode: false,
-	forceDirectPlay: false,
-	experimentalTruehd: false,
-	maxBitrate: 0,
-	audioLanguage: '',
-	subtitleLanguage: '',
-	uiLanguage: 'en-US',
-	subtitleMode: 'default',
-	subtitleSize: 'medium',
-	subtitlePosition: 'bottom',
-	subtitleOpacity: 100,
-	subtitleBackground: 0,
-	subtitleBackgroundColor: '#000000',
-	subtitleColor: '#ffffff',
-	subtitleShadowColor: '#000000',
-	subtitleShadowOpacity: 100,
-	subtitleShadowBlur: 0.1,
-	subtitlePositionAbsolute: 90,
-	seekStep: 10,
-	autoPlay: true,
-	theme: 'dark',
-	visualTheme: 'moonfin',
-	customThemeId: '',
-	homeRows: DEFAULT_HOME_ROWS,
-	pluginSections: [],
-	displayFavoritesRows: false,
-	displayCollectionsRows: false,
-	displayGenresRows: false,
-	displayPlaylistsRows: false,
-	// Which rows the music library shows, and how they sort.
-	displayAudioLatest: true,
-	displayAudioLastPlayed: true,
-	displayAudioFavorites: true,
-	displayAudioPlaylists: true,
-	displayAudioAlbumArtists: true,
-	displayAudioArtists: true,
-	displayAudioAlbums: true,
-	audioSortOption: 'name',
-	customHomeRows: [],
-	mergeRadarrSonarrCalendars: false,
-	radarrCalendarShowCinema: true,
-	radarrCalendarShowDigital: true,
-	radarrCalendarShowPhysical: true,
-	radarrCalendarShowDate: true,
-	sonarrCalendarShowDate: true,
-	sonarrCalendarShowEpisodeInfo: true,
-	favoritesRowSortBy: 'SortName',
-	collectionsRowSortBy: 'SortName',
-	genresRowSortBy: 'SortName',
-	genresRowItemFilter: 'all',
-	playlistsRowSortBy: 'SortName',
-	audioRowsSortBy: 'SortName',
-	fullScreenRows: false,
-	showShuffleButton: true,
-	shuffleContentType: 'both',
-	showGenresButton: true,
-	showFavoritesButton: true,
-	showLibrariesInToolbar: true,
-	mergeContinueWatchingNextUp: false,
-	hiddenContinueWatchingItems: null,
-	hiddenNextUpSeries: null,
-	showHomeBackdrop: true,
-	backdropBlurHome: 20,
-	backdropBlurDetail: 20,
-	serverLogging: false,
-	featuredContentType: 'both',
-	featuredItemCount: 10,
-	featuredBarStyle: 'moonfin',
-	featuredTrailerPreview: true,
-	featuredTrailerMuted: false,
-	mediaBarSourceType: 'library',
-	mediaBarLibraryIds: [],
-	mediaBarCollectionIds: [],
-	unifiedLibraryMode: false,
-	useMoonfinPlugin: false,
-	mdblistEnabled: true,
-	mdblistRatingSources: ['stars', 'imdb', 'tmdb', 'tomatoes', 'metacritic'],
-	tmdbEpisodeRatingsEnabled: true,
-	imdbTop250MoviesEnabled: false,
-	imdbTop250TvShowsEnabled: false,
-	imdbMostPopularMoviesEnabled: false,
-	imdbMostPopularTvShowsEnabled: false,
-	imdbLowestRatedMoviesEnabled: false,
-	imdbTopEnglishMoviesEnabled: false,
-	sinceYouWatchedSource: 'local',
-	sinceYouWatchedSourceItem: 'recentlyWatched',
-	sinceYouWatchedSourceType: 'movies',
-	sinceYouWatchedIncludeWatched: false,
-	// Pulled from the server plugin, never pushed back. Empty until synced.
-	tmdbApiKey: '',
-	rewatchIncludeMovies: true,
-	rewatchIncludeShows: true,
-	rewatchIncludeCollections: true,
-	rewatchSortBy: 'recentlyWatched',
-	showClock: true,
-	clockDisplay: '24-hour',
-	autoLogin: true,
-	alwaysAuthenticate: false,
-	pinCodeProtection: false,
-	pinCode: '0000',
-	serverSortBy: 'name',
-	exitConfirmation: true,
-	updateNotificationsEnabled: true,
-	navbarPosition: 'top',
-	screensaverEnabled: true,
-	screensaverTimeout: 90,
-	screensaverDimmingLevel: 50,
-	screensaverShowClock: true,
-	screensaverMode: 'library',
-	watchedIndicatorBehavior: 'always',
-	cardFocusZoom: false,
-	useDetailedSubHeadings: true,
-	useSeriesThumbnails: true,
-	homeRowsPosterSize: 'default',
-	homeRowsImageType: 'poster',
-	homeRowsStyle: 'v2',
-	detailScreenStyle: 'v2',
-	detailExpandedTabs: true,
-	homeRowOverlay: 'off',
-	folderViewMode: 'local',
-	excludedGenres: [],
-	autoAdvance: true,
-	autoAdvanceInterval: 8,
-	nextUpBehavior: 'extended',
-	nextUpCountdownStyle: 'both',
-	nextUpTimeout: 7,
-	stillWatchingPrompt: true,
-	skipForwardLength: 30,
-	unpauseRewind: 0,
-	showDescriptionOnPause: false,
-	introAction: 'ask',
-	outroAction: 'ask',
-	seasonalTheme: 'none',
-	themeMusicEnabled: false,
-	themeMusicVolume: 30,
-	themeMusicOnHomeRows: false,
-	showRatingLabels: true,
-	showRatingBadges: true,
-	screensaverAgeFilter: false,
-	screensaverMaxRating: 13,
-	uiScale: 1.0,
-	enablePgsRendering: true,
-	syncplayEnabled: true,
-	syncplayAutoOpen: false,
-	showSyncPlayButton: true,
-	videoStartDelay: 0,
-	liveTvDirect: false,
-	stereoUpmixEnabled: false,
-	passthroughEnabled: true,
-	ac3Passthrough: true,
-	eac3Passthrough: true,
-	truehdPassthrough: true,
-	blockedRatings: [],
-	showSeerrButton: true,
-	performanceMode: 'auto',
-	focusBorderColor: '',
-	navbarOpacity: 100,
-	navbarColor: '',
-	// webOS TLS proxy fallback: when the WebView rejects a server's certificate
-	// (net::ERR_INSECURE_RESPONSE), allow the bundled Node service to fetch with
-	// certificate validation disabled. Off by default; local-only (not synced).
-	allowInsecureCerts: false
-};
+import {defaultSettings} from './defaultSettings';
+
+export {defaultSettings};
 
 const SERVER_TO_LOCAL = {
 	mediaBarMode: 'featuredBarStyle',
@@ -207,9 +46,10 @@ const SERVER_TO_LOCAL = {
 	syncPlayEnabled: 'syncplayEnabled',
 	syncPlayAutoOpen: 'syncplayAutoOpen',
 	clockBehavior: 'showClock',
-	stillWatchingBehavior: 'stillWatchingPrompt',
 	enableFolderView: 'folderViewMode',
-	homeRowInfoOverlay: 'homeRowOverlay'
+	homeRowInfoOverlay: 'homeRowOverlay',
+	autoplayNextEpisode: 'autoPlay',
+	mediaSegmentCountdown: 'nextUpCountdownStyle'
 };
 const LOCAL_TO_SERVER = Object.fromEntries(
 	Object.entries(SERVER_TO_LOCAL).map(([s, l]) => [l, s])
@@ -266,13 +106,6 @@ const VALUE_CONVERSIONS = {
 		toServer: v => v ? 'always' : 'never',
 		fromServer: v => v !== 'never'
 	},
-	// A toggle here, a duration elsewhere. Turning it off is exact. Turning it on can't say
-	// how long, so it picks the middle option rather than overwriting a chosen duration with
-	// something arbitrary.
-	stillWatchingPrompt: {
-		toServer: v => v ? 'medium' : 'disabled',
-		fromServer: v => v !== 'disabled'
-	},
 	// Three states here against a boolean elsewhere. "Per Library" has no equivalent, so it
 	// declines to push and leaves whatever the server holds.
 	folderViewMode: {
@@ -282,6 +115,11 @@ const VALUE_CONVERSIONS = {
 	homeRowOverlay: {
 		toServer: v => v === 'on',
 		fromServer: v => (v ? 'on' : 'off')
+	},
+	// Seconds here, milliseconds on the other clients.
+	nextUpTimeout: {
+		toServer: v => (typeof v === 'number' ? Math.round(v * 1000) : undefined),
+		fromServer: v => (typeof v === 'number' ? Math.round(v / 1000) : undefined)
 	}
 	// homeRows is missing on purpose. The home layout is two server fields that have to
 	// move together, so it gets resolved whole rather than a key at a time.
@@ -290,6 +128,7 @@ const VALUE_CONVERSIONS = {
 const SYNCABLE_KEYS = [
 	'showShuffleButton', 'shuffleContentType', 'showGenresButton',
 	'showFavoritesButton', 'showLibrariesInToolbar', 'mergeContinueWatchingNextUp',
+	'nextUpMaxDays',
 	'hiddenContinueWatchingItems', 'hiddenNextUpSeries',
 	'mdblistEnabled', 'mdblistRatingSources', 'tmdbEpisodeRatingsEnabled',
 	'imdbTop250MoviesEnabled', 'imdbTop250TvShowsEnabled', 'imdbMostPopularMoviesEnabled',
@@ -308,14 +147,17 @@ const SYNCABLE_KEYS = [
 	'autoAdvance', 'autoAdvanceInterval',
 	'displayFavoritesRows', 'displayCollectionsRows', 'displayGenresRows', 'displayPlaylistsRows',
 	'favoritesRowSortBy', 'collectionsRowSortBy', 'genresRowSortBy', 'genresRowItemFilter',
-	'stillWatchingPrompt', 'watchedIndicatorBehavior',
+	'stillWatchingBehavior', 'watchedIndicatorBehavior',
+	'autoPlay', 'nextUpBehavior', 'nextUpTimeout', 'nextUpCountdownStyle',
+	'replaceSkipOutroWithNextUp',
 	'backdropBlurHome', 'backdropBlurDetail',
 	'mediaBarSourceType', 'mediaBarLibraryIds', 'mediaBarCollectionIds',
 	'homeRows', 'homeRowsStyle', 'detailScreenStyle', 'detailExpandedTabs', 'fullScreenRows', 'homeRowsPosterSize', 'useSeriesThumbnails',
 	'useDetailedSubHeadings',
 	'syncplayEnabled', 'syncplayAutoOpen',
 	'showSyncPlayButton',
-	'videoStartDelay', 'liveTvDirect',
+	'videoStartDelay', 'liveTvDirect', 'cinemaModeEnabled',
+	'diagnosticLoggingEnabled',
 	'uiLanguage',
 	'blockedRatings',
 	'customHomeRows',
@@ -323,6 +165,7 @@ const SYNCABLE_KEYS = [
 	'radarrCalendarShowCinema', 'radarrCalendarShowDigital', 'radarrCalendarShowPhysical',
 	'radarrCalendarShowDate', 'sonarrCalendarShowDate', 'sonarrCalendarShowEpisodeInfo',
 	'showSeerrButton',
+	'detailButtonOrderTv', 'hiddenDetailButtonsTv', 'osdButtonOrderTv', 'hiddenOsdButtonsTv',
 	'focusBorderColor',
 	'navbarOpacity',
 	'navbarColor',
@@ -336,7 +179,11 @@ const profileToLocal = (serverProfile) => {
 		const localKey = SERVER_TO_LOCAL[key] || key;
 		if (SYNCABLE_KEYS.includes(localKey)) {
 			const conv = VALUE_CONVERSIONS[localKey];
-			local[localKey] = conv?.fromServer ? conv.fromServer(value) : value;
+			const converted = conv?.fromServer ? conv.fromServer(value) : value;
+			// A converter returns undefined when the stored value makes no sense here,
+			// so keep what we already have rather than blanking it.
+			if (converted === undefined) continue;
+			local[localKey] = converted;
 		}
 	}
 	// The TMDB key is read only. We pull it so online rows can call TMDB, but it
@@ -405,18 +252,27 @@ const resolveFromEnvelope = (envelope, adminDefaults) => {
 const PUSH_DEBOUNCE_MS = 1000;
 let pushTimer = null;
 let pendingPush = null;
+// Keys the viewer has changed that the server hasn't taken yet. A pull landing in
+// between would otherwise put the old value straight back.
+const unpushedKeys = new Set();
 
 const flushTvProfile = () => {
 	pushTimer = null;
 	if (!pendingPush) return;
 	const {updated, serverUrl, token} = pendingPush;
 	pendingPush = null;
-	saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).catch(e =>
+	const sent = [...unpushedKeys];
+	saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).then(() => {
+		for (const key of sent) unpushedKeys.delete(key);
+	}).catch(e =>
 		console.warn('[Settings] Failed to push TV profile:', e.message)
 	);
 };
 
-const pushTvProfile = (updated, credsRef) => {
+const pushTvProfile = (updated, credsRef, keys) => {
+	for (const key of keys) unpushedKeys.add(key);
+	// Before the first sync there is nowhere to send this, but the keys are still
+	// marked so the pull that follows leaves them alone.
 	if (!credsRef.current) return;
 	const {serverUrl, token} = credsRef.current;
 	pendingPush = {updated, serverUrl, token};
@@ -525,6 +381,13 @@ export function SettingsProvider({children}) {
 					stored.customThemeId = '';
 					migrated = true;
 				}
+				if ('stillWatchingPrompt' in stored) {
+					// Was a toggle that also suppressed the next up prompt. Off keeps the
+					// asking off, on takes the middle count the other clients default to.
+					stored.stillWatchingBehavior = stored.stillWatchingPrompt === false ? 'disabled' : 'medium';
+					delete stored.stillWatchingPrompt;
+					migrated = true;
+				}
 				if ('skipIntro' in stored) {
 					stored.introAction = stored.skipIntro === true ? 'auto' : 'ask';
 					delete stored.skipIntro;
@@ -541,12 +404,13 @@ export function SettingsProvider({children}) {
 					stored.mdblistRatingSources = ['stars', ...stored.mdblistRatingSources];
 					migrated = true;
 				}
-				if (Array.isArray(stored.mdblistRatingSources) && stored.mdblistRatingSources.includes('popcorn')) {
-					// RT audience rating now uses the shared `tomatoes_audience` key
-					// (was the MDBList-native `popcorn`); migrate existing selections
-					// so they keep matching and sync consistently with the server.
+				if (Array.isArray(stored.mdblistRatingSources) &&
+					stored.mdblistRatingSources.some((s) => s === 'popcorn' || s === 'rtAudience')) {
+					// Stored selections can still hold the old `popcorn` or `rtAudience`
+					// ids. Map both to the shared `tomatoes_audience` key so they keep
+					// matching what the ratings row filters on.
 					stored.mdblistRatingSources = stored.mdblistRatingSources.map(
-						(s) => (s === 'popcorn' ? 'tomatoes_audience' : s)
+						(s) => (s === 'popcorn' || s === 'rtAudience' ? 'tomatoes_audience' : s)
 					);
 					migrated = true;
 				}
@@ -557,6 +421,11 @@ export function SettingsProvider({children}) {
 				// async store, so the next boot picks it up
 				persistBootLocale(merged.uiLanguage);
 			}
+			setLoaded(true);
+		}).catch((err) => {
+			// The app shows nothing until this resolves, so a store that fails or a
+			// stored value that wont parse has to fall back rather than hang.
+			console.warn('[Settings] Could not read stored settings:', err?.message || err);
 			setLoaded(true);
 		});
 	}, []);
@@ -606,7 +475,7 @@ export function SettingsProvider({children}) {
 		setSettings(prev => {
 			const updated = {...prev, [key]: value};
 			saveToStorage('settings', updated);
-			if (SYNCABLE_KEYS.includes(key)) pushTvProfile(updated, serverCredsRef);
+			if (SYNCABLE_KEYS.includes(key)) pushTvProfile(updated, serverCredsRef, [key]);
 			return updated;
 		});
 	}, []);
@@ -616,8 +485,9 @@ export function SettingsProvider({children}) {
 		setSettings(prev => {
 			const updated = {...prev, ...newSettings};
 			saveToStorage('settings', updated);
-			if (Object.keys(newSettings).some(k => SYNCABLE_KEYS.includes(k))) {
-				pushTvProfile(updated, serverCredsRef);
+			const syncable = Object.keys(newSettings).filter(k => SYNCABLE_KEYS.includes(k));
+			if (syncable.length > 0) {
+				pushTvProfile(updated, serverCredsRef, syncable);
 			}
 			return updated;
 		});
@@ -630,7 +500,7 @@ export function SettingsProvider({children}) {
 				? {...prev, visualTheme: themeId, customThemeId: ''}
 				: {...prev, visualTheme: prev.visualTheme || 'moonfin', customThemeId: themeId};
 			saveToStorage('settings', updated);
-			pushTvProfile(updated, serverCredsRef);
+			pushTvProfile(updated, serverCredsRef, ['visualTheme', 'customThemeId']);
 			return updated;
 		});
 	}, []);
@@ -712,6 +582,14 @@ export function SettingsProvider({children}) {
 
 			const hasServerValues = resolved.tmdbApiKey !== undefined || SYNCABLE_KEYS.some(key => resolved[key] !== undefined);
 			if (!hasServerValues) return 'empty';
+			// Synced profiles can still contain the old `rtAudience`/`popcorn` ids,
+			// which would never match the `tomatoes_audience` key the ratings row
+			// filters on.
+			if (Array.isArray(resolved.mdblistRatingSources)) {
+				resolved.mdblistRatingSources = resolved.mdblistRatingSources.map(
+					(s) => (s === 'popcorn' || s === 'rtAudience' ? 'tomatoes_audience' : s)
+				);
+			}
 			setSettings(prev => {
 				const nextValues = {};
 				for (const key of SYNCABLE_KEYS) {
@@ -719,7 +597,9 @@ export function SettingsProvider({children}) {
 					// Hold on to the previous reference when the value hasn't really changed.
 					// An equal but freshly built array still counts as a new identity, which
 					// would send Browse off to reload every row on every sync.
-					nextValues[key] = incoming === undefined || sameSyncedValue(incoming, prev[key])
+					// A key the viewer has changed but the server hasn't taken yet keeps the
+					// local value, because what came back is the one they just replaced.
+					nextValues[key] = incoming === undefined || unpushedKeys.has(key) || sameSyncedValue(incoming, prev[key])
 						? prev[key]
 						: incoming;
 				}
@@ -774,6 +654,11 @@ export function SettingsProvider({children}) {
 	// pass the pull only runs while the user keeps the plugin enabled.
 	const syncOnLogin = useCallback(async (serverUrl, token) => {
 		if (!serverUrl || !token) return;
+		// Known before any of the network work below, so a change made while that
+		// runs still has somewhere to go. Marks left over from another server were
+		// for that server's profile and would only hold this one's values back.
+		if (serverCredsRef.current?.serverUrl !== serverUrl) unpushedKeys.clear();
+		serverCredsRef.current = {serverUrl, token};
 		const key = normalizeServerKey(serverUrl);
 		if (!key || syncOnLoginRef.current[key]) return;
 		syncOnLoginRef.current[key] = true;

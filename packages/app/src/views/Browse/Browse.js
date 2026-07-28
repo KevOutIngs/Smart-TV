@@ -6,6 +6,7 @@ import {useSettings, TV_TO_SERVER_ROW, SERVER_TO_TV_ROW} from '../../context/Set
 import {useSeerr} from '../../context/SeerrContext';
 import {ClassicMediaRow, ModernMediaRow} from '../../components/MediaRow';
 import SeerrTileRow from '../../components/SeerrTileRow';
+import LibraryButtonRow from '../../components/LibraryButtonRow';
 import {getSeerrHomeRowConfigs, fetchSeerrHomeRow, SEERR_SECTION_TO_CONFIG} from '../../utils/seerrHomeRows';
 import {getExternalHomeRowConfigs, fetchExternalPresetRow, fetchCustomHomeRow, fetchCalendarRows} from '../../utils/externalHomeRows';
 import {mergeRowPreservingRefs} from '../../utils/volatileRows';
@@ -310,7 +311,7 @@ const Browse = ({
 	onLeaveThemeMusic
 }) => {
 	const {api, serverUrl, accessToken, hasMultipleServers, user} = useAuth();
-	const {settings, activeTheme} = useSettings();
+	const {settings, activeTheme, loaded: settingsLoaded} = useSettings();
 	const {isEnabled: seerrEnabled, isAuthenticated: seerrAuthenticated, user: seerrUser} = useSeerr();
 	const seerrUserId = seerrUser?.seerrUserId;
 	const [seerrRows, setSeerrRows] = useState([]);
@@ -433,14 +434,14 @@ const Browse = ({
 			if (unifiedMode) {
 				[resumeItems, nextUp] = await Promise.all([
 					connectionPool.getResumeItemsFromAllServers(),
-					connectionPool.getNextUpFromAllServers()
+					connectionPool.getNextUpFromAllServers(settings.nextUpMaxDays)
 				]);
 				resumeItems = {Items: resumeItems};
 				nextUp = {Items: nextUp};
 			} else {
 				[resumeItems, nextUp] = await Promise.all([
 					api.getResumeItems(),
-					api.getNextUp()
+					api.getNextUp(24, null, settings.nextUpMaxDays)
 				]);
 			}
 
@@ -476,7 +477,7 @@ const Browse = ({
 		} catch (e) {
 			console.warn('[Browse] Background refresh failed:', e);
 		}
-	}, [api, unifiedMode, saveBrowseCache]); // eslint-disable-line no-use-before-define
+	}, [api, unifiedMode, saveBrowseCache, settings.nextUpMaxDays]); // eslint-disable-line no-use-before-define
 
 	const uiPanelStyle = useMemo(() => {
 		return {
@@ -677,6 +678,7 @@ const Browse = ({
 			if (row.id === 'resume' || row.id === 'continue-nextup') title = $L('Continue Watching');
 			else if (row.id === 'nextup') title = $L('Next Up');
 			else if (row.id === 'library-tiles') title = $L('My Media');
+			else if (row.id === 'librarybuttons') title = $L('Library Buttons');
 			else if (row.id === 'collections') title = $L('Collections');
 			else if (row.id === 'genres') title = $L('Genres');
 			else if (row.id === 'playlists') title = $L('Playlists');
@@ -1024,7 +1026,7 @@ const Browse = ({
 					const [libsArray, resumeArray, nextUpArray] = await Promise.all([
 						connectionPool.getLibrariesFromAllServers(),
 						connectionPool.getResumeItemsFromAllServers(),
-						connectionPool.getNextUpFromAllServers()
+						connectionPool.getNextUpFromAllServers(settings.nextUpMaxDays)
 					]);
 					libs = libsArray;
 					resumeItems = {Items: resumeArray};
@@ -1036,7 +1038,7 @@ const Browse = ({
 					const results = await Promise.all([
 						api.getLibraries().catch(() => ({Items: []})),
 						api.getResumeItems().catch(() => ({Items: []})),
-						api.getNextUp().catch(() => ({Items: []})),
+						api.getNextUp(24, null, settings.nextUpMaxDays).catch(() => ({Items: []})),
 						api.getUserConfiguration().catch(() => null),
 						settings.mergeContinueWatchingNextUp ? api.getItems({
 							IncludeItemTypes: 'Episode',
@@ -1082,16 +1084,28 @@ const Browse = ({
 				if (libs.length > 0) {
 					const visibleLibs = libs.filter(lib => !EXCLUDED_COLLECTION_TYPES.includes(lib.CollectionType?.toLowerCase()));
 					if (visibleLibs.length > 0) {
+						const libraryItems = visibleLibs.map(lib => ({
+							...lib,
+							Type: 'CollectionFolder',
+							isLibraryTile: true
+						}));
 						rowData.push({
 							id: 'library-tiles',
 							title: $L('My Media'),
-							items: visibleLibs.map(lib => ({
-								...lib,
-								Type: 'CollectionFolder',
-								isLibraryTile: true
-							})),
+							items: libraryItems,
 							type: 'landscape',
 							isLibraryRow: true
+						});
+						// The same libraries drawn as icon buttons instead of artwork tiles.
+						// Like every other row here it is built either way and dropped
+						// later if the user has not enabled it.
+						rowData.push({
+							id: 'librarybuttons',
+							title: $L('Library Buttons'),
+							items: libraryItems,
+							type: 'square',
+							isLibraryRow: true,
+							isButtonRow: true
 						});
 					}
 
@@ -1728,6 +1742,7 @@ const Browse = ({
 		settings.uiLanguage,
 		settings.pluginSections,
 		settings.mergeContinueWatchingNextUp,
+		settings.nextUpMaxDays,
 		settings.sinceYouWatchedSource,
 		settings.sinceYouWatchedSourceItem,
 		settings.sinceYouWatchedSourceType,
@@ -2038,9 +2053,11 @@ const Browse = ({
 					settings.featuredBarStyle === 'gallery' ? (
 						<GalleryBanner
 							isVisible={browseMode === 'featured'}
+							browseVisible={isVisible}
 							featuredItems={featuredItems}
 							api={api}
 							settings={settings}
+							settingsLoaded={settingsLoaded}
 							getItemServerUrl={getItemServerUrl}
 							onSelectItem={handleSelectItem}
 							onNavigateDown={handleNavigateDownFromFeatured}
@@ -2080,10 +2097,12 @@ const Browse = ({
 					) : (
 						<FeaturedBanner
 							isVisible={browseMode === 'featured'}
+							browseVisible={isVisible}
 							featuredItems={featuredItems}
 							serverUrl={serverUrl}
 							api={api}
 							settings={settings}
+							settingsLoaded={settingsLoaded}
 							getItemServerUrl={getItemServerUrl}
 							onSelectItem={handleSelectItem}
 							onNavigateDown={handleNavigateDownFromFeatured}
@@ -2110,6 +2129,23 @@ const Browse = ({
 					className={`${css.contentRows} ${browseMode === 'rows' ? css.rowsMode : ''}`}
 				>
 					{filteredRows.map((row, index) => {
+						if (row.isButtonRow) {
+							return (
+								<LibraryButtonRow
+									key={row.id}
+									rowId={row.id}
+									title={row.title}
+									items={row.items}
+									onSelectItem={handleSelectItem}
+									onFocus={handleRowFocus}
+									onFocusItem={handleFocusItem}
+									rowIndex={index}
+									onNavigateUp={handleNavigateUp}
+									onNavigateDown={handleNavigateDown}
+									registerRowRef={registerRowRef}
+								/>
+							);
+						}
 						if (row.isTileRow) {
 							return (
 								<SeerrTileRow

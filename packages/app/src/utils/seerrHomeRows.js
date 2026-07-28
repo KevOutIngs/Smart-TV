@@ -29,6 +29,7 @@ export const MOVIE_STUDIOS = [
 
 export const getSeerrHomeRowConfigs = () => [
 	{id: 'myRequests', title: $L('Recent Requests'), type: 'request', cardType: 'portrait'},
+	{id: 'yourWatchlist', title: $L('Your Watchlist'), type: 'media', cardType: 'portrait'},
 	{id: 'recentlyAdded', title: $L('Recently Added'), type: 'media', cardType: 'portrait'},
 	{id: 'trending', title: $L('Trending Now'), type: 'media', cardType: 'portrait'},
 	{id: 'popularMovies', title: $L('Popular Movies'), type: 'media', cardType: 'portrait'},
@@ -45,6 +46,7 @@ export const getSeerrHomeRowConfigs = () => [
 // so seerr rows share the unified home layout with the built-in rows.
 export const SEERR_SECTION_TO_CONFIG = {
 	seerr_recent_requests: 'myRequests',
+	seerr_watchlist: 'yourWatchlist',
 	seerr_recently_added: 'recentlyAdded',
 	seerr_trending: 'trending',
 	seerr_popular_movies: 'popularMovies',
@@ -142,6 +144,10 @@ export const fetchSeerrHomeRow = async (rowId, {userId} = {}) => {
 				return ((await seerrApi.trending(1)).results || []).slice(0, HOME_ROW_LIMIT).map(normalizeMediaItem);
 			case 'recentlyAdded':
 				return ((await seerrApi.getRecentlyAdded(HOME_ROW_LIMIT)).results || []).map(normalizeMediaItem);
+			case 'yourWatchlist':
+				// getWatchlist already remaps tmdbId/media onto the shape
+				// normalizeMediaItem expects.
+				return ((await seerrApi.getWatchlist(1)).results || []).slice(0, HOME_ROW_LIMIT).map(normalizeMediaItem);
 			case 'popularMovies':
 				return ((await seerrApi.trendingMovies(1)).results || []).slice(0, HOME_ROW_LIMIT).map(normalizeMediaItem);
 			case 'popularTv':

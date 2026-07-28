@@ -546,8 +546,16 @@ export const getJellyfinDeviceProfile = async () => {
 	}
 
 	directPlayProfiles.push({
-		Container: 'mp3,flac,aac,m4a,ogg,opus,wav',
+		Container: 'mp3,flac,aac,ogg,opus,wav',
 		Type: 'Audio'
+	});
+
+	// m4a and m4b hold either AAC or ALAC. With the codec left open the server
+	// direct played ALAC into AVPlay, which freezes partway through a track.
+	directPlayProfiles.push({
+		Container: 'm4a,m4b',
+		Type: 'Audio',
+		AudioCodec: 'aac'
 	});
 
 	if (caps.nativeHls) {

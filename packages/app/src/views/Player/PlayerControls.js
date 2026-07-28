@@ -13,16 +13,20 @@ import {
 	formatTime, formatEndTime, PLAYBACK_RATES, getQualityPresets,
 	IconPlay, IconPause, IconRewind, IconForward, IconSubtitle, IconSubtitleOff, IconAudio,
 	IconChapters, IconPrevious, IconNext, PlaybackRateLabel, IconQuality, IconInfo, IconCast, IconZoom,
-	IconShuffle, IconRepeat, IconRepeatOne
+	IconShuffle, IconRepeat, IconRepeatOne, IconSleep
 } from './PlayerConstants';
+import {SLEEP_TIMER_MINUTES} from './useSleepTimer';
+import {arrange, OSD_ORDER_KEY, OSD_HIDDEN_KEY} from '../../utils/buttonLayout';
 import { useSettings } from '../../context/SettingsContext';
 
 export const usePlayerButtons = ({
 	isPaused, audioStreams, subtitleStreams, chapters,
 	nextEpisode, isAudioMode, isLiveTV, hasNextTrack, hasPrevTrack,
 	shuffleMode, repeatMode, playbackRate, selectedQuality,
-	selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey
+	selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey,
+	sleepMinutes
 }) => {
+	const {settings} = useSettings();
 	const topButtons = useMemo(() => {
 		if (isAudioMode) {
 			return [
@@ -62,30 +66,38 @@ export const usePlayerButtons = ({
 		return buttons;
 	}, [isPaused, isAudioMode, isLiveTV, nextEpisode, hasNextTrack, hasPrevTrack, shuffleMode, repeatMode]);
 
+	const osdOrder = settings[OSD_ORDER_KEY];
+	const osdHidden = settings[OSD_HIDDEN_KEY];
+
 	const bottomButtons = useMemo(() => {
 		if (isAudioMode) {
 			return [];
 		}
+		// Declaration order is where a button the user never placed ends up, so keep it stable.
 		if (isLiveTV) {
-			return [
-				...((subtitleStreams.length > 0 || canDownloadRemoteSubtitles) ? [{id: 'subtitle', icon: (selectedSubtitleIndex >= 0 ? <IconSubtitle /> : <IconSubtitleOff />), label: $L('Subtitles'), action: 'subtitle'}] : []),
+			return arrange([
+				...((subtitleStreams.length > 0 || canDownloadRemoteSubtitles) ? [{id: 'subtitles', icon: (selectedSubtitleIndex >= 0 ? <IconSubtitle /> : <IconSubtitleOff />), label: $L('Subtitles'), action: 'subtitle'}] : []),
 				...(audioStreams.length > 1 ? [{id: 'audio', icon: <IconAudio />, label: $L('Audio'), action: 'audio'}] : []),
 				{id: 'quality', icon: <IconQuality />, label: $L('Playback Quality'), action: 'quality'},
 				{id: 'zoom', icon: <IconZoom />, label: $L('Zoom').concat(` (${zoomModeLabel})`), action: 'zoom', active: zoomModeKey !== 'fit'},
+				{id: 'sleep', icon: <IconSleep />, label: $L('Sleep Timer'), action: 'sleep', active: sleepMinutes != null},
 				{id: 'info', icon: <IconInfo />, label: $L('Playback Information'), action: 'info'}
-			];
+			], {order: osdOrder, hidden: osdHidden});
 		}
-		return [
+		return arrange([
 			{id: 'speed', icon: <PlaybackRateLabel value={playbackRate} />, label: $L('Playback Speed'), action: 'speed', active: playbackRate !== 1},
 			...(chapters.length > 0 ? [{id: 'chapters', icon: <IconChapters />, label: $L('Chapters'), action: 'chapter'}] : []),
-			...((subtitleStreams.length > 0 || canDownloadRemoteSubtitles) ? [{id: 'subtitle', icon: (selectedSubtitleIndex >= 0 ? <IconSubtitle /> : <IconSubtitleOff />), label: $L('Subtitles'), action: 'subtitle'}] : []),
+			...((subtitleStreams.length > 0 || canDownloadRemoteSubtitles) ? [{id: 'subtitles', icon: (selectedSubtitleIndex >= 0 ? <IconSubtitle /> : <IconSubtitleOff />), label: $L('Subtitles'), action: 'subtitle'}] : []),
 			...(audioStreams.length > 1 ? [{id: 'audio', icon: <IconAudio />, label: $L('Audio'), action: 'audio'}] : []),
-			{id: 'cast', icon: <IconCast />, label: $L('Cast and Crew'), action: 'cast', disabled: !hasCastMembers},
+			// Core calls this castAndCrew and keeps cast for Chromecast, so hiding one there
+			// must not take the other away here.
+			{id: 'castAndCrew', icon: <IconCast />, label: $L('Cast and Crew'), action: 'cast', disabled: !hasCastMembers},
 			{id: 'quality', icon: <IconQuality />, label: $L('Playback Quality'), action: 'quality', active: selectedQuality != null},
 			{id: 'zoom', icon: <IconZoom />, label: $L('Zoom').concat(` (${zoomModeLabel})`), action: 'zoom', active: zoomModeKey !== 'fit'},
+			{id: 'sleep', icon: <IconSleep />, label: $L('Sleep Timer'), action: 'sleep', active: sleepMinutes != null},
 			{id: 'info', icon: <IconInfo />, label: $L('Playback Information'), action: 'info'}
-		];
-	}, [audioStreams.length, chapters.length, subtitleStreams.length, isAudioMode, isLiveTV, playbackRate, selectedQuality, selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey]);
+		], {order: osdOrder, hidden: osdHidden});
+	}, [audioStreams.length, chapters.length, subtitleStreams.length, isAudioMode, isLiveTV, playbackRate, selectedQuality, selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey, sleepMinutes, osdOrder, osdHidden]);
 
 	return {topButtons, bottomButtons};
 };
@@ -175,17 +187,18 @@ const PlayerControls = ({
 	chapters,
 	currentTime,
 	subtitleOffset,
-	showSkipIntro,
 	handleControlButtonClick,
 	handleProgressClick,
 	handleProgressKeyDown,
 	handleProgressBlur,
-	handleSkipIntro,
 	handleSelectAudio,
 	handleSelectSubtitle,
 	handleSubtitleKeyDown,
 	handleSelectSpeed,
 	speedCaveat,
+	handleSelectSleep,
+	sleepMinutes,
+	sleepRemainingSeconds,
 	handleSelectQuality,
 	handleSelectChapter,
 	handleSelectCastMember,
@@ -257,14 +270,6 @@ const PlayerControls = ({
 
 	return (
 		<>
-			{showSkipIntro && !isAudioMode && !isLiveTV && !activeModal && !controlsVisible && (
-				<div className={css.skipOverlay}>
-					<SpottableButton className={css.skipButton} onClick={handleSkipIntro} spotlightId="skip-intro-btn">
-						{$L('Skip Intro')}
-					</SpottableButton>
-				</div>
-			)}
-
 			<div className={`${css.playerControls} ${controlsVisible && !activeModal ? css.visible : ''} ${isAudioMode ? css.audioControls : ''}`}>
 				{!isAudioMode && (
 				<div className={css.controlsTop}>
@@ -451,6 +456,41 @@ const PlayerControls = ({
 							))}
 						</div>
 						{speedCaveat && <p className={css.modalFooter}>{speedCaveat}</p>}
+						<p className={css.modalFooter}>{$L('Press BACK to close')}</p>
+					</ModalContainer>
+				</div>
+			)}
+
+			{activeModal === 'sleep' && (
+				<div className={css.trackModal} onClick={closeModal}>
+					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="sleep" spotlightId="sleep-modal">
+						<h2 className={css.modalTitle}>{$L('Sleep Timer')}</h2>
+						<div className={css.trackList}>
+							<SpottableButton
+								className={`${css.trackItem} ${sleepMinutes == null ? css.selected : ''}`}
+								data-minutes="0"
+								data-selected={sleepMinutes == null ? 'true' : undefined}
+								onClick={handleSelectSleep}
+							>
+								<span className={css.trackName}>{$L('Off')}</span>
+							</SpottableButton>
+							{SLEEP_TIMER_MINUTES.map((minutes) => (
+								<SpottableButton
+									key={minutes}
+									className={`${css.trackItem} ${minutes === sleepMinutes ? css.selected : ''}`}
+									data-minutes={minutes}
+									data-selected={minutes === sleepMinutes ? 'true' : undefined}
+									onClick={handleSelectSleep}
+								>
+									<span className={css.trackName}>{$L('{count} minutes').replace('{count}', minutes)}</span>
+								</SpottableButton>
+							))}
+						</div>
+						{sleepMinutes != null && sleepRemainingSeconds > 0 && (
+							<p className={css.modalFooter}>
+								{$L('Stopping in {time}').replace('{time}', formatTime(sleepRemainingSeconds))}
+							</p>
+						)}
 						<p className={css.modalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>

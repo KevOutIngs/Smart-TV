@@ -22,7 +22,10 @@ const Games = ({library, onSelectGame, onHome, backHandlerRef}) => {
 
 	useEffect(() => {
 		let cancelled = false;
-		if (!libraryId) return undefined;
+		if (!libraryId) {
+			setLoading(false);
+			return undefined;
+		}
 		setLoading(true);
 		Promise.all([gamesApi.getSystems(libraryId), gamesApi.getGames(libraryId)])
 			.then(([sys, all]) => {
@@ -38,7 +41,10 @@ const Games = ({library, onSelectGame, onHome, backHandlerRef}) => {
 			})
 			.catch((e) => {
 				if (cancelled) return;
-				setError(e.message || $L('Failed to load games'));
+				// A 404 means the server has no Moonfin plugin, which is worth saying plainly.
+				setError(e?.status === 404
+					? $L('This server does not have the Moonfin plugin installed.')
+					: e?.message || $L('Failed to load games'));
 				setLoading(false);
 			});
 		return () => { cancelled = true; };

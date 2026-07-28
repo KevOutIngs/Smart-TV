@@ -14,20 +14,30 @@ import DetailsTabBar from '../../components/DetailsTabBar';
 import GameCard from '../../components/GameCard';
 import {KEYS} from '../../utils/keys';
 import {getImageUrl} from '../../utils/helpers';
-import {isGameLibrary} from '../../utils/gameLibrary';
+import {isGameLibrary, resolveGameLibraryId} from '../../utils/gameLibrary';
 import {groupSearchResults, aspectClassForType, isCircleType, filterByName, fetchAllGames, filterGames} from '../../utils/searchGroups';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
+import useStorage from '../../hooks/useStorage';
 
 import css from './Search.module.less';
 
 const SpottableDiv = Spottable('div');
+const SpottableButton = Spottable('button');
 const RowContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-first'}, 'div');
 const GridContainer = SpotlightContainerDecorator({enterTo: 'last-focused', leaveFor: {up: 'search-tabs'}}, 'div');
+// Without a default element, entering the container lands on Clear, since that
+// is first in the DOM. Point it at the chips so arriving here offers a search.
+const RecentContainer = SpotlightContainerDecorator({
+	enterTo: 'last-focused',
+	defaultElement: '[data-recent-chip]'
+}, 'div');
 
 const SEARCH_DEBOUNCE_MS = 400;
 const MIN_SEARCH_LENGTH = 2;
 const GLOBAL_FETCH_LIMIT = 240;
 const SEERR_CAP = 24;
+const RECENT_SEARCHES_KEY = 'search_recentQueries';
+const RECENT_SEARCHES_MAX = 10;
 
 const SearchIcon = () => (
 	<svg viewBox="0 0 24 24" fill="currentColor" className={css.searchIcon}>
@@ -72,6 +82,14 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 	const [seerrResults, setSeerrResults] = useState([]);
 	const [gameResults, setGameResults] = useState([]);
 	const [activeTab, setActiveTab] = useState('all');
+	const [recentSearches, saveRecentSearches] = useStorage(RECENT_SEARCHES_KEY, []);
+
+	// doSearch records into this list, so it reads the current value through a
+	// ref rather than taking a dependency that would rebuild it on every search.
+	const recentSearchesRef = useRef(recentSearches);
+	useEffect(() => {
+		recentSearchesRef.current = recentSearches;
+	}, [recentSearches]);
 
 	const debounceRef = useRef(null);
 	const requestIdRef = useRef(0);
@@ -88,7 +106,9 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 				const views = await api.getLibraries();
 				if (cancelled) return;
 				const libs = views?.Items || [];
-				gameLibrariesRef.current = libs.filter((lib) => isGameLibrary(lib.CollectionType, lib.Name));
+				gameLibrariesRef.current = libs
+					.filter((lib) => isGameLibrary(lib.Id, lib.CollectionType, lib.Name))
+					.map((lib) => ({...lib, Id: resolveGameLibraryId(lib)}));
 				hasLiveTvRef.current = libs.some((lib) => lib.CollectionType === 'livetv');
 			} catch (_err) {
 				void _err;
@@ -106,6 +126,18 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 			Spotlight.focus('search-tabs');
 		}
 	}, []);
+
+	// Recorded once a search actually returns, so the half-typed prefixes that
+	// the debounce fires along the way never reach the list.
+	const rememberSearch = useCallback((q) => {
+		const trimmed = q.trim();
+		if (!trimmed) return;
+		const current = recentSearchesRef.current || [];
+		const deduped = current.filter((entry) => entry.toLowerCase() !== trimmed.toLowerCase());
+		const next = [trimmed, ...deduped].slice(0, RECENT_SEARCHES_MAX);
+		recentSearchesRef.current = next;
+		saveRecentSearches(next);
+	}, [saveRecentSearches]);
 
 	const doSearch = useCallback(async (searchQuery) => {
 		const q = (searchQuery || '').trim();
@@ -134,6 +166,7 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 			const items = [...(libraryResult.Items || []), ...filterByName(channels, q)];
 			setGroups(groupSearchResults(items));
 			setIsLoading(false);
+			rememberSearch(q);
 			// A new query always starts on All. Focus it once the tabs render, unless
 			// the user is still typing, in which case Spotlight is paused and the
 			// input keeps focus until they press down.
@@ -170,7 +203,7 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 			setGameResults([]);
 			setIsLoading(false);
 		}
-	}, [api, seerrEnabled, seerrApi, unifiedMode, focusAllTab]);
+	}, [api, seerrEnabled, seerrApi, unifiedMode, focusAllTab, rememberSearch]);
 
 	const handleInputChange = useCallback((e) => {
 		let value = e.target.value;
@@ -187,6 +220,22 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 		setGameResults([]);
 		Spotlight.focus('search-input');
 	}, []);
+
+	// Picking a past query runs it straight away. The debounce only exists to
+	// throttle typing, and there is nothing left to wait for here.
+	const handleSelectRecent = useCallback((e) => {
+		const term = e.currentTarget.dataset.term;
+		if (!term) return;
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		setQuery(term);
+		doSearch(term);
+	}, [doSearch]);
+
+	const handleClearRecent = useCallback(() => {
+		recentSearchesRef.current = [];
+		saveRecentSearches([]);
+		Spotlight.focus('search-input');
+	}, [saveRecentSearches]);
 
 	const totalCount = useMemo(() => (
 		groups.reduce((sum, g) => sum + g.items.length, 0) + seerrResults.length + gameResults.length
@@ -224,13 +273,21 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 
 	useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
+	const showRecent = !hasResults &&
+		query.trim().length < MIN_SEARCH_LENGTH &&
+		(recentSearches?.length || 0) > 0;
+
 	// D-pad hand-offs between the input, the tabs and the content.
 	const handleInputKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.DOWN && hasResults) {
+		if (e.keyCode !== KEYS.DOWN) return;
+		if (hasResults) {
 			e.preventDefault();
 			focusAllTab();
+		} else if (showRecent) {
+			e.preventDefault();
+			Spotlight.focus('search-recent');
 		}
-	}, [hasResults, focusAllTab]);
+	}, [hasResults, showRecent, focusAllTab]);
 
 	const focusContent = useCallback(() => {
 		Spotlight.focus(activeTab === 'all' ? 'search-row-0' : 'search-grid');
@@ -468,6 +525,28 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 
 				{isLoading && !hasResults ? (
 					<div className={css.loadingIndicator}><LoadingSpinner /><p>{$L('Searching...')}</p></div>
+				) : showRecent ? (
+					<RecentContainer className={css.recentSection} spotlightId="search-recent">
+						<div className={css.recentHeader}>
+							<h2 className={css.recentTitle}>{$L('Recent Searches')}</h2>
+							<SpottableButton className={css.recentClear} onClick={handleClearRecent}>
+								{$L('Clear')}
+							</SpottableButton>
+						</div>
+						<div className={css.recentList}>
+							{recentSearches.map((term) => (
+								<SpottableButton
+									key={term}
+									className={css.recentChip}
+									data-recent-chip
+									data-term={term}
+									onClick={handleSelectRecent}
+								>
+									{term}
+								</SpottableButton>
+							))}
+						</div>
+					</RecentContainer>
 				) : !query || query.length < MIN_SEARCH_LENGTH ? (
 					<div className={css.emptyState}>
 						<SearchIcon />

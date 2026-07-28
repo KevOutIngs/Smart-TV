@@ -161,8 +161,6 @@ export const SyncPlayProvider = ({children}) => {
 		sendPause: syncPlayService.sendPauseRequest,
 		sendStop: syncPlayService.sendStopRequest,
 		sendSeek: syncPlayService.sendSeekRequest,
-		sendBuffering: syncPlayService.sendBufferingRequest,
-		sendReady: syncPlayService.sendReadyRequest,
 		setNewQueue: syncPlayService.setNewQueue,
 		setPlaylistItem: syncPlayService.setPlaylistItem,
 		removeFromPlaylist: syncPlayService.removeFromPlaylist,

@@ -10,6 +10,8 @@ import ilib from 'ilib';
 import {AuthProvider, useAuth} from '../context/AuthContext';
 import {useSettings} from '../context/SettingsContext';
 import * as connectionPool from '../services/connectionPool';
+import * as jellyfinApi from '../services/jellyfinApi';
+import serverLogger from '../services/serverLogger';
 import {isBackKey, KEYS} from '../utils/keys';
 import {applyPerfTier} from '../utils/perfTier';
 import {isTizen, isWebOS} from '../platform';
@@ -41,7 +43,7 @@ import {useThemeMusic} from '../hooks/useThemeMusic';
 import {buildThemeCssVars, toSafeRgbTriplet} from '../theme/themeSpec';
 import Login from '../views/Login';
 import Browse from '../views/Browse';
-import {isGameLibrary} from '../utils/gameLibrary';
+import {isGameLibrary, refreshGameLibraries, resolveGameLibraryId} from '../utils/gameLibrary';
 
 const Details = lazy(() => import('../views/Details'));
 const Library = lazy(() => import('../views/Library'));
@@ -123,7 +125,7 @@ const PANELS = {
 
 const AppContent = (props) => {
 	const {isAuthenticated, isLoading, logout, serverUrl, serverName, api, user, hasMultipleServers, accessToken, connectionState, revalidateSession} = useAuth();
-	const {settings, activeTheme, syncOnLogin} = useSettings();
+	const {settings, activeTheme, syncOnLogin, loaded: settingsLoaded} = useSettings();
 	const {streamNotification, dismissStreamNotification, adminMessage, dismissAdminMessage} = useSeerr();
 	const themeMusic = useThemeMusic();
 	const {openDialog: openSyncPlay, closeDialog: closeSyncPlay, isDialogOpen: syncPlayDialogOpen, playQueueItem, clearPlayQueueItem, isInGroup: isSyncPlayInGroup, setNewQueue: syncPlaySetNewQueue, displayMessage: syncPlayMessage, clearDisplayMessage: clearSyncPlayMessage} = useSyncPlay();
@@ -201,6 +203,23 @@ const AppContent = (props) => {
 		window.dispatchEvent(new CustomEvent('moonfin:screensaver', {detail: {active: showScreensaver}}));
 	}, [showScreensaver]);
 
+	// The logging switches used to reach the logger only from the settings toggle, so
+	// turning one on and restarting the TV left it doing nothing until Settings was opened
+	// again. Following the settings here is what makes them survive a restart.
+	useEffect(() => {
+		serverLogger.init({
+			getAuth: () => ({serverUrl: jellyfinApi.getServerUrl(), accessToken: jellyfinApi.getApiKey()})
+		});
+	}, []);
+
+	useEffect(() => {
+		serverLogger.setEnabled(settings.serverLogging === true);
+	}, [settings.serverLogging]);
+
+	useEffect(() => {
+		serverLogger.setRecording(settings.diagnosticLoggingEnabled === true);
+	}, [settings.diagnosticLoggingEnabled]);
+
 	useEffect(() => {
 		if (!isAuthenticated) {
 			setIsPinUnlocked(false);
@@ -251,6 +270,9 @@ const AppContent = (props) => {
 				}
 				libs.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
 				setLibraries(libs);
+				// Warm the plugin's game library list so selecting a tile can tell a game
+				// library from a normal one without waiting on a request.
+				refreshGameLibraries();
 			} catch (err) {
 				console.error('Failed to fetch libraries:', err);
 			}
@@ -641,8 +663,10 @@ const AppContent = (props) => {
 			navigateTo(PANELS.LIVETV);
 			return;
 		}
-		if (isGameLibrary(library.CollectionType, library.Name)) {
-			setSelectedGameLibrary(library);
+		if (isGameLibrary(library.Id, library.CollectionType, library.Name)) {
+			// Every /Moonfin/Games call matches on the plugin's id, which is not always the
+			// user-view id this library arrived with.
+			setSelectedGameLibrary({...library, Id: resolveGameLibraryId(library)});
 			navigateTo(PANELS.GAMES);
 			return;
 		}
@@ -947,7 +971,10 @@ const AppContent = (props) => {
 		}
 	}, [handlePinSubmit]);
 
-	if (isLoading || !authChecked) {
+	// Stored settings have to be in before anything renders, because
+	// pinCodeProtection reads as off until then and a protected profile would
+	// come up unlocked.
+	if (isLoading || !authChecked || !settingsLoaded) {
 		return (
 			<div className={css.loading}>
 				<LoadingSpinner />
@@ -1184,15 +1211,6 @@ const AppContent = (props) => {
 						)}
 					</Panel>
 					<Panel>
-						{panelIndex === PANELS.SEERR_COLLECTION && (
-							<SeerrCollection
-								collectionId={seerrCollection?.collectionId}
-								onSelectItem={handleSelectSeerrItem}
-								backHandlerRef={backHandlerRef}
-							/>
-						)}
-					</Panel>
-					<Panel>
 						{panelIndex === PANELS.GENRE_BROWSE && (
 							<GenreBrowse
 								genre={selectedGenre}
@@ -1276,6 +1294,17 @@ const AppContent = (props) => {
 								game={selectedGame}
 								startFresh={gameStartFresh}
 								onBack={handleBack}
+								backHandlerRef={backHandlerRef}
+							/>
+						)}
+					</Panel>
+					{/* Keep this last. Panels renders only children[panelIndex], so every
+					    Panel's position here has to match its PANELS value. */}
+					<Panel>
+						{panelIndex === PANELS.SEERR_COLLECTION && (
+							<SeerrCollection
+								collectionId={seerrCollection?.collectionId}
+								onSelectItem={handleSelectSeerrItem}
 								backHandlerRef={backHandlerRef}
 							/>
 						)}

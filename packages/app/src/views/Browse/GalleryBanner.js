@@ -1,4 +1,5 @@
 import {useState, useEffect, useCallback, useRef, memo} from 'react';
+import {isMdblistEnabled} from '../../services/mdblistApi';
 import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import $L from '@enact/i18n/$L';
@@ -23,9 +24,11 @@ const padIndex = (n) => String(n + 1).padStart(2, '0');
 
 const GalleryBanner = memo(({
 	isVisible,
+	browseVisible = true,
 	featuredItems,
 	api,
 	settings,
+	settingsLoaded,
 	getItemServerUrl,
 	onSelectItem,
 	onNavigateDown,
@@ -42,13 +45,22 @@ const GalleryBanner = memo(({
 	const safeIndex = Math.min(activeIndex, Math.max(0, featuredItems.length - 1));
 	const currentFeatured = featuredItems[safeIndex];
 
+	// A trailer outlives the carousel interval, so finishing one moves the hero on
+	// itself rather than waiting out another full turn on a still backdrop.
+	const handleTrailerEnded = useCallback(() => {
+		if (featuredItems.length > 1) setActiveIndex((prev) => (prev + 1) % featuredItems.length);
+	}, [featuredItems.length]);
+
 	const {trailerActive, trailerContainerRef} = useTrailerPreview({
 		currentItem: currentFeatured,
-		isVisible,
-		enabled: settings.featuredTrailerPreview,
+		// The banner stays mounted behind the settings overlay so the hero keeps its
+		// place, but the trailer has to stop or it plays on underneath it.
+		isVisible: isVisible && browseVisible,
+		enabled: settingsLoaded && settings.featuredTrailerPreview,
 		preferMuted: settings.featuredTrailerMuted,
 		api,
-		getItemServerUrl
+		getItemServerUrl,
+		onEnded: handleTrailerEnded
 	});
 
 	const pageStart = Math.floor(safeIndex / PAGE_SIZE) * PAGE_SIZE;
@@ -271,7 +283,7 @@ const GalleryBanner = memo(({
 												item={item}
 												serverUrl={getItemServerUrl(item)}
 												compact
-												pluginEnabled={settings.useMoonfinPlugin && settings.mdblistEnabled !== false}
+												pluginEnabled={isMdblistEnabled(settings)}
 											/>
 
 											{item.Overview && (

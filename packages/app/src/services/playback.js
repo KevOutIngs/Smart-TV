@@ -3,6 +3,7 @@ import {getDeviceProfile, getDeviceCapabilities} from './deviceProfile';
 import {getPlayMethod, getMimeType, isAudioStreamPlayable} from './video';
 import {getFromStorage} from './storage';
 import {TEXT_SUBTITLE_CODECS, isAssSubtitleCodec, isPgsSubtitleCodec, isBurnInSubtitleCodec} from '../utils/subtitleCodecs';
+import {findNextInSeason, findNextSeason, firstPlayableEpisode} from '../utils/nextEpisode';
 
 export const PlayMethod = {
 	DirectPlay: 'DirectPlay',
@@ -165,9 +166,12 @@ const determinePlayMethod = (mediaSource, capabilities, options = {}, passthroug
 
 	const mediaStreams = mediaSource?.MediaStreams || [];
 	const hasVideoStream = mediaStreams.some((s) => s.Type === 'Video');
-	const hasAudioStream = mediaStreams.some((s) => s.Type === 'Audio');
-	const isAudioOnly = hasAudioStream && !hasVideoStream;
-	if (isAudioOnly) {
+	const audioStream = mediaStreams.find((s) => s.Type === 'Audio');
+	if (audioStream && !hasVideoStream) {
+		// A profile can name a container without naming its codecs, so the server
+		// offers DirectPlay for things this device cant decode. DirectStream only
+		// swaps the container, so neither is safe until the codec is checked.
+		if (!isAudioStreamPlayable(audioStream, capabilities, passthroughSettings)) return PlayMethod.Transcode;
 		if (mediaSource.SupportsDirectPlay) return PlayMethod.DirectPlay;
 		if (mediaSource.SupportsDirectStream) return PlayMethod.DirectStream;
 		return PlayMethod.Transcode;
@@ -875,7 +879,11 @@ export const getMediaSegments = async (itemId) => {
 	const segments = {
 		introStart: null,
 		introEnd: null,
-		creditsStart: null
+		creditsStart: null,
+		creditsEnd: null,
+		// Every segment the server knows about, so the skip prompt can offer recaps
+		// and previews as well as the two the rest of the player reads directly.
+		list: []
 	};
 
 	// Try the Media Segments API first (uses authenticated request). Emby has no
@@ -885,11 +893,14 @@ export const getMediaSegments = async (itemId) => {
 		if (data?.Items && data.Items.length > 0) {
 			for (const seg of data.Items) {
 				const type = seg.Type?.toLowerCase();
+				if (seg.StartTicks == null) continue;
+				segments.list.push({type: type === 'credits' ? 'outro' : type, start: seg.StartTicks, end: seg.EndTicks ?? null});
 				if (type === 'intro') {
 					segments.introStart = seg.StartTicks;
 					segments.introEnd = seg.EndTicks;
 				} else if (type === 'outro' || type === 'credits') {
 					segments.creditsStart = seg.StartTicks;
+					segments.creditsEnd = seg.EndTicks ?? null;
 				}
 			}
 			if (segments.introStart !== null || segments.creditsStart !== null) {
@@ -927,6 +938,13 @@ export const getMediaSegments = async (itemId) => {
 				segments.creditsStart = creditsChapter.StartPositionTicks;
 			}
 
+			if (segments.introStart !== null) {
+				segments.list.push({type: 'intro', start: segments.introStart, end: segments.introEnd});
+			}
+			if (segments.creditsStart !== null) {
+				segments.list.push({type: 'outro', start: segments.creditsStart, end: segments.creditsEnd});
+			}
+
 			if (segments.introStart !== null || segments.creditsStart !== null) {
 				console.log('[Playback] Segments found via chapters:', segments);
 			}
@@ -947,27 +965,18 @@ export const getNextEpisode = async (item) => {
 		const seasonId = item.SeasonId || item.ParentId;
 		if (!seasonId) return null;
 
-		const episodesResult = await jellyfinApi.api.getEpisodes(item.SeriesId, seasonId);
-		const episodes = episodesResult.Items || [];
-		// String-coerce ids: Emby returns numeric ids, so a raw === can miss.
-		const currentIndex = episodes.findIndex(ep => String(ep.Id) === String(item.Id));
+		const api = getApiForItem(item);
+		const episodesResult = await api.getEpisodes(item.SeriesId, seasonId);
+		const next = findNextInSeason(episodesResult.Items, item.Id);
+		if (next) return next;
 
-		if (currentIndex >= 0 && currentIndex < episodes.length - 1) {
-			return episodes[currentIndex + 1];
-		}
+		// End of season, so roll into the first episode of the next one.
+		const seasonsResult = await api.getSeasons(item.SeriesId);
+		const nextSeason = findNextSeason(seasonsResult.Items, seasonId, item.ParentIndexNumber);
+		if (!nextSeason) return null;
 
-		// End of season - roll into the first episode of the next season.
-		const seasonsResult = await jellyfinApi.api.getSeasons(item.SeriesId);
-		const seasons = seasonsResult.Items || [];
-		const currentSeasonIndex = seasons.findIndex(s => String(s.Id) === String(seasonId));
-
-		if (currentSeasonIndex >= 0 && currentSeasonIndex < seasons.length - 1) {
-			const nextSeason = seasons[currentSeasonIndex + 1];
-			const nextSeasonEpisodes = await jellyfinApi.api.getEpisodes(item.SeriesId, nextSeason.Id);
-			return nextSeasonEpisodes.Items?.[0] || null;
-		}
-
-		return null;
+		const nextSeasonEpisodes = await api.getEpisodes(item.SeriesId, nextSeason.Id);
+		return firstPlayableEpisode(nextSeasonEpisodes.Items);
 	} catch (e) {
 		console.warn('[playback] Failed to get next episode:', e.message);
 		return null;
@@ -1139,7 +1148,54 @@ export const stopHealthMonitoring = () => {
 	}
 };
 
+// When the app is backgrounded (TV input switched, home pressed, or the set
+// powered off in a way that only suspends the web process) we report paused
+// progress and keep the session so playback can resume. If the app never comes
+// back the server keeps the session marked playing until its own keepalive reaps
+// it. Schedule a real stop after a short grace period instead. cancelBackgroundStop
+// aborts it when the app resumes in time, and consumeBackgroundStopFired lets the
+// resume path re-establish the session if it already fired. A truly instant kill
+// still relies on the server keepalive since no timer can survive that.
+const BACKGROUND_STOP_GRACE_MS = 30000;
+let backgroundStopTimer = null;
+let backgroundStopFired = false;
+
+export const cancelBackgroundStop = () => {
+	if (backgroundStopTimer) {
+		clearTimeout(backgroundStopTimer);
+		backgroundStopTimer = null;
+	}
+};
+
+export const scheduleBackgroundStop = (getPositionTicks, graceMs = BACKGROUND_STOP_GRACE_MS) => {
+	cancelBackgroundStop();
+	if (!currentSession) return;
+	backgroundStopTimer = setTimeout(() => {
+		backgroundStopTimer = null;
+		if (!currentSession) return;
+		const ticks = typeof getPositionTicks === 'function' ? getPositionTicks() : getPositionTicks;
+		reportStopBeacon(ticks || 0);
+		// stop the local reporting loops so they can't revive the session we just
+		// told the server to end
+		stopProgressReporting();
+		stopHealthMonitoring();
+		backgroundStopFired = true;
+	}, graceMs);
+};
+
+// Returns true at most once per background stop, so the resume path knows it must
+// re-report start instead of assuming the session is still live on the server.
+export const consumeBackgroundStopFired = () => {
+	const fired = backgroundStopFired;
+	backgroundStopFired = false;
+	return fired;
+};
+
 export const reportStop = async (positionTicks) => {
+	// a normal stop supersedes any pending/elapsed background stop
+	cancelBackgroundStop();
+	backgroundStopFired = false;
+
 	if (!currentSession) return;
 
 	stopProgressReporting();

@@ -438,7 +438,15 @@
 		outline: none;
 	}
 
-	&:last-child {
+	&.danger {
+		&:hover,
+		&:focus {
+			background: @accent-secondary;
+			border-color: @accent-secondary;
+		}
+	}
+
+	&:last-child:not(.danger) {
 		background: @background-secondary;
 		border-color: @border-color;
 

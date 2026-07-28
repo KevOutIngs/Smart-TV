@@ -4,10 +4,26 @@ import {initStorage, getFromStorage, saveToStorage, removeFromStorage} from '../
 import * as multiServerManager from '../services/multiServerManager';
 import {clearImageCache} from '../services/imageProxy';
 
-const REVALIDATE_INTERVAL = 5 * 60 * 1000;
-const BACKOFF_DELAYS = [5000, 10000, 20000];
 import {clearProxiedImageCache} from '../hooks/useProxiedImage';
 import {parseUrl} from '../utils/urlCompat';
+
+const REVALIDATE_INTERVAL = 5 * 60 * 1000;
+const BACKOFF_DELAYS = [5000, 10000, 20000];
+const RECOVERY_MAX_DELAY = 60000;
+
+// Retry quickly at first, then settle into a slow poll for as long as the server
+// stays down.
+const recoveryDelay = (attempt) => BACKOFF_DELAYS[attempt] ?? RECOVERY_MAX_DELAY;
+
+// An empty 200 from a reverse proxy resolves without throwing, so reachable means
+// a truthy body rather than the call merely not failing.
+const probeServer = async () => {
+	try {
+		return Boolean(await jellyfinApi.api.getPublicInfo());
+	} catch {
+		return false;
+	}
+};
 
 // Clear all memory caches - call on logout or server switch
 const clearAllCaches = () => {
@@ -420,20 +436,12 @@ export const AuthProvider = ({children}) => {
 		if (!force && now - lastRevalidateRef.current < REVALIDATE_INTERVAL) return;
 		lastRevalidateRef.current = now;
 
-		let serverReachable = false;
-		for (let i = 0; i < BACKOFF_DELAYS.length; i++) {
-			try {
-				const info = await jellyfinApi.api.getPublicInfo();
-				if (info) {
-					serverReachable = true;
-					break;
-				}
-			} catch {
-				if (i < BACKOFF_DELAYS.length - 1) {
-					setConnectionState('reconnecting');
-					await new Promise(r => setTimeout(r, BACKOFF_DELAYS[i]));
-				}
-			}
+		// One attempt straight away, then another after each backoff delay.
+		let serverReachable = await probeServer();
+		for (let i = 0; !serverReachable && i < BACKOFF_DELAYS.length; i++) {
+			setConnectionState('reconnecting');
+			await new Promise(r => setTimeout(r, BACKOFF_DELAYS[i]));
+			serverReachable = await probeServer();
 		}
 
 		if (!serverReachable) {
@@ -458,6 +466,34 @@ export const AuthProvider = ({children}) => {
 			}
 		}
 	}, [isAuthenticated]);
+
+	// Nothing else moves the state off disconnected, so the banner would sit there
+	// until someone pressed Retry. Probe in the background instead and drop it as
+	// soon as the server answers.
+	useEffect(() => {
+		if (!isAuthenticated || connectionState !== 'disconnected') return undefined;
+
+		let cancelled = false;
+		let timer = null;
+		let attempt = 0;
+
+		const check = async () => {
+			const reachable = await probeServer();
+			if (cancelled) return;
+			if (reachable) {
+				setConnectionState('connected');
+				return;
+			}
+			attempt += 1;
+			timer = setTimeout(check, recoveryDelay(attempt));
+		};
+
+		timer = setTimeout(check, recoveryDelay(attempt));
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
+	}, [isAuthenticated, connectionState]);
 
 	// Computed values
 	const serverCount = useMemo(() => uniqueServers.length, [uniqueServers]);

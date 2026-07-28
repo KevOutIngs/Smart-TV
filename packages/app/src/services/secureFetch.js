@@ -19,6 +19,7 @@
 
 import {fetchWithTimeout} from '../utils/fetchTimeout';
 import {classifyError, INSECURE_CERT, DNS_OR_NETWORK} from '../utils/connectionErrors';
+import {traceRequest} from '../utils/networkLogSink';
 import {isWebOS} from '../platform';
 import {getFromStorage} from './storage';
 
@@ -67,7 +68,7 @@ const readSettings = async () => {
  * stack. Resolves with a Response-like object, or rejects with an error whose
  * `connectionType` is INSECURE_CERT (cert/TLS rejection) or DNS_OR_NETWORK.
  */
-const proxyRequest = (url, options, timeoutMs, allowInsecure) => new Promise((resolve, reject) => {
+const sendViaProxy = (url, options, timeoutMs, allowInsecure) => new Promise((resolve, reject) => {
 	const Bridge = typeof window !== 'undefined' && window.PalmServiceBridge;
 	if (!Bridge) {
 		reject(new Error('PalmServiceBridge unavailable'));
@@ -121,6 +122,14 @@ const proxyRequest = (url, options, timeoutMs, allowInsecure) => new Promise((re
 		insecure: !!allowInsecure
 	}));
 });
+
+// The proxy goes through the Luna bridge rather than fetch, so it needs its own trace or
+// the path that exists precisely because these TVs have connection trouble stays invisible.
+const proxyRequest = (url, options, timeoutMs, allowInsecure) => traceRequest(
+	`${options.method || 'GET'} (proxy)`,
+	url,
+	() => sendViaProxy(url, options, timeoutMs, allowInsecure)
+);
 
 /**
  * Drop-in replacement for fetchWithTimeout that adds the webOS proxy fallback.
