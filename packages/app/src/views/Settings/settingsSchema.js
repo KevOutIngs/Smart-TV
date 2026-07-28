@@ -35,6 +35,7 @@ import {
 	getSinceYouWatchedSourceItemOptions,
 	getSinceYouWatchedSourceOptions,
 	getSinceYouWatchedSourceTypeOptions,
+	getStillWatchingBehaviorOptions,
 	getSubtitleBackgroundColorOptions,
 	getSubtitleColorOptions,
 	getSubtitlePositionOptions,
@@ -487,7 +488,7 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'nextUpBehavior', label: () => $L('Next Up Prompt'), options: getNextUpBehaviorOptions, fallback: () => $L('Extended'), icon: 'skip'},
 					{kind: KIND.OPTION, key: 'nextUpCountdownStyle', label: () => $L('Next Up Countdown'), options: getNextUpCountdownStyleOptions, fallback: () => $L('Both'), icon: 'timer', when: (ctx) => ctx.settings.nextUpBehavior !== 'disabled'},
 					{kind: KIND.SLIDER, key: 'nextUpTimeout', label: () => $L('Next Up Prompt Timeout'), min: 0, max: 30, step: 1, format: (v) => (v === 0 ? $L('Instant') : `${v}s`), icon: 'timer', when: (ctx) => ctx.settings.nextUpBehavior !== 'disabled'},
-					{kind: KIND.TOGGLE, key: 'stillWatchingPrompt', label: () => $L('Still Watching Prompt'), desc: () => $L('Show continuation prompts before auto-playing the next episode'), icon: 'show'}
+					{kind: KIND.OPTION, key: 'stillWatchingBehavior', label: () => $L('Still Watching Prompt'), options: getStillWatchingBehaviorOptions, fallback: () => $L('3 episodes'), desc: () => $L('Prompt to Continue Watching after X consecutive episodes.'), icon: 'show'}
 				]
 			},
 			{

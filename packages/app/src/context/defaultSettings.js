@@ -134,7 +134,7 @@ export const defaultSettings = {
 	nextUpBehavior: 'extended',
 	nextUpCountdownStyle: 'both',
 	nextUpTimeout: 7,
-	stillWatchingPrompt: true,
+	stillWatchingBehavior: 'medium',
 	skipForwardLength: 30,
 	unpauseRewind: 0,
 	showDescriptionOnPause: false,

@@ -292,6 +292,14 @@ export const getNextUpCountdownStyleOptions = () => [
 	{ value: 'none', label: $L('None') }
 ];
 
+export const getStillWatchingBehaviorOptions = () => [
+	{ value: 'disabled', label: $L('Off') },
+	{ value: 'short_', label: $L('2 episodes') },
+	{ value: 'medium', label: $L('3 episodes') },
+	{ value: 'long_', label: $L('5 episodes') },
+	{ value: 'veryLong', label: $L('8 episodes') }
+];
+
 export const getMediaSegmentActionOptions = () => [
 	{ value: 'ask', label: $L('Ask to Skip') },
 	{ value: 'auto', label: $L('Auto Skip') },

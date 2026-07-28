@@ -1,6 +1,7 @@
 import {useState, useEffect, useCallback, useRef} from 'react';
 import Spotlight from '@enact/spotlight';
 import {isBackKey} from '../../utils/keys';
+import {shouldAskStillWatching} from '../../utils/stillWatching';
 
 /**
  * Drives the skip prompt for any segment the server marked up, plus the credits
@@ -17,6 +18,8 @@ const useSegmentPopups = ({
 	showControls,
 	onSeekToSegmentEnd,
 	onPlayNext,
+	onPausePlayback,
+	onStopPlayback,
 	// A pre-roll runs straight into the feature, so it gets no credits or next-up prompt.
 	currentIsPreroll = false
 }) => {
@@ -25,6 +28,10 @@ const useSegmentPopups = ({
 	const [showSkipCredits, setShowSkipCredits] = useState(false);
 	const [showNextEpisode, setShowNextEpisode] = useState(false);
 	const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState(null);
+	// Only counts episodes that started themselves. Choosing the next one by hand
+	// answers the question the prompt was going to ask.
+	const [askStillWatching, setAskStillWatching] = useState(false);
+	const consecutiveRef = useRef(0);
 
 	const dismissedSegmentsRef = useRef(new Set());
 	// Mirrored so the skip handler can stay stable, because the players keep
@@ -54,12 +61,40 @@ const useSegmentPopups = ({
 		setShowSkipCredits(false);
 	}, []);
 
+	// The automatic path. A long enough run of these is what raises the prompt.
 	const handlePlayNextEpisode = useCallback(async () => {
-		if (nextEpisode && onPlayNext) {
-			cancelNextEpisodeCountdown();
-			await onPlayNext(nextEpisode);
+		if (!nextEpisode || !onPlayNext) return;
+		cancelNextEpisodeCountdown();
+		if (shouldAskStillWatching(consecutiveRef.current, settings.stillWatchingBehavior)) {
+			// The current episode is still running underneath, and the prompt says
+			// playback has been paused, so it has to actually be paused.
+			onPausePlayback?.();
+			setAskStillWatching(true);
+			return;
 		}
+		consecutiveRef.current += 1;
+		await onPlayNext(nextEpisode);
+	}, [nextEpisode, onPlayNext, onPausePlayback, cancelNextEpisodeCountdown, settings.stillWatchingBehavior]);
+
+	// Pressing Play Next answers the question, so the run starts over.
+	const handlePlayNextNow = useCallback(async () => {
+		if (!nextEpisode || !onPlayNext) return;
+		cancelNextEpisodeCountdown();
+		consecutiveRef.current = 0;
+		await onPlayNext(nextEpisode);
 	}, [nextEpisode, onPlayNext, cancelNextEpisodeCountdown]);
+
+	const handleStillWatchingContinue = useCallback(async () => {
+		setAskStillWatching(false);
+		consecutiveRef.current = 0;
+		if (nextEpisode && onPlayNext) await onPlayNext(nextEpisode);
+	}, [nextEpisode, onPlayNext]);
+
+	const handleStillWatchingStop = useCallback(() => {
+		setAskStillWatching(false);
+		consecutiveRef.current = 0;
+		onStopPlayback?.();
+	}, [onStopPlayback]);
 
 	const startNextEpisodeCountdown = useCallback(() => {
 		if (nextEpisodeTimeoutRef.current) return;
@@ -108,6 +143,7 @@ const useSegmentPopups = ({
 		setShowSkipCredits(false);
 		setShowNextEpisode(false);
 		setNextEpisodeCountdown(null);
+		setAskStillWatching(false);
 		dismissedSegmentsRef.current.clear();
 		hasTriggeredNextEpisodeRef.current = false;
 		if (nextEpisodeTimerRef.current) {
@@ -133,7 +169,7 @@ const useSegmentPopups = ({
 			// keeps its own prompt unless the viewer asked for the next episode card
 			// in its place, and even then only when that card would really appear.
 			const nextUpWouldShow = Boolean(nextEpisode) && !currentIsPreroll &&
-				settings.nextUpBehavior !== 'disabled' && settings.stillWatchingPrompt !== false;
+				settings.nextUpBehavior !== 'disabled';
 			const outroBecomesNextUp = settings.replaceSkipOutroWithNextUp === true && nextUpWouldShow;
 
 			const active = (mediaSegments.list || []).find((seg) => {
@@ -178,14 +214,14 @@ const useSegmentPopups = ({
 			}
 		}
 
-		if (nextEpisode && !currentIsPreroll && runTimeRef.current > 0 && settings.nextUpBehavior !== 'disabled' && settings.stillWatchingPrompt !== false) {
+		if (nextEpisode && !currentIsPreroll && runTimeRef.current > 0 && settings.nextUpBehavior !== 'disabled') {
 			const remaining = runTimeRef.current - ticks;
 			const nearEnd = remaining < 300000000;
 			if (nearEnd && !hasTriggeredNextEpisodeRef.current) {
 				setShowNextEpisode(true);
 			}
 		}
-	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.replaceSkipOutroWithNextUp, settings.stillWatchingPrompt, nextEpisode, currentIsPreroll, runTimeRef, handlePlayNextEpisode, handleSkipSegment]);
+	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.replaceSkipOutroWithNextUp, nextEpisode, currentIsPreroll, runTimeRef, handlePlayNextEpisode, handleSkipSegment]);
 
 	// --- Auto-focus effects ---
 
@@ -284,12 +320,15 @@ const useSegmentPopups = ({
 	}, [skipSegmentStart, showSkipCredits, showNextEpisode, nextEpisode, activeModal, controlsVisible, showControls, cancelNextEpisodeCountdown]);
 
 	return {
+		askStillWatching,
+		handleStillWatchingContinue,
+		handleStillWatchingStop,
 		skipSegment,
 		showSkipCredits,
 		showNextEpisode,
 		nextEpisodeCountdown,
 		handleSkipSegment,
-		handlePlayNextEpisode,
+		handlePlayNextNow,
 		cancelNextEpisodeCountdown,
 		checkSegments,
 		handlePopupKeyDown,

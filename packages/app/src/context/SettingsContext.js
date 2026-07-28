@@ -46,7 +46,6 @@ const SERVER_TO_LOCAL = {
 	syncPlayEnabled: 'syncplayEnabled',
 	syncPlayAutoOpen: 'syncplayAutoOpen',
 	clockBehavior: 'showClock',
-	stillWatchingBehavior: 'stillWatchingPrompt',
 	enableFolderView: 'folderViewMode',
 	homeRowInfoOverlay: 'homeRowOverlay',
 	autoplayNextEpisode: 'autoPlay',
@@ -107,13 +106,6 @@ const VALUE_CONVERSIONS = {
 		toServer: v => v ? 'always' : 'never',
 		fromServer: v => v !== 'never'
 	},
-	// A toggle here, a duration elsewhere. Turning it off is exact. Turning it on can't say
-	// how long, so it picks the middle option rather than overwriting a chosen duration with
-	// something arbitrary.
-	stillWatchingPrompt: {
-		toServer: v => v ? 'medium' : 'disabled',
-		fromServer: v => v !== 'disabled'
-	},
 	// Three states here against a boolean elsewhere. "Per Library" has no equivalent, so it
 	// declines to push and leaves whatever the server holds.
 	folderViewMode: {
@@ -155,7 +147,7 @@ const SYNCABLE_KEYS = [
 	'autoAdvance', 'autoAdvanceInterval',
 	'displayFavoritesRows', 'displayCollectionsRows', 'displayGenresRows', 'displayPlaylistsRows',
 	'favoritesRowSortBy', 'collectionsRowSortBy', 'genresRowSortBy', 'genresRowItemFilter',
-	'stillWatchingPrompt', 'watchedIndicatorBehavior',
+	'stillWatchingBehavior', 'watchedIndicatorBehavior',
 	'autoPlay', 'nextUpBehavior', 'nextUpTimeout', 'nextUpCountdownStyle',
 	'replaceSkipOutroWithNextUp',
 	'backdropBlurHome', 'backdropBlurDetail',
@@ -387,6 +379,13 @@ export function SettingsProvider({children}) {
 				}
 				if (typeof stored.customThemeId !== 'string') {
 					stored.customThemeId = '';
+					migrated = true;
+				}
+				if ('stillWatchingPrompt' in stored) {
+					// Was a toggle that also suppressed the next up prompt. Off keeps the
+					// asking off, on takes the middle count the other clients default to.
+					stored.stillWatchingBehavior = stored.stillWatchingPrompt === false ? 'disabled' : 'medium';
+					delete stored.stillWatchingPrompt;
 					migrated = true;
 				}
 				if ('skipIntro' in stored) {

@@ -34,6 +34,7 @@ import {resolveInitialSubtitle} from './initialSubtitle';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
 import NextUpOverlay from './NextUpOverlay';
 import SkipSegmentOverlay from './SkipSegmentOverlay';
+import StillWatchingDialog from './StillWatchingDialog';
 import useSleepTimer from './useSleepTimer';
 import useSegmentPopups from './useSegmentPopups';
 import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
@@ -1241,13 +1242,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 	const {
 		skipSegment, showSkipCredits, showNextEpisode, nextEpisodeCountdown,
-		handleSkipSegment, handlePlayNextEpisode, cancelNextEpisodeCountdown,
+		handleSkipSegment, handlePlayNextNow,
+		askStillWatching, handleStillWatchingContinue, handleStillWatchingStop, cancelNextEpisodeCountdown,
 		checkSegments, handlePopupKeyDown, resetPopups
 	} = useSegmentPopups({
 		mediaSegments, nextEpisode, settings, runTimeRef,
 		activeModal, controlsVisible, hideControls, showControls,
 		onSeekToSegmentEnd,
 		onPlayNext: onPlayNextWithCleanup,
+		onPausePlayback: () => videoRef.current?.pause(),
+		// Called long after the definition below, so reading it now would be too early.
+		onStopPlayback: () => handleBack(), // eslint-disable-line no-use-before-define
 		currentIsPreroll: isPreroll(item)
 	});
 
@@ -2055,7 +2060,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'zoom': handleToggleZoom(); break;
 			case 'sleep': openModal('sleep'); break;
 			case 'info': openModal('info'); break;
-			case 'next': handlePlayNextEpisode(); break;
+			case 'next': handlePlayNextNow(); break;
 			case 'nextTrack': handleNextTrack(); break;
 			case 'prevTrack': handlePrevTrack(); break;
 			case 'shuffle': handleToggleShuffle(); break;
@@ -2063,7 +2068,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'favorite': handleToggleFavorite(); break;
 			default: break;
 		}
-	}, [showControls, handlePlayPause, handleRewind, handleForward, openModal, handleOpenCast, handleToggleZoom, handlePlayNextEpisode, handleNextTrack, handlePrevTrack, handleToggleShuffle, handleToggleRepeat, handleToggleFavorite]);
+	}, [showControls, handlePlayPause, handleRewind, handleForward, openModal, handleOpenCast, handleToggleZoom, handlePlayNextNow, handleNextTrack, handlePrevTrack, handleToggleShuffle, handleToggleRepeat, handleToggleFavorite]);
 
 	const handleControlButtonClick = useCallback((e) => {
 		const action = e.currentTarget.dataset.action;
@@ -2486,6 +2491,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				</div>
 			)}
 
+			{askStillWatching && (
+				<StillWatchingDialog onContinue={handleStillWatchingContinue} onStop={handleStillWatchingStop} />
+			)}
+
 			{!isLoading && !error && (showSkipCredits || showNextEpisode) && nextEpisode && !isAudioMode && !activeModal && !controlsVisible && (
 				<NextEpisodeContainer spotlightRestrict="self-only">
 					<NextUpOverlay
@@ -2495,7 +2504,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 						timeout={settings.nextUpTimeout ?? 7}
 						countdownStyle={settings.nextUpCountdownStyle ?? 'both'}
 						minimal={settings.nextUpBehavior === 'minimal'}
-						onPlay={handlePlayNextEpisode}
+						onPlay={handlePlayNextNow}
 						onDismiss={cancelNextEpisodeCountdown}
 					/>
 				</NextEpisodeContainer>

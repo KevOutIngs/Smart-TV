@@ -840,5 +840,13 @@
 	"Recap": "Recap",
 	"Commercial": "Commercial",
 	"Next Up Instead of Skip Outro": "Next Up Instead of Skip Outro",
-	"Offer the next episode at the credits rather than a skip button": "Offer the next episode at the credits rather than a skip button"
+	"Offer the next episode at the credits rather than a skip button": "Offer the next episode at the credits rather than a skip button",
+	"Still Watching?": "Still Watching?",
+	"Playback has been paused. Are you still watching?": "Playback has been paused. Are you still watching?",
+	"2 episodes": "2 episodes",
+	"3 episodes": "3 episodes",
+	"5 episodes": "5 episodes",
+	"8 episodes": "8 episodes",
+	"Prompt to Continue Watching after X consecutive episodes.": "Prompt to Continue Watching after X consecutive episodes.",
+	"Stop": "Stop"
 }
