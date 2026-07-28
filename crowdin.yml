@@ -1,3 +1,0 @@
-files:
-  - source: /packages/app/resources/strings.json
-    translation: /packages/app/resources/%two_letters_code%/strings.json
