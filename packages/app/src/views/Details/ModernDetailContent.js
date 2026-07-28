@@ -56,6 +56,20 @@ const ModernDetailContent = (props) => {
 		canChangeArtwork, handleOpenArtworkModal, handleOpenIdentifyModal
 	} = props;
 
+	// Blur and opacity share one stored value, and the blur options reach 40 while
+	// this scale stops at 25, so a setting carried over from the classic layout is
+	// held at full rather than blacking the backdrop out entirely.
+	const blurAmount = Number(settings.backdropBlurDetail ?? 20);
+	const opacityFactor = Math.min(1, blurAmount / 25);
+	const maxAlpha = isPerson ? 0.40 : 0.80;
+	const alpha = opacityFactor * maxAlpha;
+	const gradientScale = 0.3 + 0.7 * opacityFactor;
+
+	const backdropStyle = {
+		'--opacity-alpha': alpha,
+		'--gradient-scale': gradientScale
+	};
+
 	const hasTrailer = item.LocalTrailerCount > 0 || (item.RemoteTrailers?.length > 0) || isSeries;
 	const played = item.UserData?.Played;
 	const isFavorite = item.UserData?.IsFavorite;
@@ -525,7 +539,7 @@ const ModernDetailContent = (props) => {
 
 	return (
 		<>
-			<div className={`${css.backdrop} ${isPerson ? css.backdropPerson : ''}`}>
+			<div className={`${css.backdrop} ${isPerson ? css.backdropPerson : ''}`} style={backdropStyle}>
 				{backdropUrl && !isPerson && <img className={css.backdropImage} src={backdropUrl} alt="" />}
 			</div>
 			<Scroller cbScrollTo={handleScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">

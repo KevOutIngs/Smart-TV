@@ -43,6 +43,15 @@ export const getBlurOptions = () => [
 	{ value: 40, label: $L('Heavy') }
 ];
 
+export const getDetailsOpacityOptions = () => [
+	{ value: 0, label: '0%' },
+	{ value: 5, label: '20%' },
+	{ value: 10, label: '40%' },
+	{ value: 15, label: '60%' },
+	{ value: 20, label: '80%' },
+	{ value: 25, label: '100%' }
+];
+
 export const getPerformanceModeOptions = () => [
 	{ value: 'auto', label: $L('Auto') },
 	{ value: 'high', label: $L('High Quality') },
