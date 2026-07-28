@@ -29,12 +29,19 @@ import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as syncPlayService from '../../services/syncPlay';
 import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml} from '../../utils/subtitleConstants';
 import {findPreferredAudioStream} from '../../utils/audioLanguage';
-import {saveSubtitlePref, getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
+import {saveSubtitlePref} from '../../services/subtitlePrefs';
+import {resolveInitialSubtitle} from './initialSubtitle';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
+import NextUpOverlay from './NextUpOverlay';
+import SkipSegmentOverlay from './SkipSegmentOverlay';
+import StillWatchingDialog from './StillWatchingDialog';
 import useSleepTimer from './useSleepTimer';
 import useSegmentPopups from './useSegmentPopups';
+import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
+import {driftAction, driftMs, needsSeek, DRIFT_CHECK_MS, SPEED_DURATION_MS} from '../../utils/syncDrift';
+import {createReadyGate} from '../../utils/syncReady';
 import {
-	SpottableButton, NextEpisodeContainer, CONTROLS_HIDE_DELAY,
+	NextEpisodeContainer, CONTROLS_HIDE_DELAY,
 	withTimeout
 } from './PlayerConstants';
 import {
@@ -129,6 +136,18 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const lastFocusedElementRef = useRef(null);
 
 	const videoRef = useRef(null);
+	const syncPlaySample = useCallback(() => {
+		const video = videoRef.current;
+		return {
+			isPlaying: Boolean(video && !video.paused),
+			positionTicks: video ? Math.floor(video.currentTime * 10000000) : 0
+		};
+	}, []);
+	const readyGate = useMemo(() => createReadyGate({
+		sample: syncPlaySample,
+		isBuffering: () => !videoRef.current || videoRef.current.readyState < 3,
+		report: () => syncPlayService.sendReadyRequest(syncPlaySample)
+	}), [syncPlaySample]);
 	const containerRef = useRef(null);
 	const handlersRef = useRef({});
 	const positionRef = useRef(0);
@@ -608,7 +627,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					isLiveTV,
 					hasUserData: !!item.UserData
 				});
-				const result = await playback.getPlaybackInfo(item.Id, {
+				const playbackInfoOptions = {
 					startPositionTicks: startPosition,
 					maxBitrate: selectedQuality || settings.maxBitrate,
 					enableDirectPlay: !settings.preferTranscode,
@@ -620,7 +639,28 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					item: item,
 					isLiveTV,
 					stereoUpmixEnabled: settings.stereoUpmixEnabled
-				});
+				};
+				let result = await playback.getPlaybackInfo(item.Id, playbackInfoOptions);
+
+				// The track has to be settled before the url reaches the video element,
+				// because a burn in one needs the stream negotiated again and swapping
+				// the source afterwards would restart playback.
+				const initialSubtitleChoice = await resolveInitialSubtitle(result, item, initialSubtitleIndex, settings);
+				if (initialSubtitleChoice?.isBurnIn) {
+					let bakedIn = initialSubtitleChoice.index === initialSubtitleIndex;
+					if (!bakedIn) {
+						try {
+							result = await playback.getPlaybackInfo(item.Id, {
+								...playbackInfoOptions,
+								subtitleStreamIndex: initialSubtitleChoice.index
+							});
+							bakedIn = true;
+						} catch (err) {
+							console.error('[Player] Burn in subtitle negotiation failed:', err);
+						}
+					}
+					if (bakedIn) burnInSubtitleRef.current = initialSubtitleChoice.index;
+				}
 
 				setMediaUrl(result.url);
 				setMimeType(result.mimeType || 'video/mp4');
@@ -740,88 +780,13 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					setSelectedSubtitleIndex(-1);
 					setSubtitleTrackEvents(null);
 				};
-				const applySavedSubtitle = async (sub) => {
-					setSelectedSubtitleIndex(sub.index);
-					if (sub.isBurnIn) burnInSubtitleRef.current = sub.index;
-					await loadSubtitleData(sub);
-				};
-
-				// A remembered pick wins so a chosen track survives across plays and
-				// episodes. The per-item index restores the exact track on a replay, and
-				// the per-series language carries to other episodes, matched by language
-				// because the same track sits at a different index in each episode.
-				let subtitleResolved = false;
-				const savedItemIndex = await getItemSubtitlePref(item.Id);
-				if (savedItemIndex !== undefined) {
-					if (savedItemIndex < 0) {
-						turnSubtitlesOff();
-						subtitleResolved = true;
-					} else {
-						const savedStream = result.subtitleStreams?.find(s => s.index === savedItemIndex);
-						if (savedStream) {
-							await applySavedSubtitle(savedStream);
-							subtitleResolved = true;
-						}
-					}
-				}
-				if (!subtitleResolved && item.SeriesId) {
-					const savedLanguage = await getSeriesSubtitlePref(item.SeriesId);
-					if (savedLanguage !== undefined) {
-						if (!savedLanguage) {
-							turnSubtitlesOff();
-							subtitleResolved = true;
-						} else {
-							const savedStream = result.subtitleStreams?.find(s => s.language === savedLanguage);
-							if (savedStream) {
-								await applySavedSubtitle(savedStream);
-								subtitleResolved = true;
-							}
-						}
-					}
-				}
-
-				if (subtitleResolved) {
-					// already applied from the remembered pick
-				} else if (initialSubtitleIndex !== undefined && initialSubtitleIndex !== null) {
-					if (initialSubtitleIndex >= 0) {
-						const selectedSub = result.subtitleStreams?.find(s => s.index === initialSubtitleIndex);
-						if (selectedSub) {
-							setSelectedSubtitleIndex(initialSubtitleIndex);
-							// a preselected burn in track was already negotiated into the
-							// stream, remember it so deselecting later reloads without it
-							if (selectedSub.isBurnIn) burnInSubtitleRef.current = initialSubtitleIndex;
-							await loadSubtitleData(selectedSub);
-						} else {
-							console.error('[Player] initialSubtitleIndex', initialSubtitleIndex, 'not found in subtitleStreams');
-						}
-					} else {
-						turnSubtitlesOff();
-					}
-				} else if (settings.subtitleMode === 'always') {
-					const defaultSub = result.subtitleStreams?.find(s => s.isDefault);
-					if (defaultSub) {
-						setSelectedSubtitleIndex(defaultSub.index);
-						await loadSubtitleData(defaultSub);
-					} else if (result.subtitleStreams?.length > 0) {
-						const firstSub = result.subtitleStreams[0];
-						setSelectedSubtitleIndex(firstSub.index);
-						await loadSubtitleData(firstSub);
-					}
-				} else if (settings.subtitleMode === 'forced') {
-					const forcedSub = result.subtitleStreams?.find(s => s.isForced);
-					if (forcedSub) {
-						setSelectedSubtitleIndex(forcedSub.index);
-						await loadSubtitleData(forcedSub);
-					}
-				} else if (settings.subtitleMode === 'default' &&
-						result.defaultSubtitleStreamIndex != null && result.defaultSubtitleStreamIndex >= 0) {
-					// Honor the Jellyfin user's subtitle preference, computed server-side
-					// from their SubtitleMode + SubtitleLanguagePreference (#186).
-					const serverSub = result.subtitleStreams?.find(s => s.index === result.defaultSubtitleStreamIndex);
-					if (serverSub) {
-						setSelectedSubtitleIndex(serverSub.index);
-						await loadSubtitleData(serverSub);
-					}
+				if (initialSubtitleChoice === null) {
+					turnSubtitlesOff();
+				} else if (initialSubtitleChoice) {
+					setSelectedSubtitleIndex(initialSubtitleChoice.index);
+					// A burn in track is already part of the video by now, so there is
+					// nothing to fetch and render on top of it.
+					if (!initialSubtitleChoice.isBurnIn) await loadSubtitleData(initialSubtitleChoice);
 				}
 
 				let displayTitle = item.Name;
@@ -855,28 +820,26 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 						setMediaSegments({introStart: null, introEnd: null, creditsStart: null});
 					}
 
-					if (item.Type === 'Episode') {
-						// A shuffle queue sets the order, so the next episode comes from
-						// it rather than the sequential air-order lookup.
-						if (videoQueue?.length) {
-							const idx = videoQueue.findIndex(e => String(e.Id) === String(item.Id));
-							setNextEpisode(idx >= 0 && idx < videoQueue.length - 1 ? videoQueue[idx + 1] : null);
-						} else {
-							try {
-								const next = await withTimeout(playback.getNextEpisode(item), 4000);
-								setNextEpisode(next);
-							} catch (nextErr) {
-								console.warn('[Player] Next episode lookup skipped:', nextErr?.message || nextErr);
-								setNextEpisode(null);
-							}
-						}
+					// A queue sets its own order. Running off the end of one, or playing a
+					// lone episode, falls back to the air order lookup.
+					const queued = videoQueue?.length ? nextInQueue(videoQueue, item) : null;
+					if (queued) {
+						setNextEpisode(queued);
+					} else if (item.Type === 'Episode') {
+						playback.getNextEpisode(item).then(setNextEpisode);
 					}
 				}
 
 				console.log(`[Player] Loaded ${displayTitle} via ${result.playMethod}${isLiveTV ? ' [Live TV]' : ''}`);
 			} catch (err) {
 				console.error('[Player] Failed to load media:', err);
-				setError(err.message || $L('Failed to load media'));
+				// A pre-roll that cant even load gets skipped, not surfaced.
+				const skipTo = isPreroll(item) ? nextInQueue(videoQueue, item) : null;
+				if (skipTo && onPlayNext) {
+					onPlayNext(skipTo);
+				} else {
+					setError(err.message || $L('Failed to load media'));
+				}
 			} finally {
 				setIsLoading(false);
 			}
@@ -935,7 +898,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			}
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [item, resume, videoQueue, selectedQuality, settings.maxBitrate, settings.preferTranscode, settings.forceDirectPlay, settings.subtitleMode, settings.introAction, settings.outroAction, initialAudioIndex, initialSubtitleIndex]);
+	}, [item, resume, videoQueue, onPlayNext, selectedQuality, settings.maxBitrate, settings.preferTranscode, settings.forceDirectPlay, settings.subtitleMode, settings.introAction, settings.outroAction, initialAudioIndex, initialSubtitleIndex]);
 
 	useEffect(() => {
 		if (mediaUrl) {
@@ -1284,21 +1247,26 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		onPlayNext(episode, trackOptions);
 	}, [onPlayNext]);
 
-	const onSeekToIntroEnd = useCallback(() => {
-		if (mediaSegments?.introEnd && videoRef.current) {
-			seekToTicks(mediaSegments.introEnd);
+	const onSeekToSegmentEnd = useCallback((endTicks) => {
+		if (endTicks && videoRef.current) {
+			seekToTicks(endTicks);
 		}
-	}, [mediaSegments, seekToTicks]);
+	}, [seekToTicks]);
 
 	const {
-		showSkipIntro, showSkipCredits, showNextEpisode, nextEpisodeCountdown,
-		handleSkipIntro, handlePlayNextEpisode, cancelNextEpisodeCountdown,
+		skipSegment, showSkipCredits, showNextEpisode, nextEpisodeCountdown,
+		handleSkipSegment, handlePlayNextNow,
+		askStillWatching, handleStillWatchingContinue, handleStillWatchingStop, cancelNextEpisodeCountdown,
 		checkSegments, handlePopupKeyDown, resetPopups
 	} = useSegmentPopups({
 		mediaSegments, nextEpisode, settings, runTimeRef,
 		activeModal, controlsVisible, hideControls, showControls,
-		onSeekToIntroEnd,
-		onPlayNext: onPlayNextWithCleanup
+		onSeekToSegmentEnd,
+		onPlayNext: onPlayNextWithCleanup,
+		onPausePlayback: () => videoRef.current?.pause(),
+		// Called long after the definition below, so reading it now would be too early.
+		onStopPlayback: () => handleBack(), // eslint-disable-line no-use-before-define
+		currentIsPreroll: isPreroll(item)
 	});
 
 	const handleLoadedMetadata = useCallback(() => {
@@ -1462,6 +1430,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		let errorMessage = $L('Playback failed.');
 
 		try {
+		// A broken pre-roll skips to the feature rather than surfacing an error or
+		// spending the transcode fallback on it.
+		const skipTo = isPreroll(item) ? nextInQueue(videoQueue, item) : null;
+		if (skipTo && onPlayNext) {
+			isCleaningUpRef.current = true;
+			destroyHlsPlayer();
+			await cleanupVideoElement(videoRef.current);
+			onPlayNext(skipTo);
+			return;
+		}
+
 		if (video?.error) {
 			switch (video.error.code) {
 				case 1:
@@ -1585,7 +1564,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		} finally {
 			isHandlingErrorRef.current = false;
 		}
-	}, [hasTriedTranscode, playMethod, item, selectedQuality, settings.maxBitrate, settings.stereoUpmixEnabled, mediaSourceId, isPaused]);
+	}, [hasTriedTranscode, playMethod, item, selectedQuality, settings.maxBitrate, settings.stereoUpmixEnabled, mediaSourceId, isPaused, videoQueue, onPlayNext]);
 
 	useEffect(() => {
 		handlersRef.current = {
@@ -1599,10 +1578,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			onError: handleError,
 		};
 	}, [handleLoadedMetadata, handlePlay, handlePause, handleTimeUpdate, handleWaiting, handlePlaying, handleEnded, handleError]);
-
-	const handleImageError = useCallback((e) => {
-		e.target.style.display = 'none';
-	}, []);
 
 	const handleBack = useCallback(async () => {
 		cancelNextEpisodeCountdown();
@@ -2098,7 +2073,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'zoom': handleToggleZoom(); break;
 			case 'sleep': openModal('sleep'); break;
 			case 'info': openModal('info'); break;
-			case 'next': handlePlayNextEpisode(); break;
+			case 'next': handlePlayNextNow(); break;
 			case 'nextTrack': handleNextTrack(); break;
 			case 'prevTrack': handlePrevTrack(); break;
 			case 'shuffle': handleToggleShuffle(); break;
@@ -2106,7 +2081,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'favorite': handleToggleFavorite(); break;
 			default: break;
 		}
-	}, [showControls, handlePlayPause, handleRewind, handleForward, openModal, handleOpenCast, handleToggleZoom, handlePlayNextEpisode, handleNextTrack, handlePrevTrack, handleToggleShuffle, handleToggleRepeat, handleToggleFavorite]);
+	}, [showControls, handlePlayPause, handleRewind, handleForward, openModal, handleOpenCast, handleToggleZoom, handlePlayNextNow, handleNextTrack, handlePrevTrack, handleToggleShuffle, handleToggleRepeat, handleToggleFavorite]);
 
 	const handleControlButtonClick = useCallback((e) => {
 		const action = e.currentTarget.dataset.action;
@@ -2141,17 +2116,24 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					// Executing on time seeks to the commanded position. A late
 					// arrival seeks ahead by the elapsed time to catch up.
 					const target = delay > 0 ? PositionTicks : syncPlayService.getAdjustedPosition(PositionTicks, When);
-					if (target != null) seekToTicks(target);
+					// A seek costs a rebuffer that the whole group then waits on, so a
+					// difference this small is left alone.
+					if (target != null && needsSeek(positionRef.current, target)) seekToTicks(target);
+					syncPlayService.setSyncReference(target != null ? target : positionRef.current);
 					videoRef.current.play()?.catch?.(() => {});
 					break;
 				}
 				case 'Pause': {
 					videoRef.current.pause();
-					if (PositionTicks != null) seekToTicks(PositionTicks);
+					syncPlayService.clearSyncReference();
+					if (PositionTicks != null && needsSeek(positionRef.current, PositionTicks)) seekToTicks(PositionTicks);
 					break;
 				}
 				case 'Seek': {
-					if (PositionTicks != null) seekToTicks(PositionTicks);
+					if (PositionTicks != null) {
+						if (needsSeek(positionRef.current, PositionTicks)) seekToTicks(PositionTicks);
+						syncPlayService.setSyncReference(PositionTicks);
+					}
 					break;
 				}
 				default:
@@ -2173,6 +2155,57 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		execute();
 	}, [lastCommand, seekToTicks, handleBack]);
 
+	// Commands alone cant hold this in step, because the decoder loses a little
+	// wall clock time on every rebuffer and nothing measured it afterwards.
+	useEffect(() => {
+		if (!isInGroup || isPaused) return undefined;
+
+		let restoreTimer = null;
+		// Back to whatever speed the viewer picked, which is not always 1x.
+		const restoreRate = () => {
+			if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+		};
+		const interval = setInterval(() => {
+			const video = videoRef.current;
+			if (!video || video.paused || syncPlayCommandRef.current) return;
+			const expected = syncPlayService.getExpectedPositionTicks();
+			const action = driftAction(driftMs(positionRef.current, expected));
+
+			if (action.type === 'seek') {
+				suppressBufferingUntilRef.current = Date.now() + syncPlayService.BUFFERING_SUPPRESS_MS;
+				seekToTicks(expected);
+			} else if (action.type === 'rate' && !restoreTimer) {
+				video.playbackRate = action.rate;
+				restoreTimer = setTimeout(() => {
+					restoreTimer = null;
+					restoreRate();
+				}, SPEED_DURATION_MS);
+			}
+		}, DRIFT_CHECK_MS);
+
+		return () => {
+			clearInterval(interval);
+			if (restoreTimer) clearTimeout(restoreTimer);
+			restoreRate();
+		};
+	}, [isInGroup, isPaused, playbackRate, seekToTicks]);
+
+	// The server marks every member as buffering after a group seek or a change
+	// of item and waits for each one to report Ready, so a set that never
+	// stalled still has to answer.
+	useEffect(() => {
+		if (!isInGroup) return;
+
+		const listener = syncPlayService.addListener((event) => {
+			if (event === 'stateUpdate') readyGate.request();
+		});
+
+		return () => {
+			listener();
+			readyGate.cancel();
+		};
+	}, [isInGroup, readyGate]);
+
 	useEffect(() => {
 		if (!isInGroup || !videoRef.current) return;
 
@@ -2186,23 +2219,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				stallRecheckTimerRef.current = setTimeout(() => {
 					const v = videoRef.current;
 					if (v && v.readyState < 3 && !v.paused) {
-						syncPlayService.sendBufferingRequest(true, positionRef.current);
+						syncPlayService.sendBufferingRequest(syncPlaySample);
 					}
 				}, remaining + 100);
 				return;
 			}
-			syncPlayService.sendBufferingRequest(
-				!videoRef.current.paused,
-				positionRef.current
-			);
+			syncPlayService.sendBufferingRequest(syncPlaySample);
 		};
 
 		const reportReady = () => {
 			clearTimeout(stallRecheckTimerRef.current);
-			syncPlayService.sendReadyRequest(
-				!videoRef.current.paused,
-				positionRef.current
-			);
+			readyGate.request();
 		};
 
 		const video = videoRef.current;
@@ -2212,11 +2239,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 		return () => {
 			clearTimeout(stallRecheckTimerRef.current);
+			readyGate.cancel();
 			video.removeEventListener('waiting', reportBuffering);
 			video.removeEventListener('playing', reportReady);
 			video.removeEventListener('canplay', reportReady);
 		};
-	}, [isInGroup]);
+	}, [isInGroup, readyGate, syncPlaySample]);
 
 	useEffect(() => {
 		const handleKeyDown = (e) => {
@@ -2297,7 +2325,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 			// Left/Right when controls hidden -> show controls and focus on seekbar
 			if (!controlsVisible && !activeModal) {
-				if ((key === 'Enter' || e.keyCode === 13) && (showSkipIntro || showSkipCredits || showNextEpisode)) {
+				if ((key === 'Enter' || e.keyCode === 13) && (skipSegment || showSkipCredits || showNextEpisode)) {
 					return;
 				}
 				if (key === 'Enter' || e.keyCode === 13) {
@@ -2366,7 +2394,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 		window.addEventListener('keydown', handleKeyDown, true);
 		return () => window.removeEventListener('keydown', handleKeyDown, true);
-	}, [controlsVisible, activeModal, closeModal, hideControls, handleBack, showControls, handlePlayPause, handleForward, handleRewind, currentTime, settings.seekStep, seekByOffset, handlePopupKeyDown, bottomButtons.length, isAudioMode, focusRow, showSkipIntro, showSkipCredits, showNextEpisode, isLiveTV, isInGroup]);
+	}, [controlsVisible, activeModal, closeModal, hideControls, handleBack, showControls, handlePlayPause, handleForward, handleRewind, currentTime, settings.seekStep, seekByOffset, handlePopupKeyDown, bottomButtons.length, isAudioMode, focusRow, skipSegment, showSkipCredits, showNextEpisode, isLiveTV, isInGroup]);
 
 	const displayTime = isSeeking ? (seekPosition / 10000000) : currentTime;
 	const progressPercent = duration > 0 ? (displayTime / duration) * 100 : 0;
@@ -2404,10 +2432,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			}
 		});
 	}, [focusRow, controlsVisible]);
-
-	const nextCountdownStyle = settings.nextUpCountdownStyle ?? 'both';
-	const showNextCountdownTimer = nextEpisodeCountdown !== null && nextCountdownStyle !== 'progressBar';
-	const showNextCountdownBar = nextEpisodeCountdown !== null && nextCountdownStyle !== 'timer';
 
 	return (
 		<div className={css.container} onClick={!isLoading && !error ? showControls : undefined}>
@@ -2491,78 +2515,34 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				</div>
 			)}
 
-			{/* Next Episode Overlay */}
+			{askStillWatching && (
+				<StillWatchingDialog onContinue={handleStillWatchingContinue} onStop={handleStillWatchingStop} />
+			)}
+
 			{!isLoading && !error && (showSkipCredits || showNextEpisode) && nextEpisode && !isAudioMode && !activeModal && !controlsVisible && (
-				<NextEpisodeContainer className={css.nextEpisodeOverlay} spotlightRestrict="self-only">
-					{settings.nextUpBehavior !== 'minimal' ? (
-					<div className={css.nextEpisodeCard}>
-						<div className={css.nextThumbnail}>
-							<img
-								src={getImageUrl(getServerUrl(), nextEpisode.Id, 'Primary', {maxWidth: 400, quality: 80})}
-								alt={nextEpisode.Name}
-								className={css.nextThumbnailImg}
-								onError={handleImageError}
-							/>
-							<div className={css.nextThumbnailGradient} />
-						</div>
-						<div className={css.nextInfo}>
-							<div className={css.nextLabelRow}>
-								<div className={css.nextLabel}>{$L('UP NEXT')}</div>
-								{showNextCountdownTimer && (
-									<div className={css.nextCountdownInline}>{$L('Starting in {countdown}s').replace('{countdown}', nextEpisodeCountdown)}</div>
-								)}
-							</div>
-							<div className={css.nextTitle}>{nextEpisode.Name}</div>
-							{nextEpisode.SeriesName && (
-								<div className={css.nextMeta}>
-									S{nextEpisode.ParentIndexNumber} E{nextEpisode.IndexNumber} &middot; {nextEpisode.SeriesName}
-								</div>
-							)}
-							<div className={css.nextActions}>
-								<SpottableButton
-									className={css.nextPlayBtn}
-									onClick={handlePlayNextEpisode}
-									data-spot-default="true"
-								>
-									&#9654; {$L('Play Now')}
-								</SpottableButton>
-								<SpottableButton
-									className={css.nextCancelBtn}
-									onClick={cancelNextEpisodeCountdown}
-								>
-									{$L('Hide')}
-								</SpottableButton>
-							</div>
-						</div>
-						{showNextCountdownBar && (
-							<div className={css.nextProgressBar}>
-								<div className={css.nextProgressFill} style={{'--countdown-duration': `${settings.nextUpTimeout ?? 7}s`}} />
-							</div>
-						)}
-					</div>
-					) : (
-					<div className={css.nextEpisodeMinimal}>
-						<div className={css.nextLabel}>{$L('UP NEXT')}</div>
-						<div className={css.nextTitle}>{nextEpisode.Name}</div>
-						{showNextCountdownTimer && (
-							<div className={css.nextCountdownText}>{$L('Starting in {countdown}s').replace('{countdown}', nextEpisodeCountdown)}</div>
-						)}
-						<div className={css.nextActions}>
-							<SpottableButton className={css.nextPlayBtn} onClick={handlePlayNextEpisode} data-spot-default="true">
-								&#9654; {$L('Play Now')}
-							</SpottableButton>
-							<SpottableButton className={css.nextCancelBtn} onClick={cancelNextEpisodeCountdown}>
-								{$L('Hide')}
-							</SpottableButton>
-						</div>
-						{showNextCountdownBar && (
-							<div className={css.nextProgressBarMinimal}>
-								<div className={css.nextProgressFill} style={{'--countdown-duration': `${settings.nextUpTimeout ?? 7}s`}} />
-							</div>
-						)}
-					</div>
-					)}
+				<NextEpisodeContainer spotlightRestrict="self-only">
+					<NextUpOverlay
+						episode={nextEpisode}
+						imageUrl={getImageUrl(item._serverUrl || getServerUrl(), nextEpisode.Id, 'Primary', {maxWidth: 400, quality: 80})}
+						countdown={nextEpisodeCountdown}
+						timeout={settings.nextUpTimeout ?? 7}
+						countdownStyle={settings.nextUpCountdownStyle ?? 'both'}
+						minimal={settings.nextUpBehavior === 'minimal'}
+						onPlay={handlePlayNextNow}
+						onDismiss={cancelNextEpisodeCountdown}
+					/>
 				</NextEpisodeContainer>
+			)}
+
+			{!isLoading && !error && skipSegment && !isAudioMode && !isLiveTV && !activeModal && !controlsVisible && (
+				<SkipSegmentOverlay
+					type={skipSegment.type}
+					remainingSeconds={skipSegment.remainingSeconds}
+					progress={skipSegment.progress}
+					countdownStyle={settings.nextUpCountdownStyle ?? 'both'}
+					onSkip={handleSkipSegment}
+					spotlightId="skip-segment-btn"
+				/>
 			)}
 
 			{!isLoading && !error && <PlayerControls
@@ -2593,12 +2573,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				chapters={chapters}
 				currentTime={currentTime}
 				subtitleOffset={subtitleOffset}
-				showSkipIntro={showSkipIntro}
 				handleControlButtonClick={handleControlButtonClick}
 				handleProgressClick={handleProgressClick}
 				handleProgressKeyDown={handleProgressKeyDown}
 				handleProgressBlur={handleProgressBlur}
-				handleSkipIntro={handleSkipIntro}
 				handleSelectAudio={handleSelectAudio}
 				handleSelectSubtitle={handleSelectSubtitle}
 				handleSubtitleKeyDown={handleSubtitleKeyDown}

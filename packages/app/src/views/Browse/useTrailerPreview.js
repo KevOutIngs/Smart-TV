@@ -14,9 +14,16 @@ const LOCAL_TRAILER_STREAM_PARAMS = {
 // Shared trailer preview engine for the home banners. Resolves a local or
 // youtube trailer for the current item, plays a muted preview into a container
 // the caller renders, and reveals it after a short delay.
-export default function useTrailerPreview({currentItem, isVisible, enabled, preferMuted, api, getItemServerUrl}) {
+export default function useTrailerPreview({currentItem, isVisible, enabled, preferMuted, api, getItemServerUrl, onEnded}) {
 	const [trailerActive, setTrailerActive] = useState(false);
 	const [screensaverActive, setScreensaverActive] = useState(false);
+
+	// Mirrored so a new handler each render cant restart the trailer, since
+	// startTrailerPreview sits in the main effect's dependencies.
+	const onEndedRef = useRef(onEnded);
+	useEffect(() => {
+		onEndedRef.current = onEnded;
+	}, [onEnded]);
 
 	const trailerContainerRef = useRef(null);
 	const trailerVideoRef = useRef(null);
@@ -161,11 +168,18 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 		if (directUrl) attempts.push({url: directUrl});
 		if (videoId) attempts.push({id: videoId});
 
+		// Giving up has to clear trailerActive as well as the class, because the
+		// banner holds its carousel timer while that flag is set.
+		const markUnavailable = () => {
+			trailerStateRef.current = 'unavailable';
+			video.classList.remove(css.trailerVisible);
+			setTrailerActive(false);
+		};
+
 		const tryAttempt = async (index) => {
 			if (isStale()) return;
 			if (index >= attempts.length) {
-				trailerStateRef.current = 'unavailable';
-				video.classList.remove(css.trailerVisible);
+				markUnavailable();
 				return;
 			}
 
@@ -194,6 +208,9 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 			video.onplaying = () => {
 				if (trailerStateRef.current === 'resolving' && trailerVideoIdRef.current === requestId) {
 					trailerStateRef.current = 'playing';
+					// A seek past a sponsor segment can fire this again, so the pending
+					// reveal is dropped rather than left to run after the trailer stops.
+					if (trailerRevealTimerRef.current) clearTimeout(trailerRevealTimerRef.current);
 					trailerRevealTimerRef.current = setTimeout(() => {
 						if (trailerStateRef.current === 'playing' && trailerVideoIdRef.current === requestId) {
 							video.classList.add(css.trailerVisible);
@@ -205,16 +222,17 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 
 			video.onended = () => {
 				stopTrailer();
+				onEndedRef.current?.();
 			};
 
 			video.onerror = () => {
 				if (trailerVideoIdRef.current !== requestId) return;
 				clearSkipInterval();
-				video.classList.remove(css.trailerVisible);
 				if (trailerStateRef.current === 'resolving') {
+					video.classList.remove(css.trailerVisible);
 					tryAttempt(index + 1);
 				} else {
-					trailerStateRef.current = 'unavailable';
+					markUnavailable();
 				}
 			};
 
@@ -223,12 +241,14 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 			const playPromise = video.play();
 			if (playPromise) {
 				playPromise.catch(() => {
-					// autoplay with audio can get blocked, so retry muted to keep previews working
-					if (!video || video.muted) return;
+					// Stopping a preview pauses the element, which rejects this same
+					// promise, so without the id check one just turned off would restart.
+					if (trailerVideoIdRef.current !== requestId) return;
+					// Autoplay with audio can get blocked, so retry muted.
+					if (video.muted) return;
 					video.muted = true;
 					video.volume = 0;
-					const retryPromise = video.play();
-					if (retryPromise) retryPromise.catch(() => {});
+					video.play()?.catch(() => {});
 				});
 			}
 		};

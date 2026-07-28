@@ -123,12 +123,13 @@ export const getResumeItemsFromAllServers = async () => {
 
 /**
  * Get next up items from all servers
+ * @param {number} maxDays - Next Up cutoff in days, see getNextUp in jellyfinApi
  * @returns {Promise<Array>} Merged next up items
  */
-export const getNextUpFromAllServers = async () => {
+export const getNextUpFromAllServers = async (maxDays = 0) => {
 	return executeAll(
 		async (api) => {
-			const result = await api.getNextUp();
+			const result = await api.getNextUp(12, null, maxDays);
 			return result.Items || [];
 		},
 		{

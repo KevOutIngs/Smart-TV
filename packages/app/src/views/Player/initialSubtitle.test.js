@@ -1,0 +1,167 @@
+import {resolveInitialSubtitle, bestSubtitle} from './initialSubtitle';
+import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
+
+jest.mock('../../services/subtitlePrefs', () => ({
+	getItemSubtitlePref: jest.fn(),
+	getSeriesSubtitlePref: jest.fn()
+}));
+
+const eng = {index: 1, language: 'eng', isForced: false, isDefault: true};
+const engForced = {index: 2, language: 'eng', isForced: true, isBurnIn: true};
+const spa = {index: 3, language: 'spa', isForced: false};
+
+const result = (extra) => ({subtitleStreams: [eng, engForced, spa], ...extra});
+const item = {Id: 'item-1'};
+
+beforeEach(() => {
+	getItemSubtitlePref.mockResolvedValue(undefined);
+	getSeriesSubtitlePref.mockResolvedValue(undefined);
+});
+
+describe('resolveInitialSubtitle', () => {
+	test('forced mode picks the forced track', async () => {
+		const picked = await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBe(engForced);
+	});
+
+	test('forced mode leaves the selection alone when nothing is forced', async () => {
+		const picked = await resolveInitialSubtitle({subtitleStreams: [eng, spa]}, item, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBeUndefined();
+	});
+
+	test('always mode prefers the default track', async () => {
+		const picked = await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'always'});
+		expect(picked).toBe(eng);
+	});
+
+	test('always mode prefers English when no language is set', async () => {
+		const picked = await resolveInitialSubtitle({subtitleStreams: [spa, engForced]}, item, undefined, {subtitleMode: 'always'});
+		expect(picked).toBe(engForced);
+	});
+
+	test('always mode takes the first track when none is English', async () => {
+		const ita = {index: 4, language: 'ita'};
+		const picked = await resolveInitialSubtitle({subtitleStreams: [spa, ita]}, item, undefined, {subtitleMode: 'always'});
+		expect(picked).toBe(spa);
+	});
+
+	test('forced mode prefers the chosen language over the first forced track', async () => {
+		const spaForced = {index: 5, language: 'spa', isForced: true};
+		const streams = [spaForced, engForced];
+		const picked = await resolveInitialSubtitle({subtitleStreams: streams}, item, undefined, {subtitleMode: 'forced', subtitleLanguage: 'eng'});
+		expect(picked).toBe(engForced);
+	});
+
+	test('default mode follows the server resolved index', async () => {
+		const picked = await resolveInitialSubtitle(result({defaultSubtitleStreamIndex: 3}), item, undefined, {subtitleMode: 'default'});
+		expect(picked).toBe(spa);
+	});
+
+	test('an explicit index wins over the mode', async () => {
+		const picked = await resolveInitialSubtitle(result(), item, 3, {subtitleMode: 'forced'});
+		expect(picked).toBe(spa);
+	});
+
+	test('a negative explicit index means off', async () => {
+		const picked = await resolveInitialSubtitle(result(), item, -1, {subtitleMode: 'always'});
+		expect(picked).toBeNull();
+	});
+
+	test('a remembered item index wins over everything', async () => {
+		getItemSubtitlePref.mockResolvedValue(3);
+		const picked = await resolveInitialSubtitle(result(), item, 1, {subtitleMode: 'forced'});
+		expect(picked).toBe(spa);
+	});
+
+	test('a remembered off choice means off', async () => {
+		getItemSubtitlePref.mockResolvedValue(-1);
+		const picked = await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'always'});
+		expect(picked).toBeNull();
+	});
+
+	test('a remembered index that is gone falls through to the mode', async () => {
+		getItemSubtitlePref.mockResolvedValue(99);
+		const picked = await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBe(engForced);
+	});
+
+	test('a remembered series language matches by language', async () => {
+		getSeriesSubtitlePref.mockResolvedValue('spa');
+		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBe(spa);
+	});
+
+	test('the series preference is only read for episodes of a series', async () => {
+		getSeriesSubtitlePref.mockResolvedValue('spa');
+		await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'forced'});
+		expect(getSeriesSubtitlePref).not.toHaveBeenCalled();
+	});
+
+	test('no streams at all leaves the selection alone', async () => {
+		const picked = await resolveInitialSubtitle({}, item, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBeUndefined();
+	});
+});
+
+describe('bestSubtitle', () => {
+	const forced = (index, language, extra) => ({index, language, isForced: true, ...extra});
+
+	test('takes the chosen language over the first one listed', () => {
+		const list = [forced(1, 'spa'), forced(2, 'eng'), forced(3, 'fre')];
+		expect(bestSubtitle(list, 'fre')).toBe(list[2]);
+	});
+
+	test('falls back to English when the chosen language is absent', () => {
+		const list = [forced(1, 'spa'), forced(2, 'eng')];
+		expect(bestSubtitle(list, 'jpn')).toBe(list[1]);
+	});
+
+	test('matches a two letter code against a three letter track', () => {
+		const list = [forced(1, 'spa'), forced(2, 'deu')];
+		expect(bestSubtitle(list, 'de')).toBe(list[1]);
+	});
+
+	test('keeps list order when nothing matches', () => {
+		const list = [forced(1, 'spa'), forced(2, 'ita')];
+		expect(bestSubtitle(list, 'jpn')).toBe(list[0]);
+	});
+
+	test('pushes a commentary track below ordinary dialogue', () => {
+		const list = [forced(1, 'eng', {displayTitle: 'English Commentary'}), forced(2, 'eng', {displayTitle: 'English'})];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+	});
+
+	test('the file default breaks a tie', () => {
+		const list = [forced(1, 'eng'), forced(2, 'eng', {isDefault: true})];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+	});
+
+	test('language still beats the file default', () => {
+		const list = [forced(1, 'spa', {isDefault: true}), forced(2, 'fre')];
+		expect(bestSubtitle(list, 'fre')).toBe(list[1]);
+	});
+
+	test('keeps the file\'s own track above an external download', () => {
+		const list = [forced(1, 'eng', {isExternal: true}), forced(2, 'eng')];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+	});
+
+	test('pushes a hearing impaired track below the plain one', () => {
+		const list = [forced(1, 'eng', {displayTitle: 'English SDH'}), forced(2, 'eng', {displayTitle: 'English'})];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+	});
+
+	test('prefers full subtitles over forced ones when both are offered', () => {
+		const list = [{index: 1, language: 'eng', isForced: true}, {index: 2, language: 'eng'}];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+	});
+
+	test('language still beats every later level', () => {
+		const list = [forced(1, 'eng', {isExternal: true, displayTitle: 'English SDH'}), forced(2, 'spa')];
+		expect(bestSubtitle(list, 'eng')).toBe(list[0]);
+	});
+
+	test('an empty list has no answer', () => {
+		expect(bestSubtitle([], 'eng')).toBeUndefined();
+	});
+});

@@ -1,6 +1,6 @@
 import {useState, useEffect, useRef, useMemo} from 'react';
 import $L from '@enact/i18n/$L';
-import {fetchRatings, fetchEpisodeRatings, buildDisplayRatings, getContentType, getTmdbId} from '../../services/mdblistApi';
+import {fetchRatings, fetchEpisodeRatings, buildDisplayRatings, getContentType, getTmdbId, getSelectionSource, isRatingSourceEnabled} from '../../services/mdblistApi';
 import {useSettings} from '../../context/SettingsContext';
 import {getRtFallbackIcon} from '../icons/rtIcons';
 import css from './RatingsRow.module.less';
@@ -20,7 +20,7 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 	}, []);
 
 	const sourcesKey = Array.isArray(enabledSources) ? enabledSources.join(',') : '';
-	const episodeRatingsEnabled = settings.tmdbEpisodeRatingsEnabled === true;
+	const episodeRatingsEnabled = settings.tmdbEpisodeRatingsEnabled === true && isRatingSourceEnabled(settings, 'tmdb');
 
 	useEffect(() => {
 		if (!pluginEnabled || !item || !serverUrl) {
@@ -63,17 +63,17 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 	const displayRatings = useMemo(() => {
 		if (!Array.isArray(enabledSources)) return allRatings;
 		return allRatings
-			// tmdb_episode is gated by its own toggle (the fetch only runs when it's
-			// on), so it bypasses the MDBList enabled-sources selection.
-			.filter(r => r.source === 'tmdb_episode' || enabledSources.includes(r.source))
-			.sort((a, b) => enabledSources.indexOf(a.source) - enabledSources.indexOf(b.source));
+			.filter(r => enabledSources.includes(getSelectionSource(r.source)))
+			.sort((a, b) => enabledSources.indexOf(getSelectionSource(a.source)) - enabledSources.indexOf(getSelectionSource(b.source)));
 	}, [allRatings, enabledSources]);
 
 	if (!showRatingBadges) return null;
 
-	const showCommunity = !Array.isArray(enabledSources) || enabledSources.includes('stars');
-	const communityRating = showCommunity && item && item.CommunityRating ? item.CommunityRating.toFixed(1) : null;
-	const hasContent = communityRating || displayRatings.length > 0 || (!pluginEnabled && item && item.CriticRating);
+	const communityRating = isRatingSourceEnabled(settings, 'stars') && item && item.CommunityRating ? item.CommunityRating.toFixed(1) : null;
+	// The server's own critic rating stands in until plugin ratings actually
+	// arrive, so it stays visible when there's no API key or nothing came back.
+	const showCriticRating = allRatings.length === 0 && item && item.CriticRating != null;
+	const hasContent = communityRating || displayRatings.length > 0 || showCriticRating;
 	if (!hasContent) return null;
 
 	if (compact) {
@@ -85,7 +85,7 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 						<span className={css.ratingValueCompact}>{communityRating}</span>
 					</span>
 				)}
-				{!pluginEnabled && item.CriticRating != null && (
+				{showCriticRating && (
 					<span className={css.ratingCompact}>
 						<img
 							className={css.ratingIconCompact}
@@ -121,7 +121,7 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 					</div>
 				</div>
 			)}
-			{!pluginEnabled && item.CriticRating != null && (
+			{showCriticRating && (
 				<div className={css.ratingItem}>
 					<img
 						className={css.ratingIcon}

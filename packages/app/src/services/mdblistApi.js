@@ -57,6 +57,23 @@ export const isMdblistEnabled = (settings) =>
 	!!settings?.useMoonfinPlugin && settings?.mdblistEnabled !== false;
 
 /**
+ * No stored list means the user hasn't narrowed the sources, so everything shows.
+ * Callers inside a hook should use the array form so the dependency they list is
+ * the value that actually gets read.
+ */
+export const isRatingSourceAllowed = (sources, source) =>
+	!Array.isArray(sources) || sources.includes(source);
+
+export const isRatingSourceEnabled = (settings, source) =>
+	isRatingSourceAllowed(settings?.mdblistRatingSources, source);
+
+/**
+ * An episode's TMDB rating keeps its own key because it's scored out of 10
+ * rather than 100, but the picker only offers TMDB, so it follows that choice.
+ */
+export const getSelectionSource = (source) => source === 'tmdb_episode' ? 'tmdb' : source;
+
+/**
  * Returns 'movie' or 'show', or null for unsupported types. Episodes and
  * Seasons are unsupported because MDBList has no ratings for them, and their
  * TMDB provider ids live in a different id space than show ids. Episodes get
@@ -160,7 +177,9 @@ export const fetchRatings = async (serverUrl, item, options = {}) => {
 	if (!baseUrl) return [];
 
 	try {
-		const url = `${baseUrl}/Moonfin/MdbList/Ratings?type=${encodeURIComponent(contentType)}&tmdbId=${encodeURIComponent(tmdbId)}`;
+		// profile=tv makes the plugin filter with the same profile this app syncs its
+		// settings to, rather than the global one.
+		const url = `${baseUrl}/Moonfin/MdbList/Ratings?type=${encodeURIComponent(contentType)}&tmdbId=${encodeURIComponent(tmdbId)}&profile=tv`;
 		const fetchOptions = {
 			headers: {
 				'Authorization': getAuthHeader()

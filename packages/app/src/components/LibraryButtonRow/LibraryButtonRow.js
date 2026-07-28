@@ -34,7 +34,7 @@ const ICON_BY_COLLECTION_TYPE = {
 
 const iconPathFor = (library) => {
 	const collectionType = (library.CollectionType || '').toLowerCase();
-	if (isGameLibrary(library.CollectionType, library.Name)) {
+	if (isGameLibrary(library.Id, library.CollectionType, library.Name)) {
 		return MATERIAL_ICON_PATHS.extension;
 	}
 	const name = ICON_BY_COLLECTION_TYPE[collectionType];

@@ -5,12 +5,14 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 import $L from '@enact/i18n/$L';
 import {Scroller} from '@enact/sandstone/Scroller';
 import {getImageUrl} from '../../utils/helpers';
+import {KEYS} from '../../utils/keys';
 import {useSettings} from '../../context/SettingsContext';
 
 import css from './ChangeArtworkModal.module.less';
 
 const ModalContainer = SpotlightContainerDecorator({
 	enterTo: 'default-element',
+	defaultElement: [`.${css.cardWrapper}`, '[data-spotlight-id="dialog-close-btn"]'],
 	restrict: 'self-only',
 	leaveFor: {left: '', right: '', up: '', down: ''}
 }, 'div');
@@ -25,6 +27,8 @@ const SpottableDiv = Spottable('div');
 const SpottableButton = Spottable('button');
 
 const RESOLUTIONS = ['All', 'High (1080p+)', 'Medium (720p)', 'Low (<720p)'];
+
+const ROW_SCROLL_MARGIN = 40;
 
 const getSupportedImageTypes = (itemType) => {
 	const type = itemType?.toLowerCase();
@@ -618,6 +622,37 @@ const ChangeArtworkModal = ({open, item: initialItem, api, serverUrl, onClose, o
 		setFocusedCategory(null);
 	}, []);
 
+	// Nesting a Scroller here would make both it and the vertical one answer the
+	// same focus event, with the outer one measuring a row that was still moving.
+	const handleRowFocus = useCallback((ev) => {
+		const card = ev.target.closest('.spottable');
+		if (!card) return;
+		const row = ev.currentTarget;
+		window.requestAnimationFrame(() => {
+			const cardRect = card.getBoundingClientRect();
+			const rowRect = row.getBoundingClientRect();
+			if (cardRect.left < rowRect.left) {
+				row.scrollLeft -= rowRect.left - cardRect.left + ROW_SCROLL_MARGIN;
+			} else if (cardRect.right > rowRect.right) {
+				row.scrollLeft += cardRect.right - rowRect.right + ROW_SCROLL_MARGIN;
+			}
+		});
+	}, []);
+
+	const handleRowKeyDown = useCallback((ev) => {
+		if (ev.keyCode !== KEYS.LEFT && ev.keyCode !== KEYS.RIGHT) return;
+		const card = ev.target.closest('.spottable');
+		if (!card) return;
+		const cards = Array.from(ev.currentTarget.querySelectorAll('.spottable'));
+		const idx = cards.indexOf(card);
+		if (idx === -1) return;
+		// Handled either way so the ends of a row don't leak sideways out of it.
+		ev.preventDefault();
+		ev.stopPropagation();
+		const next = ev.keyCode === KEYS.LEFT ? idx - 1 : idx + 1;
+		if (next >= 0 && next < cards.length) Spotlight.focus(cards[next]);
+	}, []);
+
 	// Render Breadcrumbs
 	const renderBreadcrumbs = () => {
 		const seriesName = activeItem.SeriesName;
@@ -775,7 +810,7 @@ const ChangeArtworkModal = ({open, item: initialItem, api, serverUrl, onClose, o
 											)}
 										</div>
 
-										<Scroller direction="horizontal" verticalScrollbar="hidden" horizontalScrollbar="hidden" className={css.cardRowScroller}>
+										<div className={css.cardRowScroller} onFocus={handleRowFocus} onKeyDown={handleRowKeyDown}>
 											<div className={css.cardRow}>
 												{/* Current Images */}
 												{currentTags.map((tag, idx) => (
@@ -834,7 +869,7 @@ const ChangeArtworkModal = ({open, item: initialItem, api, serverUrl, onClose, o
 													</div>
 												)}
 											</div>
-										</Scroller>
+										</div>
 									</div>
 								);
 							})}

@@ -43,6 +43,15 @@ export const getBlurOptions = () => [
 	{ value: 40, label: $L('Heavy') }
 ];
 
+export const getDetailsOpacityOptions = () => [
+	{ value: 0, label: '0%' },
+	{ value: 5, label: '20%' },
+	{ value: 10, label: '40%' },
+	{ value: 15, label: '60%' },
+	{ value: 20, label: '80%' },
+	{ value: 25, label: '100%' }
+];
+
 export const getPerformanceModeOptions = () => [
 	{ value: 'auto', label: $L('Auto') },
 	{ value: 'high', label: $L('High Quality') },
@@ -232,6 +241,15 @@ export const getHomeRowOverlayOptions = () => [
 	{ value: 'on', label: $L('On') }
 ];
 
+export const getNextUpMaxDaysOptions = () => [
+	{ value: 0, label: $L('No limit') },
+	{ value: 30, label: $L('30 days') },
+	{ value: 90, label: $L('90 days') },
+	{ value: 180, label: $L('180 days') },
+	{ value: 365, label: $L('365 days') },
+	{ value: 730, label: $L('730 days') }
+];
+
 export const getAudioLanguageOptions = () => [
 	{ value: '', label: $L('Auto') },
 	{ value: 'eng', label: $L('English') },
@@ -279,7 +297,16 @@ export const getUiLanguageOptions = () => [
 export const getNextUpCountdownStyleOptions = () => [
 	{ value: 'progressBar', label: $L('Progress Bar') },
 	{ value: 'timer', label: $L('Timer') },
-	{ value: 'both', label: $L('Both') }
+	{ value: 'both', label: $L('Both') },
+	{ value: 'none', label: $L('None') }
+];
+
+export const getStillWatchingBehaviorOptions = () => [
+	{ value: 'disabled', label: $L('Off') },
+	{ value: 'short_', label: $L('2 episodes') },
+	{ value: 'medium', label: $L('3 episodes') },
+	{ value: 'long_', label: $L('5 episodes') },
+	{ value: 'veryLong', label: $L('8 episodes') }
 ];
 
 export const getMediaSegmentActionOptions = () => [

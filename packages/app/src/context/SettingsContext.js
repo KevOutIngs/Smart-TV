@@ -20,6 +20,10 @@ import {defaultSettings} from './defaultSettings';
 
 export {defaultSettings};
 
+// Above this an auto advance interval has to be milliseconds, because the slider
+// that sets it only reaches 20 seconds.
+const MIN_INTERVAL_MS = 100;
+
 const SERVER_TO_LOCAL = {
 	mediaBarMode: 'featuredBarStyle',
 	mediaBarItemCount: 'featuredItemCount',
@@ -46,9 +50,10 @@ const SERVER_TO_LOCAL = {
 	syncPlayEnabled: 'syncplayEnabled',
 	syncPlayAutoOpen: 'syncplayAutoOpen',
 	clockBehavior: 'showClock',
-	stillWatchingBehavior: 'stillWatchingPrompt',
 	enableFolderView: 'folderViewMode',
-	homeRowInfoOverlay: 'homeRowOverlay'
+	homeRowInfoOverlay: 'homeRowOverlay',
+	autoplayNextEpisode: 'autoPlay',
+	mediaSegmentCountdown: 'nextUpCountdownStyle'
 };
 const LOCAL_TO_SERVER = Object.fromEntries(
 	Object.entries(SERVER_TO_LOCAL).map(([s, l]) => [l, s])
@@ -105,13 +110,6 @@ const VALUE_CONVERSIONS = {
 		toServer: v => v ? 'always' : 'never',
 		fromServer: v => v !== 'never'
 	},
-	// A toggle here, a duration elsewhere. Turning it off is exact. Turning it on can't say
-	// how long, so it picks the middle option rather than overwriting a chosen duration with
-	// something arbitrary.
-	stillWatchingPrompt: {
-		toServer: v => v ? 'medium' : 'disabled',
-		fromServer: v => v !== 'disabled'
-	},
 	// Three states here against a boolean elsewhere. "Per Library" has no equivalent, so it
 	// declines to push and leaves whatever the server holds.
 	folderViewMode: {
@@ -122,11 +120,20 @@ const VALUE_CONVERSIONS = {
 		toServer: v => v === 'on',
 		fromServer: v => (v ? 'on' : 'off')
 	},
-	// autoAdvanceInterval is stored in seconds on the TV UI slider (2-20), but saved
-	// as mediaBarIntervalMs in milliseconds (2000-20000) on the server.
+	// Seconds here, milliseconds on the other clients.
+	nextUpTimeout: {
+		toServer: v => (typeof v === 'number' ? Math.round(v * 1000) : undefined),
+		fromServer: v => (typeof v === 'number' ? Math.round(v / 1000) : undefined)
+	},
+	// Seconds here, milliseconds on the other clients.
 	autoAdvanceInterval: {
-		toServer: v => (typeof v === 'number' && Number.isFinite(v) ? (v >= 100 ? v : v * 1000) : 8000),
-		fromServer: v => (typeof v === 'number' && Number.isFinite(v) ? (v >= 100 ? Math.round(v / 1000) : v) : 8)
+		toServer: v => (typeof v === 'number' ? Math.round(v * 1000) : undefined),
+		// The slider only reaches 20, so anything above the threshold is the raw
+		// milliseconds an older build pushed before there was a conversion.
+		fromServer: v => {
+			if (typeof v !== 'number') return undefined;
+			return v < MIN_INTERVAL_MS ? v : Math.round(v / 1000);
+		}
 	}
 	// homeRows is missing on purpose. The home layout is two server fields that have to
 	// move together, so it gets resolved whole rather than a key at a time.
@@ -135,6 +142,7 @@ const VALUE_CONVERSIONS = {
 const SYNCABLE_KEYS = [
 	'showShuffleButton', 'shuffleContentType', 'showGenresButton',
 	'showFavoritesButton', 'showLibrariesInToolbar', 'mergeContinueWatchingNextUp',
+	'nextUpMaxDays',
 	'hiddenContinueWatchingItems', 'hiddenNextUpSeries',
 	'mdblistEnabled', 'mdblistRatingSources', 'tmdbEpisodeRatingsEnabled',
 	'imdbTop250MoviesEnabled', 'imdbTop250TvShowsEnabled', 'imdbMostPopularMoviesEnabled',
@@ -153,14 +161,17 @@ const SYNCABLE_KEYS = [
 	'autoAdvance', 'autoAdvanceInterval',
 	'displayFavoritesRows', 'displayCollectionsRows', 'displayGenresRows', 'displayPlaylistsRows',
 	'favoritesRowSortBy', 'collectionsRowSortBy', 'genresRowSortBy', 'genresRowItemFilter',
-	'stillWatchingPrompt', 'watchedIndicatorBehavior',
+	'stillWatchingBehavior', 'watchedIndicatorBehavior',
+	'autoPlay', 'nextUpBehavior', 'nextUpTimeout', 'nextUpCountdownStyle',
+	'replaceSkipOutroWithNextUp',
 	'backdropBlurHome', 'backdropBlurDetail',
 	'mediaBarSourceType', 'mediaBarLibraryIds', 'mediaBarCollectionIds',
 	'homeRows', 'homeRowsStyle', 'detailScreenStyle', 'detailExpandedTabs', 'fullScreenRows', 'homeRowsPosterSize', 'useSeriesThumbnails',
 	'useDetailedSubHeadings',
 	'syncplayEnabled', 'syncplayAutoOpen',
 	'showSyncPlayButton',
-	'videoStartDelay', 'liveTvDirect',
+	'videoStartDelay', 'liveTvDirect', 'cinemaModeEnabled',
+	'diagnosticLoggingEnabled',
 	'uiLanguage',
 	'blockedRatings',
 	'customHomeRows',
@@ -168,6 +179,7 @@ const SYNCABLE_KEYS = [
 	'radarrCalendarShowCinema', 'radarrCalendarShowDigital', 'radarrCalendarShowPhysical',
 	'radarrCalendarShowDate', 'sonarrCalendarShowDate', 'sonarrCalendarShowEpisodeInfo',
 	'showSeerrButton',
+	'detailButtonOrderTv', 'hiddenDetailButtonsTv', 'osdButtonOrderTv', 'hiddenOsdButtonsTv',
 	'focusBorderColor',
 	'navbarOpacity',
 	'navbarColor',
@@ -181,7 +193,11 @@ const profileToLocal = (serverProfile) => {
 		const localKey = SERVER_TO_LOCAL[key] || key;
 		if (SYNCABLE_KEYS.includes(localKey)) {
 			const conv = VALUE_CONVERSIONS[localKey];
-			local[localKey] = conv?.fromServer ? conv.fromServer(value) : value;
+			const converted = conv?.fromServer ? conv.fromServer(value) : value;
+			// A converter returns undefined when the stored value makes no sense here,
+			// so keep what we already have rather than blanking it.
+			if (converted === undefined) continue;
+			local[localKey] = converted;
 		}
 	}
 	// The TMDB key is read only. We pull it so online rows can call TMDB, but it
@@ -250,18 +266,27 @@ const resolveFromEnvelope = (envelope, adminDefaults) => {
 const PUSH_DEBOUNCE_MS = 1000;
 let pushTimer = null;
 let pendingPush = null;
+// Keys the viewer has changed that the server hasn't taken yet. A pull landing in
+// between would otherwise put the old value straight back.
+const unpushedKeys = new Set();
 
 const flushTvProfile = () => {
 	pushTimer = null;
 	if (!pendingPush) return;
 	const {updated, serverUrl, token} = pendingPush;
 	pendingPush = null;
-	saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).catch(e =>
+	const sent = [...unpushedKeys];
+	saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).then(() => {
+		for (const key of sent) unpushedKeys.delete(key);
+	}).catch(e =>
 		console.warn('[Settings] Failed to push TV profile:', e.message)
 	);
 };
 
-const pushTvProfile = (updated, credsRef) => {
+const pushTvProfile = (updated, credsRef, keys) => {
+	for (const key of keys) unpushedKeys.add(key);
+	// Before the first sync there is nowhere to send this, but the keys are still
+	// marked so the pull that follows leaves them alone.
 	if (!credsRef.current) return;
 	const {serverUrl, token} = credsRef.current;
 	pendingPush = {updated, serverUrl, token};
@@ -370,6 +395,13 @@ export function SettingsProvider({children}) {
 					stored.customThemeId = '';
 					migrated = true;
 				}
+				if ('stillWatchingPrompt' in stored) {
+					// Was a toggle that also suppressed the next up prompt. Off keeps the
+					// asking off, on takes the middle count the other clients default to.
+					stored.stillWatchingBehavior = stored.stillWatchingPrompt === false ? 'disabled' : 'medium';
+					delete stored.stillWatchingPrompt;
+					migrated = true;
+				}
 				if ('skipIntro' in stored) {
 					stored.introAction = stored.skipIntro === true ? 'auto' : 'ask';
 					delete stored.skipIntro;
@@ -378,6 +410,11 @@ export function SettingsProvider({children}) {
 				if ('skipCredits' in stored) {
 					stored.outroAction = stored.skipCredits === true ? 'auto' : 'ask';
 					delete stored.skipCredits;
+					migrated = true;
+				}
+				if (typeof stored.autoAdvanceInterval === 'number' && stored.autoAdvanceInterval >= MIN_INTERVAL_MS) {
+					// Came off another client in milliseconds while this key was synced raw.
+					stored.autoAdvanceInterval = Math.round(stored.autoAdvanceInterval / 1000);
 					migrated = true;
 				}
 				if (Array.isArray(stored.mdblistRatingSources) && !stored.mdblistRatingSources.includes('stars')) {
@@ -403,6 +440,11 @@ export function SettingsProvider({children}) {
 				// async store, so the next boot picks it up
 				persistBootLocale(merged.uiLanguage);
 			}
+			setLoaded(true);
+		}).catch((err) => {
+			// The app shows nothing until this resolves, so a store that fails or a
+			// stored value that wont parse has to fall back rather than hang.
+			console.warn('[Settings] Could not read stored settings:', err?.message || err);
 			setLoaded(true);
 		});
 	}, []);
@@ -452,7 +494,7 @@ export function SettingsProvider({children}) {
 		setSettings(prev => {
 			const updated = {...prev, [key]: value};
 			saveToStorage('settings', updated);
-			if (SYNCABLE_KEYS.includes(key)) pushTvProfile(updated, serverCredsRef);
+			if (SYNCABLE_KEYS.includes(key)) pushTvProfile(updated, serverCredsRef, [key]);
 			return updated;
 		});
 	}, []);
@@ -462,8 +504,9 @@ export function SettingsProvider({children}) {
 		setSettings(prev => {
 			const updated = {...prev, ...newSettings};
 			saveToStorage('settings', updated);
-			if (Object.keys(newSettings).some(k => SYNCABLE_KEYS.includes(k))) {
-				pushTvProfile(updated, serverCredsRef);
+			const syncable = Object.keys(newSettings).filter(k => SYNCABLE_KEYS.includes(k));
+			if (syncable.length > 0) {
+				pushTvProfile(updated, serverCredsRef, syncable);
 			}
 			return updated;
 		});
@@ -476,7 +519,7 @@ export function SettingsProvider({children}) {
 				? {...prev, visualTheme: themeId, customThemeId: ''}
 				: {...prev, visualTheme: prev.visualTheme || 'moonfin', customThemeId: themeId};
 			saveToStorage('settings', updated);
-			pushTvProfile(updated, serverCredsRef);
+			pushTvProfile(updated, serverCredsRef, ['visualTheme', 'customThemeId']);
 			return updated;
 		});
 	}, []);
@@ -573,7 +616,9 @@ export function SettingsProvider({children}) {
 					// Hold on to the previous reference when the value hasn't really changed.
 					// An equal but freshly built array still counts as a new identity, which
 					// would send Browse off to reload every row on every sync.
-					nextValues[key] = incoming === undefined || sameSyncedValue(incoming, prev[key])
+					// A key the viewer has changed but the server hasn't taken yet keeps the
+					// local value, because what came back is the one they just replaced.
+					nextValues[key] = incoming === undefined || unpushedKeys.has(key) || sameSyncedValue(incoming, prev[key])
 						? prev[key]
 						: incoming;
 				}
@@ -628,6 +673,11 @@ export function SettingsProvider({children}) {
 	// pass the pull only runs while the user keeps the plugin enabled.
 	const syncOnLogin = useCallback(async (serverUrl, token) => {
 		if (!serverUrl || !token) return;
+		// Known before any of the network work below, so a change made while that
+		// runs still has somewhere to go. Marks left over from another server were
+		// for that server's profile and would only hold this one's values back.
+		if (serverCredsRef.current?.serverUrl !== serverUrl) unpushedKeys.clear();
+		serverCredsRef.current = {serverUrl, token};
 		const key = normalizeServerKey(serverUrl);
 		if (!key || syncOnLoginRef.current[key]) return;
 		syncOnLoginRef.current[key] = true;

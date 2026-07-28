@@ -79,7 +79,7 @@ const BannerBar = memo(({
 		const autoAdvanceEnabled = settings.autoAdvance !== false;
 		const configuredInterval = Number(settings.autoAdvanceInterval);
 		const carouselSpeed = Number.isFinite(configuredInterval) && configuredInterval > 0
-			? (configuredInterval >= 100 ? configuredInterval : configuredInterval * 1000)
+			? configuredInterval * 1000
 			: (settings.carouselSpeed || 8000);
 		if (!autoAdvanceEnabled || !isVisible || featuredItems.length <= 1 || !featuredFocused || carouselSpeed <= 0) return;
 

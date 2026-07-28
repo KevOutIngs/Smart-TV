@@ -9,6 +9,7 @@ import {
 	getClockDisplayOptions,
 	getContentTypeOptions,
 	getDetailScreenStyleOptions,
+	getDetailsOpacityOptions,
 	getEnabledRatingSourcesSummary,
 	getFeaturedBarStyleOptions,
 	getFeaturedItemCountOptions,
@@ -22,6 +23,7 @@ import {
 	getNavPositionOptions,
 	getNextUpBehaviorOptions,
 	getNextUpCountdownStyleOptions,
+	getNextUpMaxDaysOptions,
 	getPerformanceModeOptions,
 	getPosterSizeOptions,
 	getRewatchSortOptions,
@@ -34,6 +36,7 @@ import {
 	getSinceYouWatchedSourceItemOptions,
 	getSinceYouWatchedSourceOptions,
 	getSinceYouWatchedSourceTypeOptions,
+	getStillWatchingBehaviorOptions,
 	getSubtitleBackgroundColorOptions,
 	getSubtitleColorOptions,
 	getSubtitlePositionOptions,
@@ -174,8 +177,19 @@ export const SETTINGS_SCHEMA = [
 				description: () => $L('Style, background blur, and tab behavior'),
 				rows: [
 					{kind: KIND.OPTION, key: 'detailScreenStyle', label: () => $L('Detail Screen Style'), options: getDetailScreenStyleOptions, fallback: () => $L('Modern'), icon: 'appscontents'},
-					{kind: KIND.OPTION, key: 'backdropBlurDetail', label: () => $L('Details Background Blur'), options: getBlurOptions, fallback: () => $L('Medium'), when: (ctx) => ctx.settings.detailScreenStyle === 'v1'},
-					{kind: KIND.TOGGLE, key: 'detailExpandedTabs', label: () => $L('Expanded Tabs'), desc: () => $L('Keep detail tabs expanded and follow focus'), icon: 'appscontents', when: (ctx) => ctx.settings.detailScreenStyle !== 'v1'}
+					{
+						kind: KIND.OPTION,
+						key: 'backdropBlurDetail',
+						label: (ctx) => (ctx.settings.detailScreenStyle === 'v1'
+							? $L('Details Background Blur')
+							: $L('Details Background Opacity')),
+						options: (ctx) => (ctx.settings.detailScreenStyle === 'v1'
+							? getBlurOptions()
+							: getDetailsOpacityOptions()),
+						fallback: (ctx) => (ctx.settings.detailScreenStyle === 'v1' ? $L('Medium') : '80%')
+					},
+					{kind: KIND.TOGGLE, key: 'detailExpandedTabs', label: () => $L('Expanded Tabs'), desc: () => $L('Keep detail tabs expanded and follow focus'), icon: 'appscontents', when: (ctx) => ctx.settings.detailScreenStyle !== 'v1'},
+					{kind: KIND.NAV, id: 'detailButtons', label: () => $L('Details Buttons'), desc: () => $L('Enable/disable and reorder the action row buttons'), icon: 'arrowupdown', action: (ctx) => ctx.actions.openDetailButtons()}
 				]
 			},
 			{
@@ -202,6 +216,7 @@ export const SETTINGS_SCHEMA = [
 				rows: [
 					{kind: KIND.OPTION, key: 'homeRowsStyle', label: () => $L('Row Type'), options: getHomeRowsStyleOptions, fallback: () => $L('Modern'), icon: 'appscontents'},
 					{kind: KIND.TOGGLE, key: 'mergeContinueWatchingNextUp', label: () => $L('Merge Continue Watching and Next Up'), desc: () => $L('Combine both rows into a single home section'), icon: 'arrowupdown'},
+					{kind: KIND.OPTION, key: 'nextUpMaxDays', label: () => $L('Max Days In Next Up'), options: getNextUpMaxDaysOptions, fallback: () => $L('365 days'), desc: () => $L('How long a show stays in Next Up after you last watched it'), icon: 'recording'},
 					{kind: KIND.TOGGLE, key: 'useSeriesThumbnails', label: () => $L('Display Series Thumbnails'), desc: () => $L('For TV series, use the main series artwork instead of the episode thumbnail'), icon: 'aspectratio'},
 					{kind: KIND.TOGGLE, key: 'fullScreenRows', label: () => $L('Expanded Home Rows'), desc: () => $L('Limit home rows to 1 row per screen'), icon: 'aspectratio'},
 					{kind: KIND.OPTION, key: 'homeRowsPosterSize', label: () => $L('Home Row Card Display Size'), options: getPosterSizeOptions, fallback: () => $L('Default'), icon: 'aspectratio'},
@@ -414,7 +429,9 @@ export const SETTINGS_SCHEMA = [
 				rows: [
 					{kind: KIND.OPTION, key: 'introAction', label: () => $L('Intro Action'), options: getMediaSegmentActionOptions, fallback: () => $L('Ask to Skip'), icon: 'skip'},
 					{kind: KIND.OPTION, key: 'outroAction', label: () => $L('Outro Action'), options: getMediaSegmentActionOptions, fallback: () => $L('Ask to Skip'), icon: 'skip'},
+					{kind: KIND.TOGGLE, key: 'replaceSkipOutroWithNextUp', label: () => $L('Next Up Instead of Skip Outro'), desc: () => $L('Offer the next episode at the credits rather than a skip button'), icon: 'skip', when: (ctx) => ctx.settings.outroAction !== 'none'},
 					{kind: KIND.TOGGLE, key: 'autoPlay', label: () => $L('Auto Play Next'), desc: () => $L('Automatically play the next episode'), icon: 'playcircle'},
+					{kind: KIND.TOGGLE, key: 'cinemaModeEnabled', label: () => $L('Cinema Mode'), desc: () => $L('Play trailers/prerolls before a main feature'), icon: 'movies'},
 					{kind: KIND.OPTION, key: 'maxBitrate', label: () => $L('Maximum Bitrate'), options: getBitrateOptions, fallback: () => $L('Auto (Recommended)'), icon: 'download'},
 					{kind: KIND.OPTION, key: 'seekStep', label: () => $L('Seek Step'), options: getSeekStepOptions, fallback: () => $L('10 seconds'), icon: 'skip'},
 					{kind: KIND.SLIDER, key: 'skipForwardLength', label: () => $L('Skip Forward Length'), min: 5, max: 30, step: 5, format: seconds, icon: 'fifteenforward'},
@@ -423,7 +440,9 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.TOGGLE, key: 'stereoUpmixEnabled', label: () => $L('Stereo to Surround Upmix'), desc: () => $L('Upmix stereo audio to 5.1 surround via server transcoding'), icon: 'music'},
 					{kind: KIND.DIVIDER, id: 'transcode'},
 					{kind: KIND.TOGGLE, key: 'preferTranscode', label: () => $L('Prefer Transcoding'), desc: () => $L('Request transcoded streams when available'), icon: 'gear'},
-					{kind: KIND.TOGGLE, key: 'forceDirectPlay', label: () => $L('Force Direct Play'), desc: () => $L('Skip codec checks and always attempt DirectPlay (debug)'), icon: 'play'}
+					{kind: KIND.TOGGLE, key: 'forceDirectPlay', label: () => $L('Force Direct Play'), desc: () => $L('Skip codec checks and always attempt DirectPlay (debug)'), icon: 'play'},
+					{kind: KIND.DIVIDER, id: 'playerButtons'},
+					{kind: KIND.NAV, id: 'osdButtons', label: () => $L('Player Buttons'), desc: () => $L('Enable/disable and reorder the playback control buttons'), icon: 'arrowupdown', action: (ctx) => ctx.actions.openOsdButtons()}
 				]
 			},
 			{
@@ -480,7 +499,7 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'nextUpBehavior', label: () => $L('Next Up Prompt'), options: getNextUpBehaviorOptions, fallback: () => $L('Extended'), icon: 'skip'},
 					{kind: KIND.OPTION, key: 'nextUpCountdownStyle', label: () => $L('Next Up Countdown'), options: getNextUpCountdownStyleOptions, fallback: () => $L('Both'), icon: 'timer', when: (ctx) => ctx.settings.nextUpBehavior !== 'disabled'},
 					{kind: KIND.SLIDER, key: 'nextUpTimeout', label: () => $L('Next Up Prompt Timeout'), min: 0, max: 30, step: 1, format: (v) => (v === 0 ? $L('Instant') : `${v}s`), icon: 'timer', when: (ctx) => ctx.settings.nextUpBehavior !== 'disabled'},
-					{kind: KIND.TOGGLE, key: 'stillWatchingPrompt', label: () => $L('Still Watching Prompt'), desc: () => $L('Show continuation prompts before auto-playing the next episode'), icon: 'show'}
+					{kind: KIND.OPTION, key: 'stillWatchingBehavior', label: () => $L('Still Watching Prompt'), options: getStillWatchingBehaviorOptions, fallback: () => $L('3 episodes'), desc: () => $L('Prompt to Continue Watching after X consecutive episodes.'), icon: 'show'}
 				]
 			},
 			{
@@ -547,7 +566,9 @@ export const SETTINGS_SCHEMA = [
 				label: () => $L('Debugging'),
 				description: () => $L('Logging options'),
 				rows: [
-					{kind: KIND.TOGGLE, key: 'serverLogging', label: () => $L('Server Logging'), desc: () => $L('Send logs to Jellyfin server for troubleshooting'), icon: 'info'}
+					{kind: KIND.TOGGLE, key: 'serverLogging', label: () => $L('Server Logging'), desc: () => $L('Send logs to Jellyfin server for troubleshooting'), icon: 'info'},
+					{kind: KIND.TOGGLE, key: 'diagnosticLoggingEnabled', label: () => $L('Diagnostic Logging'), desc: () => $L('Record server requests so connection problems can be traced'), icon: 'dns'},
+					{kind: KIND.NAV, id: 'diagnostics', label: () => $L('View Logs'), desc: () => $L('Read the recorded log and send a report'), icon: 'description', action: (ctx) => ctx.actions.openDiagnostics()}
 				]
 			},
 			{

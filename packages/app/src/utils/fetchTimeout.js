@@ -1,3 +1,5 @@
+import {traceRequest} from './networkLogSink';
+
 const abortError = () => {
 	const err = new Error('The operation was aborted.');
 	err.name = 'AbortError';
@@ -6,7 +8,7 @@ const abortError = () => {
 
 const noop = () => {};
 
-export const fetchWithTimeout = (url, options = {}, timeoutMs) => {
+const send = (url, options, timeoutMs) => {
 	if (typeof AbortController === 'undefined') {
 		return Promise.race([
 			fetch(url, options),
@@ -33,3 +35,6 @@ export const fetchWithTimeout = (url, options = {}, timeoutMs) => {
 	raced.then(clear, clear);
 	return raced;
 };
+
+export const fetchWithTimeout = (url, options = {}, timeoutMs) =>
+	traceRequest(options.method || 'GET', url, () => send(url, options, timeoutMs));

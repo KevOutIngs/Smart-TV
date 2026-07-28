@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback, useRef, useMemo} from 'react';
+import {useState, useEffect, useCallback, useRef, useMemo, Fragment} from 'react';
 import $L from '@enact/i18n/$L';
 import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
@@ -8,7 +8,9 @@ import {createPortal} from 'react-dom';
 
 import {useAuth} from '../../context/AuthContext';
 import {useSettings} from '../../context/SettingsContext';
+import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as jellyfinApi from '../../services/jellyfinApi';
+import * as playback from '../../services/playback';
 import MediaRow from '../../components/MediaRow';
 import MediaCard from '../../components/MediaCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -17,14 +19,18 @@ import RatingsRow from '../../components/RatingsRow';
 import {formatDuration, getImageUrl, getBackdropId, getLogoUrl} from '../../utils/helpers';
 import {KEYS, isBackKey} from '../../utils/keys';
 import {stopPlaybackForTrailer} from '../../utils/trailerPlayback';
-import {fetchVideoStreamUrl, extractYouTubeIdFromUrl} from '../../services/youtubeTrailer';
+import {fetchVideoStreamUrl, extractYouTubeIdFromUrl, fetchSponsorSegments} from '../../services/youtubeTrailer';
 import {formatTime} from '../Player/PlayerConstants';
 import AddToPlaylistModal from '../../components/AddToPlaylistModal';
 import AddToCollectionModal from '../../components/AddToCollectionModal';
 import DeleteItemDialog from '../../components/DeleteItemDialog';
 import ChangeArtworkModal from '../../components/ChangeArtworkModal';
+import IdentifyModal from '../../components/IdentifyModal';
+import {arrange, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
+import {fetchPrerolls} from '../../utils/cinemaMode';
+import {DETAIL_ICON_PATHS} from './detailIcons';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
-import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled} from '../../services/mdblistApi';
+import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled, isRatingSourceAllowed} from '../../services/mdblistApi';
 import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
 
 import css from './Details.module.less';
@@ -51,6 +57,8 @@ const shuffleArray = (arr) => {
 
 // Item types a Jellyfin/Emby collection will accept as a member.
 const COLLECTION_ITEM_TYPES = ['Movie', 'Series', 'Season', 'Episode', 'Video', 'MusicVideo', 'BoxSet'];
+
+const IDENTIFIABLE_TYPES = ['Movie', 'Series', 'Season', 'Episode', 'BoxSet', 'Person', 'MusicAlbum', 'MusicArtist', 'Book', 'Trailer', 'MusicVideo'];
 
 const WATCHED_CHECK_PATH = 'M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z';
 const WATCHED_CHECK_COMPACT_PATH = 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z';
@@ -148,6 +156,7 @@ const getMediaBadges = (item, versionIndex = 0) => {
 const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onSelectStudio, onItemDeleted, backHandlerRef}) => {
 	const {api, serverUrl, user} = useAuth();
 	const {settings} = useSettings();
+	const {isInGroup: isSyncPlayInGroup} = useSyncPlay();
 
 	// Cross-server support
 	const effectiveApi = useMemo(() => {
@@ -184,6 +193,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const [extras, setExtras] = useState([]);
 	const [cast, setCast] = useState([]);
 	const [nextUp, setNextUp] = useState([]);
+	const [nextEpisode, setNextEpisode] = useState(null);
 	const [collectionItems, setCollectionItems] = useState([]);
 	const [parentCollection, setParentCollection] = useState([]);
 	const [parentCollectionName, setParentCollectionName] = useState('');
@@ -204,6 +214,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const [showCollectionModal, setShowCollectionModal] = useState(false);
 	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 	const [showArtworkModal, setShowArtworkModal] = useState(false);
+	const [showIdentifyModal, setShowIdentifyModal] = useState(false);
 	const [toastMessage, setToastMessage] = useState(null);
 	const [episodeRatings, setEpisodeRatings] = useState({});
 	const [logoFailed, setLogoFailed] = useState(false);
@@ -233,12 +244,21 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			user?.Policy?.IsAdministrator;
 	}, [item, user]);
 
+	const canIdentify = useMemo(() => {
+		if (!item) return false;
+		return IDENTIFIABLE_TYPES.includes(item.Type) &&
+			jellyfinApi.getServerType() === 'jellyfin' &&
+			user?.Policy?.IsAdministrator;
+	}, [item, user]);
+
 	// Refs
 	const pageScrollerRef = useRef(null);
 	const artworkModalBackRef = useRef(null);
 	const pageScrollToRef = useRef(null);
 	const lastFocusedElementRef = useRef(null);
 	const trailerVideoRef = useRef(null);
+	const sponsorSegmentsRef = useRef([]);
+	const sponsorSkipIntervalRef = useRef(null);
 
 	// Data loading
 	useEffect(() => {
@@ -419,6 +439,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	useEffect(() => {
 		if (!item || !episodes.length) return;
 		if (!settings.useMoonfinPlugin || !settings.tmdbEpisodeRatingsEnabled) return;
+		if (!isRatingSourceAllowed(settings.mdblistRatingSources, 'tmdb')) return;
 		if (item.Type !== 'Season' && item.Type !== 'Episode') return;
 
 		const seasonNumber = item.Type === 'Season' ? item.IndexNumber : item.ParentIndexNumber;
@@ -439,17 +460,32 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			setEpisodeRatings(ratingsMap);
 		});
 		return () => { cancelled = true; };
-	}, [item, episodes.length, settings.useMoonfinPlugin, settings.tmdbEpisodeRatingsEnabled, effectiveServerUrl]);
+	}, [item, episodes.length, settings.useMoonfinPlugin, settings.tmdbEpisodeRatingsEnabled, settings.mdblistRatingSources, effectiveServerUrl]);
 
-	// Auto-focus the primary button when content loads
+	// The card has to reach into the next season, which the current season's
+	// episode list cant answer on its own.
 	useEffect(() => {
-		if (!isLoading && item) {
-			const timer = setTimeout(() => {
-				Spotlight.focus('details-primary-btn');
-			}, 150);
-			return () => clearTimeout(timer);
+		if (item?.Type !== 'Episode') {
+			setNextEpisode(null);
+			return undefined;
 		}
-	}, [isLoading, item]);
+		let cancelled = false;
+		playback.getNextEpisode(item).then((next) => {
+			if (!cancelled) setNextEpisode(next);
+		});
+		return () => { cancelled = true; };
+	}, [item]);
+
+	// Keyed on the id rather than the item, because marking watched or favourite
+	// builds a new item object, which would otherwise yank focus back to Play.
+	const loadedItemId = item?.Id;
+	useEffect(() => {
+		if (isLoading || !loadedItemId) return undefined;
+		const timer = setTimeout(() => {
+			Spotlight.focus('details-primary-btn');
+		}, 150);
+		return () => clearTimeout(timer);
+	}, [isLoading, loadedItemId]);
 
 	const logoUrl = useMemo(
 			() => (item ? getLogoUrl(effectiveServerUrl, item, {maxWidth: 400, quality: 90}) : null),
@@ -458,7 +494,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	// === HANDLERS ===
 
-	const handlePlay = useCallback(() => {
+	const handlePlay = useCallback(async () => {
 		if (!item) return;
 
 		const supportsSelection = item.MediaType === 'Video' &&
@@ -504,9 +540,19 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				}
 			}
 		} else {
-			onPlay?.(item, false, playbackOptions);
+			// A SyncPlay group queues the pressed item for everyone, so intros stay out of it.
+			const prerolls = isSyncPlayInGroup
+				? []
+				: tagWithServerInfo(await fetchPrerolls(effectiveApi, item, settings));
+			if (prerolls.length > 0) {
+				// The version, audio and subtitle picks belong to the movie, and the queue
+				// starts on an intro, so applying them here would target the wrong file.
+				onPlay?.(prerolls[0], false, {videoQueue: [...prerolls, item]});
+			} else {
+				onPlay?.(item, false, playbackOptions);
+			}
 		}
-	}, [item, episodes, nextUp, seasons, albumTracks, playlistItems, onPlay, onSelectItem, selectedAudioIndex, selectedSubtitleIndex, selectedVersionIndex]);
+	}, [item, episodes, nextUp, seasons, albumTracks, playlistItems, onPlay, onSelectItem, selectedAudioIndex, selectedSubtitleIndex, selectedVersionIndex, effectiveApi, settings, tagWithServerInfo, isSyncPlayInGroup]);
 
 	const handleResume = useCallback(() => {
 		if (!item) return;
@@ -663,7 +709,16 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const handleOpenMediaInfo = useCallback(() => setShowMediaInfo(true), []);
 	const handleStopPropagation = useCallback((e) => e.stopPropagation(), []);
 
+	const clearSponsorSkip = useCallback(() => {
+		if (sponsorSkipIntervalRef.current) {
+			clearInterval(sponsorSkipIntervalRef.current);
+			sponsorSkipIntervalRef.current = null;
+		}
+	}, []);
+
 	const handleCloseTrailer = useCallback(() => {
+		clearSponsorSkip();
+		sponsorSegmentsRef.current = [];
 		if (trailerVideoRef.current) {
 			try {
 				trailerVideoRef.current.pause();
@@ -674,7 +729,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		}
 		setTrailerOverlay(null);
 		setTrailerStreamUrl(null);
-	}, []);
+	}, [clearSponsorSkip]);
 
 	const handleTrailerOverlayKeyDown = useCallback((e) => {
 		if (isBackKey(e)) {
@@ -692,9 +747,14 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		let cancelled = false;
 
 		const resolveStream = async () => {
-			const url = await fetchVideoStreamUrl(trailerOverlay, true);
+			// Segments are a bonus, so a failed lookup must not hold up the trailer.
+			const [segments, url] = await Promise.all([
+				fetchSponsorSegments(trailerOverlay).catch(() => []),
+				fetchVideoStreamUrl(trailerOverlay, true)
+			]);
 			if (cancelled) return;
 			if (url) {
+				sponsorSegmentsRef.current = segments || [];
 				setTrailerStreamUrl(url);
 			} else {
 				setTrailerOverlay(null);
@@ -704,6 +764,26 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		resolveStream();
 		return () => { cancelled = true; };
 	}, [trailerOverlay]);
+
+	// Skips sponsor segments by polling, the same way the home screen previews do.
+	useEffect(() => {
+		const segments = sponsorSegmentsRef.current;
+		if (!trailerStreamUrl || segments.length === 0) return undefined;
+
+		sponsorSkipIntervalRef.current = setInterval(() => {
+			const video = trailerVideoRef.current;
+			if (!video || video.paused) return;
+			const t = video.currentTime;
+			for (let i = 0; i < segments.length; i++) {
+				if (t >= segments[i].start && t < segments[i].end - 0.5) {
+					video.currentTime = segments[i].end;
+					break;
+				}
+			}
+		}, 500);
+
+		return clearSponsorSkip;
+	}, [trailerStreamUrl, clearSponsorSkip]);
 
 	useEffect(() => {
 		if (!trailerOverlay || !trailerVideoRef.current) return;
@@ -1019,6 +1099,15 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
 	}, []);
 
+	const handleOpenIdentifyModal = useCallback(() => {
+		setShowIdentifyModal(true);
+	}, []);
+
+	const handleCloseIdentifyModal = useCallback(() => {
+		setShowIdentifyModal(false);
+		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
+	}, []);
+
 	const refreshItem = useCallback(async () => {
 		try {
 			const data = await effectiveApi.getItemForDetail(itemId);
@@ -1060,6 +1149,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				handleCloseArtworkModal();
 				return true;
 			}
+			if (showIdentifyModal) { handleCloseIdentifyModal(); return true; }
 			if (showDeleteDialog) { handleCloseDeleteDialog(); return true; }
 			if (showPlaylistModal) { handleClosePlaylistModal(); return true; }
 			if (showCollectionModal) { handleCloseCollectionModal(); return true; }
@@ -1068,7 +1158,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			return false;
 		};
 		return () => { if (backHandlerRef) backHandlerRef.current = null; };
-	}, [backHandlerRef, activeModal, showMediaInfo, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal]);
+	}, [backHandlerRef, activeModal, showMediaInfo, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
 
 const handleSectionKeyDown = useCallback((ev) => {
 		const currentSpottable = ev.target.closest('.spottable');
@@ -1362,6 +1452,153 @@ const handleSectionKeyDown = useCallback((ev) => {
 		);
 	};
 
+	// Declaration order is where a button the user never placed ends up, so keep it stable.
+	const customizableActionButtons = () => arrange([
+		{id: 'shuffle', when: isSeries || isSeason, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleShuffle}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M560-160v-80h104L537-367l57-57 126 126v-102h80v240H560Zm-344 0-56-56 504-504H560v-80h240v240h-80v-104L216-160Zm151-377L160-744l56-56 207 207-56 56Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Shuffle')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'version', when: hasMultipleVersions, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleOpenVersionModal}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M320-240h320v-80H320v80Zm0-160h320v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T740-80H240Zm280-520v-200H240v640h500v-440H520ZM240-800v200-200 640-640Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Version')}</span>
+				<span className={css.btnDetail}>{mediaSource?.Name || `${$L('Version')} ${selectedVersionIndex + 1}`}</span>
+			</SpottableDiv>
+		)},
+		{id: 'audio', when: hasMultipleAudio, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleOpenAudioModal}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Audio')}</span>
+				{currentAudioStream && (
+					<span className={css.btnDetail}>
+						{currentAudioStream.DisplayTitle || currentAudioStream.Language || `${$L('Track')} ${selectedAudioIndex + 1}`}
+					</span>
+				)}
+			</SpottableDiv>
+		)},
+		{id: 'subtitles', when: supportsMediaSourceSelection, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleOpenSubtitleModal}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M240-350h360v-60H240v60Zm420 0h60v-60h-60v60ZM240-470h60v-60h-60v60Zm120 0h360v-60H360v60ZM140-160q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h680q24 0 42 18t18 42v520q0 24-18 42t-42 18H140Zm0-60h680v-520H140v520Zm0 0v-520 520Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Subtitle')}</span>
+				{currentSubtitleStream ? (
+					<span className={css.btnDetail}>
+						{currentSubtitleStream.DisplayTitle || currentSubtitleStream.Language || `${$L('Track')} ${selectedSubtitleIndex + 1}`}
+					</span>
+				) : (
+					<span className={css.btnDetail}>{$L('Off')}</span>
+				)}
+			</SpottableDiv>
+		)},
+		{id: 'trailer', when: item.LocalTrailerCount > 0 || item.RemoteTrailers?.length > 0, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleTrailer}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M160-120v-720h80v80h80v-80h320v80h80v-80h80v720h-80v-80h-80v80H320v-80h-80v80h-80Zm80-160h80v-80h-80v80Zm0-160h80v-80h-80v80Zm0-160h80v-80h-80v80Zm400 320h80v-80h-80v80Zm0-160h80v-80h-80v80Zm0-160h80v-80h-80v80ZM400-200h160v-560H400v560Zm0-560h160-160Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Trailer')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'watched', when: true, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleToggleWatched} spotlightId="details-watched-btn">
+				<div className={css.btnAction}>
+					<svg className={`${css.btnIcon} ${item.UserData?.Played ? css.watched : ''}`} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{item.UserData?.Played ? $L('Watched') : $L('Mark Watched')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'favorite', when: true, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleToggleFavorite} spotlightId="details-favorite-btn">
+				<div className={css.btnAction}>
+					<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'goToSeries', when: isEpisode && item.SeriesId, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleGoToSeries}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M240-120v-80l40-40H160q-33 0-56.5-23.5T80-320v-440q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v440q0 33-23.5 56.5T800-240H680l40 40v80H240Zm-80-200h640v-440H160v440Zm0 0v-440 440Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Series')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'mediaInfo', when: supportsMediaSourceSelection, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleOpenMediaInfo}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Media Info')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'playlist', when: true, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleOpenPlaylistModal}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M120-320v-80h480v80H120Zm0-160v-80h480v80H120Zm0-160v-80h480v80H120Zm520 480v-320l240 160-240 160Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Add to Playlist')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'collection', when: canAddToCollection, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleOpenCollectionModal}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M160-80q-33 0-56.5-23.5T80-160v-440h80v440h680v80H160Zm160-160q-33 0-56.5-23.5T240-320v-440q0-33 23.5-56.5T320-840h200l80 80h240q33 0 56.5 23.5T920-680v360q0 33-23.5 56.5T840-240H320Zm0-80h520v-360H567l-80-80H320v440Zm0 0v-440 440Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Add to Collection')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'deleteFiles', when: item.CanDelete, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleOpenDeleteDialog}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T700-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Delete')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'admin', when: canIdentify, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={handleOpenIdentifyModal}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d={DETAIL_ICON_PATHS.admin}/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Admin Controls')}</span>
+			</SpottableDiv>
+		)}
+	].filter((btn) => btn.when), {order: settings[DETAIL_ORDER_KEY], hidden: settings[DETAIL_HIDDEN_KEY]});
+
 	const renderActionButtons = (showPlayButtons = true) => (
 		<HorizontalContainer className={css.actionButtons} onKeyDown={handleButtonRowKeyDown} onFocus={handleButtonRowFocus} spotlightId="details-action-buttons">
 			{showPlayButtons && !isBook && hasPlaybackPosition && (
@@ -1391,133 +1628,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 					<span className={css.btnLabel}>{isBook ? $L('Read') : hasPlaybackPosition ? $L('Restart') : $L('Play')}</span>
 				</SpottableDiv>
 			)}
-			{(isSeries || isSeason) && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleShuffle}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M560-160v-80h104L537-367l57-57 126 126v-102h80v240H560Zm-344 0-56-56 504-504H560v-80h240v240h-80v-104L216-160Zm151-377L160-744l56-56 207 207-56 56Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Shuffle')}</span>
-				</SpottableDiv>
-			)}
-			{hasMultipleVersions && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleOpenVersionModal}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M320-240h320v-80H320v80Zm0-160h320v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T740-80H240Zm280-520v-200H240v640h500v-440H520ZM240-800v200-200 640-640Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Version')}</span>
-					<span className={css.btnDetail}>{mediaSource?.Name || `${$L('Version')} ${selectedVersionIndex + 1}`}</span>
-				</SpottableDiv>
-			)}
-			{hasMultipleAudio && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleOpenAudioModal}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Audio')}</span>
-					{currentAudioStream && (
-						<span className={css.btnDetail}>
-							{currentAudioStream.DisplayTitle || currentAudioStream.Language || `${$L('Track')} ${selectedAudioIndex + 1}`}
-						</span>
-					)}
-				</SpottableDiv>
-			)}
-			{supportsMediaSourceSelection && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleOpenSubtitleModal}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M240-350h360v-60H240v60Zm420 0h60v-60h-60v60ZM240-470h60v-60h-60v60Zm120 0h360v-60H360v60ZM140-160q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h680q24 0 42 18t18 42v520q0 24-18 42t-42 18H140Zm0-60h680v-520H140v520Zm0 0v-520 520Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Subtitle')}</span>
-					{currentSubtitleStream ? (
-						<span className={css.btnDetail}>
-							{currentSubtitleStream.DisplayTitle || currentSubtitleStream.Language || `${$L('Track')} ${selectedSubtitleIndex + 1}`}
-						</span>
-					) : (
-						<span className={css.btnDetail}>{$L('Off')}</span>
-					)}
-				</SpottableDiv>
-			)}
-			{(item.LocalTrailerCount > 0 || item.RemoteTrailers?.length > 0) && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleTrailer}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M160-120v-720h80v80h80v-80h320v80h80v-80h80v720h-80v-80h-80v80H320v-80h-80v80h-80Zm80-160h80v-80h-80v80Zm0-160h80v-80h-80v80Zm0-160h80v-80h-80v80Zm400 320h80v-80h-80v80Zm0-160h80v-80h-80v80Zm0-160h80v-80h-80v80ZM400-200h160v-560H400v560Zm0-560h160-160Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Trailer')}</span>
-				</SpottableDiv>
-			)}
-			<SpottableDiv className={css.btnWrapper} onClick={handleToggleWatched} spotlightId="details-watched-btn">
-				<div className={css.btnAction}>
-					<svg className={`${css.btnIcon} ${item.UserData?.Played ? css.watched : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{item.UserData?.Played ? $L('Watched') : $L('Mark Watched')}</span>
-			</SpottableDiv>
-			<SpottableDiv className={css.btnWrapper} onClick={handleToggleFavorite} spotlightId="details-favorite-btn">
-				<div className={css.btnAction}>
-					<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
-			</SpottableDiv>
-			{isEpisode && item.SeriesId && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleGoToSeries}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M240-120v-80l40-40H160q-33 0-56.5-23.5T80-320v-440q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v440q0 33-23.5 56.5T800-240H680l40 40v80H240Zm-80-200h640v-440H160v440Zm0 0v-440 440Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Series')}</span>
-				</SpottableDiv>
-			)}
-			{supportsMediaSourceSelection && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleOpenMediaInfo}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Media Info')}</span>
-				</SpottableDiv>
-			)}
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenPlaylistModal}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M120-320v-80h480v80H120Zm0-160v-80h480v80H120Zm0-160v-80h480v80H120Zm520 480v-320l240 160-240 160Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Add to Playlist')}</span>
-			</SpottableDiv>
-			{canAddToCollection && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleOpenCollectionModal}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M160-80q-33 0-56.5-23.5T80-160v-440h80v440h680v80H160Zm160-160q-33 0-56.5-23.5T240-320v-440q0-33 23.5-56.5T320-840h200l80 80h240q33 0 56.5 23.5T920-680v360q0 33-23.5 56.5T840-240H320Zm0-80h520v-360H567l-80-80H320v440Zm0 0v-440 440Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Add to Collection')}</span>
-				</SpottableDiv>
-			)}
-			{item.CanDelete && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleOpenDeleteDialog}>
-					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T700-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/>
-						</svg>
-					</div>
-					<span className={css.btnLabel}>{$L('Delete')}</span>
-				</SpottableDiv>
-			)}
+			{customizableActionButtons().map((btn) => <Fragment key={btn.id}>{btn.render()}</Fragment>)}
 		</HorizontalContainer>
 	);
 
@@ -1755,6 +1866,15 @@ const handleSectionKeyDown = useCallback((ev) => {
 				onSuccess={showToast}
 			/>
 
+			<IdentifyModal
+				open={showIdentifyModal}
+				item={item}
+				api={effectiveApi}
+				onClose={handleCloseIdentifyModal}
+				onApplied={refreshItem}
+				onSuccess={showToast}
+			/>
+
 			<DeleteItemDialog
 				open={showDeleteDialog}
 				itemName={item?.Name}
@@ -1847,6 +1967,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 					handleOpenMediaInfo={handleOpenMediaInfo}
 					handleOpenPlaylistModal={handleOpenPlaylistModal}
 					handleOpenCollectionModal={canAddToCollection ? handleOpenCollectionModal : null}
+					handleOpenIdentifyModal={canIdentify ? handleOpenIdentifyModal : null}
 					handleOpenDeleteDialog={handleOpenDeleteDialog}
 					handleChapterSelect={handleChapterSelect}
 					handleExtraSelect={handleExtraSelect}
@@ -2026,7 +2147,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 													{epRuntime && <span>{epRuntime}</span>}
 													{episodeRatings[ep.IndexNumber] != null && (
 														<span className={css.tmdbBadge}>
-															<svg className={css.tmdbIcon} viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+															<img className={css.tmdbIcon} src={`${effectiveServerUrl}/Moonfin/Assets/tmdb.svg`} alt="TMDB" />
 															{episodeRatings[ep.IndexNumber].toFixed(1)}
 														</span>
 													)}
@@ -2557,14 +2678,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 							</RowContainer>
 						)}
 
-						{/* Next Episode (for Episode type) */}
-						{isEpisode && episodes.length > 0 && (() => {
-							const currentIndex = episodes.findIndex(ep => ep.Id === item.Id);
-							const nextEp = currentIndex >= 0 && currentIndex < episodes.length - 1
-								? episodes[currentIndex + 1]
-								: null;
-							return nextEp ? renderNextUpCard(nextEp, 'Next Episode') : null;
-						})()}
+						{isEpisode && nextEpisode && renderNextUpCard(nextEpisode, 'Next Episode')}
 
 						{/* Episodes (for Episode type - same season horizontal cards) */}
 						{isEpisode && episodes.length > 0 && (
@@ -2620,7 +2734,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 													{epRuntime && <span className={css.episodeEpRuntime}>{epRuntime}</span>}
 													{episodeRatings[ep.IndexNumber] != null && (
 														<span className={css.tmdbBadge}>
-															<svg className={css.tmdbIcon} viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+															<img className={css.tmdbIcon} src={`${effectiveServerUrl}/Moonfin/Assets/tmdb.svg`} alt="TMDB" />
 															{episodeRatings[ep.IndexNumber].toFixed(1)}
 														</span>
 													)}

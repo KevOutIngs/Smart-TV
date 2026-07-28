@@ -97,6 +97,17 @@ const DEFAULT_TIMEOUT_MS = 15000;
 const PLAYBACK_TIMEOUT_MS = 120000;
 export const HOME_ROW_ITEM_FIELDS = 'PrimaryImageAspectRatio,Overview,Genres,GenreItems,ProductionYear,RunTimeTicks,CommunityRating,CriticRating,ProviderIds,ImageTags,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ParentThumbItemId,SeriesPrimaryImageTag,SeriesName,ParentIndexNumber,IndexNumber,UserData,AlbumArtist,AlbumId,AlbumPrimaryImageTag';
 
+// The home Next Up row asks the server for a window instead of the whole watch
+// history, which is what keeps the query fast on a large library. A series page
+// skips it, since a window there would hide the episode the user opened it for.
+// Emby has no equivalent parameter, so it keeps the unbounded query.
+const nextUpCutoffQuery = (seriesId, maxDays, type) => {
+	if (seriesId || type === 'emby') return '';
+	if (typeof maxDays !== 'number' || maxDays <= 0) return '';
+	const cutoff = new Date(Date.now() - maxDays * 86400000);
+	return `&NextUpDateCutoff=${encodeURIComponent(cutoff.toISOString())}`;
+};
+
 // Routes through the webOS TLS proxy fallback (secureFetch) so Let's-Encrypt
 // servers work on old TVs whose CA store rejects them; native fetch elsewhere.
 const fetchWithTimeout = (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) =>
@@ -251,6 +262,49 @@ const addToCollectionVia = (send) => async (collectionId, itemIds) => {
 	return send(path, {method: 'POST', body: {Ids: itemIds}});
 };
 
+// The casing the remote search endpoint wants in its path.
+const REMOTE_SEARCH_TYPES = {
+	movie: 'Movie',
+	series: 'Series',
+	boxset: 'BoxSet',
+	person: 'Person',
+	musicalbum: 'MusicAlbum',
+	musicartist: 'MusicArtist',
+	book: 'Book',
+	trailer: 'Trailer',
+	musicvideo: 'MusicVideo'
+};
+
+// Looks an item up with the metadata providers so an admin can correct a bad match. Older
+// servers only answer the un-normalized path, so that is kept as a fallback.
+const searchRemoteVia = (send) => async (itemType, searchInfo) => {
+	const body = {SearchInfo: searchInfo, IncludeDisabledProviders: false};
+	const normalized = REMOTE_SEARCH_TYPES[(itemType || '').toLowerCase()] || itemType;
+	try {
+		return await send(`/Items/RemoteSearch/${normalized}`, {method: 'POST', body});
+	} catch (err) {
+		if (normalized === itemType) throw err;
+		return send(`/Items/RemoteSearch/${itemType}`, {method: 'POST', body});
+	}
+};
+
+const applyRemoteSearchResultVia = (send) => async (itemId, result, replaceAllImages = true) => {
+	const query = `?replaceAllImages=${replaceAllImages}`;
+	try {
+		return await send(`/Items/RemoteSearch/Apply/${itemId}${query}`, {method: 'POST', body: result});
+	} catch {
+		return send(`/Items/${itemId}/RemoteSearch/Apply${query}`, {method: 'POST', body: result});
+	}
+};
+
+const refreshItemVia = (send) => (itemId, {recursive, replaceAllMetadata, replaceAllImages} = {}) => {
+	const params = [];
+	if (recursive != null) params.push(`Recursive=${recursive}`);
+	if (replaceAllMetadata != null) params.push(`ReplaceAllMetadata=${replaceAllMetadata}`);
+	if (replaceAllImages != null) params.push(`ReplaceAllImages=${replaceAllImages}`);
+	return send(`/Items/${itemId}/Refresh${params.length ? `?${params.join('&')}` : ''}`, {method: 'POST'});
+};
+
 export const api = {
 	getPublicInfo: () => request('/System/Info/Public'),
 
@@ -322,9 +376,10 @@ export const api = {
 	getResumeAudioItems: (limit = 20) =>
 		request(`/Users/${currentUser}/Items/Resume?Limit=${limit}&MediaTypes=Audio&Fields=${encodeURIComponent(HOME_ROW_ITEM_FIELDS)}`),
 
-	getNextUp: (limit = 24, seriesId = null) => {
+	getNextUp: (limit = 24, seriesId = null, maxDays = 0) => {
 		let url = `/Shows/NextUp?UserId=${currentUser}&Limit=${limit}&Fields=${encodeURIComponent(HOME_ROW_ITEM_FIELDS)}`;
 		if (seriesId) url += `&SeriesId=${seriesId}`;
+		url += nextUpCutoffQuery(seriesId, maxDays, serverType);
 		return request(url);
 	},
 
@@ -382,7 +437,7 @@ export const api = {
 		request(`/Shows/${seriesId}/Seasons?UserId=${currentUser}&Fields=PrimaryImageAspectRatio`),
 
 	getEpisodes: (seriesId, seasonId) =>
-		request(`/Shows/${seriesId}/Episodes?UserId=${currentUser}&SeasonId=${seasonId}&Fields=PrimaryImageAspectRatio,Overview`),
+		request(`/Shows/${seriesId}/Episodes?UserId=${currentUser}&SeasonId=${seasonId}&Fields=PrimaryImageAspectRatio,Overview,LocationType`),
 
 	getSimilar: (itemId, limit = 15) =>
 		request(`/Items/${itemId}/Similar?UserId=${currentUser}&Limit=${limit}&Fields=PrimaryImageAspectRatio,ProductionYear`),
@@ -521,6 +576,12 @@ export const api = {
 		request(`/LiveTv/SeriesTimers/${seriesTimerId}`, {
 			method: 'DELETE'
 		}),
+
+	searchRemote: searchRemoteVia(request),
+
+	applyRemoteSearchResult: applyRemoteSearchResultVia(request),
+
+	refreshItem: refreshItemVia(request),
 
 	deleteItem: (itemId) =>
 		request(`/Items/${itemId}`, {
@@ -738,9 +799,10 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 		getResumeItems: () =>
 			serverRequest(`/Users/${userId}/Items/Resume?Limit=12&Recursive=true&Fields=PrimaryImageAspectRatio,Overview,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ProviderIds&MediaTypes=Video&EnableTotalRecordCount=false&ExcludeItemTypes=Book`),
 
-		getNextUp: (limit = 12, seriesId = null) => {
+		getNextUp: (limit = 12, seriesId = null, maxDays = 0) => {
 			let endpoint = `/Shows/NextUp?UserId=${userId}&Limit=${limit}&Fields=PrimaryImageAspectRatio,Overview,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ProviderIds`;
 			if (seriesId) endpoint += `&SeriesId=${seriesId}`;
+			endpoint += nextUpCutoffQuery(seriesId, maxDays, serverTypeOverride);
 			return serverRequest(endpoint);
 		},
 
@@ -903,6 +965,15 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 
 		getThemeSongs: (itemId, inheritFromParent = true) =>
 			serverRequest(`/Items/${itemId}/ThemeSongs?UserId=${userId}&InheritFromParent=${inheritFromParent}`),
+
+		getIntros: (itemId) =>
+			serverRequest(`/Users/${userId}/Items/${itemId}/Intros`),
+
+		searchRemote: searchRemoteVia(serverRequest),
+
+		applyRemoteSearchResult: applyRemoteSearchResultVia(serverRequest),
+
+		refreshItem: refreshItemVia(serverRequest),
 
 		getRemoteImages: (itemId, imageType) =>
 			serverRequest(`/Items/${itemId}/RemoteImages?Type=${imageType}&IncludeAllLanguages=true`),
