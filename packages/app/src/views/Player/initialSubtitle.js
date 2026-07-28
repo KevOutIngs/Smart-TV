@@ -1,4 +1,46 @@
 import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
+import {normalizeLanguageCode} from '../../utils/audioLanguage';
+
+const COMMENTARY = /\b(commentary|commentaries|jump\s*scare)\b/i;
+const SDH = /\b(sdh|cc|hoh|hearing\s*impaired|closed\s*caption)\b/i;
+
+const titleOf = (stream) => stream?.displayTitle || '';
+const isCommentary = (stream) => COMMENTARY.test(titleOf(stream));
+const isSdh = (stream) => SDH.test(titleOf(stream));
+
+const languageRank = (stream, preferred) => {
+	const language = normalizeLanguageCode(stream?.language);
+	if (preferred && language === preferred) return 0;
+	if (language === 'eng') return 1;
+	return 2;
+};
+
+/**
+ * Orders candidates the way the other clients do, so the same file lands on the
+ * same track everywhere. Their fallback language and codec preference levels have
+ * no equivalent here, so those two are left out rather than guessed at.
+ */
+export const bestSubtitle = (streams, preferredLanguage) => {
+	if (!streams?.length) return undefined;
+	const preferred = normalizeLanguageCode(preferredLanguage);
+	const ordered = streams.map((stream, position) => ({stream, position}));
+	ordered.sort((a, b) => {
+		const left = a.stream;
+		const right = b.stream;
+		return (languageRank(left, preferred) - languageRank(right, preferred)) ||
+			// Commentary reads as dialogue until it starts, so it goes last.
+			(isCommentary(left) - isCommentary(right)) ||
+			// A bad external download must not beat the track already in the file.
+			(Boolean(left.isExternal) - Boolean(right.isExternal)) ||
+			(isSdh(left) - isSdh(right)) ||
+			// Only matters when full subtitles were asked for, since a forced pick has
+			// already narrowed the list to forced tracks.
+			(Boolean(left.isForced) - Boolean(right.isForced)) ||
+			(Boolean(right.isDefault) - Boolean(left.isDefault)) ||
+			(a.position - b.position);
+	});
+	return ordered[0].stream;
+};
 
 /**
  * Works out which subtitle track a fresh playback should start on.
@@ -36,11 +78,11 @@ export const resolveInitialSubtitle = async (result, item, initialSubtitleIndex,
 	}
 
 	if (settings.subtitleMode === 'always') {
-		return streams.find((s) => s.isDefault) || streams[0];
+		return bestSubtitle(streams, settings.subtitleLanguage);
 	}
 
 	if (settings.subtitleMode === 'forced') {
-		return streams.find((s) => s.isForced);
+		return bestSubtitle(streams.filter((s) => s.isForced), settings.subtitleLanguage);
 	}
 
 	// The Jellyfin user's own preference, worked out server side from their
