@@ -85,6 +85,13 @@ const normalizeGuid = (id) => {
 };
 const normalizeGuidArray = (arr) => Array.isArray(arr) ? arr.map(normalizeGuid) : arr;
 
+// Above this an auto advance interval has to be milliseconds, because the slider
+// that sets it only reaches 20 seconds.
+const MIN_INTERVAL_MS = 100;
+
+const secondsToMs = (v) => (typeof v === 'number' ? Math.round(v * 1000) : undefined);
+const msToSeconds = (v) => (typeof v === 'number' ? Math.round(v / 1000) : undefined);
+
 const VALUE_CONVERSIONS = {
 	clockDisplay: {
 		toServer: v => v === '24-hour',
@@ -116,10 +123,15 @@ const VALUE_CONVERSIONS = {
 		toServer: v => v === 'on',
 		fromServer: v => (v ? 'on' : 'off')
 	},
-	// Seconds here, milliseconds on the other clients.
 	nextUpTimeout: {
-		toServer: v => (typeof v === 'number' ? Math.round(v * 1000) : undefined),
-		fromServer: v => (typeof v === 'number' ? Math.round(v / 1000) : undefined)
+		toServer: secondsToMs,
+		fromServer: msToSeconds
+	},
+	autoAdvanceInterval: {
+		toServer: secondsToMs,
+		// A small number is the seconds an older build pushed before this was
+		// converted, rather than an interval of a few milliseconds.
+		fromServer: (v) => (typeof v === 'number' && v < MIN_INTERVAL_MS ? v : msToSeconds(v))
 	}
 	// homeRows is missing on purpose. The home layout is two server fields that have to
 	// move together, so it gets resolved whole rather than a key at a time.
@@ -396,6 +408,11 @@ export function SettingsProvider({children}) {
 				if ('skipCredits' in stored) {
 					stored.outroAction = stored.skipCredits === true ? 'auto' : 'ask';
 					delete stored.skipCredits;
+					migrated = true;
+				}
+				if (typeof stored.autoAdvanceInterval === 'number' && stored.autoAdvanceInterval >= MIN_INTERVAL_MS) {
+					// Came off another client in milliseconds while this key was synced raw.
+					stored.autoAdvanceInterval = Math.round(stored.autoAdvanceInterval / 1000);
 					migrated = true;
 				}
 				if (Array.isArray(stored.mdblistRatingSources) && !stored.mdblistRatingSources.includes('stars')) {
