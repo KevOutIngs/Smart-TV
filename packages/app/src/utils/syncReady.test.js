@@ -1,29 +1,31 @@
 import {createReadyGate, isPositionStable, READY_DEBOUNCE_MS, STABILITY_WINDOW_MS, MAX_STABILITY_CHECKS} from './syncReady';
 
+const ticks = (ms) => ms * 10000;
+
 describe('isPositionStable', () => {
 	test('playing counts as stable when the position advanced across the window', () => {
-		expect(isPositionStable(1000, 1400, true)).toBe(true);
+		expect(isPositionStable(ticks(1000), ticks(1400), true)).toBe(true);
 	});
 
 	test('a decoder that has not moved is not ready', () => {
-		expect(isPositionStable(1000, 1010, true)).toBe(false);
+		expect(isPositionStable(ticks(1000), ticks(1010), true)).toBe(false);
 	});
 
 	test('a jump too large to be playback is not trusted', () => {
-		expect(isPositionStable(1000, 9000, true)).toBe(false);
+		expect(isPositionStable(ticks(1000), ticks(9000), true)).toBe(false);
 	});
 
 	test('paused counts as stable when the position held still', () => {
-		expect(isPositionStable(1000, 1030, false)).toBe(true);
+		expect(isPositionStable(ticks(1000), ticks(1030), false)).toBe(true);
 	});
 
 	test('paused but still moving means the seek has not landed', () => {
-		expect(isPositionStable(1000, 1400, false)).toBe(false);
+		expect(isPositionStable(ticks(1000), ticks(1400), false)).toBe(false);
 	});
 
 	test('a missing reading is never stable', () => {
-		expect(isPositionStable(null, 1400, true)).toBe(false);
-		expect(isPositionStable(1000, undefined, true)).toBe(false);
+		expect(isPositionStable(null, ticks(1400), true)).toBe(false);
+		expect(isPositionStable(ticks(1000), undefined, true)).toBe(false);
 	});
 });
 
@@ -33,9 +35,11 @@ describe('createReadyGate', () => {
 		let index = 0;
 		const state = {buffering};
 		const gate = createReadyGate({
-			readPositionMs: () => positions[Math.min(index++, positions.length - 1)],
+			sample: () => ({
+				isPlaying: playing,
+				positionTicks: ticks(positions[Math.min(index++, positions.length - 1)])
+			}),
 			isBuffering: () => state.buffering,
-			isPlaying: () => playing,
 			report
 		});
 		return {gate, report, state};
@@ -50,7 +54,7 @@ describe('createReadyGate', () => {
 		jest.advanceTimersByTime(READY_DEBOUNCE_MS);
 		expect(report).not.toHaveBeenCalled();
 		jest.advanceTimersByTime(STABILITY_WINDOW_MS);
-		expect(report).toHaveBeenCalledWith(true, 14000000);
+		expect(report).toHaveBeenCalledTimes(1);
 	});
 
 	test('a stalled decoder keeps measuring instead of reporting', () => {

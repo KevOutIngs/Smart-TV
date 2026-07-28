@@ -14,22 +14,22 @@ export const MAX_STABILITY_CHECKS = 4;
 
 // Playing at normal speed the position should advance by roughly the window
 // itself. Well under that means the decoder is still stalled, well over means a
-// seek landed part way through and the reading cannot be trusted.
+// seek landed part way through and the reading cant be trusted.
 const MIN_ADVANCE_MS = 80;
 const MAX_ADVANCE_MS = 1200;
 // Paused it should not be moving at all, give or take a frame.
 const MAX_PAUSED_DRIFT_MS = 120;
 
-export const isPositionStable = (beforeMs, afterMs, isPlaying) => {
-	if (beforeMs == null || afterMs == null) return false;
-	const delta = afterMs - beforeMs;
+export const isPositionStable = (beforeTicks, afterTicks, isPlaying) => {
+	if (beforeTicks == null || afterTicks == null) return false;
+	const delta = (afterTicks - beforeTicks) / TICKS_PER_MS;
 	if (isPlaying) return delta >= MIN_ADVANCE_MS && delta <= MAX_ADVANCE_MS;
 	return Math.abs(delta) <= MAX_PAUSED_DRIFT_MS;
 };
 
 // Buffering abandons a waiting report rather than delaying it, because coming
 // out of the stall asks for a fresh one anyway.
-export const createReadyGate = ({readPositionMs, isBuffering, isPlaying, report}) => {
+export const createReadyGate = ({sample, isBuffering, report}) => {
 	let timer = null;
 	let checks = 0;
 
@@ -43,15 +43,14 @@ export const createReadyGate = ({readPositionMs, isBuffering, isPlaying, report}
 			timer = null;
 			return;
 		}
-		const before = readPositionMs();
+		const before = sample().positionTicks;
 		timer = setTimeout(() => {
 			timer = null;
 			if (isBuffering()) return;
-			const after = readPositionMs();
-			const playing = isPlaying();
+			const {isPlaying, positionTicks} = sample();
 			checks += 1;
-			if (isPositionStable(before, after, playing) || checks >= MAX_STABILITY_CHECKS) {
-				report(playing, Math.floor(after * TICKS_PER_MS));
+			if (isPositionStable(before, positionTicks, isPlaying) || checks >= MAX_STABILITY_CHECKS) {
+				report();
 				return;
 			}
 			measure();

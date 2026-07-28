@@ -24,6 +24,8 @@ const TIME_SYNC_BURST_SPACING_MS = 1000;
 const MAX_TIME_SYNC_RTT_MS = 5000;
 // How far a late command is allowed to skip ahead to catch up.
 const MAX_LATE_CATCH_UP_MS = 15000;
+const HANDSHAKE_RETRY_DELAY_MS = 1200;
+const MAX_HANDSHAKE_ATTEMPTS = 3;
 
 // Buffering fired this soon after executing a SyncPlay command is the seek
 // itself, not a stall. Reporting it would bounce the whole group into Waiting
@@ -129,21 +131,35 @@ export const sendSeekRequest = (positionTicks) => request('POST', 'Seek', {Posit
 
 export const serverNow = () => Date.now() + serverTimeOffset;
 
-export const sendBufferingRequest = (isPlaying, positionTicks) =>
-	request('POST', 'Buffering', {
-		When: new Date(serverNow()).toISOString(),
-		PositionTicks: positionTicks,
-		IsPlaying: isPlaying,
-		PlaylistItemId: currentPlaylistItemId || '00000000-0000-0000-0000-000000000000'
-	}).catch(() => {});
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const sendReadyRequest = (isPlaying, positionTicks) =>
-	request('POST', 'Ready', {
-		When: new Date(serverNow()).toISOString(),
-		PositionTicks: positionTicks,
-		IsPlaying: isPlaying,
-		PlaylistItemId: currentPlaylistItemId || '00000000-0000-0000-0000-000000000000'
-	}).catch(() => {});
+// The group waits on these two reports, so one lost to a dropped request leaves
+// everybody sat there. Each attempt takes a fresh reading rather than resending
+// the first one, because the server throws out a report stamped more than a
+// couple of seconds off its own clock.
+const sendHandshake = async (path, sample) => {
+	for (let attempt = 1; attempt <= MAX_HANDSHAKE_ATTEMPTS; attempt++) {
+		const {isPlaying, positionTicks} = sample();
+		try {
+			await request('POST', path, {
+				When: new Date(serverNow()).toISOString(),
+				PositionTicks: positionTicks,
+				IsPlaying: isPlaying,
+				PlaylistItemId: currentPlaylistItemId || '00000000-0000-0000-0000-000000000000'
+			});
+			return;
+		} catch {
+			if (attempt === MAX_HANDSHAKE_ATTEMPTS) return;
+			await wait(HANDSHAKE_RETRY_DELAY_MS);
+			// Leaving the group part way through means nobody is waiting on this now.
+			if (!currentGroup) return;
+		}
+	}
+};
+
+export const sendBufferingRequest = (sample) => sendHandshake('Buffering', sample);
+
+export const sendReadyRequest = (sample) => sendHandshake('Ready', sample);
 
 export const sendPingRequest = () => request('POST', 'Ping', {Ping: lastPing}).catch(() => {});
 

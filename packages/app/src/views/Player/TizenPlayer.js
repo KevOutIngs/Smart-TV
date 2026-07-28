@@ -85,12 +85,15 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const suppressBufferingUntilRef = useRef(0);
 	const stallRecheckTimerRef = useRef(null);
 	const isBufferingRef = useRef(false);
-	const readyGate = useMemo(() => createReadyGate({
-		readPositionMs: avplayGetCurrentTime,
-		isBuffering: () => isBufferingRef.current,
-		isPlaying: () => avplayGetState() === 'PLAYING',
-		report: syncPlayService.sendReadyRequest
+	const syncPlaySample = useCallback(() => ({
+		isPlaying: avplayGetState() === 'PLAYING',
+		positionTicks: Math.floor(avplayGetCurrentTime() * 10000)
 	}), []);
+	const readyGate = useMemo(() => createReadyGate({
+		sample: syncPlaySample,
+		isBuffering: () => isBufferingRef.current,
+		report: () => syncPlayService.sendReadyRequest(syncPlaySample)
+	}), [syncPlaySample]);
 
 	const [isLoading, setIsLoading] = useState(true);
 	const [isBuffering, setIsBuffering] = useState(false);
@@ -2157,25 +2160,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				// the window expires (the state edge won't fire again for it).
 				clearTimeout(stallRecheckTimerRef.current);
 				stallRecheckTimerRef.current = setTimeout(() => {
-					if (isBufferingRef.current) {
-						syncPlayService.sendBufferingRequest(
-							avplayGetState() === 'PLAYING',
-							positionRef.current
-						);
-					}
+					if (isBufferingRef.current) syncPlayService.sendBufferingRequest(syncPlaySample);
 				}, remaining + 100);
 			} else {
-				syncPlayService.sendBufferingRequest(
-					avplayGetState() === 'PLAYING',
-					positionRef.current
-				);
+				syncPlayService.sendBufferingRequest(syncPlaySample);
 			}
 		} else if (avplayReadyRef.current) {
 			clearTimeout(stallRecheckTimerRef.current);
 			readyGate.request();
 		}
 		return () => clearTimeout(stallRecheckTimerRef.current);
-	}, [isInGroup, isBuffering, readyGate]);
+	}, [isInGroup, isBuffering, readyGate, syncPlaySample]);
 
 	// ==============================
 	// Global Key Handler

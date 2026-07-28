@@ -136,12 +136,18 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const lastFocusedElementRef = useRef(null);
 
 	const videoRef = useRef(null);
+	const syncPlaySample = useCallback(() => {
+		const video = videoRef.current;
+		return {
+			isPlaying: Boolean(video && !video.paused),
+			positionTicks: video ? Math.floor(video.currentTime * 10000000) : 0
+		};
+	}, []);
 	const readyGate = useMemo(() => createReadyGate({
-		readPositionMs: () => (videoRef.current ? videoRef.current.currentTime * 1000 : 0),
+		sample: syncPlaySample,
 		isBuffering: () => !videoRef.current || videoRef.current.readyState < 3,
-		isPlaying: () => Boolean(videoRef.current && !videoRef.current.paused),
-		report: syncPlayService.sendReadyRequest
-	}), []);
+		report: () => syncPlayService.sendReadyRequest(syncPlaySample)
+	}), [syncPlaySample]);
 	const containerRef = useRef(null);
 	const handlersRef = useRef({});
 	const positionRef = useRef(0);
@@ -2197,15 +2203,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				stallRecheckTimerRef.current = setTimeout(() => {
 					const v = videoRef.current;
 					if (v && v.readyState < 3 && !v.paused) {
-						syncPlayService.sendBufferingRequest(true, positionRef.current);
+						syncPlayService.sendBufferingRequest(syncPlaySample);
 					}
 				}, remaining + 100);
 				return;
 			}
-			syncPlayService.sendBufferingRequest(
-				!videoRef.current.paused,
-				positionRef.current
-			);
+			syncPlayService.sendBufferingRequest(syncPlaySample);
 		};
 
 		const reportReady = () => {
@@ -2225,7 +2228,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			video.removeEventListener('playing', reportReady);
 			video.removeEventListener('canplay', reportReady);
 		};
-	}, [isInGroup, readyGate]);
+	}, [isInGroup, readyGate, syncPlaySample]);
 
 	useEffect(() => {
 		const handleKeyDown = (e) => {
