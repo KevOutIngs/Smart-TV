@@ -17,6 +17,7 @@ import * as syncPlayService from '../../services/syncPlay';
 import {KEYS, isBackKey} from '../../utils/keys';
 import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
 import {driftAction, driftMs, needsSeek, DRIFT_CHECK_MS, SPEED_DURATION_MS} from '../../utils/syncDrift';
+import {createReadyGate} from '../../utils/syncReady';
 import {getImageUrl} from '../../utils/helpers';
 import {initPgsCanvasRenderer, disposePgsRenderer, clearPgsCanvas} from '../../utils/pgsRenderer';
 import {supportsAssRenderer, initAssCanvasRenderer, disposeAssRenderer, setAssTime} from '../../utils/assRenderer';
@@ -84,6 +85,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const suppressBufferingUntilRef = useRef(0);
 	const stallRecheckTimerRef = useRef(null);
 	const isBufferingRef = useRef(false);
+	const readyGate = useMemo(() => createReadyGate({
+		readPositionMs: avplayGetCurrentTime,
+		isBuffering: () => isBufferingRef.current,
+		isPlaying: () => avplayGetState() === 'PLAYING',
+		report: syncPlayService.sendReadyRequest
+	}), []);
 
 	const [isLoading, setIsLoading] = useState(true);
 	const [isBuffering, setIsBuffering] = useState(false);
@@ -2129,17 +2136,15 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		const listener = syncPlayService.addListener((event) => {
 			if (event === 'stateUpdate') {
 				const state = avplayGetState();
-				if (state === 'PLAYING' || state === 'PAUSED') {
-					syncPlayService.sendReadyRequest(
-						state === 'PLAYING',
-						positionRef.current
-					);
-				}
+				if (state === 'PLAYING' || state === 'PAUSED') readyGate.request();
 			}
 		});
 
-		return listener;
-	}, [isInGroup]);
+		return () => {
+			listener();
+			readyGate.cancel();
+		};
+	}, [isInGroup, readyGate]);
 
 	useEffect(() => {
 		isBufferingRef.current = isBuffering;
@@ -2167,13 +2172,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			}
 		} else if (avplayReadyRef.current) {
 			clearTimeout(stallRecheckTimerRef.current);
-			syncPlayService.sendReadyRequest(
-				avplayGetState() === 'PLAYING',
-				positionRef.current
-			);
+			readyGate.request();
 		}
 		return () => clearTimeout(stallRecheckTimerRef.current);
-	}, [isInGroup, isBuffering]);
+	}, [isInGroup, isBuffering, readyGate]);
 
 	// ==============================
 	// Global Key Handler

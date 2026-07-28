@@ -39,6 +39,7 @@ import useSleepTimer from './useSleepTimer';
 import useSegmentPopups from './useSegmentPopups';
 import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
 import {driftAction, driftMs, needsSeek, DRIFT_CHECK_MS, SPEED_DURATION_MS} from '../../utils/syncDrift';
+import {createReadyGate} from '../../utils/syncReady';
 import {
 	NextEpisodeContainer, CONTROLS_HIDE_DELAY,
 	withTimeout
@@ -135,6 +136,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const lastFocusedElementRef = useRef(null);
 
 	const videoRef = useRef(null);
+	const readyGate = useMemo(() => createReadyGate({
+		readPositionMs: () => (videoRef.current ? videoRef.current.currentTime * 1000 : 0),
+		isBuffering: () => !videoRef.current || videoRef.current.readyState < 3,
+		isPlaying: () => Boolean(videoRef.current && !videoRef.current.paused),
+		report: syncPlayService.sendReadyRequest
+	}), []);
 	const containerRef = useRef(null);
 	const handlersRef = useRef({});
 	const positionRef = useRef(0);
@@ -2203,10 +2210,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 		const reportReady = () => {
 			clearTimeout(stallRecheckTimerRef.current);
-			syncPlayService.sendReadyRequest(
-				!videoRef.current.paused,
-				positionRef.current
-			);
+			readyGate.request();
 		};
 
 		const video = videoRef.current;
@@ -2216,11 +2220,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 		return () => {
 			clearTimeout(stallRecheckTimerRef.current);
+			readyGate.cancel();
 			video.removeEventListener('waiting', reportBuffering);
 			video.removeEventListener('playing', reportReady);
 			video.removeEventListener('canplay', reportReady);
 		};
-	}, [isInGroup]);
+	}, [isInGroup, readyGate]);
 
 	useEffect(() => {
 		const handleKeyDown = (e) => {
