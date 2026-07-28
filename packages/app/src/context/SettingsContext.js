@@ -260,18 +260,27 @@ const resolveFromEnvelope = (envelope, adminDefaults) => {
 const PUSH_DEBOUNCE_MS = 1000;
 let pushTimer = null;
 let pendingPush = null;
+// Keys the viewer has changed that the server hasn't taken yet. A pull landing in
+// between would otherwise put the old value straight back.
+const unpushedKeys = new Set();
 
 const flushTvProfile = () => {
 	pushTimer = null;
 	if (!pendingPush) return;
 	const {updated, serverUrl, token} = pendingPush;
 	pendingPush = null;
-	saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).catch(e =>
+	const sent = [...unpushedKeys];
+	saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).then(() => {
+		for (const key of sent) unpushedKeys.delete(key);
+	}).catch(e =>
 		console.warn('[Settings] Failed to push TV profile:', e.message)
 	);
 };
 
-const pushTvProfile = (updated, credsRef) => {
+const pushTvProfile = (updated, credsRef, keys) => {
+	for (const key of keys) unpushedKeys.add(key);
+	// Before the first sync there is nowhere to send this, but the keys are still
+	// marked so the pull that follows leaves them alone.
 	if (!credsRef.current) return;
 	const {serverUrl, token} = credsRef.current;
 	pendingPush = {updated, serverUrl, token};
@@ -467,7 +476,7 @@ export function SettingsProvider({children}) {
 		setSettings(prev => {
 			const updated = {...prev, [key]: value};
 			saveToStorage('settings', updated);
-			if (SYNCABLE_KEYS.includes(key)) pushTvProfile(updated, serverCredsRef);
+			if (SYNCABLE_KEYS.includes(key)) pushTvProfile(updated, serverCredsRef, [key]);
 			return updated;
 		});
 	}, []);
@@ -477,8 +486,9 @@ export function SettingsProvider({children}) {
 		setSettings(prev => {
 			const updated = {...prev, ...newSettings};
 			saveToStorage('settings', updated);
-			if (Object.keys(newSettings).some(k => SYNCABLE_KEYS.includes(k))) {
-				pushTvProfile(updated, serverCredsRef);
+			const syncable = Object.keys(newSettings).filter(k => SYNCABLE_KEYS.includes(k));
+			if (syncable.length > 0) {
+				pushTvProfile(updated, serverCredsRef, syncable);
 			}
 			return updated;
 		});
@@ -491,7 +501,7 @@ export function SettingsProvider({children}) {
 				? {...prev, visualTheme: themeId, customThemeId: ''}
 				: {...prev, visualTheme: prev.visualTheme || 'moonfin', customThemeId: themeId};
 			saveToStorage('settings', updated);
-			pushTvProfile(updated, serverCredsRef);
+			pushTvProfile(updated, serverCredsRef, ['visualTheme', 'customThemeId']);
 			return updated;
 		});
 	}, []);
@@ -588,7 +598,9 @@ export function SettingsProvider({children}) {
 					// Hold on to the previous reference when the value hasn't really changed.
 					// An equal but freshly built array still counts as a new identity, which
 					// would send Browse off to reload every row on every sync.
-					nextValues[key] = incoming === undefined || sameSyncedValue(incoming, prev[key])
+					// A key the viewer has changed but the server hasn't taken yet keeps the
+					// local value, because what came back is the one they just replaced.
+					nextValues[key] = incoming === undefined || unpushedKeys.has(key) || sameSyncedValue(incoming, prev[key])
 						? prev[key]
 						: incoming;
 				}
@@ -643,6 +655,11 @@ export function SettingsProvider({children}) {
 	// pass the pull only runs while the user keeps the plugin enabled.
 	const syncOnLogin = useCallback(async (serverUrl, token) => {
 		if (!serverUrl || !token) return;
+		// Known before any of the network work below, so a change made while that
+		// runs still has somewhere to go. Marks left over from another server were
+		// for that server's profile and would only hold this one's values back.
+		if (serverCredsRef.current?.serverUrl !== serverUrl) unpushedKeys.clear();
+		serverCredsRef.current = {serverUrl, token};
 		const key = normalizeServerKey(serverUrl);
 		if (!key || syncOnLoginRef.current[key]) return;
 		syncOnLoginRef.current[key] = true;
