@@ -9,6 +9,7 @@ import {
 	getClockDisplayOptions,
 	getContentTypeOptions,
 	getDetailScreenStyleOptions,
+	getDetailsOpacityOptions,
 	getEnabledRatingSourcesSummary,
 	getFeaturedBarStyleOptions,
 	getFeaturedItemCountOptions,
@@ -176,7 +177,17 @@ export const SETTINGS_SCHEMA = [
 				description: () => $L('Style, background blur, and tab behavior'),
 				rows: [
 					{kind: KIND.OPTION, key: 'detailScreenStyle', label: () => $L('Detail Screen Style'), options: getDetailScreenStyleOptions, fallback: () => $L('Modern'), icon: 'appscontents'},
-					{kind: KIND.OPTION, key: 'backdropBlurDetail', label: () => $L('Details Background Blur'), options: getBlurOptions, fallback: () => $L('Medium'), when: (ctx) => ctx.settings.detailScreenStyle === 'v1'},
+					{
+						kind: KIND.OPTION,
+						key: 'backdropBlurDetail',
+						label: (ctx) => (ctx.settings.detailScreenStyle === 'v1'
+							? $L('Details Background Blur')
+							: $L('Details Background Opacity')),
+						options: (ctx) => (ctx.settings.detailScreenStyle === 'v1'
+							? getBlurOptions()
+							: getDetailsOpacityOptions()),
+						fallback: (ctx) => (ctx.settings.detailScreenStyle === 'v1' ? $L('Medium') : '80%')
+					},
 					{kind: KIND.TOGGLE, key: 'detailExpandedTabs', label: () => $L('Expanded Tabs'), desc: () => $L('Keep detail tabs expanded and follow focus'), icon: 'appscontents', when: (ctx) => ctx.settings.detailScreenStyle !== 'v1'},
 					{kind: KIND.NAV, id: 'detailButtons', label: () => $L('Details Buttons'), desc: () => $L('Enable/disable and reorder the action row buttons'), icon: 'arrowupdown', action: (ctx) => ctx.actions.openDetailButtons()}
 				]

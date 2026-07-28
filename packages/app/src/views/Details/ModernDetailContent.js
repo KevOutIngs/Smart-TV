@@ -56,8 +56,11 @@ const ModernDetailContent = (props) => {
 		canChangeArtwork, handleOpenArtworkModal, handleOpenIdentifyModal
 	} = props;
 
-	const blurAmount = settings.backdropBlurDetail !== undefined ? Number(settings.backdropBlurDetail) : 10;
-	const opacityFactor = blurAmount / 25.0;
+	// Blur and opacity share one stored value, and the blur options reach 40 while
+	// this scale stops at 25, so a setting carried over from the classic layout is
+	// held at full rather than blacking the backdrop out entirely.
+	const blurAmount = Number(settings.backdropBlurDetail ?? 20);
+	const opacityFactor = Math.min(1, blurAmount / 25);
 	const maxAlpha = isPerson ? 0.40 : 0.80;
 	const alpha = opacityFactor * maxAlpha;
 	const gradientScale = 0.3 + 0.7 * opacityFactor;

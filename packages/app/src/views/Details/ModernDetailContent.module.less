@@ -24,28 +24,28 @@
 	position: absolute;
 	inset: 0;
 	background-image:
-		linear-gradient(to right, 
-			rgba(11, 13, 16, calc(1 * var(--gradient-scale))) 0%, 
-			rgba(11, 13, 16, calc(0.9 * var(--gradient-scale))) 35%, 
-			rgba(11, 13, 16, calc(0.45 * var(--gradient-scale))) 60%, 
+		linear-gradient(to right,
+			rgba(11, 13, 16, var(--gradient-scale)) 0%,
+			rgba(11, 13, 16, calc(0.9 * var(--gradient-scale))) 35%,
+			rgba(11, 13, 16, calc(0.45 * var(--gradient-scale))) 60%,
 			rgba(11, 13, 16, 0) 85%
 		),
-		linear-gradient(to top, 
-			rgba(11, 13, 16, calc(1 * var(--gradient-scale))) 0%, 
-			rgba(11, 13, 16, calc(0.4 * var(--gradient-scale))) 42%, 
+		linear-gradient(to top,
+			rgba(11, 13, 16, var(--gradient-scale)) 0%,
+			rgba(11, 13, 16, calc(0.4 * var(--gradient-scale))) 42%,
 			rgba(11, 13, 16, 0) 80%
 		),
-		radial-gradient(ellipse at 72% 28%, 
-			rgba(0, 0, 0, 0) 42%, 
+		radial-gradient(ellipse at 72% 28%,
+			rgba(0, 0, 0, 0) 42%,
 			rgba(0, 0, 0, calc(0.45 * var(--gradient-scale))) 100%
 		);
 	background-color: rgba(0, 0, 0, var(--opacity-alpha));
 }
 
 .backdropPerson::after {
-	background-image: linear-gradient(to top, 
-		rgba(11, 13, 16, calc(1 * var(--gradient-scale))) 0%, 
-		rgba(11, 13, 16, calc(0.6 * var(--gradient-scale))) 50%, 
+	background-image: linear-gradient(to top,
+		rgba(11, 13, 16, var(--gradient-scale)) 0%,
+		rgba(11, 13, 16, calc(0.6 * var(--gradient-scale))) 50%,
 		rgba(11, 13, 16, calc(0.45 * var(--gradient-scale))) 100%
 	);
 	background-color: rgba(0, 0, 0, var(--opacity-alpha));
