@@ -1085,7 +1085,6 @@ export const reportProgress = async (positionTicks, options = {}) => {
 
 const sendSessionBeacon = (path, payload) => {
 	if (!currentSession) return false;
-	if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return false;
 
 	const creds = currentSession.serverCredentials;
 	let serverUrl = creds?.serverUrl || jellyfinApi.getServerUrl();
@@ -1096,29 +1095,28 @@ const sendSessionBeacon = (path, payload) => {
 	if (!/^https?:\/\//i.test(serverUrl)) serverUrl = 'http://' + serverUrl;
 
 	const endpoint = `${serverUrl}${path}?${jellyfinApi.getTokenParam(creds?.serverType)}=${encodeURIComponent(token)}`;
-	const body = new Blob([JSON.stringify(payload)], {type: 'application/json'});
+	const json = JSON.stringify(payload);
 
+	if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+		try {
+			return navigator.sendBeacon(endpoint, new Blob([json], {type: 'application/json'}));
+		} catch (e) {
+			void e;
+		}
+	}
+
+	// webOS 3 has no sendBeacon, and an async request dies with the suspended
+	// process, so a blocking one is the only transport that gets through.
 	try {
-		return navigator.sendBeacon(endpoint, body);
+		const xhr = new window.XMLHttpRequest();
+		xhr.open('POST', endpoint, false);
+		xhr.setRequestHeader('Content-Type', 'application/json');
+		xhr.send(json);
+		return xhr.status >= 200 && xhr.status < 300;
 	} catch (e) {
 		void e;
 		return false;
 	}
-};
-
-export const reportProgressBeacon = (positionTicks, options = {}) => {
-	if (!currentSession) return false;
-	return sendSessionBeacon('/Sessions/Playing/Progress', {
-		ItemId: currentSession.itemId,
-		PlaySessionId: currentSession.playSessionId,
-		MediaSourceId: currentSession.mediaSourceId,
-		PositionTicks: positionTicks,
-		CanSeek: true,
-		IsPaused: options.isPaused !== false,
-		PlayMethod: currentSession.reportedPlayMethod || currentSession.playMethod,
-		AudioStreamIndex: currentSession.audioStreamIndex,
-		SubtitleStreamIndex: currentSession.subtitleStreamIndex
-	});
 };
 
 export const reportStopBeacon = (positionTicks) => {
@@ -1148,39 +1146,21 @@ export const stopHealthMonitoring = () => {
 	}
 };
 
-// When the app is backgrounded (TV input switched, home pressed, or the set
-// powered off in a way that only suspends the web process) we report paused
-// progress and keep the session so playback can resume. If the app never comes
-// back the server keeps the session marked playing until its own keepalive reaps
-// it. Schedule a real stop after a short grace period instead. cancelBackgroundStop
-// aborts it when the app resumes in time, and consumeBackgroundStopFired lets the
-// resume path re-establish the session if it already fired. A truly instant kill
-// still relies on the server keepalive since no timer can survive that.
-const BACKGROUND_STOP_GRACE_MS = 30000;
-let backgroundStopTimer = null;
+// The platform freezes script execution the moment the app is backgrounded, and
+// a kill while suspended runs no handlers at all, so nothing deferred can be
+// trusted to happen. The stop goes out inside the background handler itself, the
+// session is kept locally, and consumeBackgroundStopFired tells the resume path
+// to re-report start on it.
 let backgroundStopFired = false;
 
-export const cancelBackgroundStop = () => {
-	if (backgroundStopTimer) {
-		clearTimeout(backgroundStopTimer);
-		backgroundStopTimer = null;
-	}
-};
-
-export const scheduleBackgroundStop = (getPositionTicks, graceMs = BACKGROUND_STOP_GRACE_MS) => {
-	cancelBackgroundStop();
+export const reportBackgroundStop = (positionTicks) => {
 	if (!currentSession) return;
-	backgroundStopTimer = setTimeout(() => {
-		backgroundStopTimer = null;
-		if (!currentSession) return;
-		const ticks = typeof getPositionTicks === 'function' ? getPositionTicks() : getPositionTicks;
-		reportStopBeacon(ticks || 0);
-		// stop the local reporting loops so they can't revive the session we just
-		// told the server to end
-		stopProgressReporting();
-		stopHealthMonitoring();
-		backgroundStopFired = true;
-	}, graceMs);
+	reportStopBeacon(positionTicks);
+	// stop the local reporting loops so they cant revive the session we just
+	// told the server to end
+	stopProgressReporting();
+	stopHealthMonitoring();
+	backgroundStopFired = true;
 };
 
 // Returns true at most once per background stop, so the resume path knows it must
@@ -1192,8 +1172,7 @@ export const consumeBackgroundStopFired = () => {
 };
 
 export const reportStop = async (positionTicks) => {
-	// a normal stop supersedes any pending/elapsed background stop
-	cancelBackgroundStop();
+	// a normal stop supersedes an earlier background stop
 	backgroundStopFired = false;
 
 	if (!currentSession) return;
@@ -1382,7 +1361,6 @@ export default {
 	updateCurrentSession,
 	reportStart,
 	reportProgress,
-	reportProgressBeacon,
 	reportStopBeacon,
 	reportStop,
 	startProgressReporting,

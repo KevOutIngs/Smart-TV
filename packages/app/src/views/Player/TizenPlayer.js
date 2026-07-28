@@ -690,7 +690,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			unregisterAppStateRef.current = registerAppStateObserver(
 				() => {
 					console.log('[Player] App resumed');
-					playback.cancelBackgroundStop();
 					if (playback.consumeBackgroundStopFired()) {
 						// the session was stopped on the server while we were
 						// backgrounded, so bring it back before we resume playback
@@ -722,17 +721,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				},
 				() => {
 					console.log('[Player] App backgrounded - suspending and saving progress');
-					// report paused progress, not stopped. A stop here strands the
-					// session on the server side while the client resumes later
-					if (positionRef.current > 0) {
-						if (!playback.reportProgressBeacon(positionRef.current, {isPaused: true})) {
-							playback.reportProgress(positionRef.current, {isPaused: true});
-						}
-					}
-					// but if we never come back (TV powered off / app killed while
-					// suspended) report a real stop after a grace period so the
-					// session doesn't sit "playing" on the server forever
-					playback.scheduleBackgroundStop(() => positionRef.current);
+					// Script freezes as soon as the app is backgrounded and a kill
+					// while suspended runs nothing at all, so the stop has to go out
+					// right now. It also records the resume position. Coming back
+					// re-reports start on the same session.
+					playback.reportBackgroundStop(positionRef.current);
 					const state = avplayGetState();
 					const wasPlaying = state === 'PLAYING';
 					if (wasPlaying) {
@@ -792,7 +785,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		const handleAppExit = () => {
 			// always report the stop, even at position 0 (live TV and freshly
 			// opened media start there), or the session lingers on the server
-			playback.cancelBackgroundStop();
 			playback.reportStopBeacon(positionRef.current);
 			cleanupAVPlay();
 		};

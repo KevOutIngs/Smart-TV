@@ -466,23 +466,15 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					videoRef.current.pause();
 				}
 			}
-			// report paused progress, not stopped. A stop here ends the session
-			// and can tear down the transcode while the app is only backgrounded,
-			// the real stop goes out on pagehide when the app is torn down
-			if (positionRef.current > 0) {
-				if (!playback.reportProgressBeacon(positionRef.current, {isPaused: true})) {
-					playback.reportProgress(positionRef.current, {isPaused: true});
-				}
-			}
-			// but if we never come back (TV powered off / app killed while
-			// suspended) report a real stop after a grace period so the session
-			// doesn't sit "playing" on the server forever
-			playback.scheduleBackgroundStop(() => positionRef.current);
+			// Script freezes as soon as the app is backgrounded and a kill while
+			// suspended runs nothing at all, so the stop has to go out right now.
+			// It also records the resume position. Coming back re-reports start
+			// on the same session.
+			playback.reportBackgroundStop(positionRef.current);
 		};
 
 		const handleAppVisible = () => {
 			console.log('[Player] App visible - resuming if was playing');
-			playback.cancelBackgroundStop();
 			if (playback.consumeBackgroundStopFired()) {
 				// the session was stopped on the server while we were backgrounded,
 				// so let handlePlay re-report start and restart the reporting loops
@@ -505,7 +497,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		const handleAppExit = () => {
 			// always report the stop, even at position 0 (live TV and freshly
 			// opened media start there), or the session lingers on the server
-			playback.cancelBackgroundStop();
 			playback.reportStopBeacon(positionRef.current);
 		};
 
