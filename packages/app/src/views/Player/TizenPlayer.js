@@ -2133,6 +2133,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		};
 	}, [isInGroup, isPaused, playbackRate]);
 
+	// The server marks every member as buffering after a group seek or a change
+	// of item and waits for each one to report Ready, so a set that never
+	// stalled still has to answer.
 	useEffect(() => {
 		if (!isInGroup) return;
 
