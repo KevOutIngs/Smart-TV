@@ -526,6 +526,12 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 				Spotlight.focus('media-bar-libraries-view');
 			} else if (cv.view === 'mediaBarCollections') {
 				Spotlight.focus('media-bar-collections-view');
+			} else {
+				// Any screen not named above would otherwise leave focus where it
+				// already was, which is outside the panel. Each screen is a single
+				// container, so landing on that is always somewhere useful.
+				const container = document.querySelector(`.${css.viewContainer}[data-spotlight-id]`);
+				if (container) Spotlight.focus(container.getAttribute('data-spotlight-id'));
 			}
 	}, [categories, settings, availableThemes, activeThemeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
