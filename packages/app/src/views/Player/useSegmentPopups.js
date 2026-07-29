@@ -1,7 +1,9 @@
 import {useState, useEffect, useCallback, useRef} from 'react';
-import Spotlight from '@enact/spotlight';
 import {isBackKey} from '../../utils/keys';
 import {shouldAskStillWatching} from '../../utils/stillWatching';
+
+// The next episode is offered once this little of the current one is left.
+const NEAR_END_TICKS = 300000000;
 
 /**
  * Drives the skip prompt for any segment the server marked up, plus the credits
@@ -126,10 +128,11 @@ const useSegmentPopups = ({
 
 	// --- Skip segment ---
 
-	// Takes the segment when called from the auto skip path, and falls back to
-	// whichever one is on screen when the viewer presses the button.
+	// The auto skip path passes the segment it matched. A button press hands this
+	// its own click event instead, so anything without an end tick falls back to
+	// whichever segment is on screen.
 	const handleSkipSegment = useCallback((segment) => {
-		const target = segment || skipSegmentRef.current;
+		const target = segment?.end != null ? segment : skipSegmentRef.current;
 		if (!target?.end) return;
 		dismissedSegmentsRef.current.add(target.start);
 		onSeekToSegmentEnd?.(target.end);
@@ -161,10 +164,21 @@ const useSegmentPopups = ({
 	const checkSegments = useCallback((ticks) => {
 		const introAction = settings.introAction || 'ask';
 		const outroAction = settings.outroAction || 'ask';
+		const creditsStart = mediaSegments?.creditsStart ?? null;
+
+		// Seeking back past where a prompt would first appear makes it upcoming
+		// again, so one that was skipped or dismissed on the way through is offered
+		// once more rather than staying hidden for the rest of the episode.
+		for (const start of dismissedSegmentsRef.current) {
+			if (ticks < start) dismissedSegmentsRef.current.delete(start);
+		}
+		const nextUpFrom = Math.min(
+			creditsStart ?? Infinity,
+			runTimeRef.current > 0 ? runTimeRef.current - NEAR_END_TICKS : Infinity
+		);
+		if (ticks < nextUpFrom) hasTriggeredNextEpisodeRef.current = false;
 
 		if (mediaSegments) {
-			const {creditsStart} = mediaSegments;
-
 			// End credits are worth skipping on a normal episode too, so the outro
 			// keeps its own prompt unless the viewer asked for the next episode card
 			// in its place, and even then only when that card would really appear.
@@ -216,66 +230,51 @@ const useSegmentPopups = ({
 
 		if (nextEpisode && !currentIsPreroll && runTimeRef.current > 0 && settings.nextUpBehavior !== 'disabled') {
 			const remaining = runTimeRef.current - ticks;
-			const nearEnd = remaining < 300000000;
+			const nearEnd = remaining < NEAR_END_TICKS;
 			if (nearEnd && !hasTriggeredNextEpisodeRef.current) {
 				setShowNextEpisode(true);
 			}
 		}
 	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.replaceSkipOutroWithNextUp, nextEpisode, currentIsPreroll, runTimeRef, handlePlayNextEpisode, handleSkipSegment]);
 
-	// --- Auto-focus effects ---
+	// --- Clearing the way for a popup ---
 
 	// Keyed on which segment it is, not the object, because that carries a
-	// countdown that ticks every second and focus must only move when it appears.
+	// countdown that ticks every second and this only has to run once.
 	const skipSegmentStart = skipSegment?.start ?? null;
 	useEffect(() => {
 		if (skipSegmentStart == null || activeModal) return;
 		hideControls();
-		window.requestAnimationFrame(() => {
-			Spotlight.focus('skip-segment-btn');
-		});
 	}, [skipSegmentStart, activeModal, hideControls]);
 
 	useEffect(() => {
-		if (showSkipCredits && nextEpisode && !activeModal) {
-			hideControls();
-			if (settings.autoPlay) {
-				startNextEpisodeCountdown();
-			}
-			window.requestAnimationFrame(() => {
-				const defaultBtn = document.querySelector('[data-spot-default="true"]');
-				if (defaultBtn) {
-					Spotlight.focus(defaultBtn);
-				}
-			});
-		}
-	}, [showSkipCredits, nextEpisode, activeModal, settings.autoPlay, startNextEpisodeCountdown, hideControls]);
-
-	useEffect(() => {
-		if (showNextEpisode && !showSkipCredits && nextEpisode && !activeModal) {
-			hideControls();
-			if (settings.autoPlay) {
-				startNextEpisodeCountdown();
-			}
-			window.requestAnimationFrame(() => {
-				const defaultBtn = document.querySelector('[data-spot-default="true"]');
-				if (defaultBtn) {
-					Spotlight.focus(defaultBtn);
-				}
-			});
-		}
-	}, [showNextEpisode, showSkipCredits, nextEpisode, activeModal, settings.autoPlay, startNextEpisodeCountdown, hideControls]);
+		if (!(showSkipCredits || showNextEpisode) || !nextEpisode || activeModal) return;
+		hideControls();
+		if (settings.autoPlay) startNextEpisodeCountdown();
+	}, [showSkipCredits, showNextEpisode, nextEpisode, activeModal, settings.autoPlay, startNextEpisodeCountdown, hideControls]);
 
 	// --- Keydown handler (returns true if event was consumed) ---
 
 	const handlePopupKeyDown = useCallback((e) => {
 		const key = e.key || e.keyCode;
+		const back = isBackKey(e) || key === 'GoBack';
+
+		// The dialog owns every key while it is up. Enter presses the focused
+		// button and the arrows move between them, both through Spotlight, so
+		// the player only has to stay out of the way.
+		if (askStillWatching) {
+			if (back) {
+				e.preventDefault();
+				e.stopPropagation();
+				handleStillWatchingContinue();
+			}
+			return true;
+		}
+
 		const skipSegmentVisible = skipSegmentStart != null && !activeModal && !controlsVisible;
 		const nextEpisodeVisible = (showSkipCredits || showNextEpisode) && nextEpisode && !activeModal && !controlsVisible;
 
 		if (!skipSegmentVisible && !nextEpisodeVisible) return false;
-
-		const back = isBackKey(e) || key === 'GoBack';
 
 		const dismissSegment = () => {
 			dismissedSegmentsRef.current.add(skipSegmentStart);
@@ -317,7 +316,7 @@ const useSegmentPopups = ({
 		}
 
 		return false;
-	}, [skipSegmentStart, showSkipCredits, showNextEpisode, nextEpisode, activeModal, controlsVisible, showControls, cancelNextEpisodeCountdown]);
+	}, [askStillWatching, handleStillWatchingContinue, skipSegmentStart, showSkipCredits, showNextEpisode, nextEpisode, activeModal, controlsVisible, showControls, cancelNextEpisodeCountdown]);
 
 	return {
 		askStillWatching,

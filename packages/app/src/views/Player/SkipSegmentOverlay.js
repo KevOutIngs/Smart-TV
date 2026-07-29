@@ -1,6 +1,6 @@
 import $L from '@enact/i18n/$L';
 import {SpottableButton} from './PlayerConstants';
-import {CountdownRing, SkipGlyph, formatRemaining} from './overlayParts';
+import {CountdownRing, SkipGlyph, formatRemaining, useOverlayFocus} from './overlayParts';
 
 import css from './SkipSegmentOverlay.module.less';
 
@@ -22,6 +22,8 @@ const ringClasses = {ring: css.ring, svg: css.ringSvg, track: css.ringTrack, val
  * as the segment has left to run, so the prompt going away is never a surprise.
  */
 const SkipSegmentOverlay = ({type, remainingSeconds, progress, countdownStyle, onSkip, spotlightId}) => {
+	useOverlayFocus(spotlightId);
+
 	const showRing = countdownStyle === 'progressBar' || countdownStyle === 'both';
 	const showTimer = countdownStyle === 'timer' || countdownStyle === 'both';
 	const numberInRing = showTimer && showRing && remainingSeconds < 60;

@@ -1,5 +1,17 @@
-// Shared pieces of the two playback overlays, so the countdown maths and the
-// glyphs only exist once.
+// Shared pieces of the playback overlays, so the countdown maths, the glyphs and
+// the focus handling only exist once.
+
+import {useEffect} from 'react';
+import Spotlight from '@enact/spotlight';
+
+// The player controls hold Spotlight focus even while they are hidden, so an
+// overlay has to claim it or the remote carries on driving the controls
+// underneath instead of the thing on screen.
+export const useOverlayFocus = (spotlightId) => {
+	useEffect(() => {
+		window.requestAnimationFrame(() => Spotlight.focus(spotlightId));
+	}, [spotlightId]);
+};
 
 export const formatRemaining = (seconds) => {
 	const safe = Math.max(0, seconds);

@@ -1,6 +1,6 @@
 import $L from '@enact/i18n/$L';
 import {SpottableButton} from './PlayerConstants';
-import {CountdownRing, PlayGlyph, formatRemaining} from './overlayParts';
+import {CountdownRing, PlayGlyph, formatRemaining, useOverlayFocus} from './overlayParts';
 
 import css from './NextUpOverlay.module.less';
 
@@ -22,6 +22,8 @@ const episodeLabel = (episode) => {
  * thing it is about to do.
  */
 const NextUpOverlay = ({episode, imageUrl, countdown, timeout, countdownStyle, minimal, onPlay, onDismiss}) => {
+	useOverlayFocus('next-up-play-btn');
+
 	const counting = countdown != null && timeout > 0;
 	const showRing = counting && (countdownStyle === 'progressBar' || countdownStyle === 'both');
 	const showTimer = counting && (countdownStyle === 'timer' || countdownStyle === 'both');
