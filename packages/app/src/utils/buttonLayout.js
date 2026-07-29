@@ -32,8 +32,9 @@ export const DETAIL_BUTTONS = [
 ];
 
 // Play, pause, seek and track skip are absent on purpose, the player always keeps those.
+// Playback speed is absent because these TVs hand the rate to their own media pipeline,
+// which drops the audio rather than stretching it, so anything but 1x plays silent.
 export const OSD_BUTTONS = [
-	{id: 'speed', label: 'Playback Speed'},
 	{id: 'chapters', label: 'Chapters'},
 	{id: 'subtitles', label: 'Subtitles'},
 	{id: 'audio', label: 'Audio'},

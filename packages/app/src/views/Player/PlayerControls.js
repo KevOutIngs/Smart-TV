@@ -10,9 +10,9 @@ import SubtitleSettingsOverlay from './SubtitleSettingsOverlay';
 import {getPlatform} from '../../platform';
 import {
 	SpottableButton, SpottableDiv, ModalContainer,
-	formatTime, formatEndTime, PLAYBACK_RATES, getQualityPresets,
+	formatTime, formatEndTime, getQualityPresets,
 	IconPlay, IconPause, IconRewind, IconForward, IconSubtitle, IconSubtitleOff, IconAudio,
-	IconChapters, IconPrevious, IconNext, PlaybackRateLabel, IconQuality, IconInfo, IconCast, IconZoom,
+	IconChapters, IconPrevious, IconNext, IconQuality, IconInfo, IconCast, IconZoom,
 	IconShuffle, IconRepeat, IconRepeatOne, IconSleep
 } from './PlayerConstants';
 import {SLEEP_TIMER_MINUTES} from './useSleepTimer';
@@ -22,7 +22,7 @@ import { useSettings } from '../../context/SettingsContext';
 export const usePlayerButtons = ({
 	isPaused, audioStreams, subtitleStreams, chapters,
 	nextEpisode, isAudioMode, isLiveTV, hasNextTrack, hasPrevTrack,
-	shuffleMode, repeatMode, playbackRate, selectedQuality,
+	shuffleMode, repeatMode, selectedQuality,
 	selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey,
 	sleepMinutes
 }) => {
@@ -85,7 +85,6 @@ export const usePlayerButtons = ({
 			], {order: osdOrder, hidden: osdHidden});
 		}
 		return arrange([
-			{id: 'speed', icon: <PlaybackRateLabel value={playbackRate} />, label: $L('Playback Speed'), action: 'speed', active: playbackRate !== 1},
 			...(chapters.length > 0 ? [{id: 'chapters', icon: <IconChapters />, label: $L('Chapters'), action: 'chapter'}] : []),
 			...((subtitleStreams.length > 0 || canDownloadRemoteSubtitles) ? [{id: 'subtitles', icon: (selectedSubtitleIndex >= 0 ? <IconSubtitle /> : <IconSubtitleOff />), label: $L('Subtitles'), action: 'subtitle'}] : []),
 			...(audioStreams.length > 1 ? [{id: 'audio', icon: <IconAudio />, label: $L('Audio'), action: 'audio'}] : []),
@@ -97,7 +96,7 @@ export const usePlayerButtons = ({
 			{id: 'sleep', icon: <IconSleep />, label: $L('Sleep Timer'), action: 'sleep', active: sleepMinutes != null},
 			{id: 'info', icon: <IconInfo />, label: $L('Playback Information'), action: 'info'}
 		], {order: osdOrder, hidden: osdHidden});
-	}, [audioStreams.length, chapters.length, subtitleStreams.length, isAudioMode, isLiveTV, playbackRate, selectedQuality, selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey, sleepMinutes, osdOrder, osdHidden]);
+	}, [audioStreams.length, chapters.length, subtitleStreams.length, isAudioMode, isLiveTV, selectedQuality, selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey, sleepMinutes, osdOrder, osdHidden]);
 
 	return {topButtons, bottomButtons};
 };
@@ -178,7 +177,6 @@ const PlayerControls = ({
 	item,
 	mediaSourceId,
 	playMethod,
-	playbackRate,
 	selectedAudioIndex,
 	selectedSubtitleIndex,
 	selectedQuality,
@@ -194,8 +192,6 @@ const PlayerControls = ({
 	handleSelectAudio,
 	handleSelectSubtitle,
 	handleSubtitleKeyDown,
-	handleSelectSpeed,
-	speedCaveat,
 	handleSelectSleep,
 	sleepMinutes,
 	sleepRemainingSeconds,
@@ -433,29 +429,6 @@ const PlayerControls = ({
 								</SpottableButton>
 							))}
 						</div>
-						<p className={css.modalFooter}>{$L('Press BACK to close')}</p>
-					</ModalContainer>
-				</div>
-			)}
-
-			{activeModal === 'speed' && (
-				<div className={css.trackModal} onClick={closeModal}>
-					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="speed" spotlightId="speed-modal">
-						<h2 className={css.modalTitle}>{$L('Playback Speed')}</h2>
-						<div className={css.trackList}>
-							{PLAYBACK_RATES.map((rate) => (
-								<SpottableButton
-									key={rate}
-									className={`${css.trackItem} ${rate === playbackRate ? css.selected : ''}`}
-									data-rate={rate}
-									data-selected={rate === playbackRate ? 'true' : undefined}
-									onClick={handleSelectSpeed}
-								>
-									<span className={css.trackName}>{rate === 1 ? $L('Normal') : `${rate}x`}</span>
-								</SpottableButton>
-							))}
-						</div>
-						{speedCaveat && <p className={css.modalFooter}>{speedCaveat}</p>}
 						<p className={css.modalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>

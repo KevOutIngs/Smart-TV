@@ -114,7 +114,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [currentSubtitleText, setCurrentSubtitleText] = useState(null);
 	const [controlsVisible, setControlsVisible] = useState(false);
 	const [activeModal, setActiveModal] = useState(null);
-	const [playbackRate, setPlaybackRate] = useState(1);
 	const [selectedQuality, setSelectedQuality] = useState(null);
 	const [remoteSubtitleResults, setRemoteSubtitleResults] = useState([]);
 	const [isSearchingRemoteSubtitles, setIsSearchingRemoteSubtitles] = useState(false);
@@ -268,7 +267,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const {topButtons, bottomButtons} = usePlayerButtons({
 		isPaused, audioStreams, subtitleStreams, chapters,
 		nextEpisode, isAudioMode, isLiveTV, hasNextTrack, hasPrevTrack,
-		shuffleMode, repeatMode, playbackRate, selectedQuality,
+		shuffleMode, repeatMode, selectedQuality,
 		selectedSubtitleIndex, canDownloadRemoteSubtitles: !isAudioMode && Boolean(item?.Id), hasCastMembers, zoomModeLabel, zoomModeKey: zoomMode,
 		sleepMinutes
 	});
@@ -1736,20 +1735,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		await applySubtitleSelection(index, subtitleStreams, true);
 	}, [applySubtitleSelection, subtitleStreams]);
 
-	const handleSelectSpeed = useCallback((e) => {
-		const rate = parseFloat(e.currentTarget.dataset.rate);
-		if (isNaN(rate)) return;
-		if (avplayReadyRef.current && !avplaySetSpeed(rate)) {
-			// the platform refused the rate, put both the player and the UI back
-			avplaySetSpeed(1);
-			setPlaybackRate(1);
-			closeModal();
-			return;
-		}
-		setPlaybackRate(rate);
-		closeModal();
-	}, [closeModal]);
-
 	const handleSelectQuality = useCallback((e) => {
 		const valueStr = e.currentTarget.dataset.value;
 		const value = valueStr === 'null' ? null : parseInt(valueStr, 10);
@@ -1912,7 +1897,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'forward': handleForward(); break;
 			case 'audio': openModal('audio'); break;
 			case 'subtitle': openModal('subtitle'); break;
-			case 'speed': openModal('speed'); break;
 			case 'quality': openModal('quality'); break;
 			case 'chapter': openModal('chapter'); break;
 			case 'cast': handleOpenCast(); break;
@@ -2097,8 +2081,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		if (!isInGroup || isPaused) return undefined;
 
 		let restoreTimer = null;
-		// Back to whatever speed the viewer picked, which is not always 1x.
-		const restoreRate = () => avplaySetSpeed(playbackRate);
+		const restoreRate = () => avplaySetSpeed(1);
 		const interval = setInterval(() => {
 			if (syncPlayCommandRef.current || avplayGetState() !== 'PLAYING') return;
 			const expected = syncPlayService.getExpectedPositionTicks();
@@ -2123,7 +2106,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			if (restoreTimer) clearTimeout(restoreTimer);
 			restoreRate();
 		};
-	}, [isInGroup, isPaused, playbackRate]);
+	}, [isInGroup, isPaused]);
 
 	// The server marks every member as buffering after a group seek or a change
 	// of item and waits for each one to report Ready, so a set that never
@@ -2454,13 +2437,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				</div>
 			)}
 
-			{/* Playback Indicators */}
-			{playbackRate !== 1 && (
-				<div className={css.playbackIndicators}>
-					<div className={css.speedIndicator}>{playbackRate}x</div>
-				</div>
-			)}
-
 			{isPaused && settings.showDescriptionOnPause && item?.Overview && !isAudioMode && !activeModal && !controlsVisible && (
 				<div className={css.pauseDescriptionOverlay}>
 					<div className={css.pauseDescriptionText}>{item.Overview}</div>
@@ -2517,7 +2493,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				item={item}
 				mediaSourceId={mediaSourceId}
 				playMethod={playMethod}
-				playbackRate={playbackRate}
 				selectedAudioIndex={selectedAudioIndex}
 				selectedSubtitleIndex={selectedSubtitleIndex}
 				selectedQuality={selectedQuality}
@@ -2533,8 +2508,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				handleSelectAudio={handleSelectAudio}
 				handleSelectSubtitle={handleSelectSubtitle}
 				handleSubtitleKeyDown={handleSubtitleItemKeyDown}
-				handleSelectSpeed={handleSelectSpeed}
-				speedCaveat={$L('Audio is muted at speeds other than 1x on most Samsung TVs')}
 				handleSelectSleep={handleSelectSleep}
 				sleepMinutes={sleepMinutes}
 				sleepRemainingSeconds={sleepRemainingSeconds}

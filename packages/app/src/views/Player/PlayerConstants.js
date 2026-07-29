@@ -46,8 +46,6 @@ export const formatEndTime = (remainingSeconds, clockDisplay) => {
 	}
 };
 
-export const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
-
 let _qualityPresets;
 export const getQualityPresets = () => (_qualityPresets ??= [
 	{label: $L('Auto'), value: null},
@@ -106,10 +104,6 @@ export const IconPrevious = () => (
 
 export const IconNext = () => (
 	<MaterialIcon path="M680-270v-420q0-13 8.5-21.5T710-720q13 0 21.5 8.5T740-690v420q0 13-8.5 21.5T710-240q-13 0-21.5-8.5T680-270Zm-460-27v-366q0-14 9-22t21-8q5 0 9 1.5t8 4.5l263 182q7 5 10 11.5t3 13.5q0 7-3 13.5T530-455L267-273q-4 3-8 4.5t-9 1.5q-12 0-21-8t-9-22Zm60-183Zm0 125 181-125-181-125v250Z" />
-);
-
-export const PlaybackRateLabel = ({value}) => (
-	<span style={{fontSize: '0.62em', fontWeight: 600, lineHeight: 1}} aria-hidden="true">{`${value}x`}</span>
 );
 
 export const IconQuality = () => (

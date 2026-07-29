@@ -126,34 +126,6 @@
 	opacity: 1;
 }
 
-/* Playback Indicators (speed, bitrate) */
-.playbackIndicators {
-	position: fixed;
-	top: 20px;
-	right: 20px;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	z-index: 150;
-
-	> * + * {
-		margin-top: 10px;
-	}
-	pointer-events: none;
-}
-
-.speedIndicator {
-	background: rgba(0, 0, 0, 0.85);
-	color: #ffd700;
-	padding: 8px 16px;
-	border-radius: 6px;
-	font-size: 18px;
-	font-weight: 600;
-	border: 2px solid rgba(255, 255, 255, 0.2);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-}
-
-/* Skip Overlay */
 /* Player Controls Overlay */
 .playerControls {
 	position: fixed;
