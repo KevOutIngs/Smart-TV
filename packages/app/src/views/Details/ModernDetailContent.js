@@ -410,17 +410,20 @@ const ModernDetailContent = (props) => {
 		</RowContainer>
 	);
 
+	// The streams are spottable even though there is nothing to activate. Focus is
+	// how the tab bar hands over and how the scroller knows where to go, so plain
+	// text would leave this tab unreachable.
 	const renderDetailsTab = () => {
 		const streams = mediaSource?.MediaStreams || [];
 		return (
-			<div className={css.detailsPanel}>
+			<RowContainer className={css.detailsPanel}>
 				{streams.map((stream, i) => (
-					<div key={i} className={css.detailStream}>
+					<SpottableDiv key={i} className={css.detailStream}>
 						<div className={css.detailStreamHeader}>{stream.Type}{stream.Language ? ` (${stream.Language})` : ''}</div>
 						{stream.DisplayTitle && <div className={css.detailStreamLine}>{stream.DisplayTitle}</div>}
-					</div>
+					</SpottableDiv>
 				))}
-			</div>
+			</RowContainer>
 		);
 	};
 
