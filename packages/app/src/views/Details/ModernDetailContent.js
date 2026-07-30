@@ -19,6 +19,14 @@ import css from './ModernDetailContent.module.less';
 const SpottableDiv = Spottable('div');
 const RowContainer = SpotlightContainerDecorator({enterTo: 'last-focused'}, 'div');
 
+// Whether anything focusable sits above the active element, which is what marks
+// a top row apart from the rows that can still move up on their own.
+const hasSpottableAbove = (container, active) => {
+	const top = active.getBoundingClientRect().top + 1;
+	return Array.from(container.querySelectorAll('.spottable'))
+		.some((el) => el !== active && el.getBoundingClientRect().bottom <= top);
+};
+
 const Icon = ({path}) => (
 	<svg className={css.icon} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">
 		<path d={path} />
@@ -101,10 +109,10 @@ const ModernDetailContent = (props) => {
 	const handleScrollTo = useCallback((fn) => {
 		scrollToRef.current = fn;
 	}, []);
-	const handleActionsFocus = useCallback((ev) => {
-		// Only the focus the page opens with has no related target. Pull the view up
-		// for that one, since the row sits below the hero, and leave the rest alone.
-		if (ev.relatedTarget) return;
+	const initialPullDone = useRef(false);
+	const handleActionsFocus = useCallback(() => {
+		if (initialPullDone.current) return;
+		initialPullDone.current = true;
 		scrollToRef.current?.({position: {y: 0}, animate: false});
 	}, []);
 	const handleActionsKeyDown = useCallback((ev) => {
@@ -127,13 +135,29 @@ const ModernDetailContent = (props) => {
 			ev.stopPropagation();
 		}
 	}, []);
-	const handleUpNextKeyDown = useCallback((ev) => {
-		// Up from the next up card returns to the top navbar when it's present.
-		if (ev.keyCode === KEYS.UP && Spotlight.focus('navbar')) {
-			ev.preventDefault();
-			ev.stopPropagation();
-		}
+	const contentRef = useRef(null);
+	const scrollTopRef = useRef(0);
+	const handleScroll = useCallback((ev) => {
+		scrollTopRef.current = ev.scrollTop;
 	}, []);
+	// Up from the top row scrolls back to the top first so the hero comes back
+	// into view, and only hands focus to the navbar once it is already there. A
+	// left docked sidebar swallows the press instead, since it is reached with
+	// left rather than up.
+	const handleContentKeyDown = useCallback((ev) => {
+		if (ev.keyCode !== KEYS.UP) return;
+		const content = contentRef.current;
+		const active = document.activeElement;
+		if (!content || !active || !content.contains(active)) return;
+		if (hasSpottableAbove(content, active)) return;
+		ev.preventDefault();
+		ev.stopPropagation();
+		if (scrollTopRef.current > 1) {
+			scrollToRef.current?.({position: {y: 0}, animate: true});
+			return;
+		}
+		if (settings.navbarPosition !== 'left') Spotlight.focus('navbar');
+	}, [settings.navbarPosition]);
 
 	const tabContentRef = useRef(null);
 
@@ -282,11 +306,8 @@ const ModernDetailContent = (props) => {
 		// Up from the top row of the content returns to the tab it belongs to,
 		// while lower rows keep their normal 5-way move up within the content.
 		if (ev.keyCode === KEYS.UP && content && content.contains(active)) {
-			const rect = active.getBoundingClientRect();
-			const hasAbove = Array.from(content.querySelectorAll('.spottable'))
-				.some((el) => el !== active && el.getBoundingClientRect().bottom <= rect.top + 1);
 			const pill = tabBar?.querySelector(`[data-id="${currentTab}"]`);
-			if (!hasAbove && pill && Spotlight.focus(pill)) {
+			if (!hasSpottableAbove(content, active) && pill && Spotlight.focus(pill)) {
 				ev.preventDefault();
 				ev.stopPropagation();
 			}
@@ -513,7 +534,7 @@ const ModernDetailContent = (props) => {
 		const label = ep.ParentIndexNumber != null && ep.IndexNumber != null ? `S${ep.ParentIndexNumber}:E${ep.IndexNumber}` : '';
 		const progress = ep.UserData?.PlayedPercentage || 0;
 		return (
-			<RowContainer className={css.upNext} onKeyDown={handleUpNextKeyDown}>
+			<RowContainer className={css.upNext}>
 				<div className={css.upNextLabel}>{$L('Next Up')}</div>
 				{/* eslint-disable-next-line react/jsx-no-bind */}
 				<SpottableDiv className={css.upNextCard} onClick={() => onSelectItem?.(ep)}>
@@ -545,8 +566,8 @@ const ModernDetailContent = (props) => {
 			<div className={`${css.backdrop} ${isPerson ? css.backdropPerson : ''}`} style={backdropStyle}>
 				{backdropUrl && !isPerson && <img className={css.backdropImage} src={backdropUrl} alt="" />}
 			</div>
-			<Scroller cbScrollTo={handleScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-				<div className={css.content}>
+			<Scroller cbScrollTo={handleScrollTo} onScroll={handleScroll} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
+				<div className={css.content} ref={contentRef} onKeyDown={handleContentKeyDown}>
 					<div className={`${css.hero} ${nextUp?.[0] ? css.hasUpNext : ''}`}>
 						<div className={`${css.heroMain} ${isPerson ? css.heroPerson : ''}`}>
 							{isPerson && posterUrl && <img className={css.personAvatar} src={posterUrl} alt="" />}
