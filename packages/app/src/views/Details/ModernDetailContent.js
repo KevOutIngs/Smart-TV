@@ -124,17 +124,26 @@ const ModernDetailContent = (props) => {
 			}
 			return;
 		}
-		// Keep left/right focus inside the button row so the edges don't jump to
-		// the up next card or leak out of the row.
 		if (ev.keyCode !== KEYS.LEFT && ev.keyCode !== KEYS.RIGHT) return;
 		const buttons = Array.from(ev.currentTarget.querySelectorAll(`.${css.actionBtn}`));
 		const idx = buttons.indexOf(document.activeElement);
 		if (idx === -1) return;
-		if ((ev.keyCode === KEYS.LEFT && idx === 0) || (ev.keyCode === KEYS.RIGHT && idx === buttons.length - 1)) {
+		const atLeftEdge = ev.keyCode === KEYS.LEFT && idx === 0;
+		const atRightEdge = ev.keyCode === KEYS.RIGHT && idx === buttons.length - 1;
+		if (atLeftEdge && settings.navbarPosition === 'left') {
+			if (Spotlight.focus('navbar')) {
+				ev.preventDefault();
+				ev.stopPropagation();
+			}
+			return;
+		}
+		// The other edges stay put, so focus doesn't jump to the up next card or
+		// leak out of the row.
+		if (atLeftEdge || atRightEdge) {
 			ev.preventDefault();
 			ev.stopPropagation();
 		}
-	}, []);
+	}, [settings.navbarPosition]);
 	const contentRef = useRef(null);
 	const scrollTopRef = useRef(0);
 	const handleScroll = useCallback((ev) => {
