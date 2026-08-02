@@ -27,7 +27,8 @@ import {
 import {useSettings} from '../../context/SettingsContext';
 import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as syncPlayService from '../../services/syncPlay';
-import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml} from '../../utils/subtitleConstants';
+import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml, resolveSubtitleStyleSettings} from '../../utils/subtitleConstants';
+import {isHdrOutput} from '../../utils/videoRange';
 import {findPreferredAudioStream} from '../../utils/audioLanguage';
 import {saveSubtitlePref} from '../../services/subtitlePrefs';
 import {resolveInitialSubtitle} from './initialSubtitle';
@@ -88,6 +89,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [title, setTitle] = useState('');
 	const [subtitle, setSubtitle] = useState('');
 	const [playMethod, setPlayMethod] = useState(null);
+	const [isHdrContent, setIsHdrContent] = useState(false);
 	const [isPaused, setIsPaused] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
@@ -119,6 +121,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [decodedAspectRatio, setDecodedAspectRatio] = useState(null);
 	const [castMembers, setCastMembers] = useState([]);
 	const [isLoadingCastMembers, setIsLoadingCastMembers] = useState(false);
+	const subtitleStyleSettings = useMemo(
+		() => resolveSubtitleStyleSettings(settings, isHdrContent),
+		[settings, isHdrContent]
+	);
+
 	const zoomModeLabel = useMemo(() => {
 		if (zoomMode === 'fill') return $L('Crop');
 		if (zoomMode === 'stretch') return $L('Stretch');
@@ -655,6 +662,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				setMediaUrl(result.url);
 				setMimeType(result.mimeType || 'video/mp4');
 				setPlayMethod(result.playMethod);
+				setIsHdrContent(isHdrOutput(result.mediaSource, result.playMethod === playback.PlayMethod.Transcode));
 				setMediaSourceId(result.mediaSourceId);
 				setVideoDisplayAspectRatio(getVideoDisplayAspectRatio(result.mediaSource));
 				playSessionRef.current = result.playSessionId;
@@ -1500,6 +1508,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					console.log('[Player] Switching to transcode on same element...');
 					setMediaUrl(result.url);
 					setPlayMethod(result.playMethod);
+					setIsHdrContent(isHdrOutput(result.mediaSource, result.playMethod === playback.PlayMethod.Transcode));
 					setMimeType(result.mimeType || 'video/mp4');
 					playSessionRef.current = result.playSessionId;
 					return;
@@ -1538,6 +1547,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					console.log('[Player] H.264 fallback URL:', result.url.substring(0, 200));
 					setMediaUrl(result.url);
 					setPlayMethod(result.playMethod);
+					setIsHdrContent(isHdrOutput(result.mediaSource, result.playMethod === playback.PlayMethod.Transcode));
 					setMimeType(result.mimeType || 'application/x-mpegURL');
 					playSessionRef.current = result.playSessionId;
 					return;
@@ -1706,6 +1716,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			}
 			setMediaUrl(result.url);
 			if (result.playMethod) setPlayMethod(result.playMethod);
+			setIsHdrContent(isHdrOutput(result.mediaSource, result.playMethod === playback.PlayMethod.Transcode));
 			setMimeType(result.mimeType || 'video/mp4');
 		}
 	}, []);
@@ -1914,6 +1925,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				}
 				setMediaUrl(newUrl);
 				if (result.playMethod) setPlayMethod(result.playMethod);
+				setIsHdrContent(isHdrOutput(result.mediaSource, result.playMethod === playback.PlayMethod.Transcode));
 				setMimeType(result.mimeType || 'video/mp4');
 				if (result.audioStreams) setAudioStreams(result.audioStreams);
 				if (result.subtitleStreams) setSubtitleStreams(result.subtitleStreams);
@@ -2459,11 +2471,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			{!isLoading && !error && currentSubtitleText && !isAudioMode && (
 				<div
 					className={css.subtitleOverlay}
-					style={getSubtitleOverlayStyle(settings)}
+					style={getSubtitleOverlayStyle(subtitleStyleSettings)}
 				>
 					<div
 						className={css.subtitleText}
-						style={getSubtitleTextStyle(settings)}
+						style={getSubtitleTextStyle(subtitleStyleSettings)}
 						// eslint-disable-next-line react/no-danger
 						dangerouslySetInnerHTML={{__html: sanitizeSubtitleHtml(currentSubtitleText)}}
 					/>
@@ -2517,6 +2529,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			)}
 
 			{!isLoading && !error && <PlayerControls
+				isHdrContent={isHdrContent}
 				css={css}
 				controlsVisible={controlsVisible}
 				activeModal={activeModal}

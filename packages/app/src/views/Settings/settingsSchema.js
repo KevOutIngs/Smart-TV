@@ -85,6 +85,7 @@ const hasHomeRow = (test) => (ctx) =>
 const whenSinceYouWatched = hasHomeRow((row) => row.id.startsWith('sinceyouwatched'));
 const whenRewatch = hasHomeRow((row) => row.id === 'rewatch');
 const whenPlugin = (ctx) => ctx.settings.useMoonfinPlugin;
+const whenHdrSubtitles = (ctx) => ctx.settings.subtitleHdrSeparate;
 const whenSeerr = (ctx) => ctx.seerr.isEnabled;
 
 const countLabel = (count) => $L('{count} selected').replace('{count}', String(count));
@@ -476,6 +477,32 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.SLIDER, key: 'subtitleBackground', label: () => $L('Background Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'contrast'},
 					{kind: KIND.DIVIDER, id: 'rendering'},
 					{kind: KIND.TOGGLE, key: 'enablePgsRendering', label: () => $L('Direct Play PGS Subtitles'), desc: () => $L('Use client-side rendering for bitmap subtitles (PGS, DVB, DVD)'), icon: 'picture'}
+				]
+			},
+			{
+				id: 'subtitlesHdr',
+				label: () => $L('HDR Subtitles'),
+				description: () => $L('A separate style used while HDR is playing'),
+				rows: [
+					{
+						kind: KIND.TOGGLE,
+						key: 'subtitleHdrSeparate',
+						label: () => $L('Separate HDR Style'),
+						desc: () => $L('Use the style below whenever HDR content is playing. White is much brighter in HDR than in SDR, so a dimmer colour here avoids the glare.'),
+						icon: 'picture'
+					},
+					{kind: KIND.OPTION, key: 'subtitleSizeHdr', label: () => $L('Subtitle Size'), options: getSubtitleSizeOptions, fallback: () => $L('Medium'), icon: 'textinput', when: whenHdrSubtitles},
+					{kind: KIND.OPTION, key: 'subtitlePositionHdr', label: () => $L('Subtitle Position'), options: getSubtitlePositionOptions, fallback: () => $L('Bottom'), icon: 'arrowlargedown', when: whenHdrSubtitles},
+					{kind: KIND.SLIDER, key: 'subtitlePositionAbsoluteHdr', label: () => $L('Absolute Position'), min: 0, max: 100, step: 5, format: percent, icon: 'arrowupdown', when: (ctx) => whenHdrSubtitles(ctx) && ctx.settings.subtitlePositionHdr === 'absolute'},
+					{kind: KIND.SLIDER, key: 'subtitleOpacityHdr', label: () => $L('Text Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'contrast', when: whenHdrSubtitles},
+					{kind: KIND.OPTION, key: 'subtitleColorHdr', label: () => $L('Text Color'), options: getSubtitleColorOptions, fallback: () => $L('Grey'), icon: 'textinput', when: whenHdrSubtitles},
+					{kind: KIND.DIVIDER, id: 'hdrShadow', when: whenHdrSubtitles},
+					{kind: KIND.OPTION, key: 'subtitleShadowColorHdr', label: () => $L('Shadow Color'), options: getSubtitleShadowColorOptions, fallback: () => $L('Black'), icon: 'edit', when: whenHdrSubtitles},
+					{kind: KIND.SLIDER, key: 'subtitleShadowOpacityHdr', label: () => $L('Shadow Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'contrast', when: whenHdrSubtitles},
+					{kind: KIND.SLIDER, key: 'subtitleShadowBlurHdr', label: () => $L('Shadow Size (Blur)'), min: 0, max: 1, step: 0.1, format: (v) => (v || 0.1).toFixed(1), icon: 'picture', when: whenHdrSubtitles},
+					{kind: KIND.DIVIDER, id: 'hdrBackground', when: whenHdrSubtitles},
+					{kind: KIND.OPTION, key: 'subtitleBackgroundColorHdr', label: () => $L('Background Color'), options: getSubtitleBackgroundColorOptions, fallback: () => $L('Black'), icon: 'colorpicker', when: whenHdrSubtitles},
+					{kind: KIND.SLIDER, key: 'subtitleBackgroundHdr', label: () => $L('Background Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'contrast', when: whenHdrSubtitles}
 				]
 			},
 			{

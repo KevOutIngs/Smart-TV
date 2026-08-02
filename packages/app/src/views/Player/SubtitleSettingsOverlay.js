@@ -7,6 +7,7 @@ import {useCallback, useEffect} from 'react';
 import $L from '@enact/i18n/$L';
 import {useSettings} from '../../context/SettingsContext';
 import {isBackKey} from '../../utils/keys';
+import {resolveSubtitleStyleSettings, subtitleStyleKey} from '../../utils/subtitleConstants';
 
 import css from './Player.module.less';
 
@@ -77,8 +78,11 @@ const getLabel = (options, currentValue, fallback) => {
 
 const stopPropagation = (e) => e.stopPropagation();
 
-const SubtitleSettingsOverlay = ({visible, onClose}) => {
+const SubtitleSettingsOverlay = ({visible, onClose, isHdr = false}) => {
 	const {settings, updateSetting} = useSettings();
+	const hdrActive = Boolean(isHdr && settings.subtitleHdrSeparate);
+	const style = resolveSubtitleStyleSettings(settings, isHdr);
+	const keyFor = useCallback((key) => subtitleStyleKey(key, hdrActive), [hdrActive]);
 
 	const SUBTITLE_SIZE_OPTIONS = getSubtitleSizeOptions();
 	const SUBTITLE_COLOR_OPTIONS = getSubtitleColorOptions();
@@ -110,44 +114,44 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 	}, [visible, onClose]);
 
 	const handleCycleSize = useCallback(() => {
-		cycleOption(getSubtitleSizeOptions(), settings.subtitleSize, updateSetting, 'subtitleSize');
-	}, [settings.subtitleSize, updateSetting]);
+		cycleOption(getSubtitleSizeOptions(), style.subtitleSize, updateSetting, keyFor('subtitleSize'));
+	}, [style.subtitleSize, updateSetting, keyFor]);
 
 	const handleCyclePosition = useCallback(() => {
-		cycleOption(getSubtitlePositionOptions(), settings.subtitlePosition, updateSetting, 'subtitlePosition');
-	}, [settings.subtitlePosition, updateSetting]);
+		cycleOption(getSubtitlePositionOptions(), style.subtitlePosition, updateSetting, keyFor('subtitlePosition'));
+	}, [style.subtitlePosition, updateSetting, keyFor]);
 
 	const handleCycleColor = useCallback(() => {
-		cycleOption(getSubtitleColorOptions(), settings.subtitleColor, updateSetting, 'subtitleColor');
-	}, [settings.subtitleColor, updateSetting]);
+		cycleOption(getSubtitleColorOptions(), style.subtitleColor, updateSetting, keyFor('subtitleColor'));
+	}, [style.subtitleColor, updateSetting, keyFor]);
 
 	const handleCycleShadowColor = useCallback(() => {
-		cycleOption(getSubtitleShadowColorOptions(), settings.subtitleShadowColor, updateSetting, 'subtitleShadowColor');
-	}, [settings.subtitleShadowColor, updateSetting]);
+		cycleOption(getSubtitleShadowColorOptions(), style.subtitleShadowColor, updateSetting, keyFor('subtitleShadowColor'));
+	}, [style.subtitleShadowColor, updateSetting, keyFor]);
 
 	const handleCycleBackgroundColor = useCallback(() => {
-		cycleOption(getSubtitleBackgroundColorOptions(), settings.subtitleBackgroundColor, updateSetting, 'subtitleBackgroundColor');
-	}, [settings.subtitleBackgroundColor, updateSetting]);
+		cycleOption(getSubtitleBackgroundColorOptions(), style.subtitleBackgroundColor, updateSetting, keyFor('subtitleBackgroundColor'));
+	}, [style.subtitleBackgroundColor, updateSetting, keyFor]);
 
 	const handlePositionAbsoluteChange = useCallback((e) => {
-		updateSetting('subtitlePositionAbsolute', e.value);
-	}, [updateSetting]);
+		updateSetting(keyFor('subtitlePositionAbsolute'), e.value);
+	}, [updateSetting, keyFor]);
 
 	const handleOpacityChange = useCallback((e) => {
-		updateSetting('subtitleOpacity', e.value);
-	}, [updateSetting]);
+		updateSetting(keyFor('subtitleOpacity'), e.value);
+	}, [updateSetting, keyFor]);
 
 	const handleShadowOpacityChange = useCallback((e) => {
-		updateSetting('subtitleShadowOpacity', e.value);
-	}, [updateSetting]);
+		updateSetting(keyFor('subtitleShadowOpacity'), e.value);
+	}, [updateSetting, keyFor]);
 
 	const handleShadowBlurChange = useCallback((e) => {
-		updateSetting('subtitleShadowBlur', e.value);
-	}, [updateSetting]);
+		updateSetting(keyFor('subtitleShadowBlur'), e.value);
+	}, [updateSetting, keyFor]);
 
 	const handleBackgroundChange = useCallback((e) => {
-		updateSetting('subtitleBackground', e.value);
-	}, [updateSetting]);
+		updateSetting(keyFor('subtitleBackground'), e.value);
+	}, [updateSetting, keyFor]);
 
 	if (!visible) return null;
 
@@ -174,7 +178,7 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 					>
 						<span className={css.settingLabel}>{$L('Size')}</span>
 						<span className={css.settingValue}>
-							{getLabel(SUBTITLE_SIZE_OPTIONS, settings.subtitleSize, $L('Medium'))}
+							{getLabel(SUBTITLE_SIZE_OPTIONS, style.subtitleSize, $L('Medium'))}
 						</span>
 					</SpottableButton>
 
@@ -186,22 +190,22 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 					>
 						<span className={css.settingLabel}>{$L('Position')}</span>
 						<span className={css.settingValue}>
-							{getLabel(SUBTITLE_POSITION_OPTIONS, settings.subtitlePosition, $L('Bottom'))}
+							{getLabel(SUBTITLE_POSITION_OPTIONS, style.subtitlePosition, $L('Bottom'))}
 						</span>
 					</SpottableButton>
 
 					{/* Absolute Position Slider */}
-					{settings.subtitlePosition === 'absolute' && (
+					{style.subtitlePosition === 'absolute' && (
 						<div className={css.sliderItem}>
 							<div className={css.sliderLabel}>
 								<span>{$L('Absolute Position')}</span>
-								<span className={css.sliderValue}>{settings.subtitlePositionAbsolute}%</span>
+								<span className={css.sliderValue}>{style.subtitlePositionAbsolute}%</span>
 							</div>
 							<Slider
 								min={0}
 								max={100}
 								step={5}
-								value={settings.subtitlePositionAbsolute}
+								value={style.subtitlePositionAbsolute}
 							onChange={handlePositionAbsoluteChange}
 								className={css.settingsSlider}
 								tooltip={false}
@@ -216,13 +220,13 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 					<div className={css.sliderItem}>
 						<div className={css.sliderLabel}>
 							<span>{$L('Text Opacity')}</span>
-							<span className={css.sliderValue}>{settings.subtitleOpacity}%</span>
+							<span className={css.sliderValue}>{style.subtitleOpacity}%</span>
 						</div>
 						<Slider
 							min={0}
 							max={100}
 							step={5}
-							value={settings.subtitleOpacity}
+							value={style.subtitleOpacity}
 						onChange={handleOpacityChange}
 							className={css.settingsSlider}
 							tooltip={false}
@@ -238,7 +242,7 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 					>
 						<span className={css.settingLabel}>{$L('Text Color')}</span>
 						<span className={css.settingValue}>
-							{getLabel(SUBTITLE_COLOR_OPTIONS, settings.subtitleColor, $L('White'))}
+							{getLabel(SUBTITLE_COLOR_OPTIONS, style.subtitleColor, $L('White'))}
 						</span>
 					</SpottableButton>
 
@@ -252,7 +256,7 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 					>
 						<span className={css.settingLabel}>{$L('Shadow Color')}</span>
 						<span className={css.settingValue}>
-							{getLabel(SUBTITLE_SHADOW_COLOR_OPTIONS, settings.subtitleShadowColor, $L('Black'))}
+							{getLabel(SUBTITLE_SHADOW_COLOR_OPTIONS, style.subtitleShadowColor, $L('Black'))}
 						</span>
 					</SpottableButton>
 
@@ -260,13 +264,13 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 					<div className={css.sliderItem}>
 						<div className={css.sliderLabel}>
 							<span>{$L('Shadow Opacity')}</span>
-							<span className={css.sliderValue}>{settings.subtitleShadowOpacity}%</span>
+							<span className={css.sliderValue}>{style.subtitleShadowOpacity}%</span>
 						</div>
 						<Slider
 							min={0}
 							max={100}
 							step={5}
-							value={settings.subtitleShadowOpacity}
+							value={style.subtitleShadowOpacity}
 						onChange={handleShadowOpacityChange}
 							className={css.settingsSlider}
 							tooltip={false}
@@ -279,14 +283,14 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 						<div className={css.sliderLabel}>
 							<span>{$L('Shadow Size (Blur)')}</span>
 							<span className={css.sliderValue}>
-								{settings.subtitleShadowBlur ? settings.subtitleShadowBlur.toFixed(1) : '0.1'}
+								{style.subtitleShadowBlur ? style.subtitleShadowBlur.toFixed(1) : '0.1'}
 							</span>
 						</div>
 						<Slider
 							min={0}
 							max={1}
 							step={0.1}
-							value={settings.subtitleShadowBlur || 0.1}
+							value={style.subtitleShadowBlur || 0.1}
 						onChange={handleShadowBlurChange}
 							className={css.settingsSlider}
 							tooltip={false}
@@ -304,7 +308,7 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 					>
 						<span className={css.settingLabel}>{$L('Background Color')}</span>
 						<span className={css.settingValue}>
-							{getLabel(SUBTITLE_BACKGROUND_COLOR_OPTIONS, settings.subtitleBackgroundColor, $L('Black'))}
+							{getLabel(SUBTITLE_BACKGROUND_COLOR_OPTIONS, style.subtitleBackgroundColor, $L('Black'))}
 						</span>
 					</SpottableButton>
 
@@ -312,13 +316,13 @@ const SubtitleSettingsOverlay = ({visible, onClose}) => {
 					<div className={css.sliderItem}>
 						<div className={css.sliderLabel}>
 							<span>{$L('Background Opacity')}</span>
-							<span className={css.sliderValue}>{settings.subtitleBackground}%</span>
+							<span className={css.sliderValue}>{style.subtitleBackground}%</span>
 						</div>
 						<Slider
 							min={0}
 							max={100}
 							step={5}
-							value={settings.subtitleBackground}
+							value={style.subtitleBackground}
 						onChange={handleBackgroundChange}
 							className={css.settingsSlider}
 							tooltip={false}
