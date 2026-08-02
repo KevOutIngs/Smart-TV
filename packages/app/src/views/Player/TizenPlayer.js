@@ -44,6 +44,8 @@ import {
 } from './remoteSubtitleUtils';
 import {getVideoDisplayAspectRatio} from './aspectRatioUtils';
 import {mapJellyfinTrackToTizen} from './tizenTrackUtils';
+import serverLogger from '../../services/serverLogger';
+import {summarizeAvplayTracks, describeSubtitleStream, describeSubtitleStreams} from './subtitleDiagnostics';
 
 import css from './TizenPlayer.module.less';
 
@@ -345,11 +347,20 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	/**
 	 * Select an embedded track natively via AVPlay's TEXT track list.
 	 * Returns false when the stream cant be mapped to an AVPlay track.
+	 * quiet skips the log on the confirmation pass, which repeats after every seek.
 	 */
-	const applyNativeSubtitleTrack = useCallback((stream, streamList, trackInfo = null) => {
+	const applyNativeSubtitleTrack = useCallback((stream, streamList, trackInfo = null, {quiet = false} = {}) => {
 		const embedded = (streamList || []).filter((s) => s.isEmbeddedNative);
-		const tizenIndex = mapJellyfinTrackToTizen(trackInfo || avplayGetTracks(), embedded, 'TEXT', stream.index);
-		if (tizenIndex == null) return false;
+		const tracks = trackInfo || avplayGetTracks();
+		const tizenIndex = mapJellyfinTrackToTizen(tracks, embedded, 'TEXT', stream.index);
+		if (tizenIndex == null) {
+			serverLogger.playbackError('Subtitle: no matching AVPlay TEXT track for embedded stream', {
+				stream: describeSubtitleStream(stream),
+				embeddedCandidates: describeSubtitleStreams(embedded),
+				avplayTextTracks: summarizeAvplayTracks(tracks, 'TEXT')
+			});
+			return false;
+		}
 		avplaySelectTrack('TEXT', tizenIndex);
 		// flip the silent flag once so the cue engine actually starts delivering,
 		// selections made early are otherwise silently ignored on older firmware
@@ -365,6 +376,14 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			useNativeSubtitleRef.current = true;
 		}
 		activeNativeSubRef.current = {stream, streams: streamList};
+		if (!quiet) {
+			serverLogger.playback('Subtitle: applied native AVPlay track', {
+				route: stream.isImageBased ? 'native-pgs' : 'native-text',
+				stream: describeSubtitleStream(stream),
+				tizenIndex,
+				avplayTextTracks: summarizeAvplayTracks(tracks, 'TEXT')
+			});
+		}
 		return true;
 	}, []);
 
@@ -373,7 +392,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const reassertNativeSubtitle = useCallback(() => {
 		const active = activeNativeSubRef.current;
 		if (!active) return;
-		try { applyNativeSubtitleTrack(active.stream, active.streams); } catch (e) { void e; }
+		try { applyNativeSubtitleTrack(active.stream, active.streams, null, {quiet: true}); } catch (e) { void e; }
 	}, [applyNativeSubtitleTrack]);
 
 	/**
@@ -398,7 +417,20 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					pending.audioApplied = true;
 					console.log('[Player] Applied initial audio track, jellyfinIndex:', pending.audioIndex, 'tizenIndex:', tizenIndex);
 				} else if (expired) {
+					// giving up leaves AVPlays default, which is silence when the set cant
+					// decode it, so try the raw index first
 					console.warn('[Player] No matching AVPlay audio track for index', pending.audioIndex);
+					const audioTracks = summarizeAvplayTracks(trackInfo, 'AUDIO');
+					try {
+						if (audioTracks.length > 0) avplaySelectTrack('AUDIO', pending.audioIndex);
+					} catch (directErr) {
+						console.warn('[Player] Direct audio index selection failed:', directErr?.message || directErr);
+					}
+					serverLogger.playbackError('Audio: no matching AVPlay track, used direct index', {
+						jellyfinIndex: pending.audioIndex,
+						requestedCodec: pending.audioStreams?.find((s) => s.index === pending.audioIndex)?.codec,
+						avplayAudioTracks: audioTracks
+					});
 					pending.audioApplied = true;
 				}
 			} catch (e) {
@@ -526,6 +558,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					return;
 				}
 				console.error('[Player] AVPlay error:', eventType);
+				serverLogger.playbackError('Playback: AVPlay reported an error', {
+					eventType: typeof eventType === 'object' ? JSON.stringify(eventType).slice(0, 300) : String(eventType),
+					playerState: avplayGetState(),
+					selectedAudioStreamIndex: playback.getCurrentSession()?.audioStreamIndex,
+					playMethod: playback.getCurrentSession()?.playMethod
+				});
 				handleErrorCallbackRef.current?.();
 			},
 			oncurrentplaytime: () => {
@@ -545,13 +583,25 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 		const prepareTimeout = 120000;
 		let prepareTimer;
-		await Promise.race([
-			avplayPrepare(),
-			new Promise((_, reject) => {
-				prepareTimer = setTimeout(() => reject(new Error('Stream preparation timed out')), prepareTimeout);
-			})
-		]);
-		clearTimeout(prepareTimer);
+		try {
+			await Promise.race([
+				avplayPrepare(),
+				new Promise((_, reject) => {
+					prepareTimer = setTimeout(() => reject(new Error('Stream preparation timed out')), prepareTimeout);
+				})
+			]);
+		} catch (prepareErr) {
+			// where an undecodable audio codec shows up, and it only hit the console before
+			serverLogger.playbackError('Playback: stream preparation failed', {
+				error: prepareErr?.message || String(prepareErr),
+				playerState: avplayGetState(),
+				playMethod: playback.getCurrentSession()?.playMethod,
+				selectedAudioStreamIndex: playback.getCurrentSession()?.audioStreamIndex
+			});
+			throw prepareErr;
+		} finally {
+			clearTimeout(prepareTimer);
+		}
 		avplayReadyRef.current = true;
 
 		// some firmware resets display state during prepare
@@ -905,6 +955,35 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				let pendingSubAction = null;
 				let burnInPendingSub = null;
 
+				// one inventory of what the server offered, before anything is selected
+				serverLogger.playback('Playback: media opened', {
+					itemId: item?.Id,
+					playMethod: result.playMethod,
+					container: result.mediaSource?.Container,
+					videoCodec: (result.mediaSource?.MediaStreams || []).find((s) => s.Type === 'Video')?.Codec,
+					selectedAudioStreamIndex: result.selectedAudioStreamIndex,
+					transcodingContainer: result.mediaSource?.TranscodingContainer,
+					transcodingSubProtocol: result.mediaSource?.TranscodingSubProtocol,
+					// what the server was willing to offer, so a report explains the play method
+					supportsDirectPlay: result.mediaSource?.SupportsDirectPlay,
+					supportsDirectStream: result.mediaSource?.SupportsDirectStream,
+					// profile and title are where Atmos is named, which is what forces a transcode
+					audioStreams: (result.mediaSource?.MediaStreams || [])
+						.filter((s) => s.Type === 'Audio')
+						.map((s) => ({
+							index: s.Index,
+							codec: s.Codec,
+							profile: s.Profile,
+							title: s.Title,
+							displayTitle: s.DisplayTitle,
+							channels: s.Channels,
+							channelLayout: s.ChannelLayout,
+							language: s.Language,
+							isDefault: s.IsDefault
+						})),
+					subtitleStreams: describeSubtitleStreams(result.subtitleStreams)
+				});
+
 				// pick the render path synchronously so playback never waits on
 				// subtitle downloads or server side extraction. The actual data
 				// loads in the background once video is running
@@ -929,6 +1008,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 						else burnInPendingSub = sub;
 					}
 					console.log('[Player] Initial subtitle action:', pendingSubAction.type, 'codec:', sub.codec);
+					serverLogger.playback('Subtitle: initial track chosen', {
+						route: pendingSubAction.type,
+						stream: describeSubtitleStream(sub)
+					});
 				};
 
 				const loadSubtitleAssets = async (action) => {
@@ -973,8 +1056,16 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 						try {
 							const data = await playback.fetchSubtitleData(sub);
 							if (stillCurrent()) setSubtitleTrackEvents(data?.TrackEvents || null);
+							serverLogger.playback('Subtitle: fetched text track from server', {
+								stream: describeSubtitleStream(sub),
+								trackEvents: data?.TrackEvents?.length ?? 0
+							});
 						} catch (err) {
 							console.error('[Player] Error fetching subtitle data:', err);
+							serverLogger.playbackError('Subtitle: fetching text track failed', {
+								stream: describeSubtitleStream(sub),
+								error: err?.message || String(err)
+							});
 							if (stillCurrent()) setSubtitleTrackEvents(null);
 						}
 					} else if (action.type === 'pgs') {
@@ -1004,9 +1095,19 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					useNativeSubtitleRef.current = false;
 					avplaySetSilentSubtitle(true);
 					if (stream.isImageBased && settings.enablePgsRendering) {
+						serverLogger.playback('Subtitle: falling back to client PGS rendering', {
+							stream: describeSubtitleStream(stream)
+						});
 						loadSubtitleAssets({type: 'pgs', stream});
 					} else if (stream.isTextBased) {
+						serverLogger.playback('Subtitle: falling back to client text rendering', {
+							stream: describeSubtitleStream(stream)
+						});
 						loadSubtitleAssets({type: 'text', stream});
+					} else {
+						serverLogger.playbackError('Subtitle: no client renderer available for this stream', {
+							stream: describeSubtitleStream(stream)
+						});
 					}
 				};
 
@@ -1545,8 +1646,25 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		try {
 			// AVPlay: try switching audio track natively first
 			if (playMethod !== playback.PlayMethod.Transcode && avplayReadyRef.current) {
+				// only the opening negotiation checked this before. switching natively to a
+				// track the set cant decode freezes the picture, so reload and let the
+				// server transcode instead
+				const target = (audioStreams || []).find((s) => s.index === index);
+				const playableNatively = await playback.canPlayAudioStreamNatively(target
+					? {Codec: target.codec, Profile: target.profile, Title: target.title, DisplayTitle: target.displayTitle, ChannelLayout: target.channelLayout, Channels: target.channels}
+					: null);
+				if (!playableNatively) {
+					serverLogger.playback('Audio: track needs the server, reloading instead of switching natively', {
+						jellyfinIndex: index,
+						codec: target?.codec,
+						profile: target?.profile,
+						channelLayout: target?.channelLayout
+					});
+				}
 				try {
-					const tizenAudioIndex = mapJellyfinTrackToTizen(avplayGetTracks(), audioStreams, 'AUDIO', index);
+					const tizenAudioIndex = playableNatively
+						? mapJellyfinTrackToTizen(avplayGetTracks(), audioStreams, 'AUDIO', index)
+						: null;
 					if (tizenAudioIndex != null) {
 						avplaySelectTrack('AUDIO', tizenAudioIndex);
 						playback.updateCurrentSession({audioStreamIndex: index});
@@ -1619,11 +1737,20 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			let nativeSuccess = false;
 			activeNativeSubRef.current = null;
 
+			serverLogger.playback('Subtitle: user selected track', {
+				stream: describeSubtitleStream(stream),
+				requestedIndex: index
+			});
+
 			if (stream && stream.isEmbeddedNative) {
 				try {
 					nativeSuccess = applyNativeSubtitleTrack(stream, streamList);
 				} catch (err) {
 					console.warn('[Player] Error selecting native track:', err);
+					serverLogger.playbackError('Subtitle: native track selection threw', {
+						stream: describeSubtitleStream(stream),
+						error: err?.message || String(err)
+					});
 				}
 			}
 
@@ -1700,7 +1827,15 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					} else {
 						setSubtitleTrackEvents(null);
 					}
+					serverLogger.playback('Subtitle: rendering text track client side', {
+						stream: describeSubtitleStream(stream),
+						trackEvents: data?.TrackEvents?.length ?? 0
+					});
 				} catch (err) {
+					serverLogger.playbackError('Subtitle: fetching text track failed', {
+						stream: describeSubtitleStream(stream),
+						error: err?.message || String(err)
+					});
 					setSubtitleTrackEvents(null);
 				}
 			} else if (stream && stream.isImageBased && settings.enablePgsRendering) {
