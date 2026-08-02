@@ -742,12 +742,15 @@ export const getJellyfinDeviceProfile = async () => {
 		Conditions: [{ Condition: 'Equals', Property: 'AudioChannels', Value: '0', IsRequired: true }]
 	});
 
-	// Force a transcode to all TrueHD/MLP. Samsung AVPlay cant decode TrueHD (with or without Atmos) reliably
-	codecProfiles.push({
-		Type: 'VideoAudio',
-		Codec: 'truehd,mlp',
-		Conditions: [{ Condition: 'Equals', Property: 'AudioChannels', Value: '0', IsRequired: true }]
-	});
+	// TrueHD is now with the experimental setting on passtrough
+	// Rest is still transcode as Tizen can't handle TrueHD+Atmos or DTS
+	if (!caps.truehd) {
+		codecProfiles.push({
+			Type: 'VideoAudio',
+			Codec: 'truehd,mlp',
+			Conditions: [{ Condition: 'Equals', Property: 'AudioChannels', Value: '0', IsRequired: true }]
+		});
+	}
 
 	if (caps.av1) {
 		codecProfiles.push({

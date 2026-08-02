@@ -68,9 +68,11 @@ export const mapSubtitleStreamsFromMediaSource = (mediaSource, serverUrl, option
 			};
 
 			if (includeEmbeddedNative) {
-				// PGS tracks with DeliveryMethod 'External' are server-extracted .sup files served via libpgs, not AVPlay native
-				const isEmbeddedImage = mapped.isImageBased && !stream.IsExternal && stream.DeliveryMethod !== 'External';
-				mapped.isEmbeddedNative = !stream.IsExternal && (mapped.isTextBased || isEmbeddedImage);
+				// Embedded handles native AVPlayer. External streams from api.
+				// Was bevor giving 0 subs back sometimes.
+				const isServerDelivered = stream.DeliveryMethod === 'External';
+				mapped.isEmbeddedNative = !stream.IsExternal && !isServerDelivered &&
+					(mapped.isTextBased || mapped.isImageBased);
 			}
 
 			return mapped;

@@ -16,7 +16,9 @@ export const mapJellyfinTrackToTizen = (avplayTracks, jellyfinStreams, type, jel
 	let streams = Array.isArray(jellyfinStreams) ? jellyfinStreams : [];
 	if (streams.length !== tracks.length) {
 		const hidden = type === 'AUDIO' ? HIDDEN_AUDIO_CODECS : HIDDEN_TEXT_CODECS;
-		streams = streams.filter((s) => !hidden.includes((s.codec || '').toLowerCase()));
+		// keep the requested stream. these are the codecs a caller most often picks by
+		// name, and dropping the target resolved a TrueHD pick to nothing
+		streams = streams.filter((s) => s.index === jellyfinIndex || !hidden.includes((s.codec || '').toLowerCase()));
 	}
 	if (type === 'TEXT') {
 		streams = streams.slice(0, TIZEN_TEXT_TRACK_LIMIT);

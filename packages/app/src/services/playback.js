@@ -276,6 +276,8 @@ const extractAudioStreams = (mediaSource) => {
 			codec: s.Codec,
 			language: s.Language || 'Unknown',
 			displayTitle: s.DisplayTitle || `${s.Language || 'Unknown'} (${s.Codec})`,
+			profile: s.Profile,
+			title: s.Title,
 			channels: s.Channels,
 			channelLayout: s.ChannelLayout,
 			bitRate: s.BitRate,
@@ -316,9 +318,7 @@ const extractSubtitleStreams = (mediaSource, itemId = null, creds = null) => {
 				isAss: isAssSubtitleCodec(codec),
 				isImageBased,
 				isBurnIn: isBurnInSubtitleCodec(codec),
-				// embedded tracks AVPlay can select natively. Image tracks the server
-				// already extracts for delivery dont count
-				isEmbeddedNative: !s.IsExternal && (isTextBased || (isImageBased && s.DeliveryMethod !== 'External')),
+				isEmbeddedNative: !s.IsExternal && s.DeliveryMethod !== 'External' && (isTextBased || isImageBased),
 				deliveryUrl: deliveryUrl,
 				deliveryMethod: s.DeliveryMethod
 			};
@@ -1328,6 +1328,18 @@ export const startHealthMonitoring = (onUnhealthy) => {
 };
 
 export const getCurrentSession = () => currentSession;
+
+/**
+ * Whether the set can decode this audio stream as delivered. Negotiation checks this on
+ * open, but a mid playback track switch skips it, and handing AVPlay something it cant
+ * decode freezes the picture with no error. Ask before switching natively.
+ */
+export const canPlayAudioStreamNatively = async (stream, options = {}) => {
+	if (!stream) return false;
+	const capabilities = currentSession?.capabilities || await getDeviceCapabilities(options);
+	const passthroughSettings = await getPlaybackAudioSettings(options);
+	return isAudioStreamPlayable(stream, capabilities, passthroughSettings);
+};
 
 /** Update currentSession track indices without a full reload (native track switch). */
 export const updateCurrentSession = (updates) => {
