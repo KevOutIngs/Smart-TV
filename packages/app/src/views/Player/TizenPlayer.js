@@ -21,7 +21,8 @@ import {createReadyGate} from '../../utils/syncReady';
 import {getImageUrl} from '../../utils/helpers';
 import {initPgsCanvasRenderer, disposePgsRenderer, clearPgsCanvas} from '../../utils/pgsRenderer';
 import {supportsAssRenderer, initAssCanvasRenderer, disposeAssRenderer, setAssTime} from '../../utils/assRenderer';
-import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml} from '../../utils/subtitleConstants';
+import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml, resolveSubtitleStyleSettings} from '../../utils/subtitleConstants';
+import {isHdrOutput} from '../../utils/videoRange';
 import {findPreferredAudioStream} from '../../utils/audioLanguage';
 import {saveSubtitlePref} from '../../services/subtitlePrefs';
 import {resolveInitialSubtitle} from './initialSubtitle';
@@ -103,6 +104,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [title, setTitle] = useState('');
 	const [subtitle, setSubtitle] = useState('');
 	const [playMethod, setPlayMethod] = useState(null);
+	const [isHdrContent, setIsHdrContent] = useState(false);
 	const [isPaused, setIsPaused] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
@@ -252,6 +254,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		if (zoomMode === 'stretch') return $L('Stretch');
 		return $L('Fit');
 	}, [zoomMode]);
+
+	const subtitleStyleSettings = useMemo(
+		() => resolveSubtitleStyleSettings(settings, isHdrContent),
+		[settings, isHdrContent]
+	);
 
 	const hasCastMembers = useMemo(() => {
 		if (castMembers.length > 0) return true;
@@ -684,6 +691,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		if (!result?.url) return false;
 		positionRef.current = positionTicks;
 		if (result.playMethod) setPlayMethod(result.playMethod);
+		setIsHdrContent(isHdrOutput(result.mediaSource, result.playMethod === playback.PlayMethod.Transcode));
 		if (result.playSessionId) playSessionRef.current = result.playSessionId;
 		await startAVPlayback(result.url, positionTicks, {playMethod: result.playMethod, mediaSource: result.mediaSource});
 		playback.reportStart(positionRef.current);
@@ -908,6 +916,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 				const applyPlaybackResult = (r) => {
 					setPlayMethod(r.playMethod);
+					setIsHdrContent(isHdrOutput(r.mediaSource, r.playMethod === playback.PlayMethod.Transcode));
 					setMediaSourceId(r.mediaSourceId);
 					setVideoAspectRatio(getVideoDisplayAspectRatio(r.mediaSource));
 					playSessionRef.current = r.playSessionId;
@@ -2538,12 +2547,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			{currentSubtitleText && !isAudioMode && (
 				<div
 					className={css.subtitleOverlay}
-					style={getSubtitleOverlayStyle(settings)}
+					style={getSubtitleOverlayStyle(subtitleStyleSettings)}
 				>
 				{/* eslint-disable react/no-danger */}
 					<div
 						className={css.subtitleText}
-						style={getSubtitleTextStyle(settings)}
+						style={getSubtitleTextStyle(subtitleStyleSettings)}
 						dangerouslySetInnerHTML={{__html: sanitizeSubtitleHtml(currentSubtitleText)}}
 					/>
 					{/* eslint-enable react/no-danger */}
@@ -2613,6 +2622,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			)}
 
 			<PlayerControls
+				isHdrContent={isHdrContent}
 				css={css}
 				controlsVisible={controlsVisible}
 				activeModal={activeModal}

@@ -21,6 +21,18 @@ export const defaultSettings = {
 	subtitleShadowOpacity: 100,
 	subtitleShadowBlur: 0.1,
 	subtitlePositionAbsolute: 90,
+	// HDR white can be bright, so this setts it to a grey style to avoid eye bruns.
+	subtitleHdrSeparate: false,
+	subtitleSizeHdr: 'medium',
+	subtitlePositionHdr: 'bottom',
+	subtitleOpacityHdr: 100,
+	subtitleBackgroundHdr: 0,
+	subtitleBackgroundColorHdr: '#000000',
+	subtitleColorHdr: '#808080',
+	subtitleShadowColorHdr: '#000000',
+	subtitleShadowOpacityHdr: 100,
+	subtitleShadowBlurHdr: 0.1,
+	subtitlePositionAbsoluteHdr: 90,
 	seekStep: 10,
 	autoPlay: true,
 	// Off by default because every intro costs a full player teardown and reopen before

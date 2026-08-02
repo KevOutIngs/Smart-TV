@@ -44,6 +44,39 @@ export const SUBTITLE_BACKGROUND_COLOR_OPTIONS = [
 	{ value: '#000080', label: $L('Navy') }
 ];
 
+// HDR twin settings
+export const SUBTITLE_STYLE_KEYS = [
+	'subtitleSize',
+	'subtitlePosition',
+	'subtitlePositionAbsolute',
+	'subtitleOpacity',
+	'subtitleColor',
+	'subtitleShadowColor',
+	'subtitleShadowOpacity',
+	'subtitleShadowBlur',
+	'subtitleBackgroundColor',
+	'subtitleBackground'
+];
+
+export const hdrKeyFor = (key) => `${key}Hdr`;
+
+// Key assigment for HDR
+export const subtitleStyleKey = (key, isHdr) => (isHdr ? hdrKeyFor(key) : key);
+
+/**
+ * Flattens the HDR twins over the base keys while HDR is on screen.
+ */
+export const resolveSubtitleStyleSettings = (settings, isHdr) => {
+	if (!isHdr || !settings?.subtitleHdrSeparate) return settings;
+
+	const resolved = {...settings};
+	for (const key of SUBTITLE_STYLE_KEYS) {
+		const value = settings[hdrKeyFor(key)];
+		if (value !== undefined) resolved[key] = value;
+	}
+	return resolved;
+};
+
 const hexOpacity = (opacity) => Math.round((opacity / 100) * 255).toString(16).padStart(2, '0');
 
 const SIZE_MAP = { small: 36, medium: 44, large: 52, xlarge: 60 };

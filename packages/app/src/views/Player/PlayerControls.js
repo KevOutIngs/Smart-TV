@@ -7,6 +7,7 @@ import {getServerUrl} from '../../services/jellyfinApi';
 import TrickplayPreview from '../../components/TrickplayPreview';
 import SubtitleOffsetOverlay from './SubtitleOffsetOverlay';
 import SubtitleSettingsOverlay from './SubtitleSettingsOverlay';
+import {isHdrVideoStream} from '../../utils/videoRange';
 import {getPlatform} from '../../platform';
 import {
 	SpottableButton, SpottableDiv, ModalContainer,
@@ -109,14 +110,13 @@ export const formatBitrate = (bitrate) => {
 };
 
 export const getHdrType = (videoStream) => {
-	if (!videoStream) return 'SDR';
+	if (!isHdrVideoStream(videoStream)) return 'SDR';
 	const rangeType = videoStream.VideoRangeType || '';
 	if (rangeType.includes('DOVI') || rangeType.includes('DoVi')) return 'Dolby Vision';
 	if (rangeType.includes('HDR10Plus') || rangeType.includes('HDR10+')) return 'HDR10+';
 	if (rangeType.includes('HDR10') || rangeType.includes('HDR')) return 'HDR10';
 	if (rangeType.includes('HLG')) return 'HLG';
-	if (videoStream.VideoRange === 'HDR') return 'HDR';
-	return 'SDR';
+	return 'HDR';
 };
 
 export const getVideoCodec = (videoStream) => {
@@ -162,6 +162,7 @@ export const getAudioChannels = (audioStream) => {
 const PlayerControls = ({
 	css,
 	controlsVisible,
+	isHdrContent = false,
 	activeModal,
 	isAudioMode,	isLiveTV,	focusRow,
 	title,
@@ -736,6 +737,7 @@ const PlayerControls = ({
 			<SubtitleSettingsOverlay
 				visible={activeModal === 'subtitleSettings'}
 				onClose={closeModal}
+				isHdr={isHdrContent}
 			/>
 		</>
 	);

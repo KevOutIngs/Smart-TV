@@ -318,7 +318,8 @@ const extractSubtitleStreams = (mediaSource, itemId = null, creds = null) => {
 				isAss: isAssSubtitleCodec(codec),
 				isImageBased,
 				isBurnIn: isBurnInSubtitleCodec(codec),
-				isEmbeddedNative: !s.IsExternal && s.DeliveryMethod !== 'External' && (isTextBased || isImageBased),
+				// only unchanged subs are native. Changed subs ae treated as external, even if they are embedded in the container.
+				isEmbeddedNative: !s.IsExternal && s.DeliveryMethod !== 'External' && isImageBased,
 				deliveryUrl: deliveryUrl,
 				deliveryMethod: s.DeliveryMethod
 			};
