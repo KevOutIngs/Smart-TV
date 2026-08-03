@@ -11,13 +11,14 @@ import {isHdrVideoStream} from '../../utils/videoRange';
 import {getPlatform} from '../../platform';
 import {
 	SpottableButton, SpottableDiv, ModalContainer,
-	formatTime, formatEndTime, getQualityPresets,
+	formatTime, getQualityPresets,
 	IconPlay, IconPause, IconRewind, IconForward, IconSubtitle, IconSubtitleOff, IconAudio,
 	IconChapters, IconPrevious, IconNext, IconQuality, IconInfo, IconCast, IconZoom,
 	IconShuffle, IconRepeat, IconRepeatOne, IconSleep
 } from './PlayerConstants';
 import {SLEEP_TIMER_MINUTES} from './useSleepTimer';
 import {arrange, OSD_ORDER_KEY, OSD_HIDDEN_KEY} from '../../utils/buttonLayout';
+import {formatPlaybackTimeSlot, formatPlaybackTrailingTime} from '../../utils/playbackTimeLabels';
 import { useSettings } from '../../context/SettingsContext';
 
 export const usePlayerButtons = ({
@@ -265,6 +266,37 @@ const PlayerControls = ({
 		? Math.max(clampedProgress, Math.min(100, bufferedPercent))
 		: clampedProgress;
 
+	// Six slots a user can choose what to display
+	const timeArgs = {position: displayTime, duration, clockDisplay: settings.clockDisplay};
+	const slotText = (settingKey) => formatPlaybackTimeSlot({slot: settings[settingKey], ...timeArgs});
+	const aboveSlots = isAudioMode
+		? ['', '', '']
+		: [
+			slotText('playbackTimeAboveLeft'),
+			slotText('playbackTimeAboveCenter'),
+			slotText('playbackTimeAboveRight')
+		];
+	const belowSlots = isAudioMode
+		? [
+			formatTime(displayTime),
+			'',
+			formatPlaybackTrailingTime({mode: settings.musicPlaybackTimeDisplay, ...timeArgs})
+		]
+		: [
+			slotText('playbackTimeBelowLeft'),
+			slotText('playbackTimeBelowCenter'),
+			slotText('playbackTimeBelowRight')
+		];
+	// If row empty, and nothing is selected or rather none, then we nuke the row.
+	const hasText = (slots) => slots.some((text) => text !== '');
+	const renderTimeRow = (slots, rowClass, textClass) => (
+		<div className={rowClass}>
+			<span className={`${textClass} ${css.timeSlotCell} ${css.timeSlotLeft}`}>{slots[0]}</span>
+			<span className={`${textClass} ${css.timeSlotCell} ${css.timeSlotCenter}`}>{slots[1]}</span>
+			<span className={`${textClass} ${css.timeSlotCell} ${css.timeSlotRight}`}>{slots[2]}</span>
+		</div>
+	);
+
 	return (
 		<>
 			<div className={`${css.playerControls} ${controlsVisible && !activeModal ? css.visible : ''} ${isAudioMode ? css.audioControls : ''}`}>
@@ -280,9 +312,7 @@ const PlayerControls = ({
 				<div className={css.controlsBottom}>
 					{!isLiveTV && (
 					<div className={css.progressContainer}>
-						<div className={css.timeInfoTop}>
-							<span className={css.timeEnd}>{formatEndTime(duration - displayTime, settings.clockDisplay)}</span>
-						</div>
+						{hasText(aboveSlots) && renderTimeRow(aboveSlots, css.timeInfoTop, css.timeEnd)}
 						<SpottableDiv
 							className={css.progressBar}
 							onClick={handleProgressClick}
@@ -305,11 +335,7 @@ const PlayerControls = ({
 								/>
 							)}
 						</SpottableDiv>
-						<div className={css.timeInfo}>
-							<span className={css.timeDisplay}>
-								{formatTime(displayTime)} / {formatTime(duration)}
-							</span>
-						</div>
+						{hasText(belowSlots) && renderTimeRow(belowSlots, css.timeInfo, css.timeDisplay)}
 					</div>
 					)}
 

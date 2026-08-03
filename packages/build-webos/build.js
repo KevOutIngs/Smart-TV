@@ -15,13 +15,19 @@ const run = (cmd, options = {}) => {
 const runLintGate = (cwd) => {
 	const cmd = 'npx enact lint .';
 	console.log(`> ${cmd}`);
+	// Windows neeeds shell
 	const result = spawnSync('npx', ['enact', 'lint', '.'], {
 		cwd,
 		env: process.env,
-		encoding: 'utf8'
+		encoding: 'utf8',
+		shell: true
 	});
 	if (result.stdout) process.stdout.write(result.stdout);
 	if (result.stderr) process.stderr.write(result.stderr);
+	if (result.error) {
+		console.error(`Could not run the lint gate: ${result.error.message}`);
+		return false;
+	}
 	const output = `${result.stdout || ''}\n${result.stderr || ''}`;
 	const hasWarnings = /\bwarning\b/i.test(output);
 	return result.status === 0 && !hasWarnings;

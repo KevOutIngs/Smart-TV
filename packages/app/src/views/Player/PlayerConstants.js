@@ -19,32 +19,8 @@ export const NextEpisodeContainer = SpotlightContainerDecorator({
 	preserveId: true
 }, 'div');
 
-export const formatTime = (seconds) => {
-	const h = Math.floor(seconds / 3600);
-	const m = Math.floor((seconds % 3600) / 60);
-	const s = Math.floor(seconds % 60);
-
-	if (h > 0) {
-		return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-	}
-	return `${m}:${s.toString().padStart(2, '0')}`;
-};
-
-export const formatEndTime = (remainingSeconds, clockDisplay) => {
-	const now = new Date();
-	now.setSeconds(now.getSeconds() + remainingSeconds);
-	const hours = now.getHours();
-	const minutes = now.getMinutes();
-	if (clockDisplay === '12-hour') {
-		const ampm = hours >= 12 ? 'PM' : 'AM';
-		const h12 = hours % 12 || 12;
-		const timeString = `${h12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-		return $L('Ends at {time}').replace('{time}', timeString);
-	} else {
-		const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-		return $L('Ends at {time}').replace('{time}', timeString);
-	}
-};
+// The playback time formatting functions are used in the video and music players, and in the settings preview.
+export {formatPlaybackDuration as formatTime} from '../../utils/playbackTimeLabels';
 
 let _qualityPresets;
 export const getQualityPresets = () => (_qualityPresets ??= [

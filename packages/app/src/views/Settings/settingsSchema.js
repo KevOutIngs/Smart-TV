@@ -25,6 +25,8 @@ import {
 	getNextUpCountdownStyleOptions,
 	getNextUpMaxDaysOptions,
 	getPerformanceModeOptions,
+	getPlaybackTimeDisplayOptions,
+	getPlaybackTimeSlotOptions,
 	getPosterSizeOptions,
 	getRewatchSortOptions,
 	getScreensaverDimmingOptions,
@@ -444,6 +446,24 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.TOGGLE, key: 'forceDirectPlay', label: () => $L('Force Direct Play'), desc: () => $L('Skip codec checks and always attempt DirectPlay (debug)'), icon: 'play'},
 					{kind: KIND.DIVIDER, id: 'playerButtons'},
 					{kind: KIND.NAV, id: 'osdButtons', label: () => $L('Player Buttons'), desc: () => $L('Enable/disable and reorder the playback control buttons'), icon: 'arrowupdown', action: (ctx) => ctx.actions.openOsdButtons()}
+				]
+			},
+			{
+				id: 'playbackTime',
+				label: () => $L('Progress Bar Time'),
+				description: () => $L('Choose which time labels appear around the playback progress bar'),
+				keywords: () => [$L('Ends At'), $L('Time Remaining'), $L('Time Elapsed'), $L('Total Duration'), $L('Clock')],
+				rows: [
+					{kind: KIND.SECTION, id: 'playbackTimeVideo', label: () => $L('Video Player')},
+					{kind: KIND.CUSTOM, id: 'playbackTimePreview', render: 'playbackTimePreview'},
+					{kind: KIND.OPTION, key: 'playbackTimeAboveLeft', label: () => $L('Above Bar, Left'), options: getPlaybackTimeSlotOptions, fallback: () => $L('Hidden'), icon: 'alignleft'},
+					{kind: KIND.OPTION, key: 'playbackTimeAboveCenter', label: () => $L('Above Bar, Center'), options: getPlaybackTimeSlotOptions, fallback: () => $L('Hidden'), icon: 'aligncenter'},
+					{kind: KIND.OPTION, key: 'playbackTimeAboveRight', label: () => $L('Above Bar, Right'), options: getPlaybackTimeSlotOptions, fallback: () => $L('Ends At'), icon: 'alignright'},
+					{kind: KIND.OPTION, key: 'playbackTimeBelowLeft', label: () => $L('Below Bar, Left'), options: getPlaybackTimeSlotOptions, fallback: () => $L('Time Elapsed'), icon: 'alignleft'},
+					{kind: KIND.OPTION, key: 'playbackTimeBelowCenter', label: () => $L('Below Bar, Center'), options: getPlaybackTimeSlotOptions, fallback: () => $L('Hidden'), icon: 'aligncenter'},
+					{kind: KIND.OPTION, key: 'playbackTimeBelowRight', label: () => $L('Below Bar, Right'), options: getPlaybackTimeSlotOptions, fallback: () => $L('Total Duration'), icon: 'alignright'},
+					{kind: KIND.SECTION, id: 'playbackTimeMusic', label: () => $L('Music Player')},
+					{kind: KIND.OPTION, key: 'musicPlaybackTimeDisplay', label: () => $L('Music Progress Bar Time'), options: getPlaybackTimeDisplayOptions, fallback: () => $L('Total Duration'), desc: () => $L('Shown on the right of the music progress bar'), icon: 'music'}
 				]
 			},
 			{
