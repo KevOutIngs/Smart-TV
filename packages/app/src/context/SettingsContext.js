@@ -160,7 +160,7 @@ const SYNCABLE_KEYS = [
 	'displayFavoritesRows', 'displayCollectionsRows', 'displayGenresRows', 'displayPlaylistsRows',
 	'favoritesRowSortBy', 'collectionsRowSortBy', 'genresRowSortBy', 'genresRowItemFilter',
 	'stillWatchingBehavior', 'watchedIndicatorBehavior',
-	// Core uses E-Numes, here they are strings. 
+	// Core uses E-Numes, here they are strings.
 	'playbackTimeAboveLeft', 'playbackTimeAboveCenter', 'playbackTimeAboveRight',
 	'playbackTimeBelowLeft', 'playbackTimeBelowCenter', 'playbackTimeBelowRight',
 	'musicPlaybackTimeDisplay',

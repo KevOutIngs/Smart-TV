@@ -1,6 +1,6 @@
 import $L from '@enact/i18n/$L';
 
-// Music and video players have different playback time labels. 
+// Music and video players have different playback time labels.
 // The video player has six, the music player has one.
 export const PLAYBACK_TIME_SLOTS = ['none', 'elapsed', 'totalDuration', 'timeRemaining', 'endsAt'];
 

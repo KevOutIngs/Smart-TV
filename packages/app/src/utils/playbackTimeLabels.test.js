@@ -1,4 +1,4 @@
-// Test the playback time label formatting functions. 
+// Test the playback time label formatting functions.
 // The labels are used in the video and music players, and in the settings preview.
 jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
 
