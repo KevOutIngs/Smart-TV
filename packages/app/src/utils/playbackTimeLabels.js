@@ -1,5 +1,7 @@
 import $L from '@enact/i18n/$L';
 
+import {formatClockTime, shiftedNow} from './clock';
+
 // Music and video players have different playback time labels.
 // The video player has six, the music player has one.
 export const PLAYBACK_TIME_SLOTS = ['none', 'elapsed', 'totalDuration', 'timeRemaining', 'endsAt'];
@@ -25,32 +27,27 @@ export const formatPlaybackDuration = (seconds) => {
 
 // Wall-clock time playback finishes at, e.g. `Ends at 21:45`. Returns an empty string
 // when there is nothing left to play so we fall back.
-export const formatPlaybackEndsAt = (remainingSeconds, clockDisplay) => {
+export const formatPlaybackEndsAt = (remainingSeconds, clockDisplay, timeOffsetHours) => {
 	// Rounding is what makes the last half second read as zero, so the label hands over
 	// to the total duration instead of promising an end time that has already passed.
 	const wallSeconds = Math.round(atLeastZero(remainingSeconds));
 	if (wallSeconds <= 0) return '';
 
-	const end = new Date(Date.now() + (wallSeconds * 1000));
-	const hours = end.getHours();
-	const minutes = end.getMinutes();
-	const time = clockDisplay === '12-hour'
-		? `${hours % 12 || 12}:${pad(minutes)} ${hours >= 12 ? 'PM' : 'AM'}`
-		: `${pad(hours)}:${pad(minutes)}`;
+	const end = new Date(shiftedNow(timeOffsetHours).getTime() + (wallSeconds * 1000));
 
-	return $L('Ends at {time}').replace('{time}', time);
+	return $L('Ends at {time}').replace('{time}', formatClockTime(end, clockDisplay));
 };
 
 // Falls back to the total duration whenever the chosen mode has nothing to work with,
 // such as a stream with no known length.
-export const formatPlaybackTrailingTime = ({mode, position, duration, clockDisplay}) => {
+export const formatPlaybackTrailingTime = ({mode, position, duration, clockDisplay, timeOffsetHours}) => {
 	switch (mode) {
 		case 'timeRemaining':
 			if (!(duration > 0)) return formatPlaybackDuration(duration);
 			return `-${formatPlaybackDuration(duration - position)}`;
 		case 'endsAt': {
 			if (!(duration > 0)) return formatPlaybackDuration(duration);
-			const label = formatPlaybackEndsAt(duration - position, clockDisplay);
+			const label = formatPlaybackEndsAt(duration - position, clockDisplay, timeOffsetHours);
 			return label || formatPlaybackDuration(duration);
 		}
 		default:
@@ -59,7 +56,7 @@ export const formatPlaybackTrailingTime = ({mode, position, duration, clockDispl
 };
 
 // An empty string means the slot is hidden.
-export const formatPlaybackTimeSlot = ({slot, position, duration, clockDisplay}) => {
+export const formatPlaybackTimeSlot = ({slot, position, duration, clockDisplay, timeOffsetHours}) => {
 	switch (slot) {
 		case 'elapsed':
 			return formatPlaybackDuration(position);
@@ -67,7 +64,7 @@ export const formatPlaybackTimeSlot = ({slot, position, duration, clockDisplay})
 			return formatPlaybackDuration(duration);
 		case 'timeRemaining':
 		case 'endsAt':
-			return formatPlaybackTrailingTime({mode: slot, position, duration, clockDisplay});
+			return formatPlaybackTrailingTime({mode: slot, position, duration, clockDisplay, timeOffsetHours});
 		default:
 			return '';
 	}

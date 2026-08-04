@@ -11,6 +11,7 @@ import SeerrIcon from '../icons/SeerrIcon';
 import SyncPlayIcon from '../icons/SyncPlayIcon';
 import {toCssColor, toSafeCssColorWithAlpha} from '../../theme/themeSpec';
 import {KEYS} from '../../utils/keys';
+import {formatClockTime, shiftedNow} from '../../utils/clock';
 
 import css from './NavBar.module.less';
 
@@ -53,24 +54,12 @@ const NavBar = ({
 			return;
 		}
 		const updateClock = () => {
-			const now = new Date();
-			if (settings.clockDisplay === '12-hour') {
-				let hours = now.getHours();
-				const ampm = hours >= 12 ? 'PM' : 'AM';
-				hours = hours % 12;
-				hours = hours ? hours : 12;
-				const minutes = now.getMinutes().toString().padStart(2, '0');
-				setClock(`${hours}:${minutes} ${ampm}`);
-			} else {
-				const hours = now.getHours().toString().padStart(2, '0');
-				const minutes = now.getMinutes().toString().padStart(2, '0');
-				setClock(`${hours}:${minutes}`);
-			}
+			setClock(formatClockTime(shiftedNow(settings.timeOffsetHours), settings.clockDisplay));
 		};
 		updateClock();
 		const interval = setInterval(updateClock, 60000);
 		return () => clearInterval(interval);
-	}, [settings.clockDisplay, settings.showClock]);
+	}, [settings.clockDisplay, settings.showClock, settings.timeOffsetHours]);
 
 	useEffect(() => {
 		return () => {

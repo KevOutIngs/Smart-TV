@@ -1364,7 +1364,8 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		const previewArgs = {
 			position: (42 * 60) + 10,
 			duration: (1 * 3600) + (58 * 60) + 33,
-			clockDisplay: settings.clockDisplay
+			clockDisplay: settings.clockDisplay,
+			timeOffsetHours: settings.timeOffsetHours
 		};
 		const cell = (settingKey, align) => (
 			<span className={`${css.playbackTimeCell} ${css[align]}`}>

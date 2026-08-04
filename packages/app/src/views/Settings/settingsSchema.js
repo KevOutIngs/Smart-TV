@@ -80,6 +80,7 @@ export const spotlightIdOf = (row) => {
 
 const seconds = (v) => `${v}s`;
 const percent = (v) => `${v}%`;
+const hourOffset = (v) => (v > 0 ? `+${v}h` : `${v}h`);
 
 const hasHomeRow = (test) => (ctx) =>
 	(ctx.settings.homeRows || []).some((row) => row.enabled && test(row));
@@ -174,6 +175,7 @@ export const SETTINGS_SCHEMA = [
 					},
 					{kind: KIND.OPTION, key: 'focusBorderColor', label: () => $L('Focus Border Color'), options: getAccentColorOptions, fallback: () => $L('Theme Default')},
 					{kind: KIND.OPTION, key: 'clockDisplay', label: () => $L('Clock Display'), options: getClockDisplayOptions, fallback: () => $L('24-Hour')},
+					{kind: KIND.SLIDER, key: 'timeOffsetHours', label: () => $L('Clock Offset'), desc: () => $L('Correct the clock when the TV reports the wrong time'), min: -12, max: 12, step: 1, format: hourOffset},
 					{kind: KIND.TOGGLE, key: 'cardFocusZoom', label: () => $L('Focus Expansion Animation'), desc: () => $L('Scale Focused or hovered cards and tiles')},
 					{kind: KIND.OPTION, key: 'uiScale', label: () => $L('UI Scaling'), options: getUiScaleOptions, fallback: () => $L('Default')},
 					{kind: KIND.OPTION, key: 'performanceMode', label: () => $L('Performance Mode'), options: getPerformanceModeOptions, fallback: () => $L('Auto'), icon: 'gear'},

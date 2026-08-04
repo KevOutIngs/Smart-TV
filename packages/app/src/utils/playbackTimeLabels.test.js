@@ -78,6 +78,36 @@ describe('formatPlaybackTrailingTime', () => {
 	});
 });
 
+// The clock offset exists for sets that report the wrong time, so the end time has to
+// move with the clock the viewer is actually reading.
+describe('the clock offset', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+		jest.setSystemTime(new Date(2026, 7, 4, 20, 0));
+	});
+
+	afterEach(() => {
+		jest.useRealTimers();
+	});
+
+	test('shifts the end time, and no offset leaves it alone', () => {
+		expect(formatPlaybackEndsAt(30 * 60, '24-hour')).toBe('Ends at 20:30');
+		expect(formatPlaybackEndsAt(30 * 60, '24-hour', 0)).toBe('Ends at 20:30');
+		expect(formatPlaybackEndsAt(30 * 60, '24-hour', 2)).toBe('Ends at 22:30');
+		expect(formatPlaybackEndsAt(30 * 60, '24-hour', -3)).toBe('Ends at 17:30');
+	});
+
+	test('reaches the slot labels rather than stopping at the helper', () => {
+		expect(formatPlaybackTimeSlot({
+			slot: 'endsAt',
+			position: 0,
+			duration: 30 * 60,
+			clockDisplay: '24-hour',
+			timeOffsetHours: 2
+		})).toBe('Ends at 22:30');
+	});
+});
+
 describe('formatPlaybackTimeSlot', () => {
 	const slot = (value) => formatPlaybackTimeSlot({
 		slot: value,

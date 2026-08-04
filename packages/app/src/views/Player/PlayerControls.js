@@ -268,7 +268,7 @@ const PlayerControls = ({
 
 	// The video player gives each of the six slots its own setting. Music has one row
 	// with elapsed on the left and a single configurable label on the right.
-	const timeArgs = {position: displayTime, duration, clockDisplay: settings.clockDisplay};
+	const timeArgs = {position: displayTime, duration, clockDisplay: settings.clockDisplay, timeOffsetHours: settings.timeOffsetHours};
 	const slotText = (settingKey) => formatPlaybackTimeSlot({slot: settings[settingKey], ...timeArgs});
 	const aboveSlots = isAudioMode ? [] : [
 		slotText('playbackTimeAboveLeft'),

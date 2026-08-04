@@ -1378,6 +1378,7 @@ const AppContent = (props) => {
 				dimmingLevel={settings.screensaverDimmingLevel}
 				showClock={settings.screensaverShowClock}
 				clockDisplay={settings.clockDisplay}
+				timeOffsetHours={settings.timeOffsetHours}
 				maxRating={settings.screensaverAgeFilter ? settings.screensaverMaxRating : null}
 				onDismiss={dismissScreensaver}
 				serverUrl={serverUrl}

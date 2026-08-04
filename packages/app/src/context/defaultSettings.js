@@ -116,6 +116,9 @@ export const defaultSettings = {
 	rewatchSortBy: 'recentlyWatched',
 	showClock: true,
 	clockDisplay: '24-hour',
+	// Hours added to every displayed time. Local only, because it corrects this TV
+	// rather than the account.
+	timeOffsetHours: 0,
 	autoLogin: true,
 	alwaysAuthenticate: false,
 	pinCodeProtection: false,

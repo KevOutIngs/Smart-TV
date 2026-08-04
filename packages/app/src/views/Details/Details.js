@@ -32,6 +32,7 @@ import {DETAIL_ICON_PATHS} from './detailIcons';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
 import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled, isRatingSourceAllowed} from '../../services/mdblistApi';
 import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
+import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 
 import css from './Details.module.less';
 
@@ -1331,22 +1332,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 	// Info data
 	const year = item.ProductionYear || '';
 	const runtime = item.RunTimeTicks ? formatDuration(item.RunTimeTicks) : '';
-	const endsAt = (() => {
-		if (!item.RunTimeTicks) return '';
-		const endTime = new Date(Date.now() + item.RunTimeTicks / 10000);
-		const hours = endTime.getHours();
-		const minutes = endTime.getMinutes();
-		if (settings.clockDisplay === '12-hour') {
-			const ampm = hours >= 12 ? 'PM' : 'AM';
-			const h = hours % 12 || 12;
-			const m = minutes < 10 ? '0' + minutes : minutes;
-			return $L('Ends at {time}').replace('{time}', `${h}:${m} ${ampm}`);
-		} else {
-			const h = hours.toString().padStart(2, '0');
-			const m = minutes < 10 ? '0' + minutes : minutes;
-			return $L('Ends at {time}').replace('{time}', `${h}:${m}`);
-		}
-	})();
+	const endsAt = formatPlaybackEndsAt(item.RunTimeTicks / 10000000, settings.clockDisplay, settings.timeOffsetHours);
 	const officialRating = item.OfficialRating || '';
 	const badges = getMediaBadges(item, selectedVersionIndex);
 	const seasonCount = item.ChildCount || seasons.length || 0;

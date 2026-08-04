@@ -1,5 +1,6 @@
 import {useState, useEffect, useRef, useCallback} from 'react';
 import {getImageUrl, getBackdropId, getLogoUrl} from '../../utils/helpers';
+import {formatClockTime, shiftedNow} from '../../utils/clock';
 import * as jellyfinApi from '../../services/jellyfinApi';
 import css from './Screensaver.module.less';
 
@@ -73,22 +74,10 @@ const startBounce = (ref, animRef, width, height) => {
 	};
 };
 
-const formatTime = (clockDisplay) => {
-	const now = new Date();
-	const h = now.getHours();
-	const m = now.getMinutes();
-	if (clockDisplay === '12-hour') {
-		const ampm = h >= 12 ? 'PM' : 'AM';
-		const h12 = h % 12 || 12;
-		return `${h12}:${m < 10 ? '0' : ''}${m} ${ampm}`;
-	}
-	return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
-};
-
-const Screensaver = ({visible, mode = 'library', dimmingLevel = 50, showClock = true, clockDisplay = '24-hour', maxRating = null, onDismiss, serverUrl}) => {
+const Screensaver = ({visible, mode = 'library', dimmingLevel = 50, showClock = true, clockDisplay = '24-hour', timeOffsetHours = 0, maxRating = null, onDismiss, serverUrl}) => {
 	const [rendered, setRendered] = useState(false);
 	const [showOverlay, setShowOverlay] = useState(false);
-	const [clockText, setClockText] = useState(() => formatTime(clockDisplay));
+	const [clockText, setClockText] = useState(() => formatClockTime(shiftedNow(timeOffsetHours), clockDisplay));
 	const logoAnimRef = useRef(null);
 	const clockAnimRef = useRef(null);
 	const logoRef = useRef(null);
@@ -124,10 +113,10 @@ const Screensaver = ({visible, mode = 'library', dimmingLevel = 50, showClock = 
 	useEffect(() => {
 		if (!visible || !showClock) return;
 		const interval = setInterval(() => {
-			setClockText(formatTime(clockDisplay));
+			setClockText(formatClockTime(shiftedNow(timeOffsetHours), clockDisplay));
 		}, 1000);
 		return () => clearInterval(interval);
-	}, [visible, showClock, clockDisplay]);
+	}, [visible, showClock, clockDisplay, timeOffsetHours]);
 
 	useEffect(() => {
 		if (!visible || mode !== 'library' || !serverUrl) return;
