@@ -92,6 +92,14 @@ const whenSeerr = (ctx) => ctx.seerr.isEnabled;
 
 const countLabel = (count) => $L('{count} selected').replace('{count}', String(count));
 
+// Neither flag is known until the ping answers, and having no answer says nothing
+// about what the admin chose, so report that rather than a definite no.
+const pluginFlag = (flag, yes, no) => {
+	if (flag === true) return yes;
+	if (flag === false) return no;
+	return $L('Unknown');
+};
+
 export const SETTINGS_SCHEMA = [
 	{
 		id: 'accountSecurity',
@@ -355,8 +363,8 @@ export const SETTINGS_SCHEMA = [
 					},
 					{kind: KIND.CUSTOM, render: 'moonfinStatus'},
 					{kind: KIND.INFO, id: 'pluginVersion', label: () => $L('Plugin Version'), value: (ctx) => ctx.seerr.pluginInfo?.version || $L('Unknown')},
-					{kind: KIND.INFO, id: 'settingsSync', label: () => $L('Settings Sync'), value: (ctx) => (ctx.seerr.pluginInfo?.settingsSyncEnabled ? $L('Available') : $L('Not Available'))},
-					{kind: KIND.INFO, id: 'seerrStatus', label: (ctx) => ctx.seerrLabel, value: (ctx) => (ctx.seerr.pluginInfo?.seerrEnabled ? $L('Enabled by Admin') : $L('Disabled by Admin'))},
+					{kind: KIND.INFO, id: 'settingsSync', label: () => $L('Settings Sync'), value: (ctx) => pluginFlag(ctx.seerr.pluginInfo?.settingsSyncEnabled, $L('Available'), $L('Not Available'))},
+					{kind: KIND.INFO, id: 'seerrStatus', label: (ctx) => ctx.seerrLabel, value: (ctx) => pluginFlag(ctx.seerr.pluginInfo?.seerrEnabled, $L('Enabled by Admin'), $L('Disabled by Admin'))},
 					{kind: KIND.INFO, id: 'seerrVariant', label: () => $L('Detected Variant'), value: (ctx) => $L('{seerrLabel} (Seerr v3+)').replace('{seerrLabel}', ctx.seerrLabel), when: (ctx) => ctx.isSeerr}
 				]
 			},

@@ -103,6 +103,25 @@ describe('settings schema', () => {
 		expect(problems).toEqual([]);
 	});
 
+	// An unanswered ping says nothing about what the admin chose, so these rows have to
+	// report that rather than the no they used to show.
+	describe('plugin panel status rows', () => {
+		const statusOf = (id, pluginInfo) => {
+			const {row} = allRows().find((entry) => entry.row.id === id);
+			return resolve(row.value, {...ctx, seerr: {...ctx.seerr, pluginInfo}});
+		};
+
+		test.each([
+			['seerrStatus', 'seerrEnabled', 'Enabled by Admin', 'Disabled by Admin'],
+			['settingsSync', 'settingsSyncEnabled', 'Available', 'Not Available']
+		])('%s reads its flag and falls back to unknown', (id, flag, yes, no) => {
+			expect(statusOf(id, {[flag]: true})).toBe(yes);
+			expect(statusOf(id, {[flag]: false})).toBe(no);
+			expect(statusOf(id, null)).toBe('Unknown');
+			expect(statusOf(id, {})).toBe('Unknown');
+		});
+	});
+
 	test('every option row falls back to one of its own option labels', () => {
 		const mismatched = [];
 		allRows()

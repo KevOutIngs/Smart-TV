@@ -12,7 +12,8 @@ const STREAM_RECONNECT_MIN_MS = 5000;
 const STREAM_RECONNECT_MAX_MS = 60000;
 
 export const SeerrProvider = ({children}) => {
-const {syncFromServer} = useSettings();
+const {settings, syncFromServer} = useSettings();
+const pluginEnabled = settings.useMoonfinPlugin;
 const {serverUrl: authServerUrl, accessToken: authAccessToken} = useAuth();
 const [isEnabled, setIsEnabled] = useState(false);
 const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -175,13 +176,15 @@ init();
 }, []);
 
 const configureWithMoonfin = useCallback(async (jellyfinServer, token) => {
-const existingConfig = await getFromStorage('seerr');
-const savedAuthType = normalizeMoonfinAuthType(existingConfig?.moonfinAuthType);
-setMoonfinAuthTypeState(savedAuthType);
-
+// Claimed before the first await, so the effect below sees this token as handled
+// and the plugin toggle calling straight in here cant set off a second run.
 seerrApi.setMoonfinConfig(jellyfinServer, token);
 configuredTokenRef.current = token;
 seerrApi.setMoonfinMode(true);
+
+const existingConfig = await getFromStorage('seerr');
+const savedAuthType = normalizeMoonfinAuthType(existingConfig?.moonfinAuthType);
+setMoonfinAuthTypeState(savedAuthType);
 
 const [status, pingResult, configResult] = await Promise.all([
 seerrApi.getMoonfinStatus(),
@@ -251,14 +254,19 @@ return {authenticated: false, url: status?.url};
 // The Seerr identity is decided by the Jellyfin token we hand the plugin, so a
 // user switch has to re-push the now-active token. Without this the previous
 // user's token stays configured and their requests show for everyone.
+// It also does the first setup, since the plugin setting turns itself on the first
+// time a server answers with a profile and nothing else would hand it a token.
 useEffect(() => {
-if (!isEnabled || !isMoonfin) return;
+// Stored config settles this on its own, so waiting for it to load keeps the two
+// from configuring the same token at once.
+if (isLoading) return;
+if (!pluginEnabled && !(isEnabled && isMoonfin)) return;
 if (!authAccessToken || !authServerUrl) return;
 if (authAccessToken === configuredTokenRef.current) return;
 configureWithMoonfin(authServerUrl, authAccessToken).catch(e =>
-console.log('[Seerr] Reconfigure after user switch failed:', e.message)
+console.log('[Seerr] Configure against the plugin failed:', e.message)
 );
-}, [authAccessToken, authServerUrl, isEnabled, isMoonfin, configureWithMoonfin]);
+}, [authAccessToken, authServerUrl, isLoading, pluginEnabled, isEnabled, isMoonfin, configureWithMoonfin]);
 
 const loginWithMoonfin = useCallback(async (username, password, authType = 'jellyfin') => {
 const normalizedAuthType = normalizeMoonfinAuthType(authType);
