@@ -1,4 +1,4 @@
- import {mapJellyfinTrackToTizen} from './tizenTrackUtils';
+import {mapJellyfinTrackToTizen} from './tizenTrackUtils';
 
 const avplayTrack = (index, type) => ({index, type});
 const stream = (index, codec) => ({index, codec});
@@ -39,6 +39,24 @@ describe('mapJellyfinTrackToTizen', () => {
 		const streams = [stream(1, 'ac3'), stream(2, 'dts'), stream(3, 'truehd')];
 
 		expect(mapJellyfinTrackToTizen(tracks, streams, 'AUDIO', 2)).toBe(1);
+	});
+
+	// AVPlay really did hide the target here, so keeping it leaves the lists uneven and
+	// pairing anyway would answer with the track next to it.
+	it('gives up rather than pair the requested stream with another track', () => {
+		const tracks = [avplayTrack(0, 'AUDIO')];
+		const streams = [stream(1, 'truehd'), stream(2, 'dts'), stream(3, 'ac3')];
+
+		expect(mapJellyfinTrackToTizen(tracks, streams, 'AUDIO', 1)).toBeNull();
+		expect(mapJellyfinTrackToTizen(tracks, streams, 'AUDIO', 3)).toBe(0);
+	});
+
+	// Only bitmap tracks reach this list now, and AVPlay hides all of them, so nothing
+	// lines up against a TEXT list that still carries the text tracks.
+	it('gives up on a bitmap track when AVPlay lists text tracks too', () => {
+		const tracks = [avplayTrack(0, 'TEXT'), avplayTrack(1, 'TEXT')];
+
+		expect(mapJellyfinTrackToTizen(tracks, [stream(2, 'pgssub')], 'TEXT', 2)).toBeNull();
 	});
 
 	it('returns null when AVPlay reports no tracks of that type', () => {

@@ -742,8 +742,9 @@ export const getJellyfinDeviceProfile = async () => {
 		Conditions: [{ Condition: 'Equals', Property: 'AudioChannels', Value: '0', IsRequired: true }]
 	});
 
-	// TrueHD is now with the experimental setting on passtrough
-	// Rest is still transcode as Tizen can't handle TrueHD+Atmos or DTS
+	// The experimental setting already puts TrueHD in the audio codec list above, so
+	// forcing a transcode here left it with nothing to direct play. Atmos still gets
+	// refused by isAudioStreamPlayable, since its marker is free text no condition matches.
 	if (!caps.truehd) {
 		codecProfiles.push({
 			Type: 'VideoAudio',

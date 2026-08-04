@@ -44,7 +44,7 @@ export const SUBTITLE_BACKGROUND_COLOR_OPTIONS = [
 	{ value: '#000080', label: $L('Navy') }
 ];
 
-// HDR twin settings
+// Every style setting that has an HDR twin stored alongside it.
 export const SUBTITLE_STYLE_KEYS = [
 	'subtitleSize',
 	'subtitlePosition',
@@ -60,11 +60,11 @@ export const SUBTITLE_STYLE_KEYS = [
 
 export const hdrKeyFor = (key) => `${key}Hdr`;
 
-// Key assigment for HDR
 export const subtitleStyleKey = (key, isHdr) => (isHdr ? hdrKeyFor(key) : key);
 
 /**
- * Flattens the HDR twins over the base keys while HDR is on screen.
+ * Flattens the HDR twins over the base keys while HDR is on screen, so everything
+ * downstream keeps reading the base names.
  */
 export const resolveSubtitleStyleSettings = (settings, isHdr) => {
 	if (!isHdr || !settings?.subtitleHdrSeparate) return settings;

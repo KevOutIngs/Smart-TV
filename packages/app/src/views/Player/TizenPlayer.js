@@ -354,18 +354,20 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	/**
 	 * Select an embedded track natively via AVPlay's TEXT track list.
 	 * Returns false when the stream cant be mapped to an AVPlay track.
-	 * quiet skips the log on the confirmation pass, which repeats after every seek.
+	 * quiet skips the logs on the confirmation pass, which repeats after every seek.
 	 */
 	const applyNativeSubtitleTrack = useCallback((stream, streamList, trackInfo = null, {quiet = false} = {}) => {
 		const embedded = (streamList || []).filter((s) => s.isEmbeddedNative);
 		const tracks = trackInfo || avplayGetTracks();
 		const tizenIndex = mapJellyfinTrackToTizen(tracks, embedded, 'TEXT', stream.index);
 		if (tizenIndex == null) {
-			serverLogger.playbackError('Subtitle: no matching AVPlay TEXT track for embedded stream', {
-				stream: describeSubtitleStream(stream),
-				embeddedCandidates: describeSubtitleStreams(embedded),
-				avplayTextTracks: summarizeAvplayTracks(tracks, 'TEXT')
-			});
+			if (!quiet) {
+				serverLogger.playbackError('Subtitle: no matching AVPlay TEXT track for embedded stream', {
+					stream: describeSubtitleStream(stream),
+					embeddedCandidates: describeSubtitleStreams(embedded),
+					avplayTextTracks: summarizeAvplayTracks(tracks, 'TEXT')
+				});
+			}
 			return false;
 		}
 		avplaySelectTrack('TEXT', tizenIndex);
@@ -425,16 +427,20 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					console.log('[Player] Applied initial audio track, jellyfinIndex:', pending.audioIndex, 'tizenIndex:', tizenIndex);
 				} else if (expired) {
 					// giving up leaves AVPlays default, which is silence when the set cant
-					// decode it, so try the raw index first
+					// decode it, so try the Jellyfin index in case AVPlay numbers its tracks
+					// the same way. It counts video and subtitles too, so only take it when
+					// AVPlay reported that index itself
 					console.warn('[Player] No matching AVPlay audio track for index', pending.audioIndex);
 					const audioTracks = summarizeAvplayTracks(trackInfo, 'AUDIO');
+					const directUsable = audioTracks.some((t) => t.index === pending.audioIndex);
 					try {
-						if (audioTracks.length > 0) avplaySelectTrack('AUDIO', pending.audioIndex);
+						if (directUsable) avplaySelectTrack('AUDIO', pending.audioIndex);
 					} catch (directErr) {
 						console.warn('[Player] Direct audio index selection failed:', directErr?.message || directErr);
 					}
-					serverLogger.playbackError('Audio: no matching AVPlay track, used direct index', {
+					serverLogger.playbackError('Audio: no matching AVPlay track', {
 						jellyfinIndex: pending.audioIndex,
+						usedDirectIndex: directUsable,
 						requestedCodec: pending.audioStreams?.find((s) => s.index === pending.audioIndex)?.codec,
 						avplayAudioTracks: audioTracks
 					});

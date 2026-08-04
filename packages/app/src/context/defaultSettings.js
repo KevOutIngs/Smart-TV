@@ -21,7 +21,7 @@ export const defaultSettings = {
 	subtitleShadowOpacity: 100,
 	subtitleShadowBlur: 0.1,
 	subtitlePositionAbsolute: 90,
-	// HDR white can be bright, so this setts it to a grey style to avoid eye bruns.
+	// White is far brighter in HDR than in SDR, so the HDR text color starts grey.
 	subtitleHdrSeparate: false,
 	subtitleSizeHdr: 'medium',
 	subtitlePositionHdr: 'bottom',
