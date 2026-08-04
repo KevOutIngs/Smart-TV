@@ -161,7 +161,12 @@ export const sendBufferingRequest = (sample) => sendHandshake('Buffering', sampl
 
 export const sendReadyRequest = (sample) => sendHandshake('Ready', sample);
 
-export const sendPingRequest = () => request('POST', 'Ping', {Ping: lastPing}).catch(() => {});
+// The server treats Ping as a group request, so one sent outside a group tells it
+// nothing and leaves a warning in its log every ten seconds the app stays open.
+export const sendPingRequest = () => {
+	if (!currentGroup) return;
+	return request('POST', 'Ping', {Ping: lastPing}).catch(() => {});
+};
 
 // NTP-style clock sync against /GetUtcTime. The server rejects Ready/Buffering
 // timing when When is more than 2s off its clock, and every scheduled command
@@ -377,6 +382,10 @@ const handleGroupUpdate = (data) => {
 	switch (data.Type) {
 		case 'GroupJoined':
 			currentGroup = data.Data || data;
+			// The group unpauses on its slowest member, so give the server this
+			// session's round trip now rather than leaving it on a default for
+			// up to ten seconds.
+			sendPingRequest();
 			emit('groupJoined', currentGroup);
 			break;
 
