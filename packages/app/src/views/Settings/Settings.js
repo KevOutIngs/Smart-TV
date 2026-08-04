@@ -19,6 +19,7 @@ import {clearAllStorage} from '../../services/storage';
 import {fetchThemeStoreCatalog, fetchThemeJson} from '../../services/themeStoreApi';
 import {getSeerrHomeRowConfigs, SEERR_CONFIG_TO_SECTION} from '../../utils/seerrHomeRows';
 import {TMDB_PRESETS, detectCustomSource, validateCustomRow} from '../../utils/externalHomeRows';
+import {formatPlaybackTimeSlot} from '../../utils/playbackTimeLabels';
 import {MATERIAL_ICON_PATHS} from './materialIconMap';
 import {
 	ordered, hiddenSet, DETAIL_BUTTONS, OSD_BUTTONS,
@@ -94,6 +95,9 @@ const IconArrowDown = () => (
 
 const MATERIAL_ICON_NAME_MAP = {
 	alert02: 'warning',
+	aligncenter: 'align_horizontal_center',
+	alignleft: 'align_horizontal_left',
+	alignright: 'align_horizontal_right',
 	appscontents: 'view_carousel',
 	arrowlargedown: 'vertical_align_bottom',
 	arrowupdown: 'swap_vert',
@@ -1354,6 +1358,37 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		</>
 	);
 
+	// Renders the six slots against a sample time so the layout can be judged without
+	// starting playback to find out.
+	const renderPlaybackTimePreview = () => {
+		const previewArgs = {
+			position: (42 * 60) + 10,
+			duration: (1 * 3600) + (58 * 60) + 33,
+			clockDisplay: settings.clockDisplay
+		};
+		const cell = (settingKey, align) => (
+			<span className={`${css.playbackTimeCell} ${css[align]}`}>
+				{formatPlaybackTimeSlot({slot: settings[settingKey], ...previewArgs})}
+			</span>
+		);
+		const row = (keys, rowClass) => (
+			<div className={`${css.playbackTimeRow} ${rowClass}`}>
+				{cell(keys[0], 'playbackTimeLeft')}
+				{cell(keys[1], 'playbackTimeCenter')}
+				{cell(keys[2], 'playbackTimeRight')}
+			</div>
+		);
+		return (
+			<div className={css.playbackTimePreview}>
+				{row(['playbackTimeAboveLeft', 'playbackTimeAboveCenter', 'playbackTimeAboveRight'], css.playbackTimeAbove)}
+				<div className={css.playbackTimeBar}>
+					<div className={css.playbackTimeBarFill} style={{width: `${((previewArgs.position / previewArgs.duration) * 100).toFixed(1)}%`}} />
+				</div>
+				{row(['playbackTimeBelowLeft', 'playbackTimeBelowCenter', 'playbackTimeBelowRight'], css.playbackTimeBelow)}
+			</div>
+		);
+	};
+
 	const renderAboutDataActions = () => (
 		<div className={css.actionBarInline}>
 			<SpottableButton
@@ -1706,7 +1741,8 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	const customRenderers = {
 		moonfinStatus: renderMoonfinStatus,
 		seerrPanel: renderPluginSeerr,
-		aboutDataActions: renderAboutDataActions
+		aboutDataActions: renderAboutDataActions,
+		playbackTimePreview: renderPlaybackTimePreview
 	};
 
 	// Only the debounced query drives the swap, so the categories do not blink out

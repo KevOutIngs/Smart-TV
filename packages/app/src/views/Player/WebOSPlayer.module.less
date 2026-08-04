@@ -324,10 +324,31 @@
 	margin-bottom: 30px;
 }
 
+/* Time Info Row */
 .timeInfoTop {
 	display: flex;
-	justify-content: flex-end;
 	margin-bottom: 8px;
+}
+
+.timeSlotCell {
+	flex: 1 1 0;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-variant-numeric: tabular-nums;
+}
+
+.timeSlotLeft {
+	text-align: left;
+}
+
+.timeSlotCenter {
+	text-align: center;
+}
+
+.timeSlotRight {
+	text-align: right;
 }
 
 .timeEnd {
@@ -449,7 +470,6 @@
 
 .timeInfo {
 	display: flex;
-	justify-content: flex-end;
 	margin-top: 10px;
 }
 
