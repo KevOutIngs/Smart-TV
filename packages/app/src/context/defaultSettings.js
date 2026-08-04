@@ -132,7 +132,6 @@ export const defaultSettings = {
 	watchedIndicatorBehavior: 'always',
 	cardFocusZoom: false,
 	useDetailedSubHeadings: true,
-	mergeRecentRowsByType: false,
 	showMediaDetailsOnLibraryPage: true,
 	hideBackdropsInLibraries: false,
 	useSeriesThumbnails: true,
