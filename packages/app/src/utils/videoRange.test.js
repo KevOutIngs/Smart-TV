@@ -44,7 +44,6 @@ describe('isHdrOutput', () => {
 		expect(isHdrOutput(hdrSource, false)).toBe(true);
 	});
 
-	// if transcodng hdr is gone
 	it('is not HDR while transcoding', () => {
 		expect(isHdrOutput(hdrSource, true)).toBe(false);
 	});

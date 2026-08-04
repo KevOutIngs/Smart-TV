@@ -16,9 +16,14 @@ export const mapJellyfinTrackToTizen = (avplayTracks, jellyfinStreams, type, jel
 	let streams = Array.isArray(jellyfinStreams) ? jellyfinStreams : [];
 	if (streams.length !== tracks.length) {
 		const hidden = type === 'AUDIO' ? HIDDEN_AUDIO_CODECS : HIDDEN_TEXT_CODECS;
-		// keep the requested stream. these are the codecs a caller most often picks by
-		// name, and dropping the target resolved a TrueHD pick to nothing
-		streams = streams.filter((s) => s.index === jellyfinIndex || !hidden.includes((s.codec || '').toLowerCase()));
+		const isHidden = (s) => hidden.includes((s.codec || '').toLowerCase());
+		// AVPlay does decode some of these once the experimental codecs are on, and there
+		// dropping the target resolved a TrueHD pick to nothing. Keeping it only holds while
+		// the lists line up, since a short list pairs it with the wrong track.
+		const withTarget = streams.filter((s) => s.index === jellyfinIndex || !isHidden(s));
+		streams = withTarget.length === tracks.length
+			? withTarget
+			: withTarget.filter((s) => !isHidden(s));
 	}
 	if (type === 'TEXT') {
 		streams = streams.slice(0, TIZEN_TEXT_TRACK_LIMIT);

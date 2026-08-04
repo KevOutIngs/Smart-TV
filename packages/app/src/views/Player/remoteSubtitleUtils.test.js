@@ -15,12 +15,11 @@ const subtitle = (overrides) => ({
 });
 
 describe('mapSubtitleStreamsFromMediaSource', () => {
-	// text is fetched from the server now, AVPlay never delivered it.
+	// The profile asks the server to extract text, so AVPlay has no track to select.
 	it('does not treat embedded text as native', () => {
 		expect(mapOne(subtitle({DeliveryMethod: 'Embed'})).isEmbeddedNative).toBe(false);
 	});
 
-	// transcode has no subs, so a fallback after 5 seconds for the subs
 	it('does not treat a server delivered text track as native', () => {
 		expect(mapOne(subtitle({DeliveryMethod: 'External'})).isEmbeddedNative).toBe(false);
 	});

@@ -68,8 +68,7 @@ export const mapSubtitleStreamsFromMediaSource = (mediaSource, serverUrl, option
 			};
 
 			if (includeEmbeddedNative) {
-				// Embedded handles native AVPlayer. External streams from api.
-				// Was bevor giving 0 subs back sometimes.
+				// Same rule as extractSubtitleStreams in the playback service.
 				const isServerDelivered = stream.DeliveryMethod === 'External';
 				mapped.isEmbeddedNative = !stream.IsExternal && !isServerDelivered && mapped.isImageBased;
 			}

@@ -488,7 +488,7 @@ export const SETTINGS_SCHEMA = [
 						kind: KIND.TOGGLE,
 						key: 'subtitleHdrSeparate',
 						label: () => $L('Separate HDR Style'),
-						desc: () => $L('Use the style below whenever HDR content is playing. White is much brighter in HDR than in SDR, so a dimmer colour here avoids the glare.'),
+						desc: () => $L('Use the style below whenever HDR content is playing. White is much brighter in HDR than in SDR, so a dimmer color here avoids the glare.'),
 						icon: 'picture'
 					},
 					{kind: KIND.OPTION, key: 'subtitleSizeHdr', label: () => $L('Subtitle Size'), options: getSubtitleSizeOptions, fallback: () => $L('Medium'), icon: 'textinput', when: whenHdrSubtitles},

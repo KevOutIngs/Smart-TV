@@ -318,7 +318,9 @@ const extractSubtitleStreams = (mediaSource, itemId = null, creds = null) => {
 				isAss: isAssSubtitleCodec(codec),
 				isImageBased,
 				isBurnIn: isBurnInSubtitleCodec(codec),
-				// only unchanged subs are native. Changed subs ae treated as external, even if they are embedded in the container.
+				// Only bitmap tracks left in the container are AVPlay's to select. The profile
+				// asks the server to extract text, so it arrives over the API and renders on
+				// the web layer even though it also sits in the container.
 				isEmbeddedNative: !s.IsExternal && s.DeliveryMethod !== 'External' && isImageBased,
 				deliveryUrl: deliveryUrl,
 				deliveryMethod: s.DeliveryMethod

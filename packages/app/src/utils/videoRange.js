@@ -1,4 +1,5 @@
-// Check for HDR in VideoRangeType
+// Anything VideoRangeType names other than SDR is some HDR format, so a new one counts
+// without a change here. VideoRange is the older coarse field and only fills in.
 export const isHdrVideoStream = (videoStream) => {
 	if (!videoStream) return false;
 	const rangeType = (videoStream.VideoRangeType || '').toUpperCase();
@@ -9,7 +10,8 @@ export const isHdrVideoStream = (videoStream) => {
 export const findVideoStream = (mediaSource) =>
 	(mediaSource?.MediaStreams || []).find((s) => s.Type === 'Video') || null;
 
-// If transcode no HDR anymore if original was HDR, so SDR style gets used.
+// What reaches the screen, not what sits on disk. A transcode drops the HDR metadata,
+// so an HDR source arrives as SDR and wants the SDR style.
 export const isHdrOutput = (mediaSource, isTranscoding) => {
 	if (isTranscoding) return false;
 	return isHdrVideoStream(findVideoStream(mediaSource));
