@@ -2177,6 +2177,7 @@ const Browse = ({
 								items={row.items}
 								serverUrl={serverUrl}
 								cardType={row.type}
+								rowImageType={settings.homeRowsImageType}
 								onSelectItem={selectHandler}
 								onFocus={handleRowFocus}
 								onFocusItem={handleFocusItem}
