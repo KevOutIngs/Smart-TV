@@ -19,7 +19,7 @@ export const NextEpisodeContainer = SpotlightContainerDecorator({
 	preserveId: true
 }, 'div');
 
-// The playback time formatting functions are used in the video and music players, and in the settings preview.
+// Kept under the old name so everything already importing it from here carries on working.
 export {formatPlaybackDuration as formatTime} from '../../utils/playbackTimeLabels';
 
 let _qualityPresets;

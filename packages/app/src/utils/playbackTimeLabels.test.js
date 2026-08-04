@@ -1,5 +1,3 @@
-// Test the playback time label formatting functions.
-// The labels are used in the video and music players, and in the settings preview.
 jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
 
 import {
@@ -8,11 +6,11 @@ import {
 	formatPlaybackDuration,
 	formatPlaybackEndsAt,
 	formatPlaybackTimeSlot,
-	formatPlaybackTrailingTime,
-	playbackTimeDisplayForSlot
+	formatPlaybackTrailingTime
 } from './playbackTimeLabels';
 
-// Tests written so that it is time ignorent.
+// Fixed so every expected string can be exact. Ends at is the one label tied to the wall
+// clock, so those are matched by shape instead and pass at any time of day.
 const POSITION = (42 * 60) + 10;
 const DURATION = (1 * 3600) + (58 * 60) + 33;
 
@@ -63,11 +61,9 @@ describe('formatPlaybackTrailingTime', () => {
 		expect(trailing('endsAt', {clockDisplay: '12-hour'})).toMatch(/^Ends at \d{1,2}:\d{2} (AM|PM)$/);
 	});
 
-	test('endsAt accounts for playback speed', () => {
-		const args = {position: 0, duration: 2 * 3600, clockDisplay: '24-hour'};
-		const normal = formatPlaybackEndsAt(args.duration, args.clockDisplay);
-		const doubled = formatPlaybackEndsAt(args.duration, args.clockDisplay, 2);
-		expect(normal).not.toBe(doubled);
+	test('endsAt collapses when there is nothing left to play', () => {
+		expect(formatPlaybackEndsAt(0, '24-hour')).toBe('');
+		expect(formatPlaybackEndsAt(-60, '24-hour')).toBe('');
 	});
 
 	test('every mode falls back to the duration when it is unknown', () => {
@@ -110,21 +106,9 @@ describe('formatPlaybackTimeSlot', () => {
 		});
 	});
 
-	// The slot is a string, so an unknown value is not a valid slot. It hides it rather than guessing.
+	// Another client can sync a slot this build has never heard of, so hiding it beats
+	// guessing at a label.
 	test('an unknown slot collapses rather than guessing', () => {
 		expect(slot('somethingNewer')).toBe('');
-	});
-});
-
-describe('playbackTimeDisplayForSlot', () => {
-	test('maps the three trailing modes through unchanged', () => {
-		expect(playbackTimeDisplayForSlot('timeRemaining')).toBe('timeRemaining');
-		expect(playbackTimeDisplayForSlot('endsAt')).toBe('endsAt');
-		expect(playbackTimeDisplayForSlot('totalDuration')).toBe('totalDuration');
-	});
-
-	test('falls back to the total duration for slot-only modes', () => {
-		expect(playbackTimeDisplayForSlot('none')).toBe('totalDuration');
-		expect(playbackTimeDisplayForSlot('elapsed')).toBe('totalDuration');
 	});
 });

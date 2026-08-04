@@ -266,16 +266,15 @@ const PlayerControls = ({
 		? Math.max(clampedProgress, Math.min(100, bufferedPercent))
 		: clampedProgress;
 
-	// Six slots a user can choose what to display
+	// The video player gives each of the six slots its own setting. Music has one row
+	// with elapsed on the left and a single configurable label on the right.
 	const timeArgs = {position: displayTime, duration, clockDisplay: settings.clockDisplay};
 	const slotText = (settingKey) => formatPlaybackTimeSlot({slot: settings[settingKey], ...timeArgs});
-	const aboveSlots = isAudioMode
-		? ['', '', '']
-		: [
-			slotText('playbackTimeAboveLeft'),
-			slotText('playbackTimeAboveCenter'),
-			slotText('playbackTimeAboveRight')
-		];
+	const aboveSlots = isAudioMode ? [] : [
+		slotText('playbackTimeAboveLeft'),
+		slotText('playbackTimeAboveCenter'),
+		slotText('playbackTimeAboveRight')
+	];
 	const belowSlots = isAudioMode
 		? [
 			formatTime(displayTime),
@@ -287,7 +286,7 @@ const PlayerControls = ({
 			slotText('playbackTimeBelowCenter'),
 			slotText('playbackTimeBelowRight')
 		];
-	// If row empty, and nothing is selected or rather none, then we nuke the row.
+	// A row of nothing but hidden slots takes its margin with it rather than leaving a gap.
 	const hasText = (slots) => slots.some((text) => text !== '');
 	const renderTimeRow = (slots, rowClass, textClass) => (
 		<div className={rowClass}>

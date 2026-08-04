@@ -1358,7 +1358,8 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		</>
 	);
 
-	// Static Preview of the time display
+	// Renders the six slots against a sample time so the layout can be judged without
+	// starting playback to find out.
 	const renderPlaybackTimePreview = () => {
 		const previewArgs = {
 			position: (42 * 60) + 10,

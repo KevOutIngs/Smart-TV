@@ -1,5 +1,7 @@
 import $L from '@enact/i18n/$L';
 
+import {PLAYBACK_TIME_DISPLAYS, PLAYBACK_TIME_SLOTS} from '../../utils/playbackTimeLabels';
+
 // Every list is a function so $L runs when the settings screen opens rather than when
 // this module is imported, which is before i18n has loaded its bundle.
 
@@ -309,20 +311,24 @@ export const getStillWatchingBehaviorOptions = () => [
 	{ value: 'veryLong', label: $L('8 episodes') }
 ];
 
-// Options for the six slots around the video progress bar
-export const getPlaybackTimeSlotOptions = () => [
-	{ value: 'none', label: $L('Hidden') },
-	{ value: 'elapsed', label: $L('Time Elapsed') },
-	{ value: 'totalDuration', label: $L('Total Duration') },
-	{ value: 'timeRemaining', label: $L('Time Remaining') },
-	{ value: 'endsAt', label: $L('Ends At') }
-];
+// Built from the lists the formatter switches on, so nothing can be offered here that
+// renders as nothing. A value with no label of its own is left out rather than shown
+// under someone else's.
+const PLAYBACK_TIME_LABELS = {
+	none: () => $L('Hidden'),
+	elapsed: () => $L('Time Elapsed'),
+	totalDuration: () => $L('Total Duration'),
+	timeRemaining: () => $L('Time Remaining'),
+	endsAt: () => $L('Ends At')
+};
 
-export const getPlaybackTimeDisplayOptions = () => [
-	{ value: 'totalDuration', label: $L('Total Duration') },
-	{ value: 'timeRemaining', label: $L('Time Remaining') },
-	{ value: 'endsAt', label: $L('Ends At') }
-];
+const playbackTimeOptions = (values) => values
+	.filter((value) => PLAYBACK_TIME_LABELS[value])
+	.map((value) => ({ value, label: PLAYBACK_TIME_LABELS[value]() }));
+
+export const getPlaybackTimeSlotOptions = () => playbackTimeOptions(PLAYBACK_TIME_SLOTS);
+
+export const getPlaybackTimeDisplayOptions = () => playbackTimeOptions(PLAYBACK_TIME_DISPLAYS);
 
 export const getMediaSegmentActionOptions = () => [
 	{ value: 'ask', label: $L('Ask to Skip') },

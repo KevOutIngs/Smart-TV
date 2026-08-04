@@ -150,7 +150,7 @@ export const defaultSettings = {
 	skipForwardLength: 30,
 	unpauseRewind: 0,
 	showDescriptionOnPause: false,
-	// Lables the User can decide to switch out or remove.
+	// Chosen so the overlay looks unchanged for anyone who never opens the setting.
 	playbackTimeAboveLeft: 'none',
 	playbackTimeAboveCenter: 'none',
 	playbackTimeAboveRight: 'endsAt',
