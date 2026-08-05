@@ -80,7 +80,7 @@ const getRootFontSizePx = () => {
  * playback. AVPlay renders on a platform multimedia layer BEHIND the web engine;
  * the web layer must be transparent in the video area for the content to show through.
  */
-const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialSubtitleIndex, initialStartPositionTicks, onEnded, onBack, onPlayNext, onSelectPerson, audioPlaylist, videoQueue, onPausedChange}) => {
+const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialSubtitleIndex, initialStartPositionTicks, initialQuality, forceTranscode, onEnded, onBack, onPlayNext, onSelectPerson, audioPlaylist, videoQueue, onPausedChange}) => {
 	const {settings} = useSettings();
 	const {isInGroup, lastCommand} = useSyncPlay();
 	const syncPlayCommandRef = useRef(false);
@@ -118,7 +118,8 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [currentSubtitleText, setCurrentSubtitleText] = useState(null);
 	const [controlsVisible, setControlsVisible] = useState(false);
 	const [activeModal, setActiveModal] = useState(null);
-	const [selectedQuality, setSelectedQuality] = useState(null);
+	// Seeded from the advanced playback menu, which picks a cap before playback starts.
+	const [selectedQuality, setSelectedQuality] = useState(initialQuality || null);
 	const [remoteSubtitleResults, setRemoteSubtitleResults] = useState([]);
 	const [isSearchingRemoteSubtitles, setIsSearchingRemoteSubtitles] = useState(false);
 	const [mediaSegments, setMediaSegments] = useState(null);
@@ -909,7 +910,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					startPositionTicks: startPosition,
 					maxBitrate: effectiveBitrate,
 					preferTranscode: settings.preferTranscode,
-					forceDirectPlay: isLiveTV ? false : settings.forceDirectPlay,
+					enableDirectPlay: !forceTranscode,
+					enableDirectStream: !forceTranscode,
+					forceDirectPlay: (isLiveTV || forceTranscode) ? false : settings.forceDirectPlay,
 					item: item,
 					mediaSourceId: initialMediaSourceId,
 					audioStreamIndex: initialAudioIndex != null ? initialAudioIndex : undefined,
@@ -1316,7 +1319,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			burnInSubtitleRef.current = null;
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [item, resume, videoQueue, onPlayNext, selectedQuality, settings.maxBitrate, settings.preferTranscode, settings.forceDirectPlay, settings.subtitleMode, settings.introAction, settings.outroAction]);
+	}, [item, resume, videoQueue, onPlayNext, selectedQuality, settings.maxBitrate, settings.preferTranscode, settings.forceDirectPlay, forceTranscode, settings.subtitleMode, settings.introAction, settings.outroAction]);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return () => {};

@@ -32,6 +32,7 @@ import {DETAIL_ICON_PATHS} from './detailIcons';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
 import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled, isRatingSourceAllowed} from '../../services/mdblistApi';
 import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
+import useLongPress from '../../utils/longPress';
 import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 
 import css from './Details.module.less';
@@ -46,6 +47,14 @@ const ModalContainer = SpotlightContainerDecorator({
 }, 'div');
 const HorizontalContainer = SpotlightContainerDecorator({restrict: 'self-first'}, 'div');
 const RowContainer = SpotlightContainerDecorator({enterTo: 'last-focused'}, 'div');
+
+// Caps that match the mobile clients, so a title forced down on one device looks the
+// same on the others. The server transcodes to fit whichever is chosen.
+const TRANSCODE_QUALITIES = [
+	{bitrate: 4000000, label: () => $L('High Quality (1080p)')},
+	{bitrate: 2000000, label: () => $L('Medium Quality (720p)')},
+	{bitrate: 1000000, label: () => $L('Low Quality (480p)')}
+];
 
 const shuffleArray = (arr) => {
 	const out = [...arr];
@@ -207,6 +216,9 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState(-1);
 	const [showMediaInfo, setShowMediaInfo] = useState(false);
 	const [activeModal, setActiveModal] = useState(null);
+	// Which button opened the advanced menu, so the chosen quality resumes or starts over
+	// the same way a plain press of that button would have.
+	const advancedResumeRef = useRef(false);
 	const [remoteSubtitleResults, setRemoteSubtitleResults] = useState([]);
 	const [isSearchingRemoteSubtitles, setIsSearchingRemoteSubtitles] = useState(false);
 	const [trailerOverlay, setTrailerOverlay] = useState(null);
@@ -495,26 +507,34 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	// === HANDLERS ===
 
+	// A single video with real sources is the only thing with one stream to pick a
+	// version, audio track or quality for.
+	const supportsStreamSelection = item?.MediaType === 'Video' &&
+		item.MediaSources?.length > 0 &&
+		item.MediaSources[0].Type !== 'Placeholder';
+
+	// The version, audio and subtitle picks made on this screen, in the shape the
+	// player wants them. Shared with the advanced playback menu so both routes start
+	// from the same selection.
+	const buildPlaybackOptions = useCallback(() => {
+		if (!supportsStreamSelection) return {};
+
+		const playMediaSource = item.MediaSources[selectedVersionIndex] || item.MediaSources[0];
+		const audioStreamsList = playMediaSource?.MediaStreams?.filter(s => s.Type === 'Audio') || [];
+		const subtitleStreamsList = playMediaSource?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
+		const selectedAudio = audioStreamsList[selectedAudioIndex];
+		const subtitleStream = selectedSubtitleIndex >= 0 ? subtitleStreamsList[selectedSubtitleIndex] : null;
+		return {
+			mediaSourceId: playMediaSource.Id,
+			audioStreamIndex: selectedAudio?.Index,
+			subtitleStreamIndex: subtitleStream?.Index ?? -1
+		};
+	}, [item, supportsStreamSelection, selectedVersionIndex, selectedAudioIndex, selectedSubtitleIndex]);
+
 	const handlePlay = useCallback(async () => {
 		if (!item) return;
 
-		const supportsSelection = item.MediaType === 'Video' &&
-			item.MediaSources?.length > 0 &&
-			item.MediaSources[0].Type !== 'Placeholder';
-
-		let playbackOptions = {};
-		if (supportsSelection) {
-			const playMediaSource = item.MediaSources[selectedVersionIndex] || item.MediaSources[0];
-			const audioStreamsList = playMediaSource?.MediaStreams?.filter(s => s.Type === 'Audio') || [];
-			const subtitleStreamsList = playMediaSource?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
-			const selectedAudio = audioStreamsList[selectedAudioIndex];
-			const subtitleStream = selectedSubtitleIndex >= 0 ? subtitleStreamsList[selectedSubtitleIndex] : null;
-			playbackOptions = {
-				mediaSourceId: playMediaSource.Id,
-				audioStreamIndex: selectedAudio?.Index,
-				subtitleStreamIndex: subtitleStream?.Index ?? -1
-			};
-		}
+		const playbackOptions = buildPlaybackOptions();
 
 		if (item.Type === 'Series') {
 			if (nextUp.length > 0) {
@@ -553,31 +573,12 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				onPlay?.(item, false, playbackOptions);
 			}
 		}
-	}, [item, episodes, nextUp, seasons, albumTracks, playlistItems, onPlay, onSelectItem, selectedAudioIndex, selectedSubtitleIndex, selectedVersionIndex, effectiveApi, settings, tagWithServerInfo, isSyncPlayInGroup]);
+	}, [item, episodes, nextUp, seasons, albumTracks, playlistItems, onPlay, onSelectItem, buildPlaybackOptions, effectiveApi, settings, tagWithServerInfo, isSyncPlayInGroup]);
 
 	const handleResume = useCallback(() => {
 		if (!item) return;
-
-		const supportsSelection = item.MediaType === 'Video' &&
-			item.MediaSources?.length > 0 &&
-			item.MediaSources[0].Type !== 'Placeholder';
-
-		let playbackOptions = {};
-		if (supportsSelection) {
-			const resumeMediaSource = item.MediaSources[selectedVersionIndex] || item.MediaSources[0];
-			const audioStreamsList = resumeMediaSource?.MediaStreams?.filter(s => s.Type === 'Audio') || [];
-			const subtitleStreamsList = resumeMediaSource?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
-			const selectedAudio = audioStreamsList[selectedAudioIndex];
-			const subtitleStream = selectedSubtitleIndex >= 0 ? subtitleStreamsList[selectedSubtitleIndex] : null;
-			playbackOptions = {
-				mediaSourceId: resumeMediaSource.Id,
-				audioStreamIndex: selectedAudio?.Index,
-				subtitleStreamIndex: subtitleStream?.Index ?? -1
-			};
-		}
-
-		onPlay?.(item, true, playbackOptions);
-	}, [item, onPlay, selectedAudioIndex, selectedSubtitleIndex, selectedVersionIndex]);
+		onPlay?.(item, true, buildPlaybackOptions());
+	}, [item, onPlay, buildPlaybackOptions]);
 
 	const handleShuffle = useCallback(async () => {
 		if (!item) return;
@@ -825,6 +826,31 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			}
 		});
 	}, []);
+
+	// Holding Play offers the same forced transcodes the mobile clients do, for a file
+	// the set can open but not decode smoothly. A series or an album keeps the plain
+	// press, since there is no single stream to pick a quality for.
+	const openAdvancedPlayback = useCallback((resume) => {
+		advancedResumeRef.current = resume;
+		openModal('advancedPlayback');
+	}, [openModal]);
+
+	const handleAdvancedPlay = useCallback(() => openAdvancedPlayback(false), [openAdvancedPlayback]);
+	const handleAdvancedResume = useCallback(() => openAdvancedPlayback(true), [openAdvancedPlayback]);
+
+	const handleSelectTranscodeQuality = useCallback((e) => {
+		const bitrate = parseInt(e.currentTarget.dataset.bitrate, 10);
+		closeModal();
+		if (!item || isNaN(bitrate)) return;
+		onPlay?.(item, advancedResumeRef.current, {
+			...buildPlaybackOptions(),
+			forceBitrate: bitrate,
+			forceTranscode: true
+		});
+	}, [item, onPlay, buildPlaybackOptions, closeModal]);
+
+	const playLongPress = useLongPress(supportsStreamSelection ? handleAdvancedPlay : null, handlePlay);
+	const resumeLongPress = useLongPress(supportsStreamSelection ? handleAdvancedResume : null, handleResume);
 
 	const handleSelectAudio = useCallback((e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
@@ -1588,7 +1614,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 	const renderActionButtons = (showPlayButtons = true) => (
 		<HorizontalContainer className={css.actionButtons} onKeyDown={handleButtonRowKeyDown} onFocus={handleButtonRowFocus} spotlightId="details-action-buttons">
 			{showPlayButtons && !isBook && hasPlaybackPosition && (
-				<SpottableDiv className={css.btnWrapper} onClick={handleResume} spotlightId="details-primary-btn">
+				<SpottableDiv className={css.btnWrapper} {...resumeLongPress} spotlightId="details-primary-btn">
 					<div className={css.btnAction}>
 						<span className={css.btnIcon}>▶</span>
 					</div>
@@ -1597,7 +1623,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 				</SpottableDiv>
 			)}
 			{showPlayButtons && (isBook ? isReadableBook : true) && (
-				<SpottableDiv className={css.btnWrapper} onClick={handlePlay} onFocus={handleButtonRowFocus} spotlightId={hasPlaybackPosition ? undefined : 'details-primary-btn'}>
+				<SpottableDiv className={css.btnWrapper} {...playLongPress} onFocus={handleButtonRowFocus} spotlightId={hasPlaybackPosition ? undefined : 'details-primary-btn'}>
 					<div className={css.btnAction}>
 						{hasPlaybackPosition && !isBook ? (
 							<svg className={css.btnIcon} viewBox="0 -960 960 960">
@@ -1713,6 +1739,27 @@ const handleSectionKeyDown = useCallback((ev) => {
 
 	const renderModals = () => (
 		<>
+			{activeModal === 'advancedPlayback' && (
+				<div className={css.trackModal} onClick={closeModal}>
+					<ModalContainer className={css.trackModalPanel} onClick={handleStopPropagation} data-modal="advancedPlayback" spotlightId="advancedPlayback-modal">
+						<h2 className={css.trackModalTitle}>{$L('Advanced Playback')}</h2>
+						<div className={css.trackList}>
+							{TRANSCODE_QUALITIES.map((quality, i) => (
+								<SpottableButton
+									key={quality.bitrate}
+									className={css.trackItem}
+									data-bitrate={quality.bitrate}
+									data-selected={i === 0 ? 'true' : undefined}
+									onClick={handleSelectTranscodeQuality}
+								>
+									<span className={css.trackName}>{$L('Transcode Stream')}: {quality.label()}</span>
+								</SpottableButton>
+							))}
+						</div>
+						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
+					</ModalContainer>
+				</div>
+			)}
 			{activeModal === 'version' && (
 				<div className={css.trackModal} onClick={closeModal}>
 					<ModalContainer className={css.trackModalPanel} onClick={handleStopPropagation} data-modal="version" spotlightId="version-modal">

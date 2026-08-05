@@ -1143,6 +1143,8 @@ const AppContent = (props) => {
 								initialAudioIndex={playbackOptions?.audioStreamIndex}
 								initialSubtitleIndex={playbackOptions?.subtitleStreamIndex}
 								initialStartPositionTicks={playbackOptions?.startPositionTicks}
+								initialQuality={playbackOptions?.forceBitrate}
+								forceTranscode={playbackOptions?.forceTranscode}
 								audioPlaylist={playbackOptions?.audioPlaylist}
 								videoQueue={playbackOptions?.videoQueue}
 								onEnded={handlePlayerEnd}
