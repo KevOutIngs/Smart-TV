@@ -6,25 +6,17 @@ import Spotlight from '@enact/spotlight';
 import Button from '@enact/sandstone/Button';
 import Slider from '@enact/sandstone/Slider';
 import {useAuth} from '../../context/AuthContext';
-import {useSettings, DEFAULT_HOME_ROWS} from '../../context/SettingsContext';
+import {useSettings} from '../../context/SettingsContext';
 import {useSeerr} from '../../context/SeerrContext';
 import {useDeviceInfo} from '../../hooks/useDeviceInfo';
-import serverLogger from '../../services/serverLogger';
-import connectionPool from '../../services/connectionPool';
 import {isBackKey} from '../../utils/keys';
 import {isWebOS} from '../../platform';
 import ClearDataDialog from '../../components/ClearDataDialog';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
 import {clearAllStorage} from '../../services/storage';
-import {fetchThemeStoreCatalog, fetchThemeJson} from '../../services/themeStoreApi';
 import {getSeerrHomeRowConfigs, SEERR_CONFIG_TO_SECTION} from '../../utils/seerrHomeRows';
 import {TMDB_PRESETS, detectCustomSource, validateCustomRow} from '../../utils/externalHomeRows';
 import {formatPlaybackTimeSlot} from '../../utils/playbackTimeLabels';
-import {MATERIAL_ICON_PATHS} from './materialIconMap';
-import {
-	ordered, hiddenSet, DETAIL_BUTTONS, OSD_BUTTONS,
-	DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY, OSD_ORDER_KEY, OSD_HIDDEN_KEY
-} from '../../utils/buttonLayout';
 import {
 	getHomeRowsStyleOptions,
 	getLabel,
@@ -32,6 +24,15 @@ import {
 } from './settingsOptions';
 import {KIND, SCHEMA_BY_KEY, SETTINGS_SCHEMA, resolve, spotlightIdOf} from './settingsSchema';
 import {MIN_QUERY_LENGTH, buildSettingsIndex, matchSettings} from './settingsSearch';
+import {CATEGORY_ICONS, IconArrowUp, IconArrowDown, renderSettingsIcon, renderToggle, renderRadio, renderChevron} from './settingsIcons';
+import {PLUGIN_SECTION_RENDER_STEP, getPluginSectionSourceLabel, isHomeRowVisibleByGates} from './homeSectionsModel';
+import useSeerrAccount from './useSeerrAccount';
+import useThemeStore from './useThemeStore';
+import useHomeRowsEditor from './useHomeRowsEditor';
+import useButtonLayoutEditor from './useButtonLayoutEditor';
+import useLibraryVisibility from './useLibraryVisibility';
+import useMediaBarSources from './useMediaBarSources';
+import useDiagnosticsLog, {LOG_FILTERS, LOG_RENDER_STEP, logLevelColor} from './useDiagnosticsLog';
 
 import css from './Settings.module.less';
 
@@ -43,163 +44,6 @@ const ViewContainer = SpotlightContainerDecorator({
 	leaveFor: {left: '', right: '', up: '', down: ''}
 }, 'div');
 
-const IconGeneral = () => (
-	<svg viewBox='0 0 24 24' fill='currentColor'>
-		<path d='M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' />
-	</svg>
-);
-
-const IconPlayback = () => (
-	<svg viewBox='0 0 24 24' fill='currentColor'>
-		<path d='M8 5v14l11-7z' />
-	</svg>
-);
-
-const IconDisplay = () => (
-	<svg viewBox='0 0 24 24' fill='currentColor'>
-		<path d='M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z' />
-	</svg>
-);
-
-const IconAbout = () => (
-	<svg viewBox='0 0 24 24' fill='currentColor'>
-		<path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z' />
-	</svg>
-);
-
-const IconPlugin = () => (
-	<svg viewBox='0 0 24 24' fill='currentColor'>
-		<path d='M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7s2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z' />
-	</svg>
-);
-
-const IconChevron = () => (
-	<svg viewBox='0 0 24 24' fill='currentColor'>
-		<path d='M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z' />
-	</svg>
-);
-
-// The reorder buttons draw their arrows as inline SVG rather than Sandstone font
-// icons, which render on webOS but not Tizen.
-const IconArrowUp = () => (
-	<svg width='36' height='36' viewBox='0 -960 960 960' fill='currentColor' aria-hidden='true' focusable='false'>
-		<path d='M480-528 296-344l-56-56 240-240 240 240-56 56-184-184Z' />
-	</svg>
-);
-
-const IconArrowDown = () => (
-	<svg width='36' height='36' viewBox='0 -960 960 960' fill='currentColor' aria-hidden='true' focusable='false'>
-		<path d='M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z' />
-	</svg>
-);
-
-const MATERIAL_ICON_NAME_MAP = {
-	alert02: 'warning',
-	aligncenter: 'align_horizontal_center',
-	alignleft: 'align_horizontal_left',
-	alignright: 'align_horizontal_right',
-	appscontents: 'view_carousel',
-	arrowlargedown: 'vertical_align_bottom',
-	arrowupdown: 'swap_vert',
-	aspectratio: 'image_aspect_ratio',
-	background: 'blur_on',
-	browser: 'view_sidebar',
-	check: 'check',
-	circle: 'circle',
-	colorpicker: 'palette',
-	contrast: 'opacity',
-	dns: 'dns',
-	download: 'cloud_download',
-	edit: 'border_color',
-	exit: 'exit_to_app',
-	fifteenforward: 'fast_forward',
-	files: 'description',
-	filter: 'filter_list',
-	folder: 'folder',
-	folderupper: 'folder_open',
-	fullscreen: 'aspect_ratio',
-	gear: 'settings',
-	groups: 'groups',
-	heart: 'favorite',
-	hide: 'visibility_off',
-	info: 'info',
-	language: 'language',
-	light: 'light_mode',
-	list: 'list',
-	liveplay: 'live_tv',
-	lock: 'lock',
-	lockcircle: 'shield',
-	mediaplayer: 'live_tv',
-	movies: 'movie',
-	music: 'music_note',
-	newfeature: 'star',
-	pausecircle: 'pause_circle',
-	picture: 'image',
-	play: 'play_arrow',
-	playcircle: 'play_circle',
-	playspeed: 'speed',
-	profile: 'account_circle',
-	plug: 'extension',
-	refresh: 'sync',
-	replay: 'replay',
-	scheduler: 'schedule',
-	seerr: 'seerr',
-	screenpower: 'tv',
-	shuffle: 'shuffle',
-	show: 'visibility',
-	skip: 'skip_next',
-	sound: 'volume_up',
-	speaker: 'speaker',
-	spanner: 'tune',
-	star: 'star',
-	timer: 'timer',
-	textinput: 'format_size',
-	wifi4: 'wifi',
-	zoomin: 'zoom_in'
-};
-
-const toMaterialIconName = (iconName) => MATERIAL_ICON_NAME_MAP[iconName] || iconName;
-
-const renderSettingsIcon = (iconName) => {
-	if (!iconName) return null;
-	const iconPath = MATERIAL_ICON_PATHS[toMaterialIconName(iconName)] || MATERIAL_ICON_PATHS.settings;
-
-	return (
-		<div className={css.listItemIcon}>
-			<svg
-				className={css.materialIconSvg}
-				viewBox='0 -960 960 960'
-				fill='currentColor'
-				aria-hidden='true'
-				focusable='false'
-			>
-				<path d={iconPath} />
-			</svg>
-		</div>
-	);
-};
-
-// The schema names its category icon as a string so it stays free of JSX.
-const CATEGORY_ICONS = {
-	general: IconGeneral,
-	display: IconDisplay,
-	plugin: IconPlugin,
-	playback: IconPlayback,
-	about: IconAbout
-};
-
-const getSortOrderFromSortBy = (sortBy) => {
-	if (sortBy === 'SortName') return 'Ascending';
-	if (sortBy === 'Random') return 'Ascending';
-	return 'Descending';
-};
-
-const getGenresIncludeTypes = (filter) => {
-	if (filter === 'Movie') return 'Movie';
-	if (filter === 'Series') return 'Series';
-	return 'Movie,Series';
-};
-
 const hexToRgba = (hex) => {
 	const clean = hex.replace('#', '');
 	const a = parseInt(clean.slice(0, 2), 16) / 255;
@@ -210,190 +54,9 @@ const hexToRgba = (hex) => {
 	return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
 };
 
-const FAVORITES_ROW_IDS = [
-	'favoriteMovies',
-	'favoriteSeries',
-	'favoriteEpisodes',
-	'favoritePeople',
-	'favoriteArtists',
-	'favoriteMusicVideos',
-	'favoriteAlbums',
-	'favoriteSongs'
-];
-
-const INITIAL_PLUGIN_SECTION_RENDER_COUNT = 60;
-const PLUGIN_SECTION_RENDER_STEP = 60;
-
-const isHomeRowVisibleByGates = (rowId, currentSettings) => {
-	if (FAVORITES_ROW_IDS.includes(rowId)) return currentSettings.displayFavoritesRows;
-	if (rowId === 'collections') return currentSettings.displayCollectionsRows;
-	if (rowId === 'genres') return currentSettings.displayGenresRows;
-	if (rowId === 'playlists') return currentSettings.displayPlaylistsRows;
-	if (rowId === 'imdb-top250-movies') return currentSettings.imdbTop250MoviesEnabled;
-	if (rowId === 'imdb-top250-tv') return currentSettings.imdbTop250TvShowsEnabled;
-	if (rowId === 'imdb-popular-movies') return currentSettings.imdbMostPopularMoviesEnabled;
-	if (rowId === 'imdb-popular-tv') return currentSettings.imdbMostPopularTvShowsEnabled;
-	if (rowId === 'imdb-lowest-rated') return currentSettings.imdbLowestRatedMoviesEnabled;
-	if (rowId === 'imdb-top-english') return currentSettings.imdbTopEnglishMoviesEnabled;
-	if (rowId.startsWith('seerr_') || rowId.startsWith('tmdb_') || rowId === 'radarr_calendar' || rowId === 'sonarr_calendar') {
-		return currentSettings.useMoonfinPlugin;
-	}
-	return true;
-};
-
-const mergeDiscoveredPluginSections = (existingSections, discoveredSections, source, toPluginSection) => {
-	const existing = Array.isArray(existingSections) ? existingSections : [];
-	const discovered = Array.isArray(discoveredSections) ? discoveredSections : [];
-
-	if (discovered.length === 0) {
-		return [...existing].sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
-	}
-
-	const existingMap = new Map(existing.map((section) => [section.id, section]));
-	let nextOrder = existing.length;
-
-	const mergedSourceSections = discovered.map((section) => {
-		const existingSection = existingMap.get(section.id);
-		const fallbackOrder = existingSection?.order ?? nextOrder++;
-		return toPluginSection(section, existingSection, fallbackOrder);
-	});
-
-	return [...existing.filter((section) => section.source !== source), ...mergedSourceSections]
-		.sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
-		.map((section, index) => ({...section, order: index}));
-};
-
-const COLLECTIONS_SECTION_SOURCE = 'collections';
-const GENRES_SECTION_SOURCE = 'genres';
-
-const normalizeSectionToken = (value, fallback) => {
-	if (value === undefined || value === null) return fallback;
-	const normalized = String(value)
-		.trim()
-		.toLowerCase()
-		.replace(/[^a-z0-9_-]+/g, '-')
-		.replace(/^-+|-+$/g, '');
-	return normalized || fallback;
-};
-
-const buildCollectionPluginSections = (collections, sortBy, sortOrder) => {
-	const items = Array.isArray(collections) ? collections : [];
-	return items.map((collection, index) => {
-		const collectionId = collection?.Id || `collection-${index + 1}`;
-		const displayText = collection?.Name || $L('Collection {index}').replace('{index}', String(index + 1));
-		return {
-			id: `collection:${normalizeSectionToken(collectionId, `collection-${index + 1}`)}`,
-			displayText,
-			order: index,
-			source: COLLECTIONS_SECTION_SOURCE,
-			specJson: JSON.stringify({
-				kind: 'collection',
-				collectionId: String(collectionId),
-				collectionName: String(displayText),
-				sortBy,
-				sortOrder,
-				limit: 40
-			})
-		};
-	});
-};
-
-const buildGenrePluginSections = (genres, includeItemTypes, sortBy, sortOrder) => {
-	let items = Array.isArray(genres) ? genres : [];
-	if (sortBy === 'SortName' || sortBy === 'Name') {
-		items = [...items].sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
-	} else if (sortBy === 'Random') {
-		items = [...items].sort(() => Math.random() - 0.5);
-	}
-	return items.map((genre, index) => {
-		const genreId = genre?.Id || genre?.Name || `genre-${index + 1}`;
-		const genreName = genre?.Name || $L('Genre {index}').replace('{index}', String(index + 1));
-		return {
-			id: `genre:${normalizeSectionToken(genreId, normalizeSectionToken(genreName, `genre-${index + 1}`))}`,
-			displayText: genreName,
-			order: index,
-			source: GENRES_SECTION_SOURCE,
-			specJson: JSON.stringify({
-				kind: 'genre',
-				genreId: String(genreId),
-				genreName: String(genreName),
-				includeItemTypes,
-				sortBy,
-				sortOrder,
-				limit: 40
-			})
-		};
-	});
-};
-
-const builtInSectionToPluginSection = (section, existingSection = null, fallbackOrder = 0) => ({
-	id: section.id,
-	name: section.displayText,
-	enabled: existingSection?.enabled ?? false,
-	order: existingSection?.order ?? fallbackOrder,
-	source: section.source,
-	specJson: section.specJson
-});
-
-const getPluginSectionSourceLabel = (source) => {
-	if (source === COLLECTIONS_SECTION_SOURCE) return $L('Collections');
-	if (source === GENRES_SECTION_SOURCE) return $L('Genres');
-	return $L('Home Screen Sections');
-};
-
-const renderToggle = (isOn) => (
-	<div className={`${css.toggleTrack} ${isOn ? css.toggleOn : ''}`}>
-		<div className={css.toggleThumb} />
-	</div>
-);
-
-const renderRadio = (isSelected) => (
-	<div className={`${css.radioOuter} ${isSelected ? css.radioSelected : ''}`}>
-		<div className={css.radioInner} />
-	</div>
-);
-
-const renderChevron = () => (
-	<div className={css.chevronIcon}>
-		<IconChevron />
-	</div>
-);
-
-const LOG_CATEGORIES = serverLogger.LOG_CATEGORIES;
-const LOG_LEVELS = serverLogger.LOG_LEVELS;
-
-const LOG_FILTERS = [
-	{id: 'all', label: 'All'},
-	{id: LOG_CATEGORIES.NETWORK, label: 'Network'},
-	{id: LOG_CATEGORIES.PLAYBACK, label: 'Playback'},
-	{id: LOG_CATEGORIES.APP, label: 'Application'},
-	{id: LOG_CATEGORIES.AUTHENTICATION, label: 'Auth'},
-	{id: LOG_CATEGORIES.NAVIGATION, label: 'Navigation'}
-];
-
-// A full buffer is hundreds of spottable rows, which is more than these sets will draw
-// without the screen itself becoming the slow thing.
-const LOG_RENDER_STEP = 50;
-
-const logLevelColor = (level) => {
-	if (level === LOG_LEVELS.ERROR || level === LOG_LEVELS.FATAL) return 'var(--theme-recording-active, #ff6b6b)';
-	if (level === LOG_LEVELS.WARNING) return 'var(--theme-status-pending, #ffd166)';
-	return 'var(--theme-text-primary, #fff)';
-};
-
-// The details row and the player controls are arranged the same way, so one view drives both
-// and only the storage keys differ.
-const buttonLayoutKeys = (kind) => (kind === 'osd'
-	? {catalogue: OSD_BUTTONS, orderKey: OSD_ORDER_KEY, hiddenKey: OSD_HIDDEN_KEY}
-	: {catalogue: DETAIL_BUTTONS, orderKey: DETAIL_ORDER_KEY, hiddenKey: DETAIL_HIDDEN_KEY});
-
 const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	const { api, serverUrl, accessToken, hasMultipleServers, logoutAll } = useAuth();
 	const { settings, updateSetting, updateSettings, resetSettings, availableThemes, activeThemeId, selectThemeById, saveStoreTheme, deleteStoreTheme } = useSettings();
-	const [themeStoreCatalog, setThemeStoreCatalog] = useState([]);
-	const [themeStoreLoading, setThemeStoreLoading] = useState(false);
-	const [themeStoreError, setThemeStoreError] = useState(false);
-	const [themeStoreBusyId, setThemeStoreBusyId] = useState(null);
 	const { capabilities } = useDeviceInfo();
 	const seerr = useSeerr();
 	const isSeerr = seerr.isMoonfin && seerr.variant === 'seerr';
@@ -443,29 +106,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	}, [onBack]);
 
 	const [serverVersion, setServerVersion] = useState(null);
-	const [tempHomeRows, setTempHomeRows] = useState([]);
-	const [tempButtons, setTempButtons] = useState([]);
-	const [buttonLayoutKind, setButtonLayoutKind] = useState('detail');
-	const [logEntries, setLogEntries] = useState([]);
-	const [logFilter, setLogFilter] = useState('all');
-	const [logRenderLimit, setLogRenderLimit] = useState(LOG_RENDER_STEP);
-	const [logMessage, setLogMessage] = useState('');
-	const [sendingReport, setSendingReport] = useState(false);
-	const [tempPluginSections, setTempPluginSections] = useState([]);
-	const [allLibraries, setAllLibraries] = useState([]);
-	const [hiddenLibraries, setHiddenLibraries] = useState([]);
-	const [libraryLoading, setLibraryLoading] = useState(false);
-	const [librarySaving, setLibrarySaving] = useState(false);
-	const [serverConfigs, setServerConfigs] = useState([]);
 	const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
-	const [moonfinStatus, setMoonfinStatus] = useState('');
-	const [moonfinConnecting, setMoonfinConnecting] = useState(false);
-	const [seerrAuthType, setSeerrAuthType] = useState('jellyfin');
-	const [seerrUsername, setSeerrUsername] = useState('');
-	const [seerrPassword, setSeerrPassword] = useState('');
-	const [seerrAuthSubmitting, setSeerrAuthSubmitting] = useState(false);
-	const [seerrAuthMessage, setSeerrAuthMessage] = useState('');
-	const [seerrAuthError, setSeerrAuthError] = useState('');
 	const [tempRatingSources, setTempRatingSources] = useState([]);
 	const [tempExcludedGenresText, setTempExcludedGenresText] = useState('');
 	const [customRowUrl, setCustomRowUrl] = useState('');
@@ -474,12 +115,6 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	const [customRowSaving, setCustomRowSaving] = useState(false);
 	const [tempPinCode, setTempPinCode] = useState('0000');
 	const [pinCodeError, setPinCodeError] = useState('');
-	const [pluginSectionRenderLimit, setPluginSectionRenderLimit] = useState(INITIAL_PLUGIN_SECTION_RENDER_COUNT);
-	const [mediaBarLibraries, setMediaBarLibraries] = useState([]);
-	const [mediaBarCollections, setMediaBarCollections] = useState([]);
-	const [tempMediaBarLibraryIds, setTempMediaBarLibraryIds] = useState([]);
-	const [tempMediaBarCollectionIds, setTempMediaBarCollectionIds] = useState([]);
-	const [mediaBarSourcesLoading, setMediaBarSourcesLoading] = useState(false);
 
 	const focusViewDefault = useCallback((cv) => {
 			if (cv.view === 'categories') {
@@ -592,19 +227,6 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	}, [popView]);
 
 	useEffect(() => {
-		const normalizedAuthType = seerr.moonfinAuthType === 'local' ? 'local' : 'jellyfin';
-		setSeerrAuthType(normalizedAuthType);
-	}, [seerr.moonfinAuthType]);
-
-	useEffect(() => {
-		if (!settings.useMoonfinPlugin) {
-			setSeerrPassword('');
-			setSeerrAuthMessage('');
-			setSeerrAuthError('');
-		}
-	}, [settings.useMoonfinPlugin]);
-
-	useEffect(() => {
 		if (serverUrl && accessToken) {
 			fetch(`${serverUrl}/System/Info`, {
 				headers: { Authorization: `MediaBrowser Token="${accessToken}"` }
@@ -636,140 +258,6 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		},
 		[updateSetting, popView, selectThemeById]
 	);
-
-	const handleMoonfinToggle = useCallback(async () => {
-		const enabling = !settings.useMoonfinPlugin;
-		updateSetting('useMoonfinPlugin', enabling);
-		setSeerrAuthMessage('');
-		setSeerrAuthError('');
-		if (enabling) {
-			if (!serverUrl || !accessToken) {
-				setMoonfinStatus($L('Not connected to a Jellyfin server'));
-				return;
-			}
-			setMoonfinConnecting(true);
-			setMoonfinStatus($L('Checking Moonfin plugin...'));
-			try {
-				const result = await seerr.configureWithMoonfin(serverUrl, accessToken);
-				if (result.authenticated) {
-					setMoonfinStatus($L('Connected via Moonfin!'));
-				} else {
-					setMoonfinStatus($L('Moonfin plugin found but no session. Please log in.'));
-				}
-			} catch (err) {
-				setMoonfinStatus(`${$L('Moonfin connection failed:')} ${err.message}`);
-			} finally {
-				setMoonfinConnecting(false);
-			}
-		} else {
-			seerr.disable();
-			setMoonfinStatus('');
-			setSeerrPassword('');
-		}
-	}, [settings.useMoonfinPlugin, updateSetting, serverUrl, accessToken, seerr]);
-
-	const handleSeerrAuthTypeChange = useCallback((nextAuthType) => {
-		const normalizedAuthType = nextAuthType === 'local' ? 'local' : 'jellyfin';
-		setSeerrAuthType(normalizedAuthType);
-		setSeerrAuthMessage('');
-		setSeerrAuthError('');
-		seerr.setMoonfinAuthType?.(normalizedAuthType).catch((err) => {
-			console.log('[Seerr] Failed to save auth type:', err.message);
-		});
-	}, [seerr]);
-
-	const handleSeerrLogin = useCallback(async () => {
-		const username = seerrUsername.trim();
-		if (!username) {
-			setSeerrAuthMessage('');
-			setSeerrAuthError($L('Enter username/email.'));
-			return;
-		}
-
-		setSeerrAuthSubmitting(true);
-		setSeerrAuthMessage('');
-		setSeerrAuthError('');
-
-		try {
-			await seerr.loginWithMoonfin(username, seerrPassword, seerrAuthType);
-			setSeerrPassword('');
-			setSeerrAuthMessage($L('Signed in to {seerrLabel}.').replace('{seerrLabel}', seerrLabel));
-			setMoonfinStatus($L('Connected via Moonfin!'));
-		} catch (err) {
-			const message = typeof err?.message === 'string' && err.message.trim()
-				? err.message.trim()
-				: $L('Sign-in failed');
-			setSeerrAuthError(message);
-		} finally {
-			setSeerrAuthSubmitting(false);
-		}
-	}, [seerr, seerrUsername, seerrPassword, seerrAuthType, seerrLabel]);
-
-	const handleSeerrPasswordKeyDown = useCallback((e) => {
-		const code = e.keyCode || e.which;
-		if ((code === 13 || e.key === 'Enter') && !seerrAuthSubmitting) {
-			e.preventDefault();
-			handleSeerrLogin();
-		}
-	}, [handleSeerrLogin, seerrAuthSubmitting]);
-
-	const handleSeerrLogout = useCallback(async () => {
-		setSeerrAuthSubmitting(true);
-		setSeerrAuthMessage('');
-		setSeerrAuthError('');
-
-		try {
-			await seerr.logout();
-			setSeerrPassword('');
-			setSeerrAuthMessage($L('Signed out from {seerrLabel}.').replace('{seerrLabel}', seerrLabel));
-			setMoonfinStatus($L('Moonfin plugin found but no session. Please log in.'));
-		} catch (err) {
-			const message = typeof err?.message === 'string' && err.message.trim()
-				? err.message.trim()
-				: $L('Sign-out failed');
-			setSeerrAuthError(message);
-		} finally {
-			setSeerrAuthSubmitting(false);
-		}
-	}, [seerr, seerrLabel]);
-
-	const openThemes = useCallback(() => {
-		pushView({ view: 'themes', returnFocusTo: 'setting-themeSelection' });
-	}, [pushView]);
-
-	const openThemeStore = useCallback(() => {
-		pushView({ view: 'themeStore', returnFocusTo: 'setting-themeStore' });
-	}, [pushView]);
-
-	useEffect(() => {
-		if (currentView.view !== 'themeStore' || themeStoreCatalog.length > 0 || themeStoreLoading) return;
-		setThemeStoreLoading(true);
-		setThemeStoreError(false);
-		fetchThemeStoreCatalog()
-			.then((list) => setThemeStoreCatalog(list))
-			.catch(() => setThemeStoreError(true))
-			.finally(() => setThemeStoreLoading(false));
-	}, [currentView.view, themeStoreCatalog.length, themeStoreLoading]);
-
-	// Store cards act like install/uninstall: saving applies immediately; a saved
-	// theme is removed here (it's still selectable from the Theme picker).
-	const handleStoreThemeClick = useCallback(async (entry) => {
-		if (themeStoreBusyId) return;
-		setThemeStoreBusyId(entry.id);
-		try {
-			if (availableThemes.some((t) => t.id === entry.id)) {
-				await deleteStoreTheme(entry.id);
-			} else {
-				const raw = await fetchThemeJson(entry.file);
-				const spec = await saveStoreTheme(raw);
-				selectThemeById(spec.id);
-			}
-		} catch (e) {
-			void e;
-		} finally {
-			setThemeStoreBusyId(null);
-		}
-	}, [themeStoreBusyId, availableThemes, selectThemeById, saveStoreTheme, deleteStoreTheme]);
 
 	const openRatingSources = useCallback(() => {
 		setTempRatingSources(Array.isArray(settings.mdblistRatingSources) ? [...settings.mdblistRatingSources] : []);
@@ -825,109 +313,9 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		popView();
 	}, [tempPinCode, updateSetting, popView]);
 
-	const openMediaBarLibraries = useCallback(async () => {
-		pushView({view: 'mediaBarLibraries', returnFocusTo: 'setting-sourceLibraries'});
-		setMediaBarSourcesLoading(true);
-		setTempMediaBarLibraryIds(Array.isArray(settings.mediaBarLibraryIds) ? [...settings.mediaBarLibraryIds] : []);
-		try {
-			const viewsResult = await api.getAllLibraries();
-			const libs = (viewsResult?.Items || []).filter((lib) => lib?.CollectionType === 'movies' || lib?.CollectionType === 'tvshows');
-			setMediaBarLibraries(libs);
-		} catch (err) {
-			void err;
-			setMediaBarLibraries([]);
-		} finally {
-			setMediaBarSourcesLoading(false);
-		}
-	}, [api, pushView, settings.mediaBarLibraryIds]);
-
-	const openMediaBarCollections = useCallback(async () => {
-		pushView({view: 'mediaBarCollections', returnFocusTo: 'setting-sourceCollections'});
-		setMediaBarSourcesLoading(true);
-		setTempMediaBarCollectionIds(Array.isArray(settings.mediaBarCollectionIds) ? [...settings.mediaBarCollectionIds] : []);
-		try {
-			const result = await api.getCollections(500, 'SortName', 'Ascending');
-			setMediaBarCollections(result?.Items || []);
-		} catch (err) {
-			void err;
-			setMediaBarCollections([]);
-		} finally {
-			setMediaBarSourcesLoading(false);
-		}
-	}, [api, pushView, settings.mediaBarCollectionIds]);
-
-	const toggleMediaBarLibrary = useCallback((libraryId) => {
-		setTempMediaBarLibraryIds((prev) => {
-			if (prev.includes(libraryId)) return prev.filter((id) => id !== libraryId);
-			return [...prev, libraryId];
-		});
-	}, []);
-
-	const toggleMediaBarCollection = useCallback((collectionId) => {
-		setTempMediaBarCollectionIds((prev) => {
-			if (prev.includes(collectionId)) return prev.filter((id) => id !== collectionId);
-			return [...prev, collectionId];
-		});
-	}, []);
-
-	const saveMediaBarLibraries = useCallback(() => {
-		updateSettings({
-			mediaBarSourceType: 'library',
-			mediaBarLibraryIds: tempMediaBarLibraryIds
-		});
-		popView();
-	}, [tempMediaBarLibraryIds, updateSettings, popView]);
-
-	const saveMediaBarCollections = useCallback(() => {
-		updateSettings({
-			mediaBarSourceType: 'collection',
-			mediaBarCollectionIds: tempMediaBarCollectionIds
-		});
-		popView();
-	}, [tempMediaBarCollectionIds, updateSettings, popView]);
-
-	const refreshBuiltInCollectionGenreSections = useCallback(async () => {
-		const collectionsSortBy = settings.collectionsRowSortBy || 'SortName';
-		const collectionsSortOrder = getSortOrderFromSortBy(collectionsSortBy);
-		const genresSortBy = settings.genresRowSortBy || 'SortName';
-		const genresSortOrder = getSortOrderFromSortBy(genresSortBy);
-		const genresIncludeTypes = getGenresIncludeTypes(settings.genresRowItemFilter);
-
-		const [collectionsResult, genresResult] = await Promise.all([
-			settings.displayCollectionsRows
-				? api.getCollections(500, collectionsSortBy, collectionsSortOrder).catch(() => null)
-				: Promise.resolve(null),
-			settings.displayGenresRows
-				? api.getGenres(undefined, genresIncludeTypes, genresSortBy, genresSortOrder).catch(() => null)
-				: Promise.resolve(null)
-		]);
-
-		return {
-			collections: buildCollectionPluginSections(collectionsResult?.Items || [], collectionsSortBy, collectionsSortOrder),
-			genres: buildGenrePluginSections(genresResult?.Items || [], genresIncludeTypes, genresSortBy, genresSortOrder)
-		};
-	}, [
-		api,
-		settings.collectionsRowSortBy,
-		settings.displayCollectionsRows,
-		settings.displayGenresRows,
-		settings.genresRowItemFilter,
-		settings.genresRowSortBy
-	]);
-
 	const openSeerrHomeRows = useCallback(() => {
 		pushView({view: 'seerrHomeRows', returnFocusTo: 'setting-seerrHomeRows'});
 	}, [pushView]);
-
-	const toggleHomeRowEnabled = useCallback((sectionId) => {
-		const current = Array.isArray(settings.homeRows) ? settings.homeRows : [];
-		const next = current.map((row) => (row.id === sectionId ? {...row, enabled: !row.enabled} : row));
-		updateSetting('homeRows', next);
-	}, [settings.homeRows, updateSetting]);
-
-	const toggleSeerrHomeRow = useCallback((rowId) => {
-		toggleHomeRowEnabled(SEERR_CONFIG_TO_SECTION[rowId] || rowId);
-	}, [toggleHomeRowEnabled]);
 
 	const openImdbLists = useCallback(() => {
 		pushView({ view: 'imdbLists', returnFocusTo: 'setting-imdbLists' });
@@ -945,279 +333,52 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		pushView({view: 'externalCustomRows', returnFocusTo: 'setting-externalCustomRows'});
 	}, [pushView]);
 
-	const openHomeRows = useCallback(() => {
-		setTempHomeRows([...(settings.homeRows || DEFAULT_HOME_ROWS)].sort((a, b) => a.order - b.order));
-		setPluginSectionRenderLimit(INITIAL_PLUGIN_SECTION_RENDER_COUNT);
-		pushView({ view: 'homeRows', returnFocusTo: 'setting-homeRows' });
+	const {
+		moonfinStatus, moonfinConnecting, seerrAuthType, seerrUsername, onSeerrUsernameChange,
+		seerrPassword, onSeerrPasswordChange, seerrAuthSubmitting, seerrAuthMessage, seerrAuthError,
+		handleMoonfinToggle, handleSeerrAuthTypeChange, handleSeerrLogin,
+		handleSeerrPasswordKeyDown, handleSeerrLogout
+	} = useSeerrAccount({seerr, seerrLabel, settings, updateSetting, serverUrl, accessToken});
 
-		refreshBuiltInCollectionGenreSections()
-			.then((builtInSections) => {
-				setTempPluginSections((prev) => {
-					let merged = [...prev].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-					if ((builtInSections.collections || []).length > 0) {
-						merged = mergeDiscoveredPluginSections(
-							merged,
-							builtInSections.collections,
-							COLLECTIONS_SECTION_SOURCE,
-							builtInSectionToPluginSection
-						);
-					}
-					if ((builtInSections.genres || []).length > 0) {
-						merged = mergeDiscoveredPluginSections(
-							merged,
-							builtInSections.genres,
-							GENRES_SECTION_SOURCE,
-							builtInSectionToPluginSection
-						);
-					}
-					return merged;
-				});
-			})
-			.catch(() => {});
-	}, [settings.homeRows, pushView, refreshBuiltInCollectionGenreSections]);
+	const {
+		themeStoreCatalog, themeStoreLoading, themeStoreError, themeStoreBusyId,
+		openThemes, openThemeStore, handleStoreThemeClick
+	} = useThemeStore({
+		currentViewName: currentView.view,
+		pushView,
+		availableThemes,
+		selectThemeById,
+		saveStoreTheme,
+		deleteStoreTheme
+	});
 
-	const saveHomeRows = useCallback(() => {
-		const updates = {homeRows: tempHomeRows, pluginSections: tempPluginSections};
-		const imdbMap = {
-			'imdb-top250-movies': 'imdbTop250MoviesEnabled',
-			'imdb-top250-tv': 'imdbTop250TvShowsEnabled',
-			'imdb-popular-movies': 'imdbMostPopularMoviesEnabled',
-			'imdb-popular-tv': 'imdbMostPopularTvShowsEnabled',
-			'imdb-lowest-rated': 'imdbLowestRatedMoviesEnabled',
-			'imdb-top-english': 'imdbTopEnglishMoviesEnabled'
-		};
-		tempHomeRows.forEach((row) => {
-			const settingKey = imdbMap[row.id];
-			if (settingKey) {
-				updates[settingKey] = row.enabled;
-			}
-		});
-		updateSettings(updates);
-		popView();
-	}, [tempHomeRows, tempPluginSections, updateSettings, popView]);
+	const {
+		tempHomeRows, tempPluginSections, pluginSectionRenderLimit, setPluginSectionRenderLimit,
+		toggleHomeRowEnabled, toggleSeerrHomeRow, openHomeRows, saveHomeRows, resetHomeRows,
+		toggleHomeRow, moveHomeRowUp, moveHomeRowDown,
+		togglePluginSection, movePluginSectionUp, movePluginSectionDown
+	} = useHomeRowsEditor({api, settings, updateSetting, updateSettings, pushView, popView});
 
-	const resetHomeRows = useCallback(() => {
-		setTempHomeRows([...DEFAULT_HOME_ROWS]);
-	}, []);
+	const {
+		tempButtons, buttonLayoutKind, openDetailButtons, openOsdButtons,
+		saveButtonLayout, resetButtonLayout, toggleLayoutButton, moveLayoutButton
+	} = useButtonLayoutEditor({settings, updateSettings, pushView, popView});
 
-	const toggleHomeRow = useCallback((rowId) => {
-		setTempHomeRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, enabled: !row.enabled } : row)));
-	}, []);
+	const {
+		allLibraries, hiddenLibraries, libraryLoading, librarySaving,
+		openLibraries, toggleLibraryVisibility, saveLibraryVisibility
+	} = useLibraryVisibility({api, settings, hasMultipleServers, pushView, popView, onLibrariesChanged});
 
-	const moveHomeRowUp = useCallback((rowId) => {
-		setTempHomeRows((prev) => {
-			const visibleRows = prev.filter((row) => isHomeRowVisibleByGates(row.id, settings));
-			const visibleIndex = visibleRows.findIndex((row) => row.id === rowId);
-			if (visibleIndex <= 0) return prev;
-			const targetId = visibleRows[visibleIndex - 1].id;
-			const index = prev.findIndex((r) => r.id === rowId);
-			const targetIndex = prev.findIndex((r) => r.id === targetId);
-			if (index < 0 || targetIndex < 0) return prev;
-			const newRows = [...prev];
-			const temp = newRows[index].order;
-			newRows[index].order = newRows[targetIndex].order;
-			newRows[targetIndex].order = temp;
-			return newRows.sort((a, b) => a.order - b.order);
-		});
-	}, [settings]);
+	const {
+		mediaBarLibraries, mediaBarCollections, tempMediaBarLibraryIds, tempMediaBarCollectionIds,
+		mediaBarSourcesLoading, openMediaBarLibraries, openMediaBarCollections,
+		toggleMediaBarLibrary, toggleMediaBarCollection, saveMediaBarLibraries, saveMediaBarCollections
+	} = useMediaBarSources({api, settings, updateSettings, pushView, popView});
 
-	const moveHomeRowDown = useCallback((rowId) => {
-		setTempHomeRows((prev) => {
-			const visibleRows = prev.filter((row) => isHomeRowVisibleByGates(row.id, settings));
-			const visibleIndex = visibleRows.findIndex((row) => row.id === rowId);
-			if (visibleIndex < 0 || visibleIndex >= visibleRows.length - 1) return prev;
-			const targetId = visibleRows[visibleIndex + 1].id;
-			const index = prev.findIndex((r) => r.id === rowId);
-			const targetIndex = prev.findIndex((r) => r.id === targetId);
-			if (index < 0 || targetIndex < 0) return prev;
-			const newRows = [...prev];
-			const temp = newRows[index].order;
-			newRows[index].order = newRows[targetIndex].order;
-			newRows[targetIndex].order = temp;
-			return newRows.sort((a, b) => a.order - b.order);
-		});
-	}, [settings]);
-
-	const openDiagnostics = useCallback(() => {
-		setLogEntries(serverLogger.getBuffer());
-		setLogFilter('all');
-		setLogRenderLimit(LOG_RENDER_STEP);
-		setLogMessage('');
-		pushView({view: 'diagnostics', returnFocusTo: 'setting-diagnostics'});
-	}, [pushView]);
-
-	// Entries arrive while the screen is open, so follow the logger rather than polling it.
-	useEffect(() => {
-		if (currentView.view !== 'diagnostics') return undefined;
-		return serverLogger.subscribe(() => setLogEntries(serverLogger.getBuffer()));
-	}, [currentView.view]);
-
-	const handleClearLogs = useCallback(() => {
-		serverLogger.clear();
-		setLogMessage($L('Logs cleared'));
-	}, []);
-
-	const handleSendReport = useCallback(async () => {
-		setSendingReport(true);
-		setLogMessage('');
-		try {
-			await serverLogger.uploadReport();
-			setLogMessage($L('Report sent to the server'));
-		} catch (err) {
-			setLogMessage(err?.status === 403
-				? $L('The server is not accepting client logs. Enable them in the server dashboard.')
-				: $L('Could not send the report.'));
-		} finally {
-			setSendingReport(false);
-		}
-	}, []);
-
-	const openButtonLayout = useCallback((kind) => {
-		const {catalogue, orderKey, hiddenKey} = buttonLayoutKeys(kind);
-		const off = hiddenSet(settings[hiddenKey]);
-		setButtonLayoutKind(kind);
-		setTempButtons(ordered(catalogue, settings[orderKey]).map((btn) => ({...btn, enabled: !off.has(btn.id)})));
-		pushView({view: 'buttonLayout', returnFocusTo: kind === 'osd' ? 'setting-osdButtons' : 'setting-detailButtons'});
-	}, [settings, pushView]);
-
-	const openDetailButtons = useCallback(() => openButtonLayout('detail'), [openButtonLayout]);
-	const openOsdButtons = useCallback(() => openButtonLayout('osd'), [openButtonLayout]);
-
-	const saveButtonLayout = useCallback(() => {
-		const {orderKey, hiddenKey} = buttonLayoutKeys(buttonLayoutKind);
-		updateSettings({
-			[orderKey]: tempButtons.map((btn) => btn.id),
-			[hiddenKey]: tempButtons.filter((btn) => !btn.enabled).map((btn) => btn.id)
-		});
-		popView();
-	}, [buttonLayoutKind, tempButtons, updateSettings, popView]);
-
-	const resetButtonLayout = useCallback(() => {
-		setTempButtons(buttonLayoutKeys(buttonLayoutKind).catalogue.map((btn) => ({...btn, enabled: true})));
-	}, [buttonLayoutKind]);
-
-	const toggleLayoutButton = useCallback((id) => {
-		setTempButtons((prev) => prev.map((btn) => (btn.id === id ? {...btn, enabled: !btn.enabled} : btn)));
-	}, []);
-
-	const moveLayoutButton = useCallback((id, delta) => {
-		setTempButtons((prev) => {
-			const index = prev.findIndex((btn) => btn.id === id);
-			const target = index + delta;
-			if (index < 0 || target < 0 || target >= prev.length) return prev;
-			const next = [...prev];
-			next[index] = prev[target];
-			next[target] = prev[index];
-			return next;
-		});
-	}, []);
-
-	const togglePluginSection = useCallback((sectionId) => {
-		setTempPluginSections((prev) => prev.map((section) => (section.id === sectionId ? {...section, enabled: !section.enabled} : section)));
-	}, []);
-
-	const movePluginSectionUp = useCallback((sectionId) => {
-		setTempPluginSections((prev) => {
-			const index = prev.findIndex((section) => section.id === sectionId);
-			if (index <= 0) return prev;
-			const next = [...prev];
-			const temp = next[index].order;
-			next[index].order = next[index - 1].order;
-			next[index - 1].order = temp;
-			return next.sort((a, b) => a.order - b.order);
-		});
-	}, []);
-
-	const movePluginSectionDown = useCallback((sectionId) => {
-		setTempPluginSections((prev) => {
-			const index = prev.findIndex((section) => section.id === sectionId);
-			if (index < 0 || index >= prev.length - 1) return prev;
-			const next = [...prev];
-			const temp = next[index].order;
-			next[index].order = next[index + 1].order;
-			next[index + 1].order = temp;
-			return next.sort((a, b) => a.order - b.order);
-		});
-	}, []);
-
-	const openLibraries = useCallback(async () => {
-		pushView({ view: 'libraries', returnFocusTo: 'setting-hideLibraries' });
-		setLibraryLoading(true);
-		try {
-			const isUnified = settings.unifiedLibraryMode && hasMultipleServers;
-			if (isUnified) {
-				const [allLibs, configs] = await Promise.all([
-					connectionPool.getAllLibrariesFromAllServers(),
-					connectionPool.getUserConfigFromAllServers()
-				]);
-				const libs = allLibs.filter((lib) => lib.CollectionType);
-				setAllLibraries(libs);
-				setServerConfigs(configs);
-				const allExcludes = configs.reduce((acc, cfg) => acc.concat(cfg.configuration?.MyMediaExcludes || []), []);
-				setHiddenLibraries([...new Set(allExcludes)]);
-			} else {
-				const [viewsResult, userData] = await Promise.all([api.getAllLibraries(), api.getUserConfiguration()]);
-				const libs = (viewsResult.Items || []).filter((lib) => lib.CollectionType);
-				setAllLibraries(libs);
-				setHiddenLibraries([...(userData.Configuration?.MyMediaExcludes || [])]);
-			}
-		} catch (err) {
-			console.error('Failed to load libraries:', err);
-		} finally {
-			setLibraryLoading(false);
-		}
-	}, [api, settings.unifiedLibraryMode, hasMultipleServers, pushView]);
-
-	const toggleLibraryVisibility = useCallback((libraryId) => {
-		setHiddenLibraries((prev) => {
-			if (prev.includes(libraryId)) return prev.filter((id) => id !== libraryId);
-			return [...prev, libraryId];
-		});
-	}, []);
-
-	const saveLibraryVisibility = useCallback(async () => {
-		setLibrarySaving(true);
-		try {
-			const isUnified = settings.unifiedLibraryMode && hasMultipleServers;
-			if (isUnified) {
-				const serverExcludes = {};
-				for (const lib of allLibraries) {
-					const key = lib._serverUrl;
-					if (!serverExcludes[key]) serverExcludes[key] = [];
-					if (hiddenLibraries.includes(lib.Id)) serverExcludes[key].push(lib.Id);
-				}
-				const savePromises = serverConfigs.map((cfg) => {
-					const excludes = serverExcludes[cfg.serverUrl] || [];
-					const updatedConfig = { ...cfg.configuration, MyMediaExcludes: excludes };
-					return connectionPool.updateUserConfigOnServer(cfg.serverUrl, cfg.accessToken, cfg.userId, updatedConfig);
-				});
-				await Promise.all(savePromises);
-			} else {
-				const userData = await api.getUserConfiguration();
-				const updatedConfig = { ...userData.Configuration, MyMediaExcludes: hiddenLibraries };
-				await api.updateUserConfiguration(updatedConfig);
-			}
-			popView();
-			setAllLibraries([]);
-			setHiddenLibraries([]);
-			setServerConfigs([]);
-			onLibrariesChanged?.();
-			window.dispatchEvent(new window.Event('moonfin:browseRefresh'));
-		} catch (err) {
-			console.error('Failed to save library visibility:', err);
-		} finally {
-			setLibrarySaving(false);
-		}
-	}, [
-		api,
-		hiddenLibraries,
-		allLibraries,
-		serverConfigs,
-		settings.unifiedLibraryMode,
-		hasMultipleServers,
-		onLibrariesChanged,
-		popView
-	]);
+	const {
+		logEntries, logFilter, setLogFilter, logRenderLimit, setLogRenderLimit,
+		logMessage, sendingReport, openDiagnostics, handleClearLogs, handleSendReport
+	} = useDiagnosticsLog({currentViewName: currentView.view, pushView});
 
 	// scrollIntoView options are ignored on older Tizen and webOS WebKit, which would
 	// leave a deep linked row focused somewhere off screen, so the scroller is nudged by
@@ -1643,11 +804,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 							className={css.input}
 							type='text'
 							value={seerrUsername}
-							onChange={(e) => {
-								setSeerrUsername(e.target.value);
-								setSeerrAuthMessage('');
-								setSeerrAuthError('');
-							}}
+							onChange={(e) => onSeerrUsernameChange(e.target.value)}
 							placeholder={seerrAuthType === 'local' ? $L('Local username or email') : $L('Jellyfin username')}
 							autoComplete='username'
 							disabled={seerrAuthSubmitting}
@@ -1661,11 +818,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 							className={css.input}
 							type='password'
 							value={seerrPassword}
-							onChange={(e) => {
-								setSeerrPassword(e.target.value);
-								setSeerrAuthMessage('');
-								setSeerrAuthError('');
-							}}
+							onChange={(e) => onSeerrPasswordChange(e.target.value)}
 							onKeyDown={handleSeerrPasswordKeyDown}
 							autoComplete='current-password'
 							disabled={seerrAuthSubmitting}
