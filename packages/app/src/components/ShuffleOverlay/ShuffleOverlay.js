@@ -1,18 +1,18 @@
-import {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {isMdblistEnabled} from '../../services/mdblistApi';
+import {memo, useCallback, useEffect, useState} from 'react';
 import $L from '@enact/i18n/$L';
-import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
+
+import {isMdblistEnabled} from '../../services/mdblistApi';
 import {useSettings} from '../../context/SettingsContext';
-import {isBackKey, KEYS} from '../../utils/keys';
-import {fetchShuffleGenres, fetchShuffleLibraries, fetchRandomItems} from '../../services/shuffleOverlayService';
-import {getTokenParam} from '../../services/jellyfinApi';
-import RatingsRow from '../RatingsRow';
+import PickerDialog from './PickerDialog';
+import ShuffleActions from './ShuffleActions';
+import ShuffleCards from './ShuffleCards';
+import ShuffleInfoPanel from './ShuffleInfoPanel';
+import useShuffleFocus from './useShuffleFocus';
+import useShuffleItems from './useShuffleItems';
 
 import css from './ShuffleOverlay.module.less';
-
-/* eslint-disable react/jsx-no-bind */
 
 const DialogContainer = SpotlightContainerDecorator({
 	enterTo: 'default-element',
@@ -20,95 +20,11 @@ const DialogContainer = SpotlightContainerDecorator({
 	leaveFor: {left: '', right: '', up: '', down: ''}
 }, 'div');
 
-const PickerContainer = SpotlightContainerDecorator({
-	enterTo: 'default-element',
-	restrict: 'self-only',
-	leaveFor: {left: '', right: '', up: '', down: ''}
-}, 'div');
-
-const SpottableButton = Spottable('button');
-
-// Both pickers stay mounted, so each needs its own id or Spotlight only keeps one of them.
+// Both pickers stay mounted, so each needs its own id or Spotlight only keeps
+// one of them.
 const PICKER_SPOTLIGHT_IDS = {
 	library: 'shuffle-library-picker-dialog',
 	genre: 'shuffle-genre-picker-dialog'
-};
-
-const buildItemImageUrl = (item, fallbackServerUrl, fallbackAccessToken) => {
-	const serverUrl = item?._serverUrl || fallbackServerUrl;
-	const accessToken = item?._serverAccessToken || fallbackAccessToken;
-	if (!serverUrl || !item?.Id) return '';
-
-	const primaryTag = item.ImageTags?.Primary;
-	const seriesTag = item.SeriesPrimaryImageTag;
-	const parentTag = item.ParentThumbImageTag;
-	const tag = primaryTag || seriesTag || parentTag || '';
-	const tagParam = tag ? `&tag=${encodeURIComponent(tag)}` : '';
-	const tokenParam = accessToken ? `&${getTokenParam(item._serverType)}=${encodeURIComponent(accessToken)}` : '';
-
-	return `${serverUrl}/Items/${item.Id}/Images/Primary?fillWidth=320&fillHeight=480&quality=80${tagParam}${tokenParam}`;
-};
-
-const formatRuntime = (ticks) => {
-	if (!ticks) return '';
-	const totalMinutes = Math.floor(Number(ticks) / 600000000);
-	if (!totalMinutes) return '';
-	const hours = Math.floor(totalMinutes / 60);
-	const minutes = totalMinutes % 60;
-	if (hours > 0) return `${hours}h ${minutes}m`;
-	return `${minutes}m`;
-};
-
-const getFocusList = (items) => {
-	const cardIds = items.map((_, index) => `shuffle-card-${index}`);
-	return [
-		...cardIds,
-		'shuffle-action-library',
-		'shuffle-action-random',
-		'shuffle-action-genres'
-	];
-};
-
-const PickerDialog = ({open, title, items, loading, emptyLabel, onClose, onPick, spotlightId}) => {
-	const overlayClassName = `${css.pickerOverlay} ${open ? css.pickerOverlayOpen : css.pickerOverlayHidden}`;
-	const dialogClassName = `${css.pickerDialog} ${open ? css.pickerDialogOpen : css.pickerDialogClosed}`;
-
-	return (
-		<div aria-hidden={!open} className={overlayClassName}>
-			<PickerContainer className={dialogClassName} spotlightDisabled={!open} spotlightId={spotlightId}>
-				<h3 className={css.pickerTitle}>{title}</h3>
-				{loading ? (
-					<div className={css.pickerLoading}>{$L('Loading...')}</div>
-				) : items.length === 0 ? (
-					<div className={css.pickerEmpty}>{emptyLabel}</div>
-				) : (
-					<div className={css.pickerList}>
-						{items.map((item, index) => {
-							const id = item?.Id || item;
-							const label = item?._shuffleLabel || item?.Name || String(item);
-							return (
-								<SpottableButton
-									key={id}
-									className={`${css.pickerItem} ${index === 0 ? 'spottable-default' : ''}`}
-									onClick={() => onPick(item)}
-									spotlightId={`${spotlightId}-item-${index}`}
-								>
-									{label}
-								</SpottableButton>
-							);
-						})}
-					</div>
-				)}
-				<SpottableButton
-					className={css.pickerCancel}
-					onClick={onClose}
-					spotlightId={`${spotlightId}-cancel`}
-				>
-					{$L('Cancel')}
-				</SpottableButton>
-			</PickerContainer>
-		</div>
-	);
 };
 
 const ShuffleOverlay = ({
@@ -123,326 +39,122 @@ const ShuffleOverlay = ({
 	originSpotlightId
 }) => {
 	const {settings} = useSettings();
-	const [items, setItems] = useState([]);
-	const [selectedIndex, setSelectedIndex] = useState(0);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState(false);
-	const [activeLibrary, setActiveLibrary] = useState(null);
-	const [activeGenre, setActiveGenre] = useState(null);
-	const [pickerMode, setPickerMode] = useState('');
-	const [pickerItems, setPickerItems] = useState([]);
-	const [pickerLoading, setPickerLoading] = useState(false);
 	const [focusedCardIndex, setFocusedCardIndex] = useState(null);
-	const lastFocusRef = useRef('shuffle-action-random');
+	const shuffle = useShuffleItems({open, api, unifiedMode, contentType});
+	const {items, selectedIndex, setSelectedIndex, pickerMode, lastFocusRef, openPicker, closePicker} = shuffle;
 
-	const selectedItem = items[selectedIndex] || null;
-	const focusIds = useMemo(() => getFocusList(items), [items]);
+	useEffect(() => {
+		if (open) setFocusedCardIndex(null);
+	}, [open]);
 
+	// Hand focus back to whatever opened the overlay, so closing it doesn't
+	// strand the cursor on a screen that's no longer there.
 	const closeAndRestore = useCallback(() => {
 		onClose?.();
 		const originId = originSpotlightId || 'navbar-shuffle';
 		setTimeout(() => {
-			if (!Spotlight.focus(originId)) {
-				Spotlight.focus('navbar-home');
-			}
+			if (!Spotlight.focus(originId)) Spotlight.focus('navbar-home');
 		}, 0);
 	}, [onClose, originSpotlightId]);
 
-	const loadItems = useCallback(async ({libraryId = null, genreName = null, restoreFocusId = 'shuffle-action-random'} = {}) => {
-		setLoading(true);
-		setError(false);
-		try {
-			const result = await fetchRandomItems({
-				api,
-				unifiedMode,
-				contentType,
-				limit: 5,
-				libraryId,
-				genreName
-			});
-			setItems(result);
-			setSelectedIndex(0);
-			lastFocusRef.current = restoreFocusId;
-		} catch {
-			setItems([]);
-			setSelectedIndex(0);
-			setError(true);
-		} finally {
-			setLoading(false);
+	useShuffleFocus({
+		open,
+		items,
+		pickerMode,
+		pickerLoading: shuffle.pickerLoading,
+		pickerSpotlightId: PICKER_SPOTLIGHT_IDS[pickerMode],
+		lastFocusRef,
+		onClosePicker: closePicker,
+		onClose: closeAndRestore
+	});
+
+	const handleFocusCard = useCallback((index) => {
+		setFocusedCardIndex(index);
+		setSelectedIndex(index);
+		lastFocusRef.current = `shuffle-card-${index}`;
+	}, [setSelectedIndex, lastFocusRef]);
+
+	// First press selects the card, second one plays it.
+	const handleActivateCard = useCallback((item, index) => {
+		if (selectedIndex !== index) {
+			setSelectedIndex(index);
+			return;
 		}
-	}, [api, contentType, unifiedMode]);
+		onSelectItem?.(item);
+		onClose?.();
+	}, [selectedIndex, setSelectedIndex, onSelectItem, onClose]);
 
-	useEffect(() => {
-		if (!open) return;
-		setActiveLibrary(null);
-		setActiveGenre(null);
-		setPickerMode('');
-		setPickerItems([]);
+	const handleFocusAction = useCallback((spotlightId) => {
 		setFocusedCardIndex(null);
-		loadItems({libraryId: null, genreName: null});
-	}, [open, loadItems]);
+		lastFocusRef.current = spotlightId;
+	}, [lastFocusRef]);
 
-	const handleRetry = useCallback(() => {
-		loadItems({
-			libraryId: activeLibrary?.Id || null,
-			genreName: activeGenre || null,
-			restoreFocusId: lastFocusRef.current
-		});
-	}, [activeGenre, activeLibrary?.Id, loadItems]);
-
-	useEffect(() => {
-		if (!open || pickerMode) return;
-		const timer = setTimeout(() => {
-			const preferred = items.length ? 'shuffle-card-0' : lastFocusRef.current;
-			Spotlight.focus(preferred);
-		}, 50);
-		return () => clearTimeout(timer);
-	}, [open, items, pickerMode]);
-
-	// Waiting for the list to be on screen is what puts focus on the first entry. Doing it
-	// as the picker opens only ever finds the Cancel button, since that is all there is
-	// while the fetch runs. Loading finishing either way is what starts this, so a failed
-	// fetch still leaves the dialog somewhere to be.
-	useEffect(() => {
-		if (!open || !pickerMode || pickerLoading) return;
-		const id = PICKER_SPOTLIGHT_IDS[pickerMode];
-		if (!id) return;
-		const timer = setTimeout(() => Spotlight.focus(id), 50);
-		return () => clearTimeout(timer);
-	}, [open, pickerMode, pickerLoading]);
-
-	useEffect(() => {
-		if (!open) return;
-		const handleKey = (e) => {
-			if (isBackKey(e)) {
-				e.preventDefault();
-				e.stopPropagation();
-				if (pickerMode) {
-					setPickerMode('');
-					return;
-				}
-				closeAndRestore();
-				return;
-			}
-
-			if (pickerMode) return;
-			const code = e.keyCode || e.which;
-			if (code !== KEYS.LEFT && code !== KEYS.RIGHT && code !== KEYS.UP && code !== KEYS.DOWN) return;
-			const current = Spotlight.getCurrent();
-			if (!current) return;
-			const currentId = current.getAttribute?.('data-spotlight-id') || '';
-
-			if (currentId.indexOf('shuffle-card-') === 0) {
-				const index = Number(currentId.replace('shuffle-card-', ''));
-				if (code === KEYS.DOWN) {
-					e.preventDefault();
-					e.stopPropagation();
-					Spotlight.focus('shuffle-action-random');
-					return;
-				}
-				if (code === KEYS.RIGHT && index === items.length - 1) {
-					e.preventDefault();
-					e.stopPropagation();
-					return;
-				}
-			}
-
-			if (!focusIds.includes(currentId)) {
-				e.preventDefault();
-				e.stopPropagation();
-				Spotlight.focus(lastFocusRef.current);
-			}
-		};
-
-		window.addEventListener('keydown', handleKey, true);
-		return () => window.removeEventListener('keydown', handleKey, true);
-	}, [closeAndRestore, focusIds, items.length, open, pickerMode]);
-
-	const openLibraryPicker = useCallback(async () => {
-		setPickerMode('library');
-		setFocusedCardIndex(null);
-		setPickerLoading(true);
-		try {
-			const libs = await fetchShuffleLibraries({api, unifiedMode, contentType});
-			setPickerItems(libs);
-		} finally {
-			setPickerLoading(false);
-		}
-	}, [api, contentType, unifiedMode]);
-
-	const openGenrePicker = useCallback(async () => {
-		setPickerMode('genre');
-		setFocusedCardIndex(null);
-		setPickerLoading(true);
-		try {
-			const genres = await fetchShuffleGenres({api, unifiedMode, contentType});
-			setPickerItems(genres);
-		} finally {
-			setPickerLoading(false);
-		}
-	}, [api, contentType, unifiedMode]);
-
-	const handlePickLibrary = useCallback((library) => {
-		setActiveLibrary(library);
-		setActiveGenre(null);
-		setPickerMode('');
-		setPickerItems([]);
-		setFocusedCardIndex(null);
-		loadItems({libraryId: library.Id, genreName: null, restoreFocusId: 'shuffle-action-library'});
-	}, [loadItems]);
-
-	const handlePickGenre = useCallback((genreName) => {
-		setActiveGenre(genreName);
-		setActiveLibrary(null);
-		setPickerMode('');
-		setPickerItems([]);
-		setFocusedCardIndex(null);
-		loadItems({libraryId: null, genreName, restoreFocusId: 'shuffle-action-genres'});
-	}, [loadItems]);
+	const handleLibraryShuffle = useCallback(() => openPicker('library'), [openPicker]);
+	const handleGenreShuffle = useCallback(() => openPicker('genre'), [openPicker]);
 
 	if (!open) return null;
 
-	const selectedRuntime = formatRuntime(selectedItem?.RunTimeTicks);
-	const infoBits = [
-		selectedItem?.OfficialRating,
-		selectedItem?.ProductionYear ? String(selectedItem.ProductionYear) : '',
-		selectedRuntime,
-		selectedItem?.Genres?.length ? selectedItem.Genres.slice(0, 3).join(', ') : ''
-	].filter(Boolean);
-	const selectedServerUrl = selectedItem?._serverUrl || serverUrl;
-	const mdblistPluginEnabled = isMdblistEnabled(settings);
+	const selectedItem = items[selectedIndex] || null;
+	const filterSummary = shuffle.activeLibrary
+		? `${$L('Library')}: ${shuffle.activeLibrary._shuffleLabel || shuffle.activeLibrary.Name}`
+		: shuffle.activeGenre
+			? `${$L('Genre')}: ${shuffle.activeGenre}`
+			: $L('All Libraries');
 
 	return (
 		<div className={css.overlay}>
 			<DialogContainer className={`${css.dialog} ${pickerMode ? css.dialogDimmed : ''}`} spotlightId="shuffle-overlay-dialog">
 				<div className={css.topStrip}>
 					<div className={css.badge}>{$L('Random Shuffle')}</div>
-					<div className={css.filterSummary}>
-						{activeLibrary ? `${$L('Library')}: ${activeLibrary._shuffleLabel || activeLibrary.Name}` : activeGenre ? `${$L('Genre')}: ${activeGenre}` : $L('All Libraries')}
-					</div>
+					<div className={css.filterSummary}>{filterSummary}</div>
 				</div>
 
 				<div className={css.cardsRow}>
-					{loading ? (
-						<div className={css.stateLabel}>{$L('Loading your library...')}</div>
-					) : error ? (
-						<>
-							<div className={css.stateLabel}>{$L('Unable to connect to server')}</div>
-							<SpottableButton className={`${css.retryBtn} spottable-default`} onClick={handleRetry} spotlightId="shuffle-retry-btn">
-								{$L('Try Again')}
-							</SpottableButton>
-						</>
-					) : items.length === 0 ? (
-						<div className={css.stateLabel}>{$L('No items found')}</div>
-					) : (
-						items.map((item, index) => {
-							const isActive = index === focusedCardIndex;
-							const imageUrl = buildItemImageUrl(item, serverUrl, accessToken);
-							return (
-								<SpottableButton
-									key={`${item._serverId || 'single'}-${item.Id}-${index}`}
-									className={`${css.card} ${isActive ? css.cardActive : ''} ${index === 0 ? 'spottable-default' : ''}`}
-									onFocus={() => {
-										setFocusedCardIndex(index);
-										setSelectedIndex(index);
-										lastFocusRef.current = `shuffle-card-${index}`;
-									}}
-									onClick={() => {
-										if (selectedIndex !== index) {
-											setSelectedIndex(index);
-											return;
-										}
-										onSelectItem?.(item);
-										onClose?.();
-									}}
-									spotlightId={`shuffle-card-${index}`}
-								>
-									<div className={css.cardPosterWrap}>
-										{imageUrl ? (
-											<img className={css.cardPoster} src={imageUrl} alt={item.Name || ''} />
-										) : (
-											<div className={css.posterFallback}>{item.Name?.[0] || '?'}</div>
-										)}
-									</div>
-								</SpottableButton>
-							);
-						})
-					)}
+					<ShuffleCards
+						items={items}
+						loading={shuffle.loading}
+						error={shuffle.error}
+						focusedIndex={focusedCardIndex}
+						serverUrl={serverUrl}
+						accessToken={accessToken}
+						onRetry={shuffle.retry}
+						onFocusCard={handleFocusCard}
+						onActivateCard={handleActivateCard}
+					/>
 				</div>
 
-				<div className={css.infoPanel}>
-					<div className={css.itemTitle}>{selectedItem?.Name || $L('No items found')}</div>
-					<div className={css.metaLine}>
-						{infoBits.map((text) => (
-							<span key={text} className={css.metaItem}>{text}</span>
-						))}
-					</div>
-					<div className={css.ratingsLine}>
-						<RatingsRow
-							item={selectedItem}
-							serverUrl={selectedServerUrl}
-							compact
-							pluginEnabled={mdblistPluginEnabled}
-						/>
-					</div>
-					<div className={css.overview}>{selectedItem?.Overview || $L('Discover a random item from your library.')}</div>
-				</div>
+				<ShuffleInfoPanel
+					item={selectedItem}
+					serverUrl={selectedItem?._serverUrl || serverUrl}
+					mdblistEnabled={isMdblistEnabled(settings)}
+				/>
 
-				<div className={css.actions}>
-					<SpottableButton
-						className={css.actionBtn}
-						onFocus={() => {
-							setFocusedCardIndex(null);
-							lastFocusRef.current = 'shuffle-action-library';
-						}}
-						onClick={openLibraryPicker}
-						spotlightId="shuffle-action-library"
-					>
-						{$L('Library Shuffle')}
-					</SpottableButton>
-					<SpottableButton
-						className={`${css.actionBtn} ${css.actionPrimary}`}
-						onFocus={() => {
-							setFocusedCardIndex(null);
-							lastFocusRef.current = 'shuffle-action-random';
-						}}
-						onClick={() => loadItems({libraryId: null, genreName: null, restoreFocusId: 'shuffle-action-random'})}
-						spotlightId="shuffle-action-random"
-					>
-						{$L('Random Shuffle')}
-					</SpottableButton>
-					<SpottableButton
-						className={css.actionBtn}
-						onFocus={() => {
-							setFocusedCardIndex(null);
-							lastFocusRef.current = 'shuffle-action-genres';
-						}}
-						onClick={openGenrePicker}
-						spotlightId="shuffle-action-genres"
-					>
-						{$L('Genres Shuffle')}
-					</SpottableButton>
-				</div>
+				<ShuffleActions
+					onLibraryShuffle={handleLibraryShuffle}
+					onRandomShuffle={shuffle.reshuffle}
+					onGenreShuffle={handleGenreShuffle}
+					onFocusAction={handleFocusAction}
+				/>
 			</DialogContainer>
 
 			<PickerDialog
 				open={pickerMode === 'library'}
 				title={$L('Select Library')}
-				items={pickerItems}
-				loading={pickerLoading}
+				items={shuffle.pickerItems}
+				loading={shuffle.pickerLoading}
 				emptyLabel={$L('No libraries found')}
-				onClose={() => setPickerMode('')}
-				onPick={handlePickLibrary}
+				onClose={closePicker}
+				onPick={shuffle.pickLibrary}
 				spotlightId={PICKER_SPOTLIGHT_IDS.library}
 			/>
 			<PickerDialog
 				open={pickerMode === 'genre'}
 				title={$L('Select Genre')}
-				items={pickerItems}
-				loading={pickerLoading}
+				items={shuffle.pickerItems}
+				loading={shuffle.pickerLoading}
 				emptyLabel={$L('No genres found')}
-				onClose={() => setPickerMode('')}
-				onPick={handlePickGenre}
+				onClose={closePicker}
+				onPick={shuffle.pickGenre}
 				spotlightId={PICKER_SPOTLIGHT_IDS.genre}
 			/>
 		</div>
