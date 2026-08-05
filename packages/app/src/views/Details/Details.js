@@ -1,174 +1,45 @@
-import {useState, useEffect, useCallback, useRef, useMemo, Fragment} from 'react';
+import {useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import $L from '@enact/i18n/$L';
-import Spottable from '@enact/spotlight/Spottable';
-import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import Spotlight from '@enact/spotlight';
-import {Scroller} from '@enact/sandstone/Scroller';
-import {createPortal} from 'react-dom';
 
 import {useAuth} from '../../context/AuthContext';
 import {useSettings} from '../../context/SettingsContext';
 import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as jellyfinApi from '../../services/jellyfinApi';
-import * as playback from '../../services/playback';
-import MediaRow from '../../components/MediaRow';
-import MediaCard from '../../components/MediaCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ModernDetailContent from './ModernDetailContent';
-import RatingsRow from '../../components/RatingsRow';
 import {formatDuration, getImageUrl, getBackdropId, getLogoUrl} from '../../utils/helpers';
-import {KEYS, isBackKey} from '../../utils/keys';
-import {stopPlaybackForTrailer} from '../../utils/trailerPlayback';
-import {fetchVideoStreamUrl, extractYouTubeIdFromUrl, fetchSponsorSegments} from '../../services/youtubeTrailer';
-import {formatTime} from '../Player/PlayerConstants';
-import AddToPlaylistModal from '../../components/AddToPlaylistModal';
-import AddToCollectionModal from '../../components/AddToCollectionModal';
-import DeleteItemDialog from '../../components/DeleteItemDialog';
-import ChangeArtworkModal from '../../components/ChangeArtworkModal';
-import IdentifyModal from '../../components/IdentifyModal';
-import {arrange, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
+import {KEYS} from '../../utils/keys';
 import {fetchPrerolls} from '../../utils/cinemaMode';
-import {DETAIL_ICON_PATHS} from './detailIcons';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
-import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isMdblistEnabled, isRatingSourceAllowed} from '../../services/mdblistApi';
-import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
 import useLongPress from '../../utils/longPress';
 import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 
+import {COLLECTION_ITEM_TYPES, IDENTIFIABLE_TYPES, getMediaBadges, shuffleArray} from './detailsMedia';
+import useDetailsItem from './useDetailsItem';
+import useDetailsModals from './useDetailsModals';
+import useDetailsTrailer from './useDetailsTrailer';
+import DetailScrollPage from './DetailScrollPage';
+import DetailBackdrop from './DetailBackdrop';
+import DetailActionButtons from './DetailActionButtons';
+import DetailTrackModals from './DetailTrackModals';
+import DetailDialogs from './DetailDialogs';
+import TrailerOverlay from './TrailerOverlay';
+import ClassicDetailScreen from './ClassicDetailScreen';
+import PersonScreen from './PersonScreen';
+import SeasonScreen from './SeasonScreen';
+import PlaylistScreen from './PlaylistScreen';
+import AlbumScreen from './AlbumScreen';
+import ArtistScreen from './ArtistScreen';
+import AudioTrackScreen from './AudioTrackScreen';
+
 import css from './Details.module.less';
-
-const SpottableDiv = Spottable('div');
-const SpottableButton = Spottable('button');
-const ModalContainer = SpotlightContainerDecorator({
-	enterTo: 'default-element',
-	defaultElement: '[data-selected="true"]',
-	straightOnly: false,
-	preserveId: true
-}, 'div');
-const HorizontalContainer = SpotlightContainerDecorator({restrict: 'self-first'}, 'div');
-const RowContainer = SpotlightContainerDecorator({enterTo: 'last-focused'}, 'div');
-
-// Caps that match the mobile clients, so a title forced down on one device looks the
-// same on the others. The server transcodes to fit whichever is chosen.
-const TRANSCODE_QUALITIES = [
-	{bitrate: 4000000, label: () => $L('High Quality (1080p)')},
-	{bitrate: 2000000, label: () => $L('Medium Quality (720p)')},
-	{bitrate: 1000000, label: () => $L('Low Quality (480p)')}
-];
-
-const shuffleArray = (arr) => {
-	const out = [...arr];
-	for (let i = out.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[out[i], out[j]] = [out[j], out[i]];
-	}
-	return out;
-};
-
-// Item types a Jellyfin/Emby collection will accept as a member.
-const COLLECTION_ITEM_TYPES = ['Movie', 'Series', 'Season', 'Episode', 'Video', 'MusicVideo', 'BoxSet'];
-
-const IDENTIFIABLE_TYPES = ['Movie', 'Series', 'Season', 'Episode', 'BoxSet', 'Person', 'MusicAlbum', 'MusicArtist', 'Book', 'Trailer', 'MusicVideo'];
-
-const WATCHED_CHECK_PATH = 'M21 7L9 19l-5.5-5.5 1.41-1.41L9 16.17 19.59 5.59 21 7z';
-const WATCHED_CHECK_COMPACT_PATH = 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z';
-
-const FavoriteHeartIcon = () => (
-	<svg viewBox="0 0 24 24"><path fill="var(--theme-favorite-active, var(--theme-recording-active, #ff4757))" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-);
-
-const WatchedCheckIcon = ({compact = false, width, height}) => (
-	<svg viewBox="0 0 24 24" fill="currentColor" width={width} height={height}>
-		<path d={compact ? WATCHED_CHECK_COMPACT_PATH : WATCHED_CHECK_PATH} />
-	</svg>
-);
-
-const PosterBadges = ({userData}) => (
-	<>
-		{userData?.IsFavorite && (
-			<div className={css.posterBadgeFavorite}>
-				<FavoriteHeartIcon />
-			</div>
-		)}
-		{userData?.Played && (
-			<div className={css.posterBadgeWatched}>
-				<WatchedCheckIcon compact />
-			</div>
-		)}
-	</>
-);
-
-const getMediaBadges = (item, versionIndex = 0) => {
-	const badges = [];
-	const mediaSource = item.MediaSources?.[versionIndex] || item.MediaSources?.[0];
-	const streams = mediaSource?.MediaStreams || [];
-	const video = streams.find(s => s.Type === 'Video');
-	const audio = streams.find(s => s.Type === 'Audio');
-
-	if (video) {
-		// Resolution badge
-		if (video.Width >= 3800) badges.push({type: 'badge4k', label: $L('4K')});
-		else if (video.Width >= 1900) badges.push({type: 'badgeHd', label: $L('1080p')});
-		else if (video.Width >= 1260) badges.push({type: 'badgeHd', label: $L('720p')});
-
-		// HDR/DV badges
-		const rangeType = video.VideoRangeType;
-		if (rangeType === 'DOVIWithHDR10' || rangeType === 'DOVI' || rangeType === 'DOVIWithHDR10Plus') {
-			badges.push({type: 'badgeDv', label: $L('DV')});
-		}
-		if (rangeType && rangeType !== 'SDR') {
-			if (rangeType.includes('HDR10Plus')) badges.push({type: 'badgeHdr', label: $L('HDR10+')});
-			else if (rangeType.includes('HDR10') || rangeType === 'DOVIWithHDR10') badges.push({type: 'badgeHdr', label: $L('HDR10')});
-			else if (rangeType !== 'DOVI') badges.push({type: 'badgeHdr', label: $L('HDR')});
-		} else if (video.VideoRange === 'HDR') {
-			badges.push({type: 'badgeHdr', label: $L('HDR')});
-		}
-
-		// Video codec badge
-		const videoCodec = video.Codec?.toUpperCase();
-		if (videoCodec) {
-			const codecLabel = videoCodec === 'HEVC' ? 'HEVC' : videoCodec === 'AV1' ? 'AV1' : videoCodec === 'H264' ? 'H.264' : videoCodec === 'VP9' ? 'VP9' : videoCodec;
-			badges.push({type: 'badgeCodec', label: codecLabel});
-		}
-	}
-
-	// Container badge
-	const container = mediaSource?.Container?.toUpperCase();
-	if (container) {
-		badges.push({type: 'badgeContainer', label: container});
-	}
-
-	if (audio) {
-		// Audio format badge
-		if (audio.Profile?.includes('Atmos') || audio.Title?.includes('Atmos')) {
-			badges.push({type: 'badgeAtmos', label: $L('ATMOS')});
-		} else if (audio.Profile?.includes('DTS:X') || audio.Title?.includes('DTS:X')) {
-			badges.push({type: 'badgeDtsx', label: $L('DTS:X')});
-		} else if (audio.Channels > 6) {
-			badges.push({type: 'badgeSurround', label: `${audio.Channels - 1}.1`});
-		} else if (audio.Channels === 6) {
-			badges.push({type: 'badgeSurround', label: '5.1'});
-		} else if (audio.Channels === 2) {
-			badges.push({type: 'badgeSurround', label: $L('Stereo')});
-		}
-
-		// Audio codec badge
-		const audioCodec = audio.Codec?.toUpperCase();
-		if (audioCodec) {
-			const audioLabel = audioCodec === 'AAC' ? 'AAC' : audioCodec === 'AC3' ? 'AC3' : audioCodec === 'EAC3' ? 'EAC3' : audioCodec === 'FLAC' ? 'FLAC' : audioCodec === 'DTS' ? 'DTS' : audioCodec === 'TRUEHD' ? 'TrueHD' : audioCodec;
-			badges.push({type: 'badgeAudioCodec', label: audioLabel});
-		}
-	}
-
-	return badges;
-};
 
 const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onSelectStudio, onItemDeleted, backHandlerRef}) => {
 	const {api, serverUrl, user} = useAuth();
 	const {settings} = useSettings();
 	const {isInGroup: isSyncPlayInGroup} = useSyncPlay();
 
-	// Cross-server support
 	const effectiveApi = useMemo(() => {
 		if (initialItem?._serverUrl && initialItem._serverAccessToken) {
 			return jellyfinApi.createApiForServer(initialItem._serverUrl, initialItem._serverAccessToken, initialItem._serverUserId);
@@ -179,7 +50,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const effectiveServerUrl = useMemo(() => {
 		return initialItem?._serverUrl || serverUrl;
 	}, [initialItem?._serverUrl, serverUrl]);
-
 
 	const tagWithServerInfo = useCallback((items) => {
 		if (!initialItem?._serverUrl) return items;
@@ -195,44 +65,47 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		return Array.isArray(items) ? items.map(tagSingleItem) : tagSingleItem(items);
 	}, [initialItem?._serverUrl, initialItem?._serverType, initialItem?._serverAccessToken, initialItem?._serverUserId, initialItem?._serverName, initialItem?._serverId]);
 
-	// State
-	const [item, setItem] = useState(null);
-	const [seasons, setSeasons] = useState([]);
-	const [episodes, setEpisodes] = useState([]);
-	const [similar, setSimilar] = useState([]);
-	const [extras, setExtras] = useState([]);
-	const [cast, setCast] = useState([]);
-	const [nextUp, setNextUp] = useState([]);
-	const [nextEpisode, setNextEpisode] = useState(null);
-	const [collectionItems, setCollectionItems] = useState([]);
-	const [parentCollection, setParentCollection] = useState([]);
-	const [parentCollectionName, setParentCollectionName] = useState('');
-	const [albumTracks, setAlbumTracks] = useState([]);
-	const [artistAlbums, setArtistAlbums] = useState([]);
-	const [playlistItems, setPlaylistItems] = useState([]);
-	const [isLoading, setIsLoading] = useState(true);
-	const [selectedVersionIndex, setSelectedVersionIndex] = useState(0);
-	const [selectedAudioIndex, setSelectedAudioIndex] = useState(0);
-	const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState(-1);
-	const [showMediaInfo, setShowMediaInfo] = useState(false);
-	const [activeModal, setActiveModal] = useState(null);
-	// Which button opened the advanced menu, so the chosen quality resumes or starts over
-	// the same way a plain press of that button would have.
-	const advancedResumeRef = useRef(false);
 	const [remoteSubtitleResults, setRemoteSubtitleResults] = useState([]);
 	const [isSearchingRemoteSubtitles, setIsSearchingRemoteSubtitles] = useState(false);
-	const [trailerOverlay, setTrailerOverlay] = useState(null);
-	const [trailerStreamUrl, setTrailerStreamUrl] = useState(null);
-	const [showPlaylistModal, setShowPlaylistModal] = useState(false);
-	const [showCollectionModal, setShowCollectionModal] = useState(false);
-	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-	const [showArtworkModal, setShowArtworkModal] = useState(false);
-	const [showIdentifyModal, setShowIdentifyModal] = useState(false);
 	const [toastMessage, setToastMessage] = useState(null);
-	const [episodeRatings, setEpisodeRatings] = useState({});
 	const [logoFailed, setLogoFailed] = useState(false);
+
 	const handleLogoError = useCallback(() => setLogoFailed(true), []);
 	const handleToastEnd = useCallback(() => setToastMessage(null), []);
+	const showToast = useCallback((msg) => setToastMessage(msg), []);
+
+	const pageScrollerRef = useRef(null);
+	const pageScrollToRef = useRef(null);
+
+	// A new item brings its own artwork, so a logo that failed for the last one must not
+	// keep its title hidden behind the fallback.
+	useEffect(() => setLogoFailed(false), [itemId]);
+
+	const data = useDetailsItem({
+		itemId,
+		effectiveApi,
+		effectiveServerUrl,
+		settings,
+		tagWithServerInfo
+	});
+	const {
+		item, setItem, isLoading, seasons, episodes, similar, extras, cast, nextUp, nextEpisode,
+		collectionItems, parentCollection, parentCollectionName, albumTracks, artistAlbums,
+		playlistItems, setPlaylistItems, episodeRatings, refreshItem,
+		selectedVersionIndex, setSelectedVersionIndex,
+		selectedAudioIndex, setSelectedAudioIndex,
+		selectedSubtitleIndex, setSelectedSubtitleIndex
+	} = data;
+
+	const modals = useDetailsModals({backHandlerRef, itemId, onArtworkClosed: refreshItem});
+	const {activeModal, openModal, closeModal, advancedResumeRef} = modals;
+
+	const trailer = useDetailsTrailer({
+		item,
+		effectiveApi,
+		onPlay,
+		trailerMuted: settings.featuredTrailerMuted
+	});
 
 	const canChangeArtwork = useMemo(() => {
 		if (!item) return false;
@@ -264,231 +137,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			user?.Policy?.IsAdministrator;
 	}, [item, user]);
 
-	// Refs
-	const pageScrollerRef = useRef(null);
-	const artworkModalBackRef = useRef(null);
-	const pageScrollToRef = useRef(null);
-	const lastFocusedElementRef = useRef(null);
-	const trailerVideoRef = useRef(null);
-	const sponsorSegmentsRef = useRef([]);
-	const sponsorSkipIntervalRef = useRef(null);
-
-	// Data loading
-	useEffect(() => {
-		const loadItem = async () => {
-			setIsLoading(true);
-			setSeasons([]);
-			setEpisodes([]);
-			setEpisodeRatings({});
-			setSimilar([]);
-			setLogoFailed(false);
-			setExtras([]);
-			setCast([]);
-			setNextUp([]);
-			setCollectionItems([]);
-			setParentCollection([]);
-			setParentCollectionName('');
-			setAlbumTracks([]);
-			setArtistAlbums([]);
-			setPlaylistItems([]);
-			setShowMediaInfo(false);
-
-			let data;
-			try {
-				data = await effectiveApi.getItemForDetail(itemId);
-			} catch (err) {
-				console.error('[Details] Error loading item', err);
-				setIsLoading(false);
-				return;
-			}
-
-			setItem(tagWithServerInfo(data));
-			setSelectedVersionIndex(0);
-			const ms = data.MediaSources?.[0];
-			if (ms) {
-				const initAudioStreams = ms.MediaStreams?.filter(s => s.Type === 'Audio') || [];
-				const initSubtitleStreams = ms.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
-				if (ms.DefaultAudioStreamIndex != null) {
-					const idx = initAudioStreams.findIndex(s => s.Index === ms.DefaultAudioStreamIndex);
-					if (idx >= 0) setSelectedAudioIndex(idx);
-				}
-				// Show the remembered pick as active so it doesn't look like it needs
-				// reselecting. The per-item index restores the exact track, and an episode
-				// otherwise inherits its series' remembered language.
-				let savedSubtitlePos = null;
-				const savedItemIndex = await getItemSubtitlePref(itemId);
-				if (savedItemIndex !== undefined) {
-					if (savedItemIndex < 0) {
-						savedSubtitlePos = -1;
-					} else {
-						const pos = initSubtitleStreams.findIndex(s => s.Index === savedItemIndex);
-						if (pos >= 0) savedSubtitlePos = pos;
-					}
-				}
-				if (savedSubtitlePos === null && data.SeriesId) {
-					const savedLanguage = await getSeriesSubtitlePref(data.SeriesId);
-					if (savedLanguage !== undefined) {
-						if (!savedLanguage) {
-							savedSubtitlePos = -1;
-						} else {
-							const pos = initSubtitleStreams.findIndex(s => s.Language === savedLanguage);
-							if (pos >= 0) savedSubtitlePos = pos;
-						}
-					}
-				}
-				if (savedSubtitlePos !== null) {
-					setSelectedSubtitleIndex(savedSubtitlePos);
-				} else if (ms.DefaultSubtitleStreamIndex != null) {
-					const idx = initSubtitleStreams.findIndex(s => s.Index === ms.DefaultSubtitleStreamIndex);
-					if (idx >= 0) setSelectedSubtitleIndex(idx);
-				} else {
-					setSelectedSubtitleIndex(-1);
-				}
-			} else {
-				setSelectedAudioIndex(0);
-				setSelectedSubtitleIndex(-1);
-			}
-			if (data.People?.length > 0) {
-				setCast(data.People.slice(0, 20));
-			}
-
-			// Render with primary item immediately; load secondary data in background
-			setIsLoading(false);
-
-			const bg = async () => {
-				if (data.Type === 'Series') {
-					const [seasonsData, nextUpData] = await Promise.all([
-						effectiveApi.getSeasons(itemId).catch(() => null),
-						effectiveApi.getNextUp(1, itemId).catch(() => null)
-					]);
-					if (seasonsData) setSeasons(tagWithServerInfo(seasonsData.Items || []));
-					if (nextUpData?.Items?.length > 0) setNextUp(tagWithServerInfo(nextUpData.Items));
-				}
-
-				if (data.Type === 'Season') {
-					const episodesData = await effectiveApi.getEpisodes(data.SeriesId, data.Id).catch(() => null);
-					if (episodesData) setEpisodes(tagWithServerInfo(episodesData.Items || []));
-				}
-
-				if (data.Type === 'Episode') {
-					const seasonId = data.SeasonId || data.ParentId;
-					if (data.SeriesId && seasonId) {
-						const episodesData = await effectiveApi.getEpisodes(data.SeriesId, seasonId).catch(() => null);
-						if (episodesData) setEpisodes(tagWithServerInfo(episodesData.Items || []));
-					}
-				}
-
-				if (data.Type === 'BoxSet') {
-					const collectionData = await effectiveApi.getItems({
-						ParentId: data.Id,
-						SortBy: 'ProductionYear,SortName',
-						SortOrder: 'Ascending',
-						Fields: 'PrimaryImageAspectRatio,ProductionYear'
-					}).catch(() => null);
-					if (collectionData) setCollectionItems(tagWithServerInfo(collectionData.Items || []));
-				}
-
-				if (data.Type === 'MusicAlbum') {
-					const [tracksData, albumSimilarData] = await Promise.all([
-						effectiveApi.getAlbumTracks(data.Id).catch(() => null),
-						effectiveApi.getSimilar(itemId).catch(() => null)
-					]);
-					if (tracksData) setAlbumTracks(tagWithServerInfo(tracksData.Items || []));
-					if (albumSimilarData) setSimilar(tagWithServerInfo(albumSimilarData.Items || []));
-				}
-
-				if (data.Type === 'MusicArtist') {
-					const [albumsData, artistSimilarData] = await Promise.all([
-						effectiveApi.getAlbumsByArtist(data.Id).catch(() => null),
-						effectiveApi.getSimilar(itemId).catch(() => null)
-					]);
-					if (albumsData) setArtistAlbums(tagWithServerInfo(albumsData.Items || []));
-					if (artistSimilarData) setSimilar(tagWithServerInfo(artistSimilarData.Items || []));
-				}
-
-				if (data.Type === 'Playlist') {
-					const playlistData = await effectiveApi.getPlaylistItems(data.Id).catch(() => null);
-					if (playlistData) setPlaylistItems(tagWithServerInfo(playlistData.Items || []));
-				}
-
-				const needsSimilar = data.Type !== 'Person' && data.Type !== 'BoxSet' &&
-					data.Type !== 'MusicAlbum' && data.Type !== 'MusicArtist' && data.Type !== 'Playlist';
-				const needsExtras = data.Type === 'Movie' || data.Type === 'Episode' || data.Type === 'Video';
-				const needsBoxSet = data.Type === 'Movie' || data.Type === 'Video';
-
-				const [similarData, extrasData, ancestorsData] = await Promise.all([
-					needsSimilar ? effectiveApi.getSimilar(itemId).catch(() => null) : Promise.resolve(null),
-					needsExtras ? effectiveApi.getSpecialFeatures(itemId).catch(() => null) : Promise.resolve(null),
-					needsBoxSet ? effectiveApi.getAncestors(itemId).catch(() => null) : Promise.resolve(null)
-				]);
-
-				if (similarData) setSimilar(tagWithServerInfo(similarData.Items || []));
-				if (extrasData) setExtras(tagWithServerInfo(extrasData.filter(e => e.Id !== itemId)));
-				if (ancestorsData) {
-					const boxSet = ancestorsData.find(a => a.Type === 'BoxSet') || null;
-					if (boxSet) {
-						setParentCollectionName(boxSet.Name || $L('Collection'));
-						const colData = await effectiveApi.getItems({
-							ParentId: boxSet.Id,
-							SortBy: 'PremiereDate,SortName',
-							SortOrder: 'Ascending',
-							Fields: 'PrimaryImageAspectRatio,ProductionYear'
-						}).catch(() => null);
-						if (colData) setParentCollection(tagWithServerInfo(colData.Items || []));
-					}
-				}
-
-				if (data.Type === 'Person') {
-					const filmography = await effectiveApi.getItemsByPerson(itemId, 50).catch(() => null);
-					if (filmography) setSimilar(tagWithServerInfo(filmography.Items || []));
-				}
-			};
-
-			bg().catch(() => {});
-		};
-		loadItem();
-	}, [effectiveApi, itemId, tagWithServerInfo]);
-
-	useEffect(() => {
-		if (!item || !episodes.length) return;
-		if (!settings.useMoonfinPlugin || !settings.tmdbEpisodeRatingsEnabled) return;
-		if (!isRatingSourceAllowed(settings.mdblistRatingSources, 'tmdb')) return;
-		if (item.Type !== 'Season' && item.Type !== 'Episode') return;
-
-		const seasonNumber = item.Type === 'Season' ? item.IndexNumber : item.ParentIndexNumber;
-		if (seasonNumber == null) return;
-
-		let cancelled = false;
-		// The SeasonRatings route wants the series TMDB id, not the Season/Episode
-		// item's own provider id.
-		resolveSeriesTmdbId(item).then(seriesTmdbId => {
-			if (cancelled || !seriesTmdbId) return null;
-			return fetchTmdbSeasonRatings(effectiveServerUrl, seriesTmdbId, seasonNumber);
-		}).then(data => {
-			if (cancelled || !data?.episodes) return;
-			const ratingsMap = {};
-			for (const ep of data.episodes) {
-				ratingsMap[ep.episodeNumber] = ep.voteAverage;
-			}
-			setEpisodeRatings(ratingsMap);
-		});
-		return () => { cancelled = true; };
-	}, [item, episodes.length, settings.useMoonfinPlugin, settings.tmdbEpisodeRatingsEnabled, settings.mdblistRatingSources, effectiveServerUrl]);
-
-	// The card has to reach into the next season, which the current season's
-	// episode list cant answer on its own.
-	useEffect(() => {
-		if (item?.Type !== 'Episode') {
-			setNextEpisode(null);
-			return undefined;
-		}
-		let cancelled = false;
-		playback.getNextEpisode(item).then((next) => {
-			if (!cancelled) setNextEpisode(next);
-		});
-		return () => { cancelled = true; };
-	}, [item]);
-
 	// Keyed on the id rather than the item, because marking watched or favourite
 	// builds a new item object, which would otherwise yank focus back to Play.
 	const loadedItemId = item?.Id;
@@ -504,8 +152,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			() => (item ? getLogoUrl(effectiveServerUrl, item, {maxWidth: 400, quality: 90}) : null),
 			[item, effectiveServerUrl]
 		);
-
-	// === HANDLERS ===
 
 	// A single video with real sources is the only thing with one stream to pick a
 	// version, audio track or quality for.
@@ -620,56 +266,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		onPlay?.(item, false, {});
 	}, [item, episodes, albumTracks, onPlay, effectiveApi, tagWithServerInfo]);
 
-	const handleTrailer = useCallback(() => {
-		const openTrailer = async () => {
-			if (!item?.Id) return;
-			await stopPlaybackForTrailer(trailerVideoRef.current);
-
-			try {
-				if (effectiveApi?.getLocalTrailers) {
-					const localResult = await effectiveApi.getLocalTrailers(item.Id);
-					const localItems = Array.isArray(localResult?.Items)
-						? localResult.Items
-						: (Array.isArray(localResult) ? localResult : []);
-					const localTrailer = localItems.find((t) => t?.Id);
-
-					if (localTrailer) {
-						const trailerItem = {
-							...localTrailer,
-							_serverUrl: item._serverUrl,
-							_serverType: item._serverType,
-							_serverAccessToken: item._serverAccessToken,
-							_serverUserId: item._serverUserId,
-							_serverName: item._serverName,
-							_serverId: item._serverId
-						};
-						onPlay?.(trailerItem, false, {});
-						return;
-					}
-				}
-				} catch (err) { void err; }
-
-			if (item?.RemoteTrailers?.length > 0) {
-				for (let i = 0; i < item.RemoteTrailers.length; i++) {
-					const trailerUrl = item.RemoteTrailers[i]?.Url || item.RemoteTrailers[i]?.url || '';
-					if (!trailerUrl) continue;
-
-					const videoId = extractYouTubeIdFromUrl(trailerUrl);
-					if (videoId) {
-						setTrailerOverlay(videoId);
-						window.requestAnimationFrame(() => Spotlight.focus('trailer-close-btn'));
-						return;
-					}
-
-					window.open(trailerUrl, '_blank');
-					return;
-				}
-			}
-		};
-
-		openTrailer();
-	}, [effectiveApi, item, onPlay]);
-
 	const handleToggleFavorite = useCallback(async () => {
 		if (!item) return;
 		const newState = !item.UserData?.IsFavorite;
@@ -679,7 +275,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			UserData: {...prev.UserData, IsFavorite: newState}
 		}));
 		window.requestAnimationFrame(() => Spotlight.focus('details-favorite-btn') || Spotlight.focus('season-favorite-btn'));
-	}, [effectiveApi, item]);
+	}, [effectiveApi, item, setItem]);
 
 	const handleToggleWatched = useCallback(async () => {
 		if (!item) return;
@@ -691,7 +287,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		}));
 		window.dispatchEvent(new CustomEvent('moonfin:browseRefresh'));
 		window.requestAnimationFrame(() => Spotlight.focus('details-watched-btn') || Spotlight.focus('season-watched-btn'));
-	}, [effectiveApi, item]);
+	}, [effectiveApi, item, setItem]);
 
 	const handleGoToSeries = useCallback(() => {
 		if (item?.SeriesId) {
@@ -707,137 +303,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		}
 	}, [item, onSelectItem]);
 
-	const handleCloseMediaInfo = useCallback(() => setShowMediaInfo(false), []);
-	const handleOpenMediaInfo = useCallback(() => setShowMediaInfo(true), []);
-	const handleStopPropagation = useCallback((e) => e.stopPropagation(), []);
-
-	const clearSponsorSkip = useCallback(() => {
-		if (sponsorSkipIntervalRef.current) {
-			clearInterval(sponsorSkipIntervalRef.current);
-			sponsorSkipIntervalRef.current = null;
-		}
-	}, []);
-
-	const handleCloseTrailer = useCallback(() => {
-		clearSponsorSkip();
-		sponsorSegmentsRef.current = [];
-		if (trailerVideoRef.current) {
-			try {
-				trailerVideoRef.current.pause();
-				// Do NOT call load() — corrupts Chrome 53 HW decoder.
-				trailerVideoRef.current.src = '';
-				trailerVideoRef.current.removeAttribute('src');
-			} catch { /* ignore */ }
-		}
-		setTrailerOverlay(null);
-		setTrailerStreamUrl(null);
-	}, [clearSponsorSkip]);
-
-	const handleTrailerOverlayKeyDown = useCallback((e) => {
-		if (isBackKey(e)) {
-			e.preventDefault();
-			e.stopPropagation();
-			handleCloseTrailer();
-		}
-	}, [handleCloseTrailer]);
-
-	useEffect(() => {
-		if (!trailerOverlay) {
-			setTrailerStreamUrl(null);
-			return;
-		}
-		let cancelled = false;
-
-		const resolveStream = async () => {
-			// Segments are a bonus, so a failed lookup must not hold up the trailer.
-			const [segments, url] = await Promise.all([
-				fetchSponsorSegments(trailerOverlay).catch(() => []),
-				fetchVideoStreamUrl(trailerOverlay, true)
-			]);
-			if (cancelled) return;
-			if (url) {
-				sponsorSegmentsRef.current = segments || [];
-				setTrailerStreamUrl(url);
-			} else {
-				setTrailerOverlay(null);
-			}
-		};
-
-		resolveStream();
-		return () => { cancelled = true; };
-	}, [trailerOverlay]);
-
-	// Skips sponsor segments by polling, the same way the home screen previews do.
-	useEffect(() => {
-		const segments = sponsorSegmentsRef.current;
-		if (!trailerStreamUrl || segments.length === 0) return undefined;
-
-		sponsorSkipIntervalRef.current = setInterval(() => {
-			const video = trailerVideoRef.current;
-			if (!video || video.paused) return;
-			const t = video.currentTime;
-			for (let i = 0; i < segments.length; i++) {
-				if (t >= segments[i].start && t < segments[i].end - 0.5) {
-					video.currentTime = segments[i].end;
-					break;
-				}
-			}
-		}, 500);
-
-		return clearSponsorSkip;
-	}, [trailerStreamUrl, clearSponsorSkip]);
-
-	useEffect(() => {
-		if (!trailerOverlay || !trailerVideoRef.current) return;
-		const video = trailerVideoRef.current;
-		const muted = !!settings.featuredTrailerMuted;
-		video.muted = muted;
-		video.defaultMuted = muted;
-		video.volume = muted ? 0 : 1;
-	}, [settings.featuredTrailerMuted, trailerOverlay, trailerStreamUrl]);
-
-	const openModal = useCallback((modal) => {
-	  lastFocusedElementRef.current = document.activeElement;
-		setActiveModal(modal);
-		window.requestAnimationFrame(() => {
-			const modalId = `${modal}-modal`;
-			const focusResult = Spotlight.focus(modalId);
-			if (!focusResult) {
-				const selectedItem = document.querySelector(`[data-modal="${modal}"] [data-selected="true"]`);
-				const firstItem = document.querySelector(`[data-modal="${modal}"] button`);
-				if (selectedItem) {
-					Spotlight.focus(selectedItem);
-				} else if (firstItem) {
-					Spotlight.focus(firstItem);
-				}
-			}
-		});
-	}, []);
-
-	const handleOpenAudioModal = useCallback(() => openModal('audio'), [openModal]);
-	const handleOpenSubtitleModal = useCallback(() => openModal('subtitle'), [openModal]);
-	const handleOpenVersionModal = useCallback(() => openModal('version'), [openModal]);
-
-	const closeModal = useCallback(() => {
-		setActiveModal(null);
-		window.requestAnimationFrame(() => {
-		  if (lastFocusedElementRef.current) {
-				Spotlight.focus(lastFocusedElementRef.current);
-			}
-		});
-	}, []);
-
-	// Holding Play offers the same forced transcodes the mobile clients do, for a file
-	// the set can open but not decode smoothly. A series or an album keeps the plain
-	// press, since there is no single stream to pick a quality for.
-	const openAdvancedPlayback = useCallback((resume) => {
-		advancedResumeRef.current = resume;
-		openModal('advancedPlayback');
-	}, [openModal]);
-
-	const handleAdvancedPlay = useCallback(() => openAdvancedPlayback(false), [openAdvancedPlayback]);
-	const handleAdvancedResume = useCallback(() => openAdvancedPlayback(true), [openAdvancedPlayback]);
-
 	const handleSelectTranscodeQuality = useCallback((e) => {
 		const bitrate = parseInt(e.currentTarget.dataset.bitrate, 10);
 		closeModal();
@@ -847,24 +312,24 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			forceBitrate: bitrate,
 			forceTranscode: true
 		});
-	}, [item, onPlay, buildPlaybackOptions, closeModal]);
+	}, [item, onPlay, buildPlaybackOptions, closeModal, advancedResumeRef]);
 
-	const playLongPress = useLongPress(supportsStreamSelection ? handleAdvancedPlay : null, handlePlay);
-	const resumeLongPress = useLongPress(supportsStreamSelection ? handleAdvancedResume : null, handleResume);
+	const playLongPress = useLongPress(supportsStreamSelection ? modals.handleAdvancedPlay : null, handlePlay);
+	const resumeLongPress = useLongPress(supportsStreamSelection ? modals.handleAdvancedResume : null, handleResume);
 
 	const handleSelectAudio = useCallback((e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index)) return;
 		setSelectedAudioIndex(index);
 		closeModal();
-	}, [closeModal]);
+	}, [closeModal, setSelectedAudioIndex]);
 
 	const handleSelectSubtitle = useCallback((e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index)) return;
 		setSelectedSubtitleIndex(index);
 		closeModal();
-	}, [closeModal]);
+	}, [closeModal, setSelectedSubtitleIndex]);
 
 	const handleOpenRemoteSubtitleSearch = useCallback(async () => {
 		if (!item?.Id) return;
@@ -907,7 +372,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			}
 		} catch { /* ignore */ }
 		closeModal();
-	}, [remoteSubtitleResults, item, effectiveApi, selectedVersionIndex, closeModal, tagWithServerInfo]);
+	}, [remoteSubtitleResults, item, effectiveApi, selectedVersionIndex, closeModal, tagWithServerInfo, setItem, setSelectedSubtitleIndex]);
 
 	const handleSelectVersion = useCallback((e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
@@ -929,7 +394,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			setSelectedSubtitleIndex(-1);
 		}
 		closeModal();
-	}, [item, closeModal]);
+	}, [item, closeModal, setSelectedVersionIndex, setSelectedAudioIndex, setSelectedSubtitleIndex]);
 
 	const handleSeasonSelect = useCallback((ev) => {
 		const seasonId = ev.currentTarget.dataset.seasonId;
@@ -1053,11 +518,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			revertItems.splice(itemIndex, 0, movingItem);
 			setPlaylistItems(revertItems);
 		}
-	}, [playlistItems, effectiveApi, item]);
-
-	const showToast = useCallback((msg) => {
-		setToastMessage(msg);
-	}, []);
+	}, [playlistItems, effectiveApi, item, setPlaylistItems]);
 
 	const handleRemoveFromPlaylist = useCallback(async (entryId) => {
 		if (!entryId || !item) return;
@@ -1069,7 +530,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		} catch {
 			setPlaylistItems(prevItems);
 		}
-	}, [playlistItems, effectiveApi, item, showToast]);
+	}, [playlistItems, effectiveApi, item, showToast, setPlaylistItems]);
 
 	const handlePlaylistItemKeyDown = useCallback((ev) => {
 		const currentSpottable = ev.target.closest('.spottable');
@@ -1099,185 +560,17 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		}
 	}, [handlePlaylistItemReorder, handleRemoveFromPlaylist, playlistItems]);
 
-	const handleOpenPlaylistModal = useCallback(() => {
-		setShowPlaylistModal(true);
-	}, []);
-
-	const handleClosePlaylistModal = useCallback(() => {
-		setShowPlaylistModal(false);
-		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
-	}, []);
-
-	const handleOpenCollectionModal = useCallback(() => {
-		setShowCollectionModal(true);
-	}, []);
-
-	const handleCloseCollectionModal = useCallback(() => {
-		setShowCollectionModal(false);
-		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
-	}, []);
-
-	const handleOpenDeleteDialog = useCallback(() => {
-		setShowDeleteDialog(true);
-	}, []);
-
-	const handleCloseDeleteDialog = useCallback(() => {
-		setShowDeleteDialog(false);
-		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
-	}, []);
-
-	const handleOpenIdentifyModal = useCallback(() => {
-		setShowIdentifyModal(true);
-	}, []);
-
-	const handleCloseIdentifyModal = useCallback(() => {
-		setShowIdentifyModal(false);
-		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
-	}, []);
-
-	const refreshItem = useCallback(async () => {
-		try {
-			const data = await effectiveApi.getItemForDetail(itemId);
-			if (data) {
-				setItem(tagWithServerInfo(data));
-			}
-		} catch (err) {
-			console.error('[Details] Error refreshing item', err);
-		}
-	}, [effectiveApi, itemId, tagWithServerInfo]);
-
-	const handleOpenArtworkModal = useCallback(() => {
-		setShowArtworkModal(true);
-	}, []);
-
-	const handleCloseArtworkModal = useCallback(() => {
-		setShowArtworkModal(false);
-		refreshItem();
-		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
-	}, [refreshItem]);
-
+	const closeDeleteDialog = modals.handleCloseDeleteDialog;
 	const handleConfirmDelete = useCallback(async () => {
 		try {
 			await effectiveApi.deleteItem(item.Id);
-			setShowDeleteDialog(false);
+			closeDeleteDialog();
 			onItemDeleted?.();
 		} catch {
-			setShowDeleteDialog(false);
+			closeDeleteDialog();
 			setToastMessage($L('Failed to delete item'));
 		}
-	}, [effectiveApi, item?.Id, onItemDeleted]);
-
-	// Register back handler interceptor for modals
-	useEffect(() => {
-		if (!backHandlerRef) return;
-		backHandlerRef.current = () => {
-			if (showArtworkModal) {
-				if (artworkModalBackRef.current?.()) return true;
-				handleCloseArtworkModal();
-				return true;
-			}
-			if (showIdentifyModal) { handleCloseIdentifyModal(); return true; }
-			if (showDeleteDialog) { handleCloseDeleteDialog(); return true; }
-			if (showPlaylistModal) { handleClosePlaylistModal(); return true; }
-			if (showCollectionModal) { handleCloseCollectionModal(); return true; }
-			if (activeModal) { closeModal(); return true; }
-			if (showMediaInfo) { setShowMediaInfo(false); return true; }
-			return false;
-		};
-		return () => { if (backHandlerRef) backHandlerRef.current = null; };
-	}, [backHandlerRef, activeModal, showMediaInfo, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
-
-const handleSectionKeyDown = useCallback((ev) => {
-		const currentSpottable = ev.target.closest('.spottable');
-		if (!currentSpottable) return;
-
-		if (ev.keyCode === KEYS.LEFT || ev.keyCode === KEYS.RIGHT) { // Left / Right
-			const scroller = currentSpottable.closest(`.${css.sectionScroll}`) || currentSpottable.closest(`.${css.castScroller}`);
-			if (!scroller) return; // Let MediaRow handle its own left/right
-
-			const allCards = Array.from(scroller.querySelectorAll('.spottable'));
-			const currentIdx = allCards.indexOf(currentSpottable);
-			if (currentIdx === -1) return;
-
-			const targetIdx = ev.keyCode === KEYS.LEFT ? currentIdx - 1 : currentIdx + 1;
-			if (targetIdx < 0 || targetIdx >= allCards.length) return;
-
-			ev.preventDefault();
-			ev.stopPropagation();
-			Spotlight.focus(allCards[targetIdx]);
-		} else if (ev.keyCode === KEYS.UP) { // Up arrow
-			const container = currentSpottable.closest(`.${css.sectionsContainer}`);
-			if (!container) return;
-
-			const currentRow = currentSpottable.closest(`.${css.section}`) || currentSpottable.closest('[data-row-index]') || currentSpottable.closest(`.${css.inlineRow}`);
-			if (!currentRow) return;
-
-			const allRows = Array.from(container.children);
-			const currentIndex = allRows.indexOf(currentRow);
-
-			if (currentIndex <= 0) {
-				ev.preventDefault();
-				ev.stopPropagation();
-				Spotlight.focus('details-action-buttons');
-			} else {
-				const prevRow = allRows[currentIndex - 1];
-				const prevSpottable = prevRow.querySelector('.spottable');
-				if (prevSpottable) {
-					ev.preventDefault();
-					ev.stopPropagation();
-					Spotlight.focus(prevSpottable);
-				}
-			}
-		} else if (ev.keyCode === KEYS.DOWN) { // Down arrow
-			const container = currentSpottable.closest(`.${css.sectionsContainer}`);
-			if (!container) return;
-
-			const currentRow = currentSpottable.closest(`.${css.section}`) || currentSpottable.closest('[data-row-index]');
-			if (!currentRow) return;
-
-			const allRows = Array.from(container.children);
-			const currentIndex = allRows.indexOf(currentRow);
-
-			if (currentIndex >= 0 && currentIndex < allRows.length - 1) {
-				const nextRow = allRows[currentIndex + 1];
-				const nextSpottable = nextRow.querySelector('.spottable');
-				if (nextSpottable) {
-					ev.preventDefault();
-					ev.stopPropagation();
-					Spotlight.focus(nextSpottable);
-				}
-			}
-		}
-	}, []);
-
-	const handleButtonRowKeyDown = useCallback((ev) => {
-		if (ev.keyCode === KEYS.DOWN) { // Down arrow
-			ev.preventDefault();
-			ev.stopPropagation();
-			const sectionsContainer = document.querySelector(`.${css.sectionsContainer}`);
-			if (sectionsContainer) {
-				const firstSpottable = sectionsContainer.querySelector('.spottable');
-				if (firstSpottable) {
-					Spotlight.focus(firstSpottable);
-				}
-			}
-		}
-	}, []);
-
-	const handleSeasonButtonKeyDown = useCallback((ev) => {
-		if (ev.keyCode === KEYS.DOWN) { // Down arrow
-			ev.preventDefault();
-			ev.stopPropagation();
-			// Try episode list first (seasons), then track list (albums)
-			const list = document.querySelector(`.${css.seasonEpisodesList}`) || document.querySelector(`.${css.trackList}`);
-			if (list) {
-				const firstSpottable = list.querySelector('.spottable');
-				if (firstSpottable) {
-					Spotlight.focus(firstSpottable);
-				}
-			}
-		}
-	}, []);
+	}, [effectiveApi, item?.Id, onItemDeleted, closeDeleteDialog]);
 
 	const handleButtonRowFocus = useCallback(() => {
 		if (pageScrollToRef.current) {
@@ -1291,24 +584,6 @@ const handleSectionKeyDown = useCallback((ev) => {
 		pageScrollToRef.current = fn;
 	}, []);
 
-	const handleScrollerFocus = useCallback((e) => {
-		const card = e.target.closest('.spottable');
-		const scroller = e.currentTarget;
-		if (card && scroller) {
-			window.requestAnimationFrame(() => {
-				const cardRect = card.getBoundingClientRect();
-				const scrollerRect = scroller.getBoundingClientRect();
-				if (cardRect.left < scrollerRect.left) {
-					scroller.scrollLeft -= (scrollerRect.left - cardRect.left + 50);
-				} else if (cardRect.right > scrollerRect.right) {
-					scroller.scrollLeft += (cardRect.right - scrollerRect.right + 50);
-				}
-			});
-		}
-	}, []);
-
-	// === LOADING STATE ===
-
 	if (isLoading || !item) {
 		return (
 			<div className={css.page}>
@@ -1319,13 +594,10 @@ const handleSectionKeyDown = useCallback((ev) => {
 		);
 	}
 
-	// === DATA DERIVATION ===
-
 	const backdropId = getBackdropId(item);
 	const backdropUrl = backdropId
 		? getImageUrl(effectiveServerUrl, backdropId, 'Backdrop', {maxWidth: 1920, quality: 90})
 		: null;
-
 
 	const isEpisode = item.Type === 'Episode';
 	const isSeries = item.Type === 'Series';
@@ -1343,7 +615,6 @@ const handleSectionKeyDown = useCallback((ev) => {
 	// music and playlists rather than offering a call the server would reject.
 	const canAddToCollection = COLLECTION_ITEM_TYPES.includes(item.Type);
 
-	// Poster URL
 	let posterUrl = null;
 	if (isEpisode) {
 		if (item.ImageTags?.Thumb) {
@@ -1355,7 +626,6 @@ const handleSectionKeyDown = useCallback((ev) => {
 		posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Primary', {maxHeight: 600, quality: 90});
 	}
 
-	// Info data
 	const year = item.ProductionYear || '';
 	const runtime = item.RunTimeTicks ? formatDuration(item.RunTimeTicks) : '';
 	const endsAt = formatPlaybackEndsAt(item.RunTimeTicks / 10000000, settings.clockDisplay, settings.timeOffsetHours);
@@ -1363,7 +633,6 @@ const handleSectionKeyDown = useCallback((ev) => {
 	const badges = getMediaBadges(item, selectedVersionIndex);
 	const seasonCount = item.ChildCount || seasons.length || 0;
 
-	// Media source info
 	const mediaSource = item.MediaSources?.[selectedVersionIndex] || item.MediaSources?.[0];
 	const audioStreams = mediaSource?.MediaStreams?.filter(s => s.Type === 'Audio') || [];
 	const subtitleStreams = mediaSource?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
@@ -1375,563 +644,69 @@ const handleSectionKeyDown = useCallback((ev) => {
 	const currentAudioStream = audioStreams[selectedAudioIndex];
 	const currentSubtitleStream = selectedSubtitleIndex >= 0 ? subtitleStreams[selectedSubtitleIndex] : null;
 
-	// Metadata
 	const genres = item.Genres || [];
 	const tagline = item.Taglines?.[0];
-	const directors = item.People?.filter(p => p.Type === 'Director') || [];
-	const writers = item.People?.filter(p => p.Type === 'Writer') || [];
-	const studios = item.Studios || [];
 
 	const hasPlaybackPosition = item.UserData?.PlaybackPositionTicks > 0;
 	const resumeTimeText = hasPlaybackPosition ? formatDuration(item.UserData.PlaybackPositionTicks) : '';
 
-	// Person-specific data
 	const personMovies = isPerson ? similar.filter(i => i.Type === 'Movie') : [];
 	const personSeries = isPerson ? similar.filter(i => i.Type === 'Series') : [];
 	const birthDate = isPerson && item.PremiereDate ? new Date(item.PremiereDate) : null;
 	const birthPlace = isPerson && item.ProductionLocations?.length > 0 ? item.ProductionLocations[0] : '';
 
-	// === RENDER HELPERS ===
+	const backdrop = (
+		<DetailBackdrop backdropUrl={backdropUrl} isPerson={isPerson} blur={settings.backdropBlurDetail} />
+	);
 
-	const renderBackdrop = () => (
+	const trailerLayer = (
+		<TrailerOverlay
+			videoId={trailer.trailerOverlay}
+			streamUrl={trailer.trailerStreamUrl}
+			videoRef={trailer.trailerVideoRef}
+			muted={settings.featuredTrailerMuted}
+			onClose={trailer.handleCloseTrailer}
+			onKeyDown={trailer.handleTrailerOverlayKeyDown}
+		/>
+	);
+
+	const overlays = (
 		<>
-			{backdropUrl && !isPerson && (
-				<div className={css.backdrop}>
-					<img
-						src={backdropUrl}
-						className={css.backdropImage}
-						alt=""
-						style={settings.backdropBlurDetail > 0 ? {filter: `blur(${settings.backdropBlurDetail}px)`} : undefined}
-					/>
-				</div>
-			)}
-			{isPerson && <div className={`${css.backdrop} ${css.personBackdrop}`} />}
-			<div className={css.backdropGradient} />
-		</>
-	);
-
-	const renderMediaInfoModal = () => {
-		if (!showMediaInfo || !mediaSource) return null;
-		const streams = mediaSource.MediaStreams || [];
-		return (
-			<div className={css.modalOverlay} onClick={handleCloseMediaInfo}>
-				<div className={css.mediaInfoMenu} onClick={handleStopPropagation}>
-					<h3 className={css.modalTitle}>{$L('Media Info')}</h3>
-					<div className={css.mediaInfoContent}>
-						{streams.length === 0 && <p className={css.mediaInfoRow}>{$L('No media info available')}</p>}
-						{streams.map((stream, i) => (
-							<div key={i} className={css.mediaInfoStream}>
-								<div className={css.mediaInfoStreamHeader}>
-									{stream.Type}{stream.Language ? ` (${stream.Language})` : ''}
-								</div>
-								{stream.DisplayTitle && <div className={css.mediaInfoRow}>{stream.DisplayTitle}</div>}
-								{stream.Type === 'Video' && (
-									<div className={css.mediaInfoRow}>
-										{[
-											stream.Width && stream.Height ? `${stream.Width}×${stream.Height}` : null,
-											stream.Codec?.toUpperCase(),
-											stream.BitRate ? `${Math.round(stream.BitRate / 1000000)} Mbps` : null,
-											stream.VideoRange,
-											stream.VideoRangeType && stream.VideoRangeType !== 'SDR' ? stream.VideoRangeType : null
-										].filter(Boolean).join(' · ')}
-									</div>
-								)}
-								{stream.Type === 'Audio' && (
-									<div className={css.mediaInfoRow}>
-										{[
-											stream.Codec?.toUpperCase(),
-											stream.Channels ? `${stream.Channels} ch` : null,
-											stream.SampleRate ? `${stream.SampleRate} Hz` : null,
-											stream.BitRate ? `${Math.round(stream.BitRate / 1000)} kbps` : null
-										].filter(Boolean).join(' · ')}
-									</div>
-								)}
-								{stream.Type === 'Subtitle' && (
-									<div className={css.mediaInfoRow}>
-										{[stream.Codec?.toUpperCase(), stream.IsExternal ? $L('External') : $L('Embedded')].filter(Boolean).join(' · ')}
-									</div>
-								)}
-							</div>
-						))}
-					</div>
-					<div className={css.mediaInfoClose}>
-						<SpottableDiv className={css.mediaInfoCloseBtn} onClick={handleCloseMediaInfo} spotlightId="media-info-close">
-							{$L('Close')}
-						</SpottableDiv>
-					</div>
-				</div>
-			</div>
-		);
-	};
-
-	// Declaration order is where a button the user never placed ends up, so keep it stable.
-	const customizableActionButtons = () => arrange([
-		{id: 'shuffle', when: isSeries || isSeason, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleShuffle}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M560-160v-80h104L537-367l57-57 126 126v-102h80v240H560Zm-344 0-56-56 504-504H560v-80h240v240h-80v-104L216-160Zm151-377L160-744l56-56 207 207-56 56Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Shuffle')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'version', when: hasMultipleVersions, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenVersionModal}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M320-240h320v-80H320v80Zm0-160h320v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T740-80H240Zm280-520v-200H240v640h500v-440H520ZM240-800v200-200 640-640Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Version')}</span>
-				<span className={css.btnDetail}>{mediaSource?.Name || `${$L('Version')} ${selectedVersionIndex + 1}`}</span>
-			</SpottableDiv>
-		)},
-		{id: 'audio', when: hasMultipleAudio, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenAudioModal}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Audio')}</span>
-				{currentAudioStream && (
-					<span className={css.btnDetail}>
-						{currentAudioStream.DisplayTitle || currentAudioStream.Language || `${$L('Track')} ${selectedAudioIndex + 1}`}
-					</span>
-				)}
-			</SpottableDiv>
-		)},
-		{id: 'subtitles', when: supportsMediaSourceSelection, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenSubtitleModal}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M240-350h360v-60H240v60Zm420 0h60v-60h-60v60ZM240-470h60v-60h-60v60Zm120 0h360v-60H360v60ZM140-160q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h680q24 0 42 18t18 42v520q0 24-18 42t-42 18H140Zm0-60h680v-520H140v520Zm0 0v-520 520Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Subtitle')}</span>
-				{currentSubtitleStream ? (
-					<span className={css.btnDetail}>
-						{currentSubtitleStream.DisplayTitle || currentSubtitleStream.Language || `${$L('Track')} ${selectedSubtitleIndex + 1}`}
-					</span>
-				) : (
-					<span className={css.btnDetail}>{$L('Off')}</span>
-				)}
-			</SpottableDiv>
-		)},
-		{id: 'trailer', when: item.LocalTrailerCount > 0 || item.RemoteTrailers?.length > 0, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleTrailer}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M160-120v-720h80v80h80v-80h320v80h80v-80h80v720h-80v-80h-80v80H320v-80h-80v80h-80Zm80-160h80v-80h-80v80Zm0-160h80v-80h-80v80Zm0-160h80v-80h-80v80Zm400 320h80v-80h-80v80Zm0-160h80v-80h-80v80Zm0-160h80v-80h-80v80ZM400-200h160v-560H400v560Zm0-560h160-160Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Trailer')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'watched', when: true, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleToggleWatched} spotlightId="details-watched-btn">
-				<div className={css.btnAction}>
-					<svg className={`${css.btnIcon} ${item.UserData?.Played ? css.watched : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{item.UserData?.Played ? $L('Watched') : $L('Mark Watched')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'favorite', when: true, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleToggleFavorite} spotlightId="details-favorite-btn">
-				<div className={css.btnAction}>
-					<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'goToSeries', when: isEpisode && item.SeriesId, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleGoToSeries}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M240-120v-80l40-40H160q-33 0-56.5-23.5T80-320v-440q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v440q0 33-23.5 56.5T800-240H680l40 40v80H240Zm-80-200h640v-440H160v440Zm0 0v-440 440Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Series')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'mediaInfo', when: supportsMediaSourceSelection, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenMediaInfo}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Media Info')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'playlist', when: true, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenPlaylistModal}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M120-320v-80h480v80H120Zm0-160v-80h480v80H120Zm0-160v-80h480v80H120Zm520 480v-320l240 160-240 160Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Add to Playlist')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'collection', when: canAddToCollection, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenCollectionModal}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M160-80q-33 0-56.5-23.5T80-160v-440h80v440h680v80H160Zm160-160q-33 0-56.5-23.5T240-320v-440q0-33 23.5-56.5T320-840h200l80 80h240q33 0 56.5 23.5T920-680v360q0 33-23.5 56.5T840-240H320Zm0-80h520v-360H567l-80-80H320v440Zm0 0v-440 440Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Add to Collection')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'deleteFiles', when: item.CanDelete, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenDeleteDialog}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T700-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z"/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Delete')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'admin', when: canIdentify, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={handleOpenIdentifyModal}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.admin}/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Admin Controls')}</span>
-			</SpottableDiv>
-		)}
-	].filter((btn) => btn.when), {order: settings[DETAIL_ORDER_KEY], hidden: settings[DETAIL_HIDDEN_KEY]});
-
-	const renderActionButtons = (showPlayButtons = true) => (
-		<HorizontalContainer className={css.actionButtons} onKeyDown={handleButtonRowKeyDown} onFocus={handleButtonRowFocus} spotlightId="details-action-buttons">
-			{showPlayButtons && !isBook && hasPlaybackPosition && (
-				<SpottableDiv className={css.btnWrapper} {...resumeLongPress} spotlightId="details-primary-btn">
-					<div className={css.btnAction}>
-						<span className={css.btnIcon}>▶</span>
-					</div>
-					<span className={css.btnLabel}>{$L('Resume')}</span>
-					<span className={css.btnDetail}>{resumeTimeText}</span>
-				</SpottableDiv>
-			)}
-			{showPlayButtons && (isBook ? isReadableBook : true) && (
-				<SpottableDiv className={css.btnWrapper} {...playLongPress} onFocus={handleButtonRowFocus} spotlightId={hasPlaybackPosition ? undefined : 'details-primary-btn'}>
-					<div className={css.btnAction}>
-						{hasPlaybackPosition && !isBook ? (
-							<svg className={css.btnIcon} viewBox="0 -960 960 960">
-								<path d="M480-80q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440h80q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720h-6l62 62-56 58-160-160 160-160 56 58-62 62h6q75 0 140.5 28.5t114 77q48.5 48.5 77 114T840-440q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80Z"/>
-							</svg>
-						) : isBook ? (
-							<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-								<path d="M560-564v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-600q-38 0-73 9.5T560-564Zm0 220v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-380q-38 0-73 9t-67 27Zm0-110v-68q33-14 67.5-21t72.5-7q26 0 51 4t49 10v64q-24-9-48.5-13.5T700-490q-38 0-73 9.5T560-454ZM260-320q47 0 91.5 10.5T440-278v-394q-41-24-87-36t-93-12q-36 0-71.5 7T120-692v396q35-12 69.5-18t70.5-6Zm260 42q44-21 88.5-31.5T700-320q36 0 70.5 6t69.5 18v-396q-33-14-68.5-21t-71.5-7q-47 0-93 12t-87 36v394ZM480-160q-48-38-104-59t-116-21q-42 0-82.5 11T96-204q-19 11-37.5-1T40-238v-462q0-11 5.5-21T62-734q46-24 96-37t102-13q58 0 113.5 15T480-728q51-26 106.5-41T700-784q52 0 102 13t96 37q11 7 16.5 17t5.5 21v462q0 23-18.5 35t-37.5 1q-41-24-81.5-35T700-244q-60 0-116 21t-104 63ZM276-489Z"/>
-							</svg>
-						) : (
-							<span className={css.btnIcon}>▶</span>
-						)}
-					</div>
-					<span className={css.btnLabel}>{isBook ? $L('Read') : hasPlaybackPosition ? $L('Restart') : $L('Play')}</span>
-				</SpottableDiv>
-			)}
-			{customizableActionButtons().map((btn) => <Fragment key={btn.id}>{btn.render()}</Fragment>)}
-		</HorizontalContainer>
-	);
-
-	const renderNextUpCard = (ep, title) => {
-		const thumbUrl = ep.ImageTags?.Primary
-			? getImageUrl(effectiveServerUrl, ep.Id, 'Primary', {maxWidth: 400, quality: 80})
-			: null;
-		const label = ep.ParentIndexNumber != null && ep.IndexNumber != null
-			? `S${ep.ParentIndexNumber}:E${ep.IndexNumber}`
-			: null;
-		const progress = ep.UserData?.PlayedPercentage || 0;
-		return (
-			<RowContainer className={css.section}>
-				<div className={css.sectionHeader}>
-					<h3 className={css.sectionTitle}>{$L(title)}</h3>
-				</div>
-				{/* eslint-disable-next-line react/jsx-no-bind */}
-				<SpottableDiv className={css.nextUpCard} onClick={() => onSelectItem?.(ep)}>
-					<div className={css.nextUpThumb}>
-						{thumbUrl ? (
-							<img src={thumbUrl} alt="" />
-						) : (
-							<div className={css.nextUpThumbPlaceholder}>
-								<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9.5 7.5l7 4.5-7 4.5z"/></svg>
-							</div>
-						)}
-						{progress > 0 && (
-							<div className={css.episodeProgress}>
-								<div className={css.episodeProgressBar} style={{width: `${Math.min(progress, 100)}%`}} />
-							</div>
-						)}
-					</div>
-					<div className={css.nextUpInfo}>
-						<span className={css.nextUpTitle}>{label ? `${label} - ${ep.Name}` : ep.Name}</span>
-						{ep.Overview && <span className={css.nextUpOverview}>{ep.Overview}</span>}
-					</div>
-					<div className={css.nextUpPlayIcon}>
-						<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-					</div>
-				</SpottableDiv>
-			</RowContainer>
-		);
-	};
-
-	const renderMetadata = () => {
-		const metaItems = [];
-		if (genres.length > 0) metaItems.push({label: $L('Genres'), value: genres.slice(0, 3).join(', ')});
-		if (directors.length > 0) metaItems.push({label: $L('Director'), value: directors.map(d => d.Name).join(', ')});
-		if (writers.length > 0) metaItems.push({label: $L('Writers'), value: writers.map(w => w.Name).join(', ')});
-		if (studios.length > 0) metaItems.push({label: $L('Studio'), value: studios.map(s => s.Name).join(', ')});
-		if (metaItems.length === 0) return null;
-		return (
-			<div className={css.metadataGroup}>
-				{metaItems.map((meta, i) => (
-					<div key={i} className={css.metadataCell}>
-						<span className={css.metadataLabel}>{meta.label}</span>
-						<span className={css.metadataValue}>{meta.value}</span>
-					</div>
-				))}
-			</div>
-		);
-	};
-
-	const trailerOverlayContent = trailerOverlay && (
-		<div className={css.trailerOverlay} onClick={handleCloseTrailer} onKeyDown={handleTrailerOverlayKeyDown}>
-			<SpottableButton className={css.trailerCloseBtn} onClick={handleCloseTrailer} spotlightId="trailer-close-btn">
-				<svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-					<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-				</svg>
-			</SpottableButton>
-			<div className={css.trailerIframeWrap} onClick={handleStopPropagation}>
-				{trailerStreamUrl ? (
-					<video
-						ref={trailerVideoRef}
-						className={css.trailerIframe}
-						src={trailerStreamUrl}
-						autoPlay
-						controls
-						playsInline
-						muted={settings.featuredTrailerMuted}
-					/>
-				) : (
-					<div className={css.trailerLoading}>
-						{$L('Loading trailer...')}
-					</div>
-				)}
-			</div>
-		</div>
-	);
-
-	const trailerOverlayLayer = trailerOverlayContent
-		? (typeof document !== 'undefined' && document.body
-			? createPortal(trailerOverlayContent, document.body)
-			: trailerOverlayContent)
-		: null;
-
-	const renderModals = () => (
-		<>
-			{activeModal === 'advancedPlayback' && (
-				<div className={css.trackModal} onClick={closeModal}>
-					<ModalContainer className={css.trackModalPanel} onClick={handleStopPropagation} data-modal="advancedPlayback" spotlightId="advancedPlayback-modal">
-						<h2 className={css.trackModalTitle}>{$L('Advanced Playback')}</h2>
-						<div className={css.trackList}>
-							{TRANSCODE_QUALITIES.map((quality, i) => (
-								<SpottableButton
-									key={quality.bitrate}
-									className={css.trackItem}
-									data-bitrate={quality.bitrate}
-									data-selected={i === 0 ? 'true' : undefined}
-									onClick={handleSelectTranscodeQuality}
-								>
-									<span className={css.trackName}>{$L('Transcode Stream')}: {quality.label()}</span>
-								</SpottableButton>
-							))}
-						</div>
-						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
-					</ModalContainer>
-				</div>
-			)}
-			{activeModal === 'version' && (
-				<div className={css.trackModal} onClick={closeModal}>
-					<ModalContainer className={css.trackModalPanel} onClick={handleStopPropagation} data-modal="version" spotlightId="version-modal">
-						<h2 className={css.trackModalTitle}>{$L('Select Version')}</h2>
-						<div className={css.trackList}>
-							{item.MediaSources.map((source, i) => {
-								const video = source.MediaStreams?.find(s => s.Type === 'Video');
-								const resLabel = video?.Width >= 3800 ? '4K' : video?.Width >= 1900 ? '1080p' : video?.Width >= 1260 ? '720p' : video?.Width ? `${video.Width}p` : '';
-								const bitrate = source.Bitrate ? `${(source.Bitrate / 1000000).toFixed(1)} Mbps` : '';
-								const container = source.Container?.toUpperCase();
-								const detail = [resLabel, container, bitrate].filter(Boolean).join(' · ');
-								return (
-									<SpottableButton
-										key={source.Id}
-										className={`${css.trackItem} ${i === selectedVersionIndex ? css.selected : ''}`}
-										data-index={i}
-										data-selected={i === selectedVersionIndex ? 'true' : undefined}
-										onClick={handleSelectVersion}
-									>
-										<span className={css.trackName}>{source.Name || `${$L('Version')} ${i + 1}`}</span>
-										{detail && <span className={css.trackInfo}>{detail}</span>}
-									</SpottableButton>
-								);
-							})}
-						</div>
-						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
-					</ModalContainer>
-				</div>
-			)}
-			{activeModal === 'audio' && (
-				<div className={css.trackModal} onClick={closeModal}>
-					<ModalContainer className={css.trackModalPanel} onClick={handleStopPropagation} data-modal="audio" spotlightId="audio-modal">
-						<h2 className={css.trackModalTitle}>{$L('Select Audio Track')}</h2>
-						<div className={css.trackList}>
-							{audioStreams.map((stream, i) => (
-								<SpottableButton
-									key={stream.Index}
-									className={`${css.trackItem} ${i === selectedAudioIndex ? css.selected : ''}`}
-									data-index={i}
-									data-selected={i === selectedAudioIndex ? 'true' : undefined}
-									onClick={handleSelectAudio}
-								>
-									<span className={css.trackName}>{stream.DisplayTitle || stream.Language || `${$L('Track')} ${i + 1}`}</span>
-									{stream.Channels && <span className={css.trackInfo}>{stream.Channels}ch</span>}
-								</SpottableButton>
-							))}
-						</div>
-						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
-					</ModalContainer>
-				</div>
-			)}
-			{activeModal === 'subtitle' && (
-				<div className={css.trackModal} onClick={closeModal}>
-					<ModalContainer className={css.trackModalPanel} onClick={handleStopPropagation} data-modal="subtitle" spotlightId="subtitle-modal">
-						<h2 className={css.trackModalTitle}>{$L('Select Subtitle')}</h2>
-						<div className={css.trackList}>
-							<SpottableButton
-								className={`${css.trackItem} ${selectedSubtitleIndex === -1 ? css.selected : ''}`}
-								data-index={-1}
-								data-selected={selectedSubtitleIndex === -1 ? 'true' : undefined}
-								onClick={handleSelectSubtitle}
-							>
-								<span className={css.trackName}>{$L('Off')}</span>
-							</SpottableButton>
-							{subtitleStreams.map((stream, i) => (
-								<SpottableButton
-									key={stream.Index}
-									className={`${css.trackItem} ${i === selectedSubtitleIndex ? css.selected : ''}`}
-									data-index={i}
-									data-selected={i === selectedSubtitleIndex ? 'true' : undefined}
-									onClick={handleSelectSubtitle}
-								>
-									<span className={css.trackName}>{stream.DisplayTitle || stream.Language || `${$L('Track')} ${i + 1}`}</span>
-									{stream.IsForced && <span className={css.trackInfo}>{$L('Forced')}</span>}
-								</SpottableButton>
-							))}
-						</div>
-						<p className={css.trackModalFooter}>
-							<SpottableButton spotlightId="btn-subtitle-download" className={css.actionBtn} onClick={handleOpenRemoteSubtitleSearch}>
-								{$L('Download')}
-							</SpottableButton>
-						</p>
-						<p className={css.trackModalFooter} style={{marginTop: 5, fontSize: 14, opacity: 0.5}}>{$L('Press BACK to close')}</p>
-					</ModalContainer>
-				</div>
-			)}
-			{activeModal === 'subtitleDownload' && (
-				<div className={css.trackModal} onClick={closeModal}>
-					<ModalContainer className={css.trackModalPanel} onClick={handleStopPropagation} data-modal="subtitleDownload" spotlightId="subtitleDownload-modal">
-						<h2 className={css.trackModalTitle}>{$L('Download Subtitles')}</h2>
-						<div className={css.trackList}>
-							{isSearchingRemoteSubtitles && (
-								<SpottableDiv className={css.trackItem}>
-									<span className={css.trackName}>{$L('Searching...')}</span>
-								</SpottableDiv>
-							)}
-							{!isSearchingRemoteSubtitles && remoteSubtitleResults.length === 0 && (
-								<SpottableDiv className={css.trackItem}>
-									<span className={css.trackName}>{$L('No remote subtitles found')}</span>
-								</SpottableDiv>
-							)}
-							{!isSearchingRemoteSubtitles && remoteSubtitleResults.map((subtitle, idx) => (
-								<SpottableButton
-									key={subtitle.id || idx}
-									className={css.trackItem}
-									data-index={idx}
-									onClick={handleSelectRemoteSubtitle}
-									style={{flexDirection: 'column', alignItems: 'flex-start'}}
-								>
-									<span className={css.trackName}>{subtitle.name || $L('Subtitle')}</span>
-									{subtitle.info && <span className={css.trackInfo} style={{marginTop: 4}}>{subtitle.info}</span>}
-								</SpottableButton>
-							))}
-						</div>
-						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
-					</ModalContainer>
-				</div>
-			)}
-
-			{renderMediaInfoModal()}
-
-			{trailerOverlayLayer}
-
-			<AddToPlaylistModal
-				open={showPlaylistModal}
-				itemId={item?.Id}
-				api={effectiveApi}
-				onClose={handleClosePlaylistModal}
-				onSuccess={showToast}
-			/>
-
-			<AddToCollectionModal
-				open={showCollectionModal}
-				itemId={item?.Id}
-				api={effectiveApi}
-				onClose={handleCloseCollectionModal}
-				onSuccess={showToast}
-			/>
-
-			<IdentifyModal
-				open={showIdentifyModal}
+			<DetailTrackModals
+				activeModal={activeModal}
+				onCloseModal={closeModal}
 				item={item}
-				api={effectiveApi}
-				onClose={handleCloseIdentifyModal}
-				onApplied={refreshItem}
-				onSuccess={showToast}
+				mediaSource={mediaSource}
+				audioStreams={audioStreams}
+				subtitleStreams={subtitleStreams}
+				selectedVersionIndex={selectedVersionIndex}
+				selectedAudioIndex={selectedAudioIndex}
+				selectedSubtitleIndex={selectedSubtitleIndex}
+				onSelectTranscodeQuality={handleSelectTranscodeQuality}
+				onSelectVersion={handleSelectVersion}
+				onSelectAudio={handleSelectAudio}
+				onSelectSubtitle={handleSelectSubtitle}
+				onOpenRemoteSubtitleSearch={handleOpenRemoteSubtitleSearch}
+				isSearchingRemoteSubtitles={isSearchingRemoteSubtitles}
+				remoteSubtitleResults={remoteSubtitleResults}
+				onSelectRemoteSubtitle={handleSelectRemoteSubtitle}
+				showMediaInfo={modals.showMediaInfo}
+				onCloseMediaInfo={modals.handleCloseMediaInfo}
 			/>
-
-			<DeleteItemDialog
-				open={showDeleteDialog}
-				itemName={item?.Name}
-				onCancel={handleCloseDeleteDialog}
-				onConfirm={handleConfirmDelete}
-			/>
-
-			<ChangeArtworkModal
-				open={showArtworkModal}
+			{trailerLayer}
+			<DetailDialogs
 				item={item}
 				api={effectiveApi}
 				serverUrl={effectiveServerUrl}
-				onClose={handleCloseArtworkModal}
-				onSuccess={showToast}
-				backHandlerRef={artworkModalBackRef}
+				modals={modals}
+				onItemRefreshed={refreshItem}
+				onConfirmDelete={handleConfirmDelete}
+				onToast={showToast}
+				toastMessage={toastMessage}
+				onToastEnd={handleToastEnd}
 			/>
-
-			{toastMessage && (
-				<div className={css.toast} onAnimationEnd={handleToastEnd}>{toastMessage}</div>
-			)}
 		</>
 	);
-
-	// === MODERN DETAIL RENDER (all item types) ===
 
 	if (settings.detailScreenStyle !== 'v1') {
 		return (
@@ -1941,7 +716,7 @@ const handleSectionKeyDown = useCallback((ev) => {
 					item={item}
 					settings={settings}
 					canChangeArtwork={canChangeArtwork}
-					handleOpenArtworkModal={handleOpenArtworkModal}
+					handleOpenArtworkModal={modals.handleOpenArtworkModal}
 					effectiveApi={effectiveApi}
 					serverToken={initialItem?._serverAccessToken || jellyfinApi.getApiKey()}
 					effectiveServerUrl={effectiveServerUrl}
@@ -1990,18 +765,18 @@ const handleSectionKeyDown = useCallback((ev) => {
 					handlePlay={handlePlay}
 					handleResume={handleResume}
 					handleShuffle={handleShuffle}
-					handleTrailer={handleTrailer}
+					handleTrailer={trailer.handleTrailer}
 					handleToggleWatched={handleToggleWatched}
 					handleToggleFavorite={handleToggleFavorite}
 					handleGoToSeries={handleGoToSeries}
-					handleOpenVersionModal={handleOpenVersionModal}
-					handleOpenAudioModal={handleOpenAudioModal}
-					handleOpenSubtitleModal={handleOpenSubtitleModal}
-					handleOpenMediaInfo={handleOpenMediaInfo}
-					handleOpenPlaylistModal={handleOpenPlaylistModal}
-					handleOpenCollectionModal={canAddToCollection ? handleOpenCollectionModal : null}
-					handleOpenIdentifyModal={canIdentify ? handleOpenIdentifyModal : null}
-					handleOpenDeleteDialog={handleOpenDeleteDialog}
+					handleOpenVersionModal={modals.handleOpenVersionModal}
+					handleOpenAudioModal={modals.handleOpenAudioModal}
+					handleOpenSubtitleModal={modals.handleOpenSubtitleModal}
+					handleOpenMediaInfo={modals.handleOpenMediaInfo}
+					handleOpenPlaylistModal={modals.handleOpenPlaylistModal}
+					handleOpenCollectionModal={canAddToCollection ? modals.handleOpenCollectionModal : null}
+					handleOpenIdentifyModal={canIdentify ? modals.handleOpenIdentifyModal : null}
+					handleOpenDeleteDialog={modals.handleOpenDeleteDialog}
 					handleChapterSelect={handleChapterSelect}
 					handleExtraSelect={handleExtraSelect}
 					handleTrackPlay={handleTrackPlay}
@@ -2009,939 +784,213 @@ const handleSectionKeyDown = useCallback((ev) => {
 					onSelectPerson={onSelectPerson}
 					onSelectStudio={onSelectStudio}
 				/>
-				{renderModals()}
+				{overlays}
 			</div>
 		);
 	}
-
-	// === PERSON RENDER ===
 
 	if (isPerson) {
 		return (
-			<div className={css.page}>
-				{renderBackdrop()}
-				<Scroller ref={pageScrollerRef} cbScrollTo={handlePageScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-					<div className={css.content}>
-						<div className={css.personHeader}>
-							<div className={css.personPhotoWrapper}>
-								{item.ImageTags?.Primary ? (
-									<img
-										src={getImageUrl(effectiveServerUrl, item.Id, 'Primary', {maxHeight: 450, quality: 90})}
-										className={css.personPhoto}
-										alt=""
-									/>
-								) : (
-									<div className={css.personPhotoPlaceholder}>
-										<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 4a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4"/></svg>
-									</div>
-								)}
-							</div>
-							<div className={css.personInfo}>
-								<h1 className={css.title}>{item.Name}</h1>
-								<div className={css.infoRow}>
-									{birthDate && (
-										<span className={css.infoItem}>
-											{$L('Born')} {birthDate.toLocaleDateString()}
-											{' '}({$L('age')} {Math.floor((Date.now() - birthDate.getTime()) / 31557600000)})
-										</span>
-									)}
-									{birthPlace && <span className={css.infoItem}>{birthPlace}</span>}
-								</div>
-								<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
-								{item.Overview && <p className={css.overview}>{item.Overview}</p>}
-							</div>
-						</div>
-
-						<div className={css.sectionsContainer}>
-							{personMovies.length > 0 && (
-								<MediaRow
-									title={`${$L('Movies')} (${personMovies.length})`}
-									items={personMovies}
-									serverUrl={effectiveServerUrl}
-									onSelectItem={onSelectItem}
-									className={css.inlineRow}
-								/>
-							)}
-							{personSeries.length > 0 && (
-								<MediaRow
-									title={`${$L('TV Series')} (${personSeries.length})`}
-									items={personSeries}
-									serverUrl={effectiveServerUrl}
-									onSelectItem={onSelectItem}
-									className={css.inlineRow}
-								/>
-							)}
-						</div>
-					</div>
-				</Scroller>
-			</div>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+				<PersonScreen
+					item={item}
+					serverUrl={effectiveServerUrl}
+					settings={settings}
+					personMovies={personMovies}
+					personSeries={personSeries}
+					birthDate={birthDate}
+					birthPlace={birthPlace}
+					onSelectItem={onSelectItem}
+				/>
+			</DetailScrollPage>
 		);
 	}
 
-	// === SEASON DETAIL RENDER ===
-
 	if (isSeason) {
 		return (
-			<div className={css.page}>
-				{renderBackdrop()}
-				<Scroller ref={pageScrollerRef} cbScrollTo={handlePageScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-					<div className={css.content}>
-						<div className={css.seasonDetailHeader}>
-							{posterUrl && (
-								<div className={css.seasonDetailPoster}>
-									<img src={posterUrl} alt="" />
-									<PosterBadges userData={item.UserData} />
-								</div>
-							)}
-							<div className={css.seasonDetailInfo}>
-								{item.SeriesName && <span className={css.seasonDetailSeries}>{item.SeriesName}</span>}
-								<h1 className={css.seasonDetailTitle}>{item.Name}</h1>
-								<span className={css.seasonDetailCount}>
-									{episodes.length} {episodes.length !== 1 ? $L('Episodes') : $L('Episode')}
-								</span>
-								<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
-							</div>
-						</div>
-
-						{episodes.length > 0 && (
-							<HorizontalContainer className={css.actionButtons} onKeyDown={handleSeasonButtonKeyDown} onFocus={handleButtonRowFocus}>
-								<SpottableDiv className={css.btnWrapper} onClick={handlePlay} onFocus={handleButtonRowFocus} spotlightId="details-primary-btn">
-									<div className={css.btnAction}>
-										<span className={css.btnIcon}>▶</span>
-									</div>
-									<span className={css.btnLabel}>{$L('Play')}</span>
-								</SpottableDiv>
-								<SpottableDiv className={css.btnWrapper} onClick={handleShuffle}>
-									<div className={css.btnAction}>
-										<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-											<path d="M560-160v-80h104L537-367l57-57 126 126v-102h80v240H560Zm-344 0-56-56 504-504H560v-80h240v240h-80v-104L216-160Zm151-377L160-744l56-56 207 207-56 56Z"/>
-										</svg>
-									</div>
-									<span className={css.btnLabel}>{$L('Shuffle')}</span>
-								</SpottableDiv>
-								<SpottableDiv className={css.btnWrapper} onClick={handleToggleWatched} spotlightId="season-watched-btn">
-									<div className={css.btnAction}>
-										<svg className={`${css.btnIcon} ${item.UserData?.Played ? css.watched : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-											<path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/>
-										</svg>
-									</div>
-									<span className={css.btnLabel}>{item.UserData?.Played ? $L('Watched') : $L('Unwatched')}</span>
-								</SpottableDiv>
-								<SpottableDiv className={css.btnWrapper} onClick={handleToggleFavorite} spotlightId="season-favorite-btn">
-									<div className={css.btnAction}>
-										<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-											<path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/>
-										</svg>
-									</div>
-									<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
-								</SpottableDiv>
-							</HorizontalContainer>
-						)}
-
-						<div className={css.seasonEpisodesList}>
-							{episodes.map(ep => {
-								const epThumbUrl = ep.ImageTags?.Primary
-									? getImageUrl(effectiveServerUrl, ep.Id, 'Primary', {maxWidth: 400, quality: 80})
-									: null;
-								const epRuntime = ep.RunTimeTicks ? formatDuration(ep.RunTimeTicks) : '';
-								const epProgress = ep.UserData?.PlayedPercentage || 0;
-								const isPlayed = ep.UserData?.Played;
-
-								return (
-									<SpottableDiv key={ep.Id} className={css.seasonEp} data-episode-id={ep.Id} onClick={handleEpisodeSelect}>
-										<div className={css.seasonEpThumb}>
-											{epThumbUrl ? (
-												<img src={epThumbUrl} alt="" />
-											) : (
-												<div className={css.seasonEpThumbPlaceholder}>
-													<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9.5 7.5l7 4.5-7 4.5z"/></svg>
-												</div>
-											)}
-											{epProgress > 0 && (
-												<div className={css.episodeProgress}>
-													<div className={css.episodeProgressBar} style={{width: `${Math.min(epProgress, 100)}%`}} />
-												</div>
-											)}
-											{isPlayed && (
-												<div className={css.watchedIndicator}>
-													<WatchedCheckIcon />
-												</div>
-											)}
-											{ep.UserData?.IsFavorite && (
-												<div className={css.favoriteBadge}>
-													<FavoriteHeartIcon />
-												</div>
-											)}
-										</div>
-										<div className={css.seasonEpBody}>
-											<div className={css.seasonEpTop}>
-												<span className={css.seasonEpNumber}>{$L('Episode')} {ep.IndexNumber || '?'}</span>
-												<span className={css.seasonEpMeta}>
-													{epRuntime && <span>{epRuntime}</span>}
-													{episodeRatings[ep.IndexNumber] != null && (
-														<span className={css.tmdbBadge}>
-															<img className={css.tmdbIcon} src={`${effectiveServerUrl}/Moonfin/Assets/tmdb.svg`} alt="TMDB" />
-															{episodeRatings[ep.IndexNumber].toFixed(1)}
-														</span>
-													)}
-												</span>
-											</div>
-											<span className={css.seasonEpTitle}>{ep.Name}</span>
-											{ep.Overview && <p className={css.seasonEpOverview}>{ep.Overview}</p>}
-										</div>
-									</SpottableDiv>
-								);
-							})}
-						</div>
-					</div>
-				</Scroller>
-			</div>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+				<SeasonScreen
+					item={item}
+					serverUrl={effectiveServerUrl}
+					settings={settings}
+					posterUrl={posterUrl}
+					episodes={episodes}
+					episodeRatings={episodeRatings}
+					onPlay={handlePlay}
+					onShuffle={handleShuffle}
+					onToggleWatched={handleToggleWatched}
+					onToggleFavorite={handleToggleFavorite}
+					onEpisodeSelect={handleEpisodeSelect}
+					onFocusRow={handleButtonRowFocus}
+				/>
+			</DetailScrollPage>
 		);
 	}
 
 	if (isPlaylist) {
-		const playlistItemCount = playlistItems.length;
-		const totalDuration = playlistItems.reduce((sum, t) => sum + (t.RunTimeTicks || 0), 0);
-
+		const toast = toastMessage
+			? <div className={css.toast} onAnimationEnd={handleToastEnd}>{toastMessage}</div>
+			: null;
 		return (
-			<div className={css.page}>
-				{renderBackdrop()}
-				<Scroller ref={pageScrollerRef} cbScrollTo={handlePageScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-					<div className={css.content}>
-						<div className={css.seasonDetailHeader}>
-							{posterUrl && (
-								<div className={css.seasonDetailPoster}>
-									<img src={posterUrl} alt="" />
-									<PosterBadges userData={item.UserData} />
-								</div>
-							)}
-							<div className={css.seasonDetailInfo}>
-								<h1 className={css.seasonDetailTitle}>{item.Name}</h1>
-								<span className={css.seasonDetailCount}>
-									{playlistItemCount} {playlistItemCount !== 1 ? $L('Items') : $L('Item')}
-									{totalDuration > 0 ? ` · ${formatDuration(totalDuration)}` : ''}
-								</span>
-								{genres.length > 0 && (
-									<span className={css.seasonDetailCount}>{genres.join(', ')}</span>
-								)}
-								{item.Overview && <p className={css.overview}>{item.Overview}</p>}
-							</div>
-						</div>
-
-						<HorizontalContainer className={css.actionButtons} onKeyDown={handleSeasonButtonKeyDown} onFocus={handleButtonRowFocus}>
-							{playlistItems.length > 0 && (
-								<SpottableDiv className={css.btnWrapper} onClick={handlePlay} onFocus={handleButtonRowFocus} spotlightId="details-primary-btn">
-									<div className={css.btnAction}>
-										<span className={css.btnIcon}>▶</span>
-									</div>
-									<span className={css.btnLabel}>{$L('Play')}</span>
-								</SpottableDiv>
-							)}
-							{playlistItems.length > 1 && (
-								<SpottableDiv className={css.btnWrapper} onClick={handlePlaylistShuffle}>
-									<div className={css.btnAction}>
-										<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-											<path d="M560-160v-80h104L537-367l57-57 126 126v-102h80v240H560Zm-344 0-56-56 504-504H560v-80h240v240h-80v-104L216-160Zm151-377L160-744l56-56 207 207-56 56Z"/>
-										</svg>
-									</div>
-									<span className={css.btnLabel}>{$L('Shuffle')}</span>
-								</SpottableDiv>
-							)}
-							<SpottableDiv className={css.btnWrapper} onClick={handleToggleFavorite} spotlightId="details-favorite-btn">
-								<div className={css.btnAction}>
-									<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-										<path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/>
-									</svg>
-								</div>
-								<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
-							</SpottableDiv>
-						</HorizontalContainer>
-
-						<p className={css.playlistHint}>{$L('◀ ▶ to re-order · DEL to remove')}</p>
-
-						<div className={`${css.trackList} ${css.playlistItemsList}`} onKeyDown={handlePlaylistItemKeyDown}>
-							{playlistItems.map((plItem, idx) => {
-								const plDuration = plItem.RunTimeTicks ? formatDuration(plItem.RunTimeTicks) : '';
-								const plArtist = plItem.AlbumArtist || plItem.Artists?.[0] || '';
-								const isAudio = plItem.MediaType === 'Audio';
-								const thumbUrl = plItem.ImageTags?.Primary
-									? getImageUrl(effectiveServerUrl, plItem.Id, 'Primary', {maxHeight: 80, quality: 80})
-									: null;
-
-								return (
-									<SpottableDiv
-										key={plItem.PlaylistItemId || plItem.Id}
-										className={css.playlistItem}
-										data-playlist-item-id={plItem.Id}
-										data-playlist-index={idx}
-										onClick={handlePlaylistItemSelect}
-									>
-										<span className={css.trackNumber}>{idx + 1}</span>
-										{thumbUrl && (
-											<div className={css.playlistItemThumb}>
-												<img src={thumbUrl} alt="" />
-											</div>
-										)}
-										<div className={css.trackInfo}>
-											<span className={css.trackTitle}>{plItem.Name}</span>
-											{plArtist && <span className={css.trackArtist}>{plArtist}</span>}
-											{!isAudio && plItem.Type && <span className={css.trackArtist}>{plItem.Type}</span>}
-										</div>
-										<span className={css.trackDuration}>{plDuration}</span>
-										<div className={css.playlistReorderArrows}>
-											<span className={`${css.reorderArrow} ${idx === 0 ? css.reorderArrowDisabled : ''}`}>▲</span>
-											<span className={`${css.reorderArrow} ${idx === playlistItems.length - 1 ? css.reorderArrowDisabled : ''}`}>▼</span>
-										</div>
-									</SpottableDiv>
-								);
-							})}
-						</div>
-					</div>
-				</Scroller>
-
-				{toastMessage && (
-					<div className={css.toast} onAnimationEnd={handleToastEnd}>{toastMessage}</div>
-				)}
-			</div>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} footer={toast}>
+				<PlaylistScreen
+					item={item}
+					serverUrl={effectiveServerUrl}
+					posterUrl={posterUrl}
+					genres={genres}
+					playlistItems={playlistItems}
+					onPlay={handlePlay}
+					onShuffle={handlePlaylistShuffle}
+					onToggleFavorite={handleToggleFavorite}
+					onItemSelect={handlePlaylistItemSelect}
+					onItemKeyDown={handlePlaylistItemKeyDown}
+					onFocusRow={handleButtonRowFocus}
+				/>
+			</DetailScrollPage>
 		);
 	}
-
-	// === ALBUM DETAIL RENDER ===
 
 	if (isAlbum) {
-		const albumArtist = item.AlbumArtist || item.AlbumArtists?.[0]?.Name || '';
-		const trackCount = albumTracks.length;
-		const totalDuration = albumTracks.reduce((sum, t) => sum + (t.RunTimeTicks || 0), 0);
-
 		return (
-			<div className={css.page}>
-				{renderBackdrop()}
-				<Scroller ref={pageScrollerRef} cbScrollTo={handlePageScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-					<div className={css.content}>
-						<div className={css.seasonDetailHeader}>
-							{posterUrl && (
-								<div className={css.seasonDetailPoster}>
-									<img src={posterUrl} alt="" />
-									<PosterBadges userData={item.UserData} />
-								</div>
-							)}
-							<div className={css.seasonDetailInfo}>
-								{albumArtist && <span className={css.seasonDetailSeries}>{albumArtist}</span>}
-								<h1 className={css.seasonDetailTitle}>{item.Name}</h1>
-								<span className={css.seasonDetailCount}>
-									{year ? `${year} · ` : ''}{trackCount} {trackCount !== 1 ? $L('Tracks') : $L('Track')}
-									{totalDuration > 0 ? ` · ${formatDuration(totalDuration)}` : ''}
-								</span>
-								{genres.length > 0 && (
-									<span className={css.seasonDetailCount}>{genres.join(', ')}</span>
-								)}
-								<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
-							</div>
-						</div>
-
-						<HorizontalContainer className={css.actionButtons} onKeyDown={handleSeasonButtonKeyDown} onFocus={handleButtonRowFocus}>
-							{albumTracks.length > 0 && (
-								<SpottableDiv className={css.btnWrapper} onClick={handlePlay} onFocus={handleButtonRowFocus} spotlightId="details-primary-btn">
-									<div className={css.btnAction}>
-										<span className={css.btnIcon}>▶</span>
-									</div>
-									<span className={css.btnLabel}>{$L('Play')}</span>
-								</SpottableDiv>
-							)}
-							{albumTracks.length > 1 && (
-								<SpottableDiv className={css.btnWrapper} onClick={handleShuffle}>
-									<div className={css.btnAction}>
-										<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-											<path d="M560-160v-80h104L537-367l57-57 126 126v-102h80v240H560Zm-344 0-56-56 504-504H560v-80h240v240h-80v-104L216-160Zm151-377L160-744l56-56 207 207-56 56Z"/>
-										</svg>
-									</div>
-									<span className={css.btnLabel}>{$L('Shuffle')}</span>
-								</SpottableDiv>
-							)}
-							<SpottableDiv className={css.btnWrapper} onClick={handleToggleFavorite} spotlightId="details-favorite-btn">
-								<div className={css.btnAction}>
-									<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-										<path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/>
-									</svg>
-								</div>
-								<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
-							</SpottableDiv>
-						</HorizontalContainer>
-
-						<div className={css.trackList}>
-							<div className={css.sectionHeader}>
-								<h3 className={css.sectionTitle}>Tracks ({trackCount})</h3>
-							</div>
-							{albumTracks.map((track, idx) => {
-								const trackDuration = track.RunTimeTicks ? formatDuration(track.RunTimeTicks) : '';
-								const isPlayed = track.UserData?.Played;
-								const trackArtist = track.AlbumArtist || track.Artists?.[0] || '';
-								const showArtist = trackArtist && trackArtist !== albumArtist;
-
-								return (
-									<SpottableDiv key={track.Id} className={css.trackItem} data-track-id={track.Id} onClick={handleTrackPlay}>
-										<span className={css.trackNumber}>{track.IndexNumber || idx + 1}</span>
-										<div className={css.trackInfo}>
-											<span className={css.trackTitle}>{track.Name}</span>
-											{showArtist && <span className={css.trackArtist}>{trackArtist}</span>}
-										</div>
-										{isPlayed && (
-											<span className={css.trackPlayed}>
-												<WatchedCheckIcon width="16" height="16" />
-											</span>
-										)}
-										<span className={css.trackDuration}>{trackDuration}</span>
-									</SpottableDiv>
-								);
-							})}
-						</div>
-
-						{item.Overview && (
-							<div className={css.albumOverview}>
-								<p className={css.overview}>{item.Overview}</p>
-							</div>
-						)}
-
-						<div className={css.sectionsContainer}>
-							{similar.length > 0 && (
-								<MediaRow
-									title={$L('More Like This')}
-									items={similar}
-									serverUrl={effectiveServerUrl}
-									cardType="square"
-									onSelectItem={onSelectItem}
-									className={css.inlineRow}
-									rowIndex={0}
-								/>
-							)}
-						</div>
-					</div>
-				</Scroller>
-			</div>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+				<AlbumScreen
+					item={item}
+					serverUrl={effectiveServerUrl}
+					settings={settings}
+					posterUrl={posterUrl}
+					year={year}
+					genres={genres}
+					albumTracks={albumTracks}
+					similar={similar}
+					onPlay={handlePlay}
+					onShuffle={handleShuffle}
+					onToggleFavorite={handleToggleFavorite}
+					onTrackPlay={handleTrackPlay}
+					onSelectItem={onSelectItem}
+					onFocusRow={handleButtonRowFocus}
+				/>
+			</DetailScrollPage>
 		);
 	}
-
-	// === ARTIST DETAIL RENDER ===
 
 	if (isMusicArtist) {
 		return (
-			<div className={css.page}>
-				{renderBackdrop()}
-				<Scroller ref={pageScrollerRef} cbScrollTo={handlePageScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-					<div className={css.content}>
-						<div className={css.personHeader}>
-							<div className={css.personPhotoWrapper}>
-								{item.ImageTags?.Primary ? (
-									<img
-										src={getImageUrl(effectiveServerUrl, item.Id, 'Primary', {maxHeight: 450, quality: 90})}
-										className={css.personPhoto}
-										alt=""
-									/>
-								) : (
-									<div className={css.personPhotoPlaceholder}>
-										<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z"/></svg>
-									</div>
-								)}
-							</div>
-							<div className={css.personInfo}>
-								<h1 className={css.title}>{item.Name}</h1>
-								<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
-								{item.Overview && <p className={css.overview}>{item.Overview}</p>}
-								<HorizontalContainer className={css.actionButtons} spotlightId="details-action-buttons">
-									{artistAlbums.length > 0 && (
-										<SpottableDiv className={css.btnWrapper} onClick={handleArtistPlay} onFocus={handleButtonRowFocus} spotlightId="details-primary-btn">
-											<div className={css.btnAction}>
-												<span className={css.btnIcon}>▶</span>
-											</div>
-											<span className={css.btnLabel}>{$L('Play')}</span>
-										</SpottableDiv>
-									)}
-									{artistAlbums.length > 0 && (
-										<SpottableDiv className={css.btnWrapper} onClick={handleArtistShuffle}>
-											<div className={css.btnAction}>
-												<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor"><path d="M560-160v-80h104L537-367l57-57 126 126v-102h80v240H560Zm-344 0-56-56 568-568H624v-80h240v240h-80v-104L216-160Zm151-377L160-744l56-56 207 207-56 56Z"/></svg>
-											</div>
-											<span className={css.btnLabel}>{$L('Shuffle')}</span>
-										</SpottableDiv>
-									)}
-									<SpottableDiv className={css.btnWrapper} onClick={handleToggleFavorite} spotlightId="details-favorite-btn">
-										<div className={css.btnAction}>
-											<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-												<path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/>
-											</svg>
-										</div>
-										<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
-									</SpottableDiv>
-								</HorizontalContainer>
-							</div>
-						</div>
-
-						<div className={css.sectionsContainer}>
-							{artistAlbums.length > 0 && (
-								<MediaRow
-									title={$L('Discography') + ' (' + artistAlbums.length + ')'}
-									items={artistAlbums}
-									serverUrl={effectiveServerUrl}
-									cardType="square"
-									onSelectItem={onSelectItem}
-									className={css.inlineRow}
-									rowIndex={0}
-								/>
-							)}
-
-							{similar.length > 0 && (
-								<MediaRow
-									title={$L('Similar Artists')}
-									items={similar}
-									serverUrl={effectiveServerUrl}
-									cardType="square"
-									onSelectItem={onSelectItem}
-									className={css.inlineRow}
-									rowIndex={1}
-								/>
-							)}
-						</div>
-					</div>
-				</Scroller>
-			</div>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+				<ArtistScreen
+					item={item}
+					serverUrl={effectiveServerUrl}
+					settings={settings}
+					artistAlbums={artistAlbums}
+					similar={similar}
+					onPlay={handleArtistPlay}
+					onShuffle={handleArtistShuffle}
+					onToggleFavorite={handleToggleFavorite}
+					onSelectItem={onSelectItem}
+					onFocusRow={handleButtonRowFocus}
+				/>
+			</DetailScrollPage>
 		);
 	}
-
-	// === AUDIO TRACK DETAIL RENDER ===
 
 	if (isAudioTrack) {
-		const trackArtist = item.AlbumArtist || item.Artists?.[0] || '';
-		const albumName = item.Album || '';
-
 		return (
-			<div className={css.page}>
-				{renderBackdrop()}
-				<Scroller ref={pageScrollerRef} cbScrollTo={handlePageScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-					<div className={css.content}>
-						<div className={css.detailsHeader}>
-							<div className={css.infoSection}>
-								{trackArtist && <span className={css.seriesName}>{trackArtist}</span>}
-								<div className={css.titleSection}>
-									<h1 className={css.title}>{item.Name}</h1>
-								</div>
-								<div className={css.infoRow}>
-									<div className={css.infoTextItems}>
-										{albumName && <span className={css.infoItem}>{albumName}</span>}
-										{year && <span className={css.infoItem}>{year}</span>}
-										{runtime && <span className={css.infoItem}>{runtime}</span>}
-									</div>
-									<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
-								</div>
-								{item.Overview && <p className={css.overview}>{item.Overview}</p>}
-							</div>
-							<div className={css.posterSection}>
-								<div className={css.poster}>
-									{posterUrl ? (
-										<img src={posterUrl} alt="" />
-									) : (
-										<div className={css.posterPlaceholder}>
-											<svg viewBox="0 -960 960 960" fill="currentColor">
-												<path d="M400-120q-66 0-113-47t-47-113q0-66 47-113t113-47q23 0 42.5 5.5T480-418v-422h240v160H560v400q0 66-47 113t-113 47Z"/>
-											</svg>
-										</div>
-									)}
-									<PosterBadges userData={item.UserData} />
-								</div>
-							</div>
-						</div>
-
-						<HorizontalContainer className={css.actionButtons} spotlightId="details-action-buttons">
-							<SpottableDiv className={css.btnWrapper} onClick={handlePlay} onFocus={handleButtonRowFocus} spotlightId="details-primary-btn">
-								<div className={css.btnAction}>
-									<span className={css.btnIcon}>▶</span>
-								</div>
-								<span className={css.btnLabel}>{$L('Play')}</span>
-							</SpottableDiv>
-							<SpottableDiv className={css.btnWrapper} onClick={handleToggleFavorite} spotlightId="details-favorite-btn">
-								<div className={css.btnAction}>
-									<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-										<path d="m480-120-58-52q-101-91-167-157T150-447.5Q111-500 95.5-544T80-634q0-94 63-157t157-63q52 0 99 22t81 62q34-40 81-62t99-22q94 0 157 63t63 157q0 46-15.5 90T810-447.5Q771-395 705-329T538-172l-58 52Z"/>
-									</svg>
-								</div>
-								<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
-							</SpottableDiv>
-						</HorizontalContainer>
-					</div>
-				</Scroller>
-			</div>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+				<AudioTrackScreen
+					item={item}
+					serverUrl={effectiveServerUrl}
+					settings={settings}
+					posterUrl={posterUrl}
+					year={year}
+					runtime={runtime}
+					onPlay={handlePlay}
+					onToggleFavorite={handleToggleFavorite}
+					onFocusRow={handleButtonRowFocus}
+				/>
+			</DetailScrollPage>
 		);
 	}
 
-	// === MAIN DETAILS RENDER (Movie / Series / Episode / BoxSet) ===
+	const actionButtons = (
+		<DetailActionButtons
+			item={item}
+			settings={settings}
+			isSeries={isSeries}
+			isSeason={isSeason}
+			isEpisode={isEpisode}
+			isBook={isBook}
+			isReadableBook={isReadableBook}
+			hasPlaybackPosition={hasPlaybackPosition}
+			resumeTimeText={resumeTimeText}
+			mediaSource={mediaSource}
+			supportsMediaSourceSelection={supportsMediaSourceSelection}
+			hasMultipleVersions={hasMultipleVersions}
+			hasMultipleAudio={hasMultipleAudio}
+			selectedVersionIndex={selectedVersionIndex}
+			selectedAudioIndex={selectedAudioIndex}
+			selectedSubtitleIndex={selectedSubtitleIndex}
+			currentAudioStream={currentAudioStream}
+			currentSubtitleStream={currentSubtitleStream}
+			canAddToCollection={canAddToCollection}
+			canIdentify={canIdentify}
+			playLongPress={playLongPress}
+			resumeLongPress={resumeLongPress}
+			onFocusRow={handleButtonRowFocus}
+			onShuffle={handleShuffle}
+			onOpenVersionModal={modals.handleOpenVersionModal}
+			onOpenAudioModal={modals.handleOpenAudioModal}
+			onOpenSubtitleModal={modals.handleOpenSubtitleModal}
+			onTrailer={trailer.handleTrailer}
+			onToggleWatched={handleToggleWatched}
+			onToggleFavorite={handleToggleFavorite}
+			onGoToSeries={handleGoToSeries}
+			onOpenMediaInfo={modals.handleOpenMediaInfo}
+			onOpenPlaylistModal={modals.handleOpenPlaylistModal}
+			onOpenCollectionModal={modals.handleOpenCollectionModal}
+			onOpenDeleteDialog={modals.handleOpenDeleteDialog}
+			onOpenIdentifyModal={modals.handleOpenIdentifyModal}
+		/>
+	);
 
 	return (
-		<div className={css.page}>
-			{renderBackdrop()}
-
-			<Scroller ref={pageScrollerRef} cbScrollTo={handlePageScrollTo} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-				<div className={css.content}>
-					{/* Header: info + poster */}
-					<div className={css.detailsHeader}>
-					<div className={`${css.infoSection} ${isEpisode ? css.infoSectionWide : ''}`}>
-							{/* Episode header */}
-							{isEpisode && (
-								<div className={css.episodeHeader}>
-									{item.SeriesName && <span className={css.seriesName}>{item.SeriesName}</span>}
-									{item.ParentIndexNumber !== undefined && item.IndexNumber !== undefined && (
-										<span className={css.episodeNumber}>S{item.ParentIndexNumber} E{item.IndexNumber}</span>
-									)}
-								</div>
-							)}
-
-							{/* Title or Logo */}
-							<div className={css.titleSection}>
-								{logoUrl && !logoFailed ? (
-									<img
-										src={logoUrl}
-										className={css.logoImage}
-										alt={item.Name}
-										onError={handleLogoError}
-									/>
-								) : (
-									<h1 className={css.title}>{item.Name}</h1>
-								)}
-							</div>
-
-							{/* Info row with badges */}
-							<div className={css.infoRow}>
-								<div className={css.infoTextItems}>
-									{year && <span className={css.infoItem}>{year}</span>}
-									{runtime && !isSeries && <span className={css.infoItem}>{runtime}</span>}
-									{endsAt && !isSeries && <span className={css.infoItem}>{endsAt}</span>}
-									{isSeries && seasonCount > 0 && (
-										<span className={css.infoItem}>{seasonCount}&nbsp;{seasonCount !== 1 ? $L('Seasons') : $L('Season')}</span>
-									)}
-								</div>
-								{isSeries && (item.Status === 'Continuing' || item.Status === 'Ended') && (
-									<span className={`${css.badge} ${item.Status === 'Continuing' ? css.badgeContinuing : css.badgeEnded}`}>
-										{item.Status === 'Continuing' ? $L('Continuing') : $L('Ended')}
-									</span>
-								)}
-								{officialRating && (
-									<span className={`${css.badge} ${css.badgeRating}`}>{officialRating}</span>
-								)}
-								{badges.length > 0 && (
-									<div className={css.infoBadges}>
-										{badges.map((badge, i) => (
-											<span key={i} className={`${css.badge} ${css[badge.type]}`}>{badge.label}</span>
-										))}
-									</div>
-								)}
-							</div>
-
-							<RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />
-
-							{/* Tagline */}
-							{tagline && <p className={css.tagline}>&ldquo;{tagline}&rdquo;</p>}
-
-							{/* Overview */}
-							{item.Overview && <p className={css.overview}>{item.Overview}</p>}
-						</div>
-
-						{/* Poster section */}
-						<div className={`${css.posterSection} ${isEpisode ? css.posterLandscape : ''}`}>
-							<div className={css.poster}>
-								{posterUrl ? (
-									<img src={posterUrl} alt="" />
-								) : (
-									<div className={css.posterPlaceholder}>
-										<svg viewBox="0 0 24 24" fill="currentColor">
-											<path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/>
-										</svg>
-									</div>
-								)}
-								<PosterBadges userData={item.UserData} />
-							</div>
-						</div>
-					</div>
-
-					{!isBoxSet && renderActionButtons()}
-
-					{/* Metadata */}
-					{renderMetadata()}
-
-					{/* Sections */}
-					<div className={css.sectionsContainer} onKeyDown={handleSectionKeyDown}>
-						{/* Next Up (for Series) */}
-						{nextUp.length > 0 && renderNextUpCard(nextUp[0], 'Next Up')}
-
-						{/* Seasons (for Series) */}
-						{isSeries && seasons.length > 0 && (
-							<RowContainer className={css.section}>
-								<div className={css.sectionHeader}>
-									<h3 className={css.sectionTitle}>{$L('Seasons')}</h3>
-								</div>
-								<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
-									{seasons.map(season => {
-										const seasonPosterUrl = season.ImageTags?.Primary
-											? getImageUrl(effectiveServerUrl, season.Id, 'Primary', {maxHeight: 350, quality: 80})
-											: null;
-										const isWatched = season.UserData?.Played;
-										const unplayed = season.UserData?.UnplayedItemCount;
-
-										return (
-											<SpottableDiv key={season.Id} className={css.seasonCard} data-season-id={season.Id} onClick={handleSeasonSelect}>
-												<div className={css.seasonPosterWrapper}>
-													{seasonPosterUrl ? (
-														<img src={seasonPosterUrl} alt="" />
-													) : (
-														<div className={css.seasonPosterPlaceholder}>
-															<span>{season.Name}</span>
-														</div>
-													)}
-													{isWatched && (
-														<div className={css.watchedIndicator}>
-															<WatchedCheckIcon />
-														</div>
-													)}
-													{!isWatched && unplayed > 0 && (
-														<div className={css.unplayedCount}>{unplayed}</div>
-													)}
-												</div>
-												<span className={css.seasonName}>{season.Name}</span>
-											</SpottableDiv>
-										);
-									})}
-								</div>
-							</RowContainer>
-						)}
-
-						{isEpisode && nextEpisode && renderNextUpCard(nextEpisode, 'Next Episode')}
-
-						{/* Episodes (for Episode type - same season horizontal cards) */}
-						{isEpisode && episodes.length > 0 && (
-							<RowContainer className={css.section}>
-								<div className={css.sectionHeader}>
-									<h3 className={css.sectionTitle}>
-										{item.ParentIndexNumber !== undefined ? $L('Season {number} Episodes').replace('{number}', item.ParentIndexNumber) : $L('Episodes')}
-									</h3>
-								</div>
-								<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
-									{episodes.map(ep => {
-										const epThumbUrl = ep.ImageTags?.Primary
-											? getImageUrl(effectiveServerUrl, ep.Id, 'Primary', {maxWidth: 400, quality: 80})
-											: null;
-										const isCurrentEp = ep.Id === item.Id;
-										const epRuntime = ep.RunTimeTicks ? formatDuration(ep.RunTimeTicks) : '';
-										const epProgress = ep.UserData?.PlayedPercentage || 0;
-
-										return (
-											<SpottableDiv
-												key={ep.Id}
-												className={`${css.episodeCard} ${isCurrentEp ? css.episodeCurrent : ''}`}
-												data-episode-id={ep.Id}
-												onClick={handleEpisodeSelect}
-											>
-												<div className={css.episodeThumb}>
-													{epThumbUrl ? (
-														<img src={epThumbUrl} alt="" />
-													) : (
-														<div className={css.episodeThumbPlaceholder}>
-															<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9.5 7.5l7 4.5-7 4.5z"/></svg>
-														</div>
-													)}
-													{epProgress > 0 && (
-														<div className={css.episodeProgress}>
-															<div className={css.episodeProgressBar} style={{width: `${Math.min(epProgress, 100)}%`}} />
-														</div>
-													)}
-													{ep.UserData?.Played && (
-														<div className={css.watchedIndicator}>
-															<WatchedCheckIcon compact />
-														</div>
-													)}
-													{ep.UserData?.IsFavorite && (
-														<div className={css.favoriteBadge}>
-															<FavoriteHeartIcon />
-														</div>
-													)}
-												</div>
-												<div className={css.episodeInfo}>
-													<span className={css.episodeEpNumber}>E{ep.IndexNumber || '?'}</span>
-													<span className={css.episodeEpTitle}>{ep.Name}</span>
-													{epRuntime && <span className={css.episodeEpRuntime}>{epRuntime}</span>}
-													{episodeRatings[ep.IndexNumber] != null && (
-														<span className={css.tmdbBadge}>
-															<img className={css.tmdbIcon} src={`${effectiveServerUrl}/Moonfin/Assets/tmdb.svg`} alt="TMDB" />
-															{episodeRatings[ep.IndexNumber].toFixed(1)}
-														</span>
-													)}
-												</div>
-											</SpottableDiv>
-										);
-									})}
-								</div>
-							</RowContainer>
-						)}
-
-						{/* Collection items (for BoxSet) */}
-						{isBoxSet && collectionItems.length > 0 && (
-							<MediaRow
-								title={$L('Items in Collection')}
-								items={collectionItems}
-								serverUrl={effectiveServerUrl}
-								onSelectItem={onSelectItem}
-								className={css.inlineRow}
-							/>
-						)}
-
-						{/* Chapters */}
-						{item.Chapters?.length > 0 && (
-							<RowContainer className={css.section}>
-								<div className={css.sectionHeader}>
-									<h3 className={css.sectionTitle}>{$L('Chapters')}</h3>
-								</div>
-								<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
-									{item.Chapters.map((chapter, index) => {
-										const chapterImageUrl = chapter.ImageTag
-											? `${effectiveServerUrl}/Items/${item.Id}/Images/Chapter/${index}?maxWidth=400&tag=${chapter.ImageTag}`
-											: null;
-
-										return (
-											<SpottableDiv
-												key={index}
-												className={css.chapterCard}
-												data-start-ticks={chapter.StartPositionTicks}
-												onClick={handleChapterSelect}
-											>
-												<div className={css.chapterThumb}>
-													{chapterImageUrl ? (
-														<img src={chapterImageUrl} alt="" />
-													) : (
-														<div className={css.chapterThumbPlaceholder}>
-															<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z" /></svg>
-														</div>
-													)}
-												</div>
-												<div className={css.chapterInfo}>
-													<span className={css.chapterName}>{chapter.Name}</span>
-													<span className={css.chapterTime}>{formatTime(chapter.StartPositionTicks / 10000000)}</span>
-												</div>
-											</SpottableDiv>
-										);
-									})}
-								</div>
-							</RowContainer>
-						)}
-
-						{/* Extras */}
-						{extras.length > 0 && (
-							<RowContainer className={css.section}>
-								<div className={css.sectionHeader}>
-									<h3 className={css.sectionTitle}>{$L('Extras')}</h3>
-								</div>
-								<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
-									{extras.map(extra => {
-										const extraThumbUrl = extra.ImageTags?.Primary
-											? getImageUrl(effectiveServerUrl, extra.Id, 'Primary', {maxWidth: 400, quality: 80})
-											: null;
-										const extraDuration = extra.RunTimeTicks ? formatDuration(extra.RunTimeTicks) : '';
-
-										return (
-											<SpottableDiv
-												key={extra.Id}
-												className={css.extraCard}
-												data-extra-id={extra.Id}
-												onClick={handleExtraSelect}
-											>
-												<div className={css.extraThumb}>
-													{extraThumbUrl ? (
-														<img src={extraThumbUrl} alt="" />
-													) : (
-														<div className={css.extraThumbPlaceholder}>
-															<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>
-														</div>
-													)}
-												</div>
-												<div className={css.extraInfo}>
-													<span className={css.extraName}>{extra.Name}</span>
-													{extraDuration && <span className={css.extraDuration}>{extraDuration}</span>}
-												</div>
-											</SpottableDiv>
-										);
-									})}
-								</div>
-							</RowContainer>
-						)}
-
-						{/* Cast & Crew */}
-						{cast.length > 0 && (
-							<RowContainer className={css.section}>
-								<div className={css.sectionHeader}>
-									<h3 className={css.sectionTitle}>{$L('Cast & Crew')}</h3>
-								</div>
-								<div className={css.castScroller} onFocus={handleScrollerFocus}>
-									{cast.map(person => (
-										<SpottableDiv key={person.Id} className={css.castCard} data-person-id={person.Id} onClick={handleCastSelect}>
-											<div className={css.castImageWrapper}>
-												{person.PrimaryImageTag ? (
-													<img
-														src={getImageUrl(effectiveServerUrl, person.Id, 'Primary', {maxHeight: 280, quality: 80})}
-														className={css.castImage}
-														alt=""
-													/>
-												) : (
-													<div className={css.castPlaceholder}>
-														{person.Name?.charAt(0)}
-													</div>
-												)}
-											</div>
-											<span className={css.castName}>{person.Name}</span>
-											<span className={css.castRole}>{person.Role || person.Type}</span>
-										</SpottableDiv>
-									))}
-								</div>
-							</RowContainer>
-						)}
-
-						{/* Parent Collection */}
-						{parentCollection.length > 0 && (
-							<RowContainer className={css.section}>
-								<div className={css.sectionHeader}>
-									<h3 className={css.sectionTitle}>{parentCollectionName}</h3>
-								</div>
-								<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
-									{parentCollection.map(colItem => (
-										<MediaCard
-											key={colItem.Id}
-											item={colItem}
-											serverUrl={effectiveServerUrl}
-											onSelect={onSelectItem}
-										/>
-									))}
-								</div>
-							</RowContainer>
-						)}
-
-						{/* More Like This */}
-						{similar.length > 0 && (
-							<RowContainer className={css.section}>
-								<div className={css.sectionHeader}>
-									<h3 className={css.sectionTitle}>{$L('More Like This')}</h3>
-								</div>
-								<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
-									{similar.map(simItem => (
-										<MediaCard
-											key={simItem.Id}
-											item={simItem}
-											serverUrl={effectiveServerUrl}
-											onSelect={onSelectItem}
-										/>
-									))}
-								</div>
-							</RowContainer>
-						)}
-					</div>
-				</div>
-			</Scroller>
-
-			{renderModals()}
-		</div>
+		<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} footer={overlays}>
+			<ClassicDetailScreen
+				item={item}
+				serverUrl={effectiveServerUrl}
+				settings={settings}
+				isEpisode={isEpisode}
+				isSeries={isSeries}
+				isBoxSet={isBoxSet}
+				logoUrl={logoUrl}
+				logoFailed={logoFailed}
+				onLogoError={handleLogoError}
+				posterUrl={posterUrl}
+				year={year}
+				runtime={runtime}
+				endsAt={endsAt}
+				officialRating={officialRating}
+				seasonCount={seasonCount}
+				badges={badges}
+				tagline={tagline}
+				actionButtons={actionButtons}
+				seasons={seasons}
+				episodes={episodes}
+				episodeRatings={episodeRatings}
+				nextUp={nextUp}
+				nextEpisode={nextEpisode}
+				collectionItems={collectionItems}
+				extras={extras}
+				cast={cast}
+				parentCollection={parentCollection}
+				parentCollectionName={parentCollectionName}
+				similar={similar}
+				onSeasonSelect={handleSeasonSelect}
+				onEpisodeSelect={handleEpisodeSelect}
+				onChapterSelect={handleChapterSelect}
+				onExtraSelect={handleExtraSelect}
+				onCastSelect={handleCastSelect}
+				onSelectItem={onSelectItem}
+			/>
+		</DetailScrollPage>
 	);
 };
 
