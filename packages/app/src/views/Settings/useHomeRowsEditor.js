@@ -9,11 +9,10 @@ import {
 	buildCollectionPluginSections,
 	buildGenrePluginSections,
 	builtInSectionToPluginSection,
-	getGenresIncludeTypes,
-	getSortOrderFromSortBy,
 	isHomeRowVisibleByGates,
 	mergeDiscoveredPluginSections
 } from './homeSectionsModel';
+import {getGenresIncludeTypes, getSortOrderFromSortBy} from '../../utils/homeRowSorting';
 
 // The home screen row order, edited against a scratch copy and written back on save. The
 // IMDb rows are stored twice, as a row and as their own setting, so both are updated.

@@ -40,18 +40,6 @@ export const isHomeRowVisibleByGates = (rowId, currentSettings) => {
 	return true;
 };
 
-export const getSortOrderFromSortBy = (sortBy) => {
-	if (sortBy === 'SortName') return 'Ascending';
-	if (sortBy === 'Random') return 'Ascending';
-	return 'Descending';
-};
-
-export const getGenresIncludeTypes = (filter) => {
-	if (filter === 'Movie') return 'Movie';
-	if (filter === 'Series') return 'Series';
-	return 'Movie,Series';
-};
-
 export const mergeDiscoveredPluginSections = (existingSections, discoveredSections, source, toPluginSection) => {
 	const existing = Array.isArray(existingSections) ? existingSections : [];
 	const discovered = Array.isArray(discoveredSections) ? discoveredSections : [];

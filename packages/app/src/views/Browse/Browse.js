@@ -9,10 +9,8 @@ import SeerrTileRow from '../../components/SeerrTileRow';
 import LibraryButtonRow from '../../components/LibraryButtonRow';
 import {getSeerrHomeRowConfigs, fetchSeerrHomeRow, SEERR_SECTION_TO_CONFIG} from '../../utils/seerrHomeRows';
 import {getExternalHomeRowConfigs, fetchExternalPresetRow, fetchCustomHomeRow, fetchCalendarRows} from '../../utils/externalHomeRows';
-import {mergeRowPreservingRefs} from '../../utils/volatileRows';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {getImageUrl, getBackdropId, getLogoUrl} from '../../utils/helpers';
-import {getFromStorage, saveToStorage} from '../../services/storage';
 import {HOME_ROW_ITEM_FIELDS, resolveItemsByProviderIds} from '../../services/jellyfinApi';
 import {loadSinceYouWatchedRows, loadRewatchItems} from '../../services/homeRecommendations';
 import * as connectionPool from '../../services/connectionPool';
@@ -25,275 +23,23 @@ import GalleryBanner from './GalleryBanner';
 import BannerBar from './BannerBar';
 import BookshelfBar from './BookshelfBar';
 import BackdropLayer from './BackdropLayer';
+import browseReducer, {browseInitialState, mergeRowsById} from './browseReducer';
+import {
+	EXCLUDED_COLLECTION_TYPES, FAVORITE_ROW_CONFIGS, FAVORITE_ROW_IDS,
+	filterItemsByExcludedGenres, getItemGenreNames, isHiddenByMap, parseHiddenMap, parsePluginSpec, stableIndex
+} from './browseFilters';
+import {
+	CACHE_TTL_LIBRARIES, CACHE_TTL_VOLATILE, VOLATILE_REFRESH_COOLDOWN_MS,
+	cancelPendingCacheSave, clearMemoryCache, isCacheValid, loadBrowseCache, memoryCache, saveBrowseCache
+} from './browseCache';
+import {getGenresIncludeTypes, getSortOrderFromSortBy} from '../../utils/homeRowSorting';
 
 import css from './Browse.module.less';
 
 const FOCUS_DELAY_MS = 100;
 const TRANSITION_DELAY_MS = 450;
 
-// Cache TTL in milliseconds (5 minutes for volatile data, 30 minutes for libraries)
-const CACHE_TTL_VOLATILE = 5 * 60 * 1000;
-const CACHE_TTL_LIBRARIES = 30 * 60 * 1000;
-const VOLATILE_REFRESH_COOLDOWN_MS = 60 * 1000;
-const CACHE_SAVE_DEBOUNCE_MS = 3000;
-const STORAGE_KEY_BROWSE = 'browse_cache_v4';
-
-let cachedRowData = null;
-let cachedLibraries = null;
-let cachedFeaturedItems = null;
-let cacheTimestamp = null;
-
 let lastFocusState = null;
-
-const parseHiddenMap = (val) => {
-	if (!val) return {};
-	try {
-		return typeof val === 'string' ? JSON.parse(val) : val;
-	} catch (e) {
-		return {};
-	}
-};
-
-// seriesOnly keys on the series id only, otherwise it falls back to the item id.
-const isHiddenByMap = (item, hiddenMap, seriesOnly) => {
-	const key = seriesOnly ? item.SeriesId : (item.SeriesId || item.Id);
-	if (!key || !hiddenMap[key]) return false;
-	// Hide timestamps are stored as ISO strings, so parse before comparing.
-	const hideTimeMs = Date.parse(hiddenMap[key]);
-	// An unparseable hide timestamp can't be reasoned about; treat it as not hidden
-	// rather than hiding the item permanently (NaN comparisons below are always false).
-	if (!Number.isFinite(hideTimeMs)) return false;
-	const lastPlayed = item.UserData?.LastPlayedDate;
-	if (lastPlayed) {
-		const lastPlayedMs = Date.parse(lastPlayed);
-		if (lastPlayedMs > hideTimeMs) return false;
-	}
-	return true;
-};
-
-const EXCLUDED_COLLECTION_TYPES = ['boxsets', 'books', 'musicvideos', 'homevideos', 'photos'];
-
-const FAVORITE_ROW_CONFIGS = [
-	{id: 'favoriteMovies', title: $L('Favorite Movies'), includeItemTypes: 'Movie', type: 'portrait'},
-	{id: 'favoriteSeries', title: $L('Favorite Series'), includeItemTypes: 'Series', type: 'portrait'},
-	{id: 'favoriteEpisodes', title: $L('Favorite Episodes'), includeItemTypes: 'Episode', type: 'landscape'},
-	{id: 'favoritePeople', title: $L('Favorite People'), includeItemTypes: 'Person', type: 'portrait'},
-	{id: 'favoriteArtists', title: $L('Favorite Artists'), includeItemTypes: 'MusicArtist', type: 'square'},
-	{id: 'favoriteMusicVideos', title: $L('Favorite Music Videos'), includeItemTypes: 'MusicVideo', type: 'landscape'},
-	{id: 'favoriteAlbums', title: $L('Favorite Albums'), includeItemTypes: 'MusicAlbum', type: 'square'},
-	{id: 'favoriteSongs', title: $L('Favorite Songs'), includeItemTypes: 'Audio', type: 'square'}
-];
-
-const FAVORITE_ROW_IDS = FAVORITE_ROW_CONFIGS.map((row) => row.id);
-
-const getSortOrderFromSortBy = (sortBy) => {
-	const lower = (sortBy || '').toLowerCase();
-	if (lower === 'sortname' || lower === 'name') return 'Ascending';
-	if (lower === 'random') return 'Ascending';
-	return 'Descending';
-};
-
-const getGenresIncludeTypes = (filter) => {
-	if (filter === 'Movie') return 'Movie';
-	if (filter === 'Series') return 'Series';
-	return 'Movie,Series';
-};
-
-const getItemGenreNames = (item) => {
-	if (!item || typeof item !== 'object') return [];
-	const directGenres = Array.isArray(item.Genres) ? item.Genres : [];
-	const genreItems = Array.isArray(item.GenreItems)
-		? item.GenreItems.map((genreItem) => genreItem?.Name).filter(Boolean)
-		: [];
-	return [...directGenres, ...genreItems]
-		.map((name) => String(name).trim().toLowerCase())
-		.filter(Boolean);
-};
-
-// Picks an arbitrary but repeatable index for a name, so a genre lands on the same
-// representative item every load and the server can serve a thumbnail it has already
-// generated. Re-rolling at random asks it to decode and resize artwork it has never seen
-// before, every single time.
-const stableIndex = (seed, length) => {
-	if (length <= 0) return 0;
-	let hash = 0;
-	for (let i = 0; i < seed.length; i++) {
-		hash = (Math.imul(hash, 31) + seed.charCodeAt(i)) | 0;
-	}
-	return Math.abs(hash) % length;
-};
-
-const filterItemsByExcludedGenres = (items, excludedGenres) => {
-	const excluded = Array.isArray(excludedGenres)
-		? excludedGenres.map((genre) => String(genre).trim().toLowerCase()).filter(Boolean)
-		: [];
-	if (excluded.length === 0) return items;
-	const excludedSet = new Set(excluded);
-	return items.filter((item) => {
-		const genres = getItemGenreNames(item);
-		if (genres.length === 0) return true;
-		return !genres.some((genre) => excludedSet.has(genre));
-	});
-};
-
-const parsePluginSpec = (specJson) => {
-	if (!specJson) return null;
-	try {
-		return JSON.parse(specJson);
-	} catch (e) {
-		return null;
-	}
-};
-
-const browseInitialState = {
-	isLoading: true,
-	browseMode: 'featured',
-	allRowData: [],
-	featuredItems: [],
-};
-
-// Merges freshly loaded rows into an existing list by row id. An incoming row wins and
-// keeps the position of the row it replaces, and new ids go on the end. Rows arrive in
-// waves, the cache first and then each loader, so keeping the existing row would leave a
-// stale copy on screen and never let the fresh one through.
-function mergeRowsById(existingRows, incomingRows) {
-	const incoming = new Map();
-	incomingRows.forEach((row) => {
-		if (row && row.id) incoming.set(row.id, row);
-	});
-	const merged = existingRows.map((row) => {
-		if (!row || !incoming.has(row.id)) return row;
-		const replacement = incoming.get(row.id);
-		incoming.delete(row.id);
-		return replacement;
-	});
-	return [...merged, ...incoming.values()];
-}
-
-function browseReducer(state, action) {
-	switch (action.type) {
-		case 'SET_INITIAL_DATA': {
-			const unique = [];
-			const seen = new Set();
-			(action.rowData || []).forEach(row => {
-				if (row && row.id && !seen.has(row.id)) {
-					seen.add(row.id);
-					unique.push(row);
-				}
-			});
-			return {
-				...state,
-				isLoading: false,
-				allRowData: unique,
-				featuredItems: action.featuredItems || state.featuredItems,
-			};
-		}
-		case 'APPEND_ROWS': {
-			if (action.rows.length === 0) return state;
-			return { ...state, allRowData: mergeRowsById(state.allRowData, action.rows) };
-		}
-		case 'REFRESH_VOLATILE': {
-			const prevVolatile = new Map();
-			state.allRowData.forEach((row) => {
-				if (row.id === 'resume' || row.id === 'nextup') prevVolatile.set(row.id, row);
-			});
-			const mergedVolatile = action.volatileRows.map((row) => mergeRowPreservingRefs(prevVolatile.get(row.id), row));
-			const filtered = state.allRowData.filter(r => r.id !== 'resume' && r.id !== 'nextup');
-			const next = [...mergedVolatile, ...filtered];
-			if (next.length === state.allRowData.length) {
-				let unchanged = true;
-				for (let i = 0; i < next.length; i++) {
-					if (next[i] !== state.allRowData[i]) {
-						unchanged = false;
-						break;
-					}
-				}
-				if (unchanged) return state;
-			}
-			return { ...state, allRowData: next };
-		}
-		case 'SET_ROW_DATA': {
-			const unique = [];
-			const seen = new Set();
-			(action.rowData || []).forEach(row => {
-				if (row && row.id && !seen.has(row.id)) {
-					seen.add(row.id);
-					unique.push(row);
-				}
-			});
-			return { ...state, allRowData: unique };
-		}
-		case 'SET_LOADING':
-			if (state.isLoading === action.value) return state;
-			return { ...state, isLoading: action.value };
-		case 'SET_BROWSE_MODE':
-			if (state.browseMode === action.mode) return state;
-			return { ...state, browseMode: action.mode };
-		case 'SET_FEATURED_ITEMS':
-			return { ...state, featuredItems: action.items };
-		default:
-			return state;
-	}
-}
-
-// Genre tiles borrow a library item's artwork. Keeping only the fields the card reads
-// stops the cache growing for no gain on memory tight TVs.
-const stripRepresentativeForCache = (rep) => (rep ? {
-	Id: rep.Id,
-	ImageTags: rep.ImageTags,
-	BackdropImageTags: rep.BackdropImageTags
-} : undefined);
-
-const stripItemForCache = (item) => ({
-	Id: item.Id,
-	Name: item.Name,
-	Type: item.Type,
-	ImageTags: item.ImageTags,
-	// Everything below is needed to render a card. Anything left out is quietly gone on
-	// the next load, because a warm cache skips the fetch that would rebuild it.
-	BackdropImageTags: item.BackdropImageTags,
-	ProviderIds: item.ProviderIds,
-	UserRating: item.UserRating,
-	_representative: stripRepresentativeForCache(item._representative),
-	_external: item._external,
-	_externalPosterUrl: item._externalPosterUrl,
-	_externalBackdropUrl: item._externalBackdropUrl,
-	_resolvedFromExternal: item._resolvedFromExternal,
-	_seerr: item._seerr,
-	_seerrType: item._seerrType,
-	_seerrMediaType: item._seerrMediaType,
-	_seerrRaw: item._seerrRaw,
-	mediaInfo: item.mediaInfo,
-	SeriesName: item.SeriesName,
-	SeriesId: item.SeriesId,
-	ParentIndexNumber: item.ParentIndexNumber,
-	IndexNumber: item.IndexNumber,
-	ParentThumbItemId: item.ParentThumbItemId,
-	ParentBackdropItemId: item.ParentBackdropItemId,
-	CommunityRating: item.CommunityRating,
-	Genres: item.Genres,
-	GenreItems: item.GenreItems,
-	Overview: item.Overview,
-	ProductionYear: item.ProductionYear,
-	RunTimeTicks: item.RunTimeTicks,
-	AlbumId: item.AlbumId,
-	AlbumPrimaryImageTag: item.AlbumPrimaryImageTag,
-	AlbumArtist: item.AlbumArtist,
-	CollectionType: item.CollectionType,
-	UserData: item.UserData ? {
-		PlayedPercentage: item.UserData.PlayedPercentage,
-		Played: item.UserData.Played,
-		LastPlayedDate: item.UserData.LastPlayedDate,
-	} : undefined,
-	_serverUrl: item._serverUrl,
-	_serverType: item._serverType,
-	_serverName: item._serverName,
-	_serverAccessToken: item._serverAccessToken,
-	_serverUserId: item._serverUserId,
-	_serverId: item._serverId,
-	isLibraryTile: item.isLibraryTile,
-	isRecordingsShortcut: item.isRecordingsShortcut,
-});
 
 const Browse = ({
 	onSelectItem,
@@ -319,6 +65,10 @@ const Browse = ({
 	const unifiedMode = settings.unifiedLibraryMode && hasMultipleServers;
 	const isLegacy = typeof document !== 'undefined' && (' ' + document.documentElement.className + ' ').indexOf(' legacy ') >= 0;
 	const [state, dispatch] = useReducer(browseReducer, browseInitialState);
+
+	// A cache written for one account says nothing about another, so every read and write
+	// carries who it belongs to.
+	const cacheOwner = useMemo(() => ({serverUrl, userId: user?.Id || null}), [serverUrl, user?.Id]);
 	const {isLoading, browseMode, allRowData, featuredItems} = state;
 	const [focusedItemForBackdrop, setFocusedItemForBackdrop] = useState(null);
 	const mainContentRef = useRef(null);
@@ -326,8 +76,6 @@ const Browse = ({
 	const lastFocusedRowRef = useRef(null);
 	const wasVisibleRef = useRef(true);
 	const lastVolatileRefreshRef = useRef(0);
-	const cacheSaveTimerRef = useRef(null);
-	const lastCacheSignatureRef = useRef('');
 	const prevFilteredRowsRef = useRef([]);
 	const filteredRowsLengthRef = useRef(0);
 	const filteredRowsRef = useRef([]);
@@ -407,18 +155,18 @@ const Browse = ({
 					LogoUrl: getLogoUrl(getItemServerUrl(item), item, {maxWidth: 800, quality: 90})
 				}));
 				dispatch({type: 'SET_FEATURED_ITEMS', items: featuredWithLogos});
-				cachedFeaturedItems = featuredWithLogos;
+				memoryCache.featuredItems = featuredWithLogos;
 				return featuredWithLogos;
 			} else if (fallbackItems && !hasSourceFilter) {
 				dispatch({type: 'SET_FEATURED_ITEMS', items: fallbackItems});
-				cachedFeaturedItems = fallbackItems;
+				memoryCache.featuredItems = fallbackItems;
 				return fallbackItems;
 			}
 		} catch (e) {
 			console.warn('[Browse] Failed to fetch fresh featured items:', e);
 			if (fallbackItems && !hasSourceFilter) {
 				dispatch({type: 'SET_FEATURED_ITEMS', items: fallbackItems});
-				cachedFeaturedItems = fallbackItems;
+				memoryCache.featuredItems = fallbackItems;
 				return fallbackItems;
 			}
 		}
@@ -466,18 +214,18 @@ const Browse = ({
 			}
 
 			dispatch({type: 'REFRESH_VOLATILE', volatileRows});
-			if (cachedRowData) {
-				const filtered = cachedRowData.filter(r => r.id !== 'resume' && r.id !== 'nextup');
-				cachedRowData = [...volatileRows, ...filtered];
-				cacheTimestamp = Date.now();
+			if (memoryCache.rowData) {
+				const filtered = memoryCache.rowData.filter(r => r.id !== 'resume' && r.id !== 'nextup');
+				memoryCache.rowData = [...volatileRows, ...filtered];
+				memoryCache.timestamp = Date.now();
 				if (!unifiedMode) {
-					saveBrowseCache(cachedRowData, cachedLibraries, cachedFeaturedItems); // eslint-disable-line no-use-before-define
+					saveBrowseCache(memoryCache.rowData, memoryCache.libraries, memoryCache.featuredItems, cacheOwner);
 				}
 			}
 		} catch (e) {
 			console.warn('[Browse] Background refresh failed:', e);
 		}
-	}, [api, unifiedMode, saveBrowseCache, settings.nextUpMaxDays]); // eslint-disable-line no-use-before-define
+	}, [api, unifiedMode, cacheOwner, settings.nextUpMaxDays]);
 
 	const uiPanelStyle = useMemo(() => {
 		return {
@@ -882,19 +630,13 @@ const Browse = ({
 	}, [isVisible, isLoading, featuredItems.length, filteredRows.length, showFeaturedBar]);
 
 	useEffect(() => {
-		cachedRowData = null;
-		cachedLibraries = null;
-		cachedFeaturedItems = null;
-		cacheTimestamp = null;
+		clearMemoryCache();
 		initialFocusSetRef.current = false;
 	}, [accessToken]);
 
 	useEffect(() => {
 		const handleBrowseRefresh = () => {
-			cachedRowData = null;
-			cachedLibraries = null;
-			cachedFeaturedItems = null;
-			cacheTimestamp = null;
+			clearMemoryCache();
 		};
 
 		window.addEventListener('moonfin:browseRefresh', handleBrowseRefresh);
@@ -903,64 +645,7 @@ const Browse = ({
 		};
 	}, []);
 
-	const isCacheValid = useCallback((timestamp, ttl) => {
-		if (!timestamp) return false;
-		return Date.now() - timestamp < ttl;
-	}, []);
-
-	const saveBrowseCache = useCallback((rowData, libs, featured) => {
-		const signature = rowData.map((row) => {
-			let progressSum = 0;
-			if (row.id === 'resume' || row.id === 'nextup') {
-				row.items.forEach((item) => {
-					progressSum += item.UserData?.PlayedPercentage || 0;
-				});
-			}
-			return `${row.id}:${row.items.length}:${row.items[0]?.Id || ''}:${Math.round(progressSum)}`;
-		}).join('|');
-		if (signature === lastCacheSignatureRef.current) return;
-
-		if (cacheSaveTimerRef.current) clearTimeout(cacheSaveTimerRef.current);
-		cacheSaveTimerRef.current = setTimeout(async () => {
-			cacheSaveTimerRef.current = null;
-			try {
-				const strippedRows = rowData.map(row => ({
-					...row,
-					items: row.items.map(stripItemForCache)
-				}));
-				const cacheData = {
-					rowData: strippedRows,
-					libraries: libs,
-					featuredItems: featured,
-					timestamp: Date.now(),
-					serverUrl,
-					userId: user?.Id || null
-				};
-				await saveToStorage(STORAGE_KEY_BROWSE, cacheData);
-				lastCacheSignatureRef.current = signature;
-			} catch (e) {
-				console.warn('[Browse] Failed to save cache:', e);
-			}
-		}, CACHE_SAVE_DEBOUNCE_MS);
-	}, [serverUrl, user?.Id]);
-
-	useEffect(() => {
-		return () => {
-			if (cacheSaveTimerRef.current) clearTimeout(cacheSaveTimerRef.current);
-		};
-	}, []);
-
-	const loadBrowseCache = useCallback(async () => {
-		try {
-			const cached = await getFromStorage(STORAGE_KEY_BROWSE);
-			if (cached && cached.serverUrl === serverUrl && cached.userId === (user?.Id || null)) {
-				return cached;
-			}
-		} catch (e) {
-			console.warn('[Browse] Failed to load cache:', e);
-		}
-		return null;
-	}, [serverUrl, user?.Id]);
+	useEffect(() => cancelPendingCacheSave, []);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -988,14 +673,14 @@ const Browse = ({
 				return;
 			}
 
-			if (cachedRowData && cachedLibraries && cachedFeaturedItems && isCacheValid(cacheTimestamp, CACHE_TTL_VOLATILE)) {
-				dispatch({type: 'SET_ROW_DATA', rowData: cachedRowData});
-				await fetchFreshFeaturedItems(cachedFeaturedItems);
+			if (memoryCache.rowData && memoryCache.libraries && memoryCache.featuredItems && isCacheValid(memoryCache.timestamp, CACHE_TTL_VOLATILE)) {
+				dispatch({type: 'SET_ROW_DATA', rowData: memoryCache.rowData});
+				await fetchFreshFeaturedItems(memoryCache.featuredItems);
 				dispatch({type: 'SET_LOADING', value: false});
 				return;
 			}
 
-			const persistedCache = await loadBrowseCache();
+			const persistedCache = await loadBrowseCache(cacheOwner.serverUrl, cacheOwner.userId);
 			const hasValidPersistedCache = persistedCache &&
 				isCacheValid(persistedCache.timestamp, CACHE_TTL_LIBRARIES) &&
 				Array.isArray(persistedCache.libraries) &&
@@ -1004,9 +689,9 @@ const Browse = ({
 			if (hasValidPersistedCache) {
 				dispatch({type: 'SET_ROW_DATA', rowData: persistedCache.rowData});
 				await fetchFreshFeaturedItems(persistedCache.featuredItems);
-				cachedLibraries = persistedCache.libraries;
-				cachedRowData = persistedCache.rowData;
-				cacheTimestamp = persistedCache.timestamp;
+				memoryCache.libraries = persistedCache.libraries;
+				memoryCache.rowData = persistedCache.rowData;
+				memoryCache.timestamp = persistedCache.timestamp;
 				dispatch({type: 'SET_LOADING', value: false});
 
 				if (!isCacheValid(persistedCache.timestamp, CACHE_TTL_VOLATILE)) {
@@ -1058,7 +743,7 @@ const Browse = ({
 					recentlyPlayed = results[4];
 				}
 
-				cachedLibraries = libs;
+				memoryCache.libraries = libs;
 
 				const latestItemsExcludes = userConfig?.Configuration?.LatestItemsExcludes || [];
 
@@ -1133,7 +818,7 @@ const Browse = ({
 				}
 
 				dispatch({type: 'SET_ROW_DATA', rowData});
-				cachedRowData = [...rowData];
+				memoryCache.rowData = [...rowData];
 				// The Mediabar is populated only by the settings-aware loader so it can
 				// never show a library outside the selected sources. When it is enabled,
 				// wait for it before clearing loading so the initial focus lands on the
@@ -1179,8 +864,8 @@ const Browse = ({
 						}
 					}
 					dispatch({type: 'APPEND_ROWS', rows: newRows});
-					cachedRowData = [...rowData, ...newRows];
-					cacheTimestamp = Date.now();
+					memoryCache.rowData = [...rowData, ...newRows];
+					memoryCache.timestamp = Date.now();
 					dispatch({type: 'SET_LOADING', value: false});
 					return;
 				}
@@ -1212,11 +897,11 @@ const Browse = ({
 				const appendRows = (rows) => {
 					if (cancelled || rows.length === 0) return;
 					dispatch({type: 'APPEND_ROWS', rows});
-					cachedRowData = mergeRowsById(cachedRowData || [], rows);
-					cacheTimestamp = Date.now();
+					memoryCache.rowData = mergeRowsById(memoryCache.rowData || [], rows);
+					memoryCache.timestamp = Date.now();
 					// Unified mode spans several servers, so its rows never go to the disk cache.
 					if (!unifiedMode) {
-						saveBrowseCache(cachedRowData, libs, cachedFeaturedItems);
+						saveBrowseCache(memoryCache.rowData, libs, memoryCache.featuredItems, cacheOwner);
 					}
 				};
 
@@ -1755,9 +1440,7 @@ const Browse = ({
 		settings.rewatchIncludeShows,
 		settings.rewatchIncludeCollections,
 		settings.rewatchSortBy,
-		isCacheValid,
-		loadBrowseCache,
-		saveBrowseCache,
+		cacheOwner,
 		fetchFreshFeaturedItems,
 		unifiedMode,
 		getItemServerUrl,
