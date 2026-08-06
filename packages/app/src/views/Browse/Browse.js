@@ -2,7 +2,7 @@ import {useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import Spotlight from '@enact/spotlight';
 import $L from '@enact/i18n/$L';
 import {useAuth} from '../../context/AuthContext';
-import {useSettings, TV_TO_SERVER_ROW, SERVER_TO_TV_ROW} from '../../context/SettingsContext';
+import {useSettings} from '../../context/SettingsContext';
 import {useSeerr} from '../../context/SeerrContext';
 import {ClassicMediaRow, ModernMediaRow} from '../../components/MediaRow';
 import SeerrTileRow from '../../components/SeerrTileRow';
@@ -21,7 +21,7 @@ import BannerBar from './BannerBar';
 import BookshelfBar from './BookshelfBar';
 import BackdropLayer from './BackdropLayer';
 import useBrowseData from './useBrowseData';
-import {FAVORITE_ROW_CONFIGS, FAVORITE_ROW_IDS, isHiddenByMap, parseHiddenMap} from './browseFilters';
+import {buildBrowseRows, sameRowList} from './buildBrowseRows';
 
 import css from './Browse.module.less';
 
@@ -130,254 +130,41 @@ const Browse = ({
 		homeRowsConfig
 	});
 
-	const isRowVisibleByGates = useCallback((rowId) => {
-		if (FAVORITE_ROW_IDS.includes(rowId)) return settings.displayFavoritesRows;
-		if (rowId === 'collections') return settings.displayCollectionsRows;
-		if (rowId === 'genres') return settings.displayGenresRows;
-		if (rowId === 'playlists') return settings.displayPlaylistsRows;
-		if (rowId === 'imdb-top250-movies') return settings.imdbTop250MoviesEnabled;
-		if (rowId === 'imdb-top250-tv') return settings.imdbTop250TvShowsEnabled;
-		if (rowId === 'imdb-popular-movies') return settings.imdbMostPopularMoviesEnabled;
-		if (rowId === 'imdb-popular-tv') return settings.imdbMostPopularTvShowsEnabled;
-		if (rowId === 'imdb-lowest-rated') return settings.imdbLowestRatedMoviesEnabled;
-		if (rowId === 'imdb-top-english') return settings.imdbTopEnglishMoviesEnabled;
-		return true;
-	}, [settings.displayFavoritesRows, settings.displayCollectionsRows, settings.displayGenresRows, settings.displayPlaylistsRows,
+	// Only the settings the row list is built from, so a change to any other one doesn't
+	// rebuild every row.
+	const rowBuildSettings = useMemo(() => ({
+		mergeContinueWatchingNextUp: settings.mergeContinueWatchingNextUp,
+		hiddenContinueWatchingItems: settings.hiddenContinueWatchingItems,
+		hiddenNextUpSeries: settings.hiddenNextUpSeries,
+		displayFavoritesRows: settings.displayFavoritesRows,
+		displayCollectionsRows: settings.displayCollectionsRows,
+		displayGenresRows: settings.displayGenresRows,
+		displayPlaylistsRows: settings.displayPlaylistsRows,
+		imdbTop250MoviesEnabled: settings.imdbTop250MoviesEnabled,
+		imdbTop250TvShowsEnabled: settings.imdbTop250TvShowsEnabled,
+		imdbMostPopularMoviesEnabled: settings.imdbMostPopularMoviesEnabled,
+		imdbMostPopularTvShowsEnabled: settings.imdbMostPopularTvShowsEnabled,
+		imdbLowestRatedMoviesEnabled: settings.imdbLowestRatedMoviesEnabled,
+		imdbTopEnglishMoviesEnabled: settings.imdbTopEnglishMoviesEnabled
+	}), [settings.mergeContinueWatchingNextUp, settings.hiddenContinueWatchingItems, settings.hiddenNextUpSeries,
+		settings.displayFavoritesRows, settings.displayCollectionsRows, settings.displayGenresRows, settings.displayPlaylistsRows,
 		settings.imdbTop250MoviesEnabled, settings.imdbTop250TvShowsEnabled, settings.imdbMostPopularMoviesEnabled,
 		settings.imdbMostPopularTvShowsEnabled, settings.imdbLowestRatedMoviesEnabled, settings.imdbTopEnglishMoviesEnabled]);
 
 	const filteredRows = useMemo(() => {
-		const enabledRowIds = homeRowsConfig.filter(r => r.enabled).map(r => r.id);
-		const enabledRowIdsSet = new Set(enabledRowIds);
-		enabledRowIds.forEach((id) => {
-			const mappedId = TV_TO_SERVER_ROW[id] || SERVER_TO_TV_ROW[id];
-			if (mappedId) enabledRowIdsSet.add(mappedId);
+		const result = buildBrowseRows({
+			allRowData,
+			seerrRows,
+			externalRows,
+			homeRowsConfig,
+			pluginSectionsConfig,
+			settings: rowBuildSettings
 		});
-		const enabledPluginIds = pluginSectionsConfig.filter((section) => section.enabled).map((section) => section.id);
-		const rowOrderMap = new Map();
-		homeRowsConfig.forEach((row) => {
-			rowOrderMap.set(row.id, row.order);
-			const mappedId = TV_TO_SERVER_ROW[row.id] || SERVER_TO_TV_ROW[row.id];
-			if (mappedId) rowOrderMap.set(mappedId, row.order);
-		});
-		pluginSectionsConfig.forEach((section, index) => rowOrderMap.set(section.id, (section.order ?? index) + 1000));
-
-		const hiddenCWMap = parseHiddenMap(settings.hiddenContinueWatchingItems);
-		const hiddenNUMap = parseHiddenMap(settings.hiddenNextUpSeries);
-
-		let result;
-
-		if (settings.mergeContinueWatchingNextUp) {
-			const mergeResumeRow = allRowData.find(r => r.id === 'resume');
-			const nextUpRow = allRowData.find(r => r.id === 'nextup');
-			const recentlyPlayed = allRowData.find(r => r.id === 'recentlyplayed');
-
-			result = allRowData.filter(r => r.id !== 'resume' && r.id !== 'nextup');
-
-			if (mergeResumeRow || nextUpRow) {
-				const resumeItems = (mergeResumeRow?.items || []).filter(item => !isHiddenByMap(item, hiddenCWMap, false));
-				const nextUpItems = (nextUpRow?.items || []).filter(item => !isHiddenByMap(item, hiddenNUMap, true));
-				const recentlyPlayedItems = recentlyPlayed?.items || [];
-
-				const seriesLastPlayedMap = new Map();
-				resumeItems.forEach(item => {
-					const seriesId = item.SeriesId;
-					const lastPlayed = item.UserData?.LastPlayedDate;
-					if (seriesId && lastPlayed) {
-						const existing = seriesLastPlayedMap.get(seriesId);
-						if (!existing || lastPlayed > existing) {
-							seriesLastPlayedMap.set(seriesId, lastPlayed);
-						}
-					}
-				});
-
-				recentlyPlayedItems.forEach(item => {
-					const seriesId = item.SeriesId;
-					const lastPlayed = item.UserData?.LastPlayedDate;
-					if (seriesId && lastPlayed) {
-						const existing = seriesLastPlayedMap.get(seriesId);
-						if (!existing || lastPlayed > existing) {
-							seriesLastPlayedMap.set(seriesId, lastPlayed);
-						}
-					}
-				});
-
-				const mergeResumeItemIds = new Set(resumeItems.map(item => item.Id));
-
-				const filteredNextUp = nextUpItems
-					.filter(item => !mergeResumeItemIds.has(item.Id))
-					.map(item => {
-						const seriesLastPlayed = seriesLastPlayedMap.get(item.SeriesId);
-						if (seriesLastPlayed && !item.UserData?.LastPlayedDate) {
-							return {
-								...item,
-								UserData: {
-									...item.UserData,
-									LastPlayedDate: seriesLastPlayed
-								}
-							};
-						}
-						return item;
-					});
-
-				const combinedItems = [...resumeItems, ...filteredNextUp].sort((a, b) => {
-					const aLastPlayed = a.UserData?.LastPlayedDate;
-					const bLastPlayed = b.UserData?.LastPlayedDate;
-
-					if (aLastPlayed && bLastPlayed) {
-						return bLastPlayed.localeCompare(aLastPlayed);
-					}
-					if (aLastPlayed) return -1;
-					if (bLastPlayed) return 1;
-					return 0;
-				});
-
-				if (combinedItems.length > 0) {
-					if (enabledRowIdsSet.has('resume') || enabledRowIdsSet.has('nextup')) {
-						result = [{
-							id: 'continue-nextup',
-							title: $L('Continue Watching'),
-							items: combinedItems,
-							type: 'landscape'
-						}, ...result];
-					}
-				}
-			}
-
-			result = result.filter((row) => {
-				if (row.id === 'continue-nextup') return true;
-				if (row.isPluginRow) return enabledPluginIds.includes(row.id);
-				if (!isRowVisibleByGates(row.id)) return false;
-				if (row.isLatestRow) return enabledRowIdsSet.has('latest-media') || enabledRowIdsSet.has('latestmedia');
-				if (row.isRecentlyReleasedRow) return enabledRowIdsSet.has('recently-released') || enabledRowIdsSet.has('recentlyreleased');
-				return enabledRowIdsSet.has(row.id) || enabledRowIdsSet.has(TV_TO_SERVER_ROW[row.id]) || enabledRowIdsSet.has(SERVER_TO_TV_ROW[row.id]);
-			});
-		} else {
-			const resumeRow = allRowData.find(r => r.id === 'resume');
-			const resumeItems = (resumeRow?.items || []).filter(item => !isHiddenByMap(item, hiddenCWMap, false));
-			const resumeItemIds = new Set(resumeItems.map(item => item.Id));
-
-			result = allRowData
-				.map(row => {
-					if (row.id === 'resume') {
-						return resumeItems.length > 0 ? {...row, items: resumeItems} : null;
-					}
-					if (row.id === 'nextup') {
-						const filteredItems = row.items.filter(item => !resumeItemIds.has(item.Id) && !isHiddenByMap(item, hiddenNUMap, true));
-						return filteredItems.length > 0 ? {...row, items: filteredItems} : null;
-					}
-					return row;
-				})
-				.filter(row => {
-					if (!row) return false;
-					if (row.isPluginRow) {
-						return enabledPluginIds.includes(row.id);
-					}
-					if (row.id === 'resume' || row.id === 'nextup') {
-						return enabledRowIdsSet.has(row.id);
-					}
-					if (row.isLatestRow) {
-						return enabledRowIdsSet.has('latest-media') || enabledRowIdsSet.has('latestmedia');
-					}
-					if (row.isRecentlyReleasedRow) {
-						return enabledRowIdsSet.has('recently-released') || enabledRowIdsSet.has('recentlyreleased');
-					}
-					if (!isRowVisibleByGates(row.id)) {
-						return false;
-					}
-					return enabledRowIdsSet.has(row.id) || enabledRowIdsSet.has(TV_TO_SERVER_ROW[row.id]) || enabledRowIdsSet.has(SERVER_TO_TV_ROW[row.id]);
-				});
-		}
-
-		// Re-translate titles so cached rows pick up the current locale
-		const favoriteLabelMap = new Map(FAVORITE_ROW_CONFIGS.map((row) => [row.id, $L(row.title)]));
-		result = result.map(row => {
-			let title;
-			if (row.id === 'resume' || row.id === 'continue-nextup') title = $L('Continue Watching');
-			else if (row.id === 'nextup') title = $L('Next Up');
-			else if (row.id === 'library-tiles') title = $L('My Media');
-			else if (row.id === 'librarybuttons') title = $L('Library Buttons');
-			else if (row.id === 'collections') title = $L('Collections');
-			else if (row.id === 'genres') title = $L('Genres');
-			else if (row.id === 'playlists') title = $L('Playlists');
-			else if (row.id === 'audioartists') title = $L('Music Artists');
-			else if (row.id === 'audioalbums') title = $L('Music Albums');
-			else if (row.id === 'audioplaylists') title = $L('Music Playlists');
-			else if (row.id === 'resumeaudio') title = $L('Continue Listening');
-			else if (row.id === 'activerecordings') title = $L('Recordings');
-			else if (row.id === 'livetv') title = $L('Live TV');
-			else if (favoriteLabelMap.has(row.id)) title = favoriteLabelMap.get(row.id);
-			else if (row.isLatestRow && row.library) {
-				const libName = row.library._serverName
-					? `${row.library.Name} (${row.library._serverName})`
-					: row.library.Name;
-				title = $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', libName);
-			} else if (row.isRecentlyReleasedRow && row.library) {
-				const libName = row.library._serverName
-					? `${row.library.Name} (${row.library._serverName})`
-					: row.library.Name;
-				title = $L('Recently Released in {libraryTitle}').replace('{libraryTitle}', libName);
-			}
-			return title && title !== row.title ? {...row, title} : row;
-		});
-
-		result = [...result, ...seerrRows, ...externalRows];
-
-		const resumeOrder = rowOrderMap.get('resume');
-		const nextUpOrder = rowOrderMap.get('nextup');
-		const continueOrder = Math.min(
-			Number.isFinite(resumeOrder) ? resumeOrder : Number.MAX_SAFE_INTEGER,
-			Number.isFinite(nextUpOrder) ? nextUpOrder : Number.MAX_SAFE_INTEGER
-		);
-
-		result = result
-			.map((row, index) => {
-				let order = rowOrderMap.get(row.id);
-				if (row.id === 'continue-nextup') {
-					order = Number.isFinite(continueOrder) ? continueOrder : 0;
-				} else if (row.isLatestRow) {
-					order = rowOrderMap.get('latest-media');
-				} else if (row.isRecentlyReleasedRow) {
-					order = rowOrderMap.get('recently-released');
-				} else if (row.isCalendarMerged) {
-					const radarrOrder = rowOrderMap.get('radarr_calendar');
-					const sonarrOrder = rowOrderMap.get('sonarr_calendar');
-					order = Math.min(
-						Number.isFinite(radarrOrder) ? radarrOrder : Number.MAX_SAFE_INTEGER,
-						Number.isFinite(sonarrOrder) ? sonarrOrder : Number.MAX_SAFE_INTEGER
-					);
-				} else if (row.isCustomRow) {
-					order = 6000 + index;
-				}
-				if (!Number.isFinite(order)) {
-					order = row.isPluginRow ? 2000 + index : 1000 + index;
-				}
-				return {row, index, order};
-			})
-			.sort((left, right) => left.order - right.order || left.index - right.index)
-			.map((entry) => entry.row);
-
 		const prev = prevFilteredRowsRef.current;
-		if (prev.length === result.length) {
-			let unchanged = true;
-			for (let i = 0; i < result.length; i++) {
-				if (result[i].id !== prev[i].id || result[i].items.length !== prev[i].items.length || result[i].title !== prev[i].title) {
-					unchanged = false;
-					break;
-				}
-				const rItems = result[i].items;
-				const pItems = prev[i].items;
-				if (rItems[0]?.Id !== pItems[0]?.Id || rItems[rItems.length - 1]?.Id !== pItems[pItems.length - 1]?.Id) {
-					unchanged = false;
-					break;
-				}
-			}
-			if (unchanged) return prev;
-		}
-
+		if (sameRowList(prev, result)) return prev;
 		prevFilteredRowsRef.current = result;
 		return result;
-	}, [allRowData, seerrRows, externalRows, homeRowsConfig, pluginSectionsConfig, settings.mergeContinueWatchingNextUp, settings.hiddenContinueWatchingItems, settings.hiddenNextUpSeries, isRowVisibleByGates]);
+	}, [allRowData, seerrRows, externalRows, homeRowsConfig, pluginSectionsConfig, rowBuildSettings]);
 
 	const focusRow = useCallback((rowIndex) => {
 		if (Spotlight.focus(`row-${rowIndex}`)) {

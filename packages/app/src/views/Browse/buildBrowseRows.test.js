@@ -1,0 +1,174 @@
+// $L reaches for ilib, which a plain unit test has no way to load. Every key is its own
+// English source string, so handing the string straight back is faithful enough here.
+jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
+
+import {buildBrowseRows, sameRowList} from './buildBrowseRows';
+
+const row = (id, items = [], extra = {}) => ({id, items, title: id, ...extra});
+const item = (Id, extra = {}) => ({Id, ...extra});
+
+const settings = (over = {}) => ({
+	mergeContinueWatchingNextUp: false,
+	hiddenContinueWatchingItems: null,
+	hiddenNextUpSeries: null,
+	displayFavoritesRows: true,
+	displayCollectionsRows: true,
+	displayGenresRows: true,
+	displayPlaylistsRows: true,
+	imdbTop250MoviesEnabled: true,
+	...over
+});
+
+const build = (over = {}) => buildBrowseRows({
+	allRowData: [],
+	seerrRows: [],
+	externalRows: [],
+	homeRowsConfig: [],
+	pluginSectionsConfig: [],
+	settings: settings(),
+	...over
+});
+
+describe('row selection', () => {
+	test('a row the viewer has not enabled is left out', () => {
+		const rows = build({
+			allRowData: [row('collections'), row('genres')],
+			homeRowsConfig: [{id: 'collections', enabled: true, order: 0}, {id: 'genres', enabled: false, order: 1}]
+		});
+
+		expect(rows.map((r) => r.id)).toEqual(['collections']);
+	});
+
+	test('a row switched off by its own setting is left out even when enabled', () => {
+		const gated = (id, over) => build({
+			allRowData: [row(id)],
+			homeRowsConfig: [{id, enabled: true, order: 0}],
+			settings: settings(over)
+		});
+
+		expect(gated('collections', {displayCollectionsRows: false})).toEqual([]);
+		expect(gated('favoriteMovies', {displayFavoritesRows: false})).toEqual([]);
+		expect(gated('imdb-top250-movies', {imdbTop250MoviesEnabled: false})).toEqual([]);
+		expect(gated('imdb-top250-movies', {}).map((r) => r.id)).toEqual(['imdb-top250-movies']);
+	});
+
+	test('plugin rows answer to the plugin list rather than the row list', () => {
+		const rows = build({
+			allRowData: [row('plugin:a', [], {isPluginRow: true}), row('plugin:b', [], {isPluginRow: true})],
+			pluginSectionsConfig: [{id: 'plugin:a', enabled: true, order: 0}, {id: 'plugin:b', enabled: false, order: 1}]
+		});
+
+		expect(rows.map((r) => r.id)).toEqual(['plugin:a']);
+	});
+
+	test('an empty resume row is dropped rather than shown empty', () => {
+		const rows = build({
+			allRowData: [row('resume', [])],
+			homeRowsConfig: [{id: 'resume', enabled: true, order: 0}]
+		});
+
+		expect(rows).toEqual([]);
+	});
+
+	test('next up drops anything already in continue watching', () => {
+		const rows = build({
+			allRowData: [row('resume', [item('1')]), row('nextup', [item('1'), item('2')])],
+			homeRowsConfig: [{id: 'resume', enabled: true, order: 0}, {id: 'nextup', enabled: true, order: 1}]
+		});
+
+		expect(rows.find((r) => r.id === 'nextup').items.map((i) => i.Id)).toEqual(['2']);
+	});
+});
+
+describe('merged continue watching', () => {
+	const merged = (over) => build({
+		settings: settings({mergeContinueWatchingNextUp: true}),
+		homeRowsConfig: [{id: 'resume', enabled: true, order: 0}, {id: 'nextup', enabled: true, order: 1}],
+		...over
+	});
+
+	test('resume and next up become one row ordered by what was played last', () => {
+		const rows = merged({
+			allRowData: [
+				row('resume', [item('a', {UserData: {LastPlayedDate: '2026-01-01'}})]),
+				row('nextup', [item('b', {UserData: {LastPlayedDate: '2026-02-01'}})])
+			]
+		});
+
+		expect(rows).toHaveLength(1);
+		expect(rows[0].id).toBe('continue-nextup');
+		expect(rows[0].items.map((i) => i.Id)).toEqual(['b', 'a']);
+	});
+
+	test('a next up episode borrows the date its series was last played', () => {
+		const rows = merged({
+			allRowData: [
+				row('resume', [item('watched', {SeriesId: 's1', UserData: {LastPlayedDate: '2026-03-01'}})]),
+				row('nextup', [item('queued', {SeriesId: 's1'})]),
+				row('other', [item('old', {UserData: {LastPlayedDate: '2026-01-01'}})])
+			]
+		});
+
+		const combined = rows.find((r) => r.id === 'continue-nextup');
+		expect(combined.items.find((i) => i.Id === 'queued').UserData.LastPlayedDate).toBe('2026-03-01');
+	});
+
+	test('nothing to continue means no row at all', () => {
+		expect(merged({allRowData: [row('resume', []), row('nextup', [])]})).toEqual([]);
+	});
+});
+
+describe('ordering', () => {
+	test('rows follow the stored order rather than the order they loaded in', () => {
+		const rows = build({
+			allRowData: [row('genres'), row('collections')],
+			homeRowsConfig: [{id: 'collections', enabled: true, order: 0}, {id: 'genres', enabled: true, order: 1}]
+		});
+
+		expect(rows.map((r) => r.id)).toEqual(['collections', 'genres']);
+	});
+
+	test('a row with no stored place goes after the ones that have one', () => {
+		const rows = build({
+			allRowData: [row('collections')],
+			seerrRows: [row('seerr_trending')],
+			homeRowsConfig: [{id: 'collections', enabled: true, order: 5}]
+		});
+
+		expect(rows.map((r) => r.id)).toEqual(['collections', 'seerr_trending']);
+	});
+});
+
+describe('titles', () => {
+	test('a cached row is renamed for the language being read now', () => {
+		const rows = build({
+			allRowData: [row('collections', [], {title: 'Sammlungen'})],
+			homeRowsConfig: [{id: 'collections', enabled: true, order: 0}]
+		});
+
+		expect(rows[0].title).toBe('Collections');
+	});
+
+	test('a row whose title already matches keeps its identity', () => {
+		const original = row('collections', [], {title: 'Collections'});
+		const rows = build({
+			allRowData: [original],
+			homeRowsConfig: [{id: 'collections', enabled: true, order: 0}]
+		});
+
+		expect(rows[0]).toBe(original);
+	});
+});
+
+describe('sameRowList', () => {
+	test('sees no change when the drawn parts match', () => {
+		expect(sameRowList([row('a', [item('1'), item('2')])], [row('a', [item('1'), item('2')])])).toBe(true);
+	});
+
+	test('sees a change in length, title, or the first or last item', () => {
+		expect(sameRowList([row('a', [item('1')])], [row('a', [item('1')]), row('b')])).toBe(false);
+		expect(sameRowList([row('a', [item('1')])], [row('a', [item('2')])])).toBe(false);
+		expect(sameRowList([row('a', [item('1'), item('9')])], [row('a', [item('1'), item('8')])])).toBe(false);
+		expect(sameRowList([{...row('a'), title: 'X'}], [{...row('a'), title: 'Y'}])).toBe(false);
+	});
+});

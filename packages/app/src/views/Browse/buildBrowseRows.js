@@ -1,0 +1,240 @@
+// Turns everything that was loaded into the list of rows the home screen actually draws.
+// Rows are gathered from several places and cached across locales and setting changes, so
+// this decides which survive, what they are called now, and what order they sit in.
+
+import $L from '@enact/i18n/$L';
+
+import {SERVER_TO_TV_ROW, TV_TO_SERVER_ROW} from '../../utils/homeLayout';
+import {FAVORITE_ROW_CONFIGS, FAVORITE_ROW_IDS, isHiddenByMap, parseHiddenMap} from './browseFilters';
+
+// Rows the viewer has switched off through a setting rather than through the row list.
+const isRowVisibleByGates = (rowId, settings) => {
+	if (FAVORITE_ROW_IDS.includes(rowId)) return settings.displayFavoritesRows;
+	if (rowId === 'collections') return settings.displayCollectionsRows;
+	if (rowId === 'genres') return settings.displayGenresRows;
+	if (rowId === 'playlists') return settings.displayPlaylistsRows;
+	if (rowId === 'imdb-top250-movies') return settings.imdbTop250MoviesEnabled;
+	if (rowId === 'imdb-top250-tv') return settings.imdbTop250TvShowsEnabled;
+	if (rowId === 'imdb-popular-movies') return settings.imdbMostPopularMoviesEnabled;
+	if (rowId === 'imdb-popular-tv') return settings.imdbMostPopularTvShowsEnabled;
+	if (rowId === 'imdb-lowest-rated') return settings.imdbLowestRatedMoviesEnabled;
+	if (rowId === 'imdb-top-english') return settings.imdbTopEnglishMoviesEnabled;
+	return true;
+};
+
+// Titles are resolved on every build rather than stored, so a row that came out of the cache
+// is named in the language being read now.
+const ROW_TITLES = {
+	resume: () => $L('Continue Watching'),
+	'continue-nextup': () => $L('Continue Watching'),
+	nextup: () => $L('Next Up'),
+	'library-tiles': () => $L('My Media'),
+	librarybuttons: () => $L('Library Buttons'),
+	collections: () => $L('Collections'),
+	genres: () => $L('Genres'),
+	playlists: () => $L('Playlists'),
+	audioartists: () => $L('Music Artists'),
+	audioalbums: () => $L('Music Albums'),
+	audioplaylists: () => $L('Music Playlists'),
+	resumeaudio: () => $L('Continue Listening'),
+	activerecordings: () => $L('Recordings'),
+	livetv: () => $L('Live TV')
+};
+
+const libraryTitle = (library) => (library._serverName
+	? `${library.Name} (${library._serverName})`
+	: library.Name);
+
+const resolveTitle = (row, favoriteLabelMap) => {
+	if (ROW_TITLES[row.id]) return ROW_TITLES[row.id]();
+	if (favoriteLabelMap.has(row.id)) return favoriteLabelMap.get(row.id);
+	if (row.isLatestRow && row.library) {
+		return $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', libraryTitle(row.library));
+	}
+	if (row.isRecentlyReleasedRow && row.library) {
+		return $L('Recently Released in {libraryTitle}').replace('{libraryTitle}', libraryTitle(row.library));
+	}
+	return undefined;
+};
+
+// A row can be listed under either the name this app uses or the one the server uses, so
+// both spellings count as the same row when checking whether it is switched on.
+const buildEnabledIds = (homeRowsConfig) => {
+	const ids = homeRowsConfig.filter((r) => r.enabled).map((r) => r.id);
+	const set = new Set(ids);
+	ids.forEach((id) => {
+		const mappedId = TV_TO_SERVER_ROW[id] || SERVER_TO_TV_ROW[id];
+		if (mappedId) set.add(mappedId);
+	});
+	return set;
+};
+
+const buildRowOrder = (homeRowsConfig, pluginSectionsConfig) => {
+	const rowOrderMap = new Map();
+	homeRowsConfig.forEach((row) => {
+		rowOrderMap.set(row.id, row.order);
+		const mappedId = TV_TO_SERVER_ROW[row.id] || SERVER_TO_TV_ROW[row.id];
+		if (mappedId) rowOrderMap.set(mappedId, row.order);
+	});
+	pluginSectionsConfig.forEach((section, index) => rowOrderMap.set(section.id, (section.order ?? index) + 1000));
+	return rowOrderMap;
+};
+
+const isRowEnabled = (row, {enabledRowIdsSet, enabledPluginIds, settings}) => {
+	if (row.isPluginRow) return enabledPluginIds.includes(row.id);
+	if (!isRowVisibleByGates(row.id, settings)) return false;
+	if (row.isLatestRow) return enabledRowIdsSet.has('latest-media') || enabledRowIdsSet.has('latestmedia');
+	if (row.isRecentlyReleasedRow) return enabledRowIdsSet.has('recently-released') || enabledRowIdsSet.has('recentlyreleased');
+	return enabledRowIdsSet.has(row.id) || enabledRowIdsSet.has(TV_TO_SERVER_ROW[row.id]) || enabledRowIdsSet.has(SERVER_TO_TV_ROW[row.id]);
+};
+
+// Continue Watching and Next Up become one row, ordered by what was played most recently. An
+// episode queued as next up has never been played, so it borrows the date from its series to
+// sit in the right place.
+const mergeContinueAndNextUp = (allRowData, hiddenCWMap, hiddenNUMap) => {
+	const resumeRow = allRowData.find((r) => r.id === 'resume');
+	const nextUpRow = allRowData.find((r) => r.id === 'nextup');
+	const recentlyPlayed = allRowData.find((r) => r.id === 'recentlyplayed');
+	if (!resumeRow && !nextUpRow) return null;
+
+	const resumeItems = (resumeRow?.items || []).filter((item) => !isHiddenByMap(item, hiddenCWMap, false));
+	const nextUpItems = (nextUpRow?.items || []).filter((item) => !isHiddenByMap(item, hiddenNUMap, true));
+
+	const seriesLastPlayedMap = new Map();
+	[...resumeItems, ...(recentlyPlayed?.items || [])].forEach((item) => {
+		const seriesId = item.SeriesId;
+		const lastPlayed = item.UserData?.LastPlayedDate;
+		if (!seriesId || !lastPlayed) return;
+		const existing = seriesLastPlayedMap.get(seriesId);
+		if (!existing || lastPlayed > existing) seriesLastPlayedMap.set(seriesId, lastPlayed);
+	});
+
+	const resumeItemIds = new Set(resumeItems.map((item) => item.Id));
+	const filteredNextUp = nextUpItems
+		.filter((item) => !resumeItemIds.has(item.Id))
+		.map((item) => {
+			const seriesLastPlayed = seriesLastPlayedMap.get(item.SeriesId);
+			if (seriesLastPlayed && !item.UserData?.LastPlayedDate) {
+				return {...item, UserData: {...item.UserData, LastPlayedDate: seriesLastPlayed}};
+			}
+			return item;
+		});
+
+	const combinedItems = [...resumeItems, ...filteredNextUp].sort((a, b) => {
+		const aLastPlayed = a.UserData?.LastPlayedDate;
+		const bLastPlayed = b.UserData?.LastPlayedDate;
+		if (aLastPlayed && bLastPlayed) return bLastPlayed.localeCompare(aLastPlayed);
+		if (aLastPlayed) return -1;
+		if (bLastPlayed) return 1;
+		return 0;
+	});
+
+	if (combinedItems.length === 0) return null;
+	return {id: 'continue-nextup', title: $L('Continue Watching'), items: combinedItems, type: 'landscape'};
+};
+
+// Anything without a place in the stored order goes after the rows that have one, keeping
+// whatever order it arrived in.
+const orderRows = (rows, rowOrderMap) => {
+	const resumeOrder = rowOrderMap.get('resume');
+	const nextUpOrder = rowOrderMap.get('nextup');
+	const continueOrder = Math.min(
+		Number.isFinite(resumeOrder) ? resumeOrder : Number.MAX_SAFE_INTEGER,
+		Number.isFinite(nextUpOrder) ? nextUpOrder : Number.MAX_SAFE_INTEGER
+	);
+
+	return rows
+		.map((row, index) => {
+			let order = rowOrderMap.get(row.id);
+			if (row.id === 'continue-nextup') {
+				order = Number.isFinite(continueOrder) ? continueOrder : 0;
+			} else if (row.isLatestRow) {
+				order = rowOrderMap.get('latest-media');
+			} else if (row.isRecentlyReleasedRow) {
+				order = rowOrderMap.get('recently-released');
+			} else if (row.isCalendarMerged) {
+				const radarrOrder = rowOrderMap.get('radarr_calendar');
+				const sonarrOrder = rowOrderMap.get('sonarr_calendar');
+				order = Math.min(
+					Number.isFinite(radarrOrder) ? radarrOrder : Number.MAX_SAFE_INTEGER,
+					Number.isFinite(sonarrOrder) ? sonarrOrder : Number.MAX_SAFE_INTEGER
+				);
+			} else if (row.isCustomRow) {
+				order = 6000 + index;
+			}
+			if (!Number.isFinite(order)) {
+				order = row.isPluginRow ? 2000 + index : 1000 + index;
+			}
+			return {row, index, order};
+		})
+		.sort((left, right) => left.order - right.order || left.index - right.index)
+		.map((entry) => entry.row);
+};
+
+export const buildBrowseRows = ({allRowData, seerrRows, externalRows, homeRowsConfig, pluginSectionsConfig, settings}) => {
+	const enabledRowIdsSet = buildEnabledIds(homeRowsConfig);
+	const enabledPluginIds = pluginSectionsConfig.filter((section) => section.enabled).map((section) => section.id);
+	const rowOrderMap = buildRowOrder(homeRowsConfig, pluginSectionsConfig);
+	const gates = {enabledRowIdsSet, enabledPluginIds, settings};
+
+	const hiddenCWMap = parseHiddenMap(settings.hiddenContinueWatchingItems);
+	const hiddenNUMap = parseHiddenMap(settings.hiddenNextUpSeries);
+
+	let result;
+
+	if (settings.mergeContinueWatchingNextUp) {
+		result = allRowData.filter((r) => r.id !== 'resume' && r.id !== 'nextup');
+		const merged = mergeContinueAndNextUp(allRowData, hiddenCWMap, hiddenNUMap);
+		if (merged && (enabledRowIdsSet.has('resume') || enabledRowIdsSet.has('nextup'))) {
+			result = [merged, ...result];
+		}
+		result = result.filter((row) => row.id === 'continue-nextup' || isRowEnabled(row, gates));
+	} else {
+		const resumeRow = allRowData.find((r) => r.id === 'resume');
+		const resumeItems = (resumeRow?.items || []).filter((item) => !isHiddenByMap(item, hiddenCWMap, false));
+		const resumeItemIds = new Set(resumeItems.map((item) => item.Id));
+
+		result = allRowData
+			.map((row) => {
+				if (row.id === 'resume') {
+					return resumeItems.length > 0 ? {...row, items: resumeItems} : null;
+				}
+				if (row.id === 'nextup') {
+					const filteredItems = row.items.filter((item) => !resumeItemIds.has(item.Id) && !isHiddenByMap(item, hiddenNUMap, true));
+					return filteredItems.length > 0 ? {...row, items: filteredItems} : null;
+				}
+				return row;
+			})
+			.filter((row) => {
+				if (!row) return false;
+				if (row.id === 'resume' || row.id === 'nextup') return enabledRowIdsSet.has(row.id);
+				return isRowEnabled(row, gates);
+			});
+	}
+
+	const favoriteLabelMap = new Map(FAVORITE_ROW_CONFIGS.map((row) => [row.id, $L(row.title)]));
+	result = result.map((row) => {
+		const title = resolveTitle(row, favoriteLabelMap);
+		return title && title !== row.title ? {...row, title} : row;
+	});
+
+	return orderRows([...result, ...seerrRows, ...externalRows], rowOrderMap);
+};
+
+// Rebuilding produces a new array every time, which would reload every card on screen. Only
+// the parts a row is drawn from are compared, since nothing else can change its appearance.
+export const sameRowList = (prev, next) => {
+	if (prev.length !== next.length) return false;
+	for (let i = 0; i < next.length; i++) {
+		if (next[i].id !== prev[i].id || next[i].items.length !== prev[i].items.length || next[i].title !== prev[i].title) {
+			return false;
+		}
+		const nextItems = next[i].items;
+		const prevItems = prev[i].items;
+		if (nextItems[0]?.Id !== prevItems[0]?.Id ||
+			nextItems[nextItems.length - 1]?.Id !== prevItems[prevItems.length - 1]?.Id) {
+			return false;
+		}
+	}
+	return true;
+};
