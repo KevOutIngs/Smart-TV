@@ -61,899 +61,899 @@ const handleToolbarKeyDown = createToolbarKeyDown('library-grid');
 const handleGridKeyDown = createGridKeyDown(css.grid, 'library-letter-hash');
 
 const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto, onHome, backHandlerRef}) => {
-const {api, serverUrl} = useAuth();
-const {settings} = useSettings();
+	const {api, serverUrl} = useAuth();
+	const {settings} = useSettings();
 
-const effectiveApi = useMemo(() => {
-	if (library?._serverUrl && library?._serverAccessToken) {
-		return createApiForServer(library._serverUrl, library._serverAccessToken, library._serverUserId);
-	}
-	return api;
-}, [library, api]);
+	const effectiveApi = useMemo(() => {
+		if (library?._serverUrl && library?._serverAccessToken) {
+			return createApiForServer(library._serverUrl, library._serverAccessToken, library._serverUserId);
+		}
+		return api;
+	}, [library, api]);
 
-const effectiveServerUrl = useMemo(() => {
-	return library?._serverUrl || serverUrl;
-}, [library, serverUrl]);
+	const effectiveServerUrl = useMemo(() => {
+		return library?._serverUrl || serverUrl;
+	}, [library, serverUrl]);
 
-const isMusicLibrary = library?.CollectionType?.toLowerCase() === 'music';
-const isPlaylistLibrary = library?.CollectionType?.toLowerCase() === 'playlists';
-const isSquareDefault = isMusicLibrary || isPlaylistLibrary;
+	const isMusicLibrary = library?.CollectionType?.toLowerCase() === 'music';
+	const isPlaylistLibrary = library?.CollectionType?.toLowerCase() === 'playlists';
+	const isSquareDefault = isMusicLibrary || isPlaylistLibrary;
 
-const [allItems, setAllItems] = useState([]);
-const [isLoading, setIsLoading] = useState(true);
-const [totalCount, setTotalCount] = useState(0);
-const [favoritesOnly, setFavoritesOnly] = useState(false);
-const [watchedOnly, setWatchedOnly] = useState(false);
-const [musicContentType, setMusicContentType] = useState('albums');
-const [focusedItem, setFocusedItem] = useState(null);
-const [focusedRatings, setFocusedRatings] = useState([]);
-const [musicGridView, setMusicGridView] = useState(null);
-const libraryId = library?.Id || (genreFilter ? `genre-${genreFilter}` : studioFilter ? `studio-${studioFilter}` : 'default');
-const [imageSize, setImageSize] = useStorage(`library_imageSize_${libraryId}`, 'medium');
-const [imageType, setImageType] = useStorage(`library_imageType_${libraryId}`, isSquareDefault ? 'square' : 'poster');
-const [gridDirection, setGridDirection] = useStorage(`library_gridDirection_${libraryId}`, 'vertical');
-const [folderView, setFolderView] = useStorage(`library_folderView_${libraryId}`, 'off');
-const [sortKey, setSortKey] = useStorage(`library_sortKey_${libraryId}`, 'SortName');
-const isMixedContentLibrary = library != null && (!library.CollectionType || library.CollectionType.toLowerCase() === 'folders');
-const folderViewMode = settings.folderViewMode || 'local';
-const isFolderView =
+	const [allItems, setAllItems] = useState([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [totalCount, setTotalCount] = useState(0);
+	const [favoritesOnly, setFavoritesOnly] = useState(false);
+	const [watchedOnly, setWatchedOnly] = useState(false);
+	const [musicContentType, setMusicContentType] = useState('albums');
+	const [focusedItem, setFocusedItem] = useState(null);
+	const [focusedRatings, setFocusedRatings] = useState([]);
+	const [musicGridView, setMusicGridView] = useState(null);
+	const libraryId = library?.Id || (genreFilter ? `genre-${genreFilter}` : studioFilter ? `studio-${studioFilter}` : 'default');
+	const [imageSize, setImageSize] = useStorage(`library_imageSize_${libraryId}`, 'medium');
+	const [imageType, setImageType] = useStorage(`library_imageType_${libraryId}`, isSquareDefault ? 'square' : 'poster');
+	const [gridDirection, setGridDirection] = useStorage(`library_gridDirection_${libraryId}`, 'vertical');
+	const [folderView, setFolderView] = useStorage(`library_folderView_${libraryId}`, 'off');
+	const [sortKey, setSortKey] = useStorage(`library_sortKey_${libraryId}`, 'SortName');
+	const isMixedContentLibrary = library != null && (!library.CollectionType || library.CollectionType.toLowerCase() === 'folders');
+	const folderViewMode = settings.folderViewMode || 'local';
+	const isFolderView =
 	isMixedContentLibrary ||
 	folderViewMode === 'on' ||
 	(folderViewMode !== 'off' && folderView === 'on');
-const [folderStack, setFolderStack] = useState([]);
-const currentFolderId = folderStack.length > 0 ? folderStack[folderStack.length - 1].id : library?.Id;
-const currentFolderCollectionType = folderStack.length > 0 ? folderStack[folderStack.length - 1].collectionType?.toLowerCase() : null;
-const isGenreMode = !!genreFilter;
-const isStudioMode = !!studioFilter;
-const isFilterMode = isGenreMode || isStudioMode;
+	const [folderStack, setFolderStack] = useState([]);
+	const currentFolderId = folderStack.length > 0 ? folderStack[folderStack.length - 1].id : library?.Id;
+	const currentFolderCollectionType = folderStack.length > 0 ? folderStack[folderStack.length - 1].collectionType?.toLowerCase() : null;
+	const isGenreMode = !!genreFilter;
+	const isStudioMode = !!studioFilter;
+	const isFilterMode = isGenreMode || isStudioMode;
 
-const loadingMoreRef = useRef(false);
-const apiFetchIndexRef = useRef(0);
-const initialFocusDoneRef = useRef(false);
-const ratingsTimeoutRef = useRef(null);
-const ratingsAbortRef = useRef(null);
-const loadItemsRef = useRef(null);
-const fetchGenerationRef = useRef(0);
+	const loadingMoreRef = useRef(false);
+	const apiFetchIndexRef = useRef(0);
+	const initialFocusDoneRef = useRef(false);
+	const ratingsTimeoutRef = useRef(null);
+	const ratingsAbortRef = useRef(null);
+	const loadItemsRef = useRef(null);
+	const fetchGenerationRef = useRef(0);
 
-const isMusicBrowseHome = isMusicLibrary && !isFilterMode && !isFolderView && !musicGridView;
+	const isMusicBrowseHome = isMusicLibrary && !isFilterMode && !isFolderView && !musicGridView;
 
-const {startLetter, handleLetterSelect, items} = useStartLetter({
-allItems,
-isLoading,
-gridSpotlightId: 'library-grid'
-});
+	const {startLetter, handleLetterSelect, items} = useStartLetter({
+		allItems,
+		isLoading,
+		gridSpotlightId: 'library-grid'
+	});
 
-const itemsRef = useRef(items);
-itemsRef.current = items;
+	const itemsRef = useRef(items);
+	itemsRef.current = items;
 
-const getItemTypeForLibrary = useCallback(() => {
-if (!library) return 'Movie,Series';
-const collectionType = library.CollectionType?.toLowerCase();
+	const getItemTypeForLibrary = useCallback(() => {
+		if (!library) return 'Movie,Series';
+		const collectionType = library.CollectionType?.toLowerCase();
 
-switch (collectionType) {
-case 'movies':
-return 'Movie';
-case 'tvshows':
-return 'Series';
-case 'boxsets':
-return 'BoxSet';
-case 'homevideos':
-return 'Video,Photo,PhotoAlbum';
-case 'photos':
-return 'Photo,PhotoAlbum';
-case 'music':
-		{
-			const mc = MUSIC_CONTENT_TYPES.find(c => c.key === musicContentType);
-			return mc ? mc.itemType : 'MusicAlbum';
+		switch (collectionType) {
+			case 'movies':
+				return 'Movie';
+			case 'tvshows':
+				return 'Series';
+			case 'boxsets':
+				return 'BoxSet';
+			case 'homevideos':
+				return 'Video,Photo,PhotoAlbum';
+			case 'photos':
+				return 'Photo,PhotoAlbum';
+			case 'music':
+			{
+				const mc = MUSIC_CONTENT_TYPES.find(c => c.key === musicContentType);
+				return mc ? mc.itemType : 'MusicAlbum';
+			}
+			case 'musicvideos':
+				return 'MusicVideo';
+			case 'playlists':
+				return 'Playlist';
+			case 'books':
+				return 'Book';
+			case 'trailers':
+				return 'Trailer';
+			default:
+				return '';
 		}
-case 'musicvideos':
-return 'MusicVideo';
-case 'playlists':
-return 'Playlist';
-case 'books':
-return 'Book';
-case 'trailers':
-return 'Trailer';
-default:
-return '';
-}
-}, [library, musicContentType]);
+	}, [library, musicContentType]);
 
-const getExcludeItemTypes = useCallback(() => {
-if (!library) return '';
-const collectionType = library.CollectionType?.toLowerCase();
+	const getExcludeItemTypes = useCallback(() => {
+		if (!library) return '';
+		const collectionType = library.CollectionType?.toLowerCase();
 
-if (collectionType === 'movies' || collectionType === 'tvshows') {
-return 'BoxSet';
-}
-return '';
-}, [library]);
+		if (collectionType === 'movies' || collectionType === 'tvshows') {
+			return 'BoxSet';
+		}
+		return '';
+	}, [library]);
 
-const loadItems = useCallback(async (startIndex = 0, append = false) => {
-if (!library && !genreFilter && !studioFilter) return;
+	const loadItems = useCallback(async (startIndex = 0, append = false) => {
+		if (!library && !genreFilter && !studioFilter) return;
 
-if (append && loadingMoreRef.current) return;
+		if (append && loadingMoreRef.current) return;
 
-if (!append) {
-fetchGenerationRef.current++;
-}
-const generation = fetchGenerationRef.current;
+		if (!append) {
+			fetchGenerationRef.current++;
+		}
+		const generation = fetchGenerationRef.current;
 
-if (append) {
-loadingMoreRef.current = true;
-}
+		if (append) {
+			loadingMoreRef.current = true;
+		}
 
-try {
-const sortOption = SORT_OPTIONS.find(o => o.key === sortKey) || MUSIC_SORT_OPTIONS.find(o => o.key === sortKey) || SORT_OPTIONS[0];
+		try {
+			const sortOption = SORT_OPTIONS.find(o => o.key === sortKey) || MUSIC_SORT_OPTIONS.find(o => o.key === sortKey) || SORT_OPTIONS[0];
 
-const filters = [];
-if (favoritesOnly) filters.push('IsFavorite');
-if (watchedOnly) filters.push('IsPlayed');
+			const filters = [];
+			if (favoritesOnly) filters.push('IsFavorite');
+			if (watchedOnly) filters.push('IsPlayed');
 
-if (isFolderView) {
-	const params = {
-		ParentId: currentFolderId,
-		StartIndex: startIndex,
-		Limit: 150,
-		SortBy: `IsFolder,${sortOption.field}`,
-		SortOrder: sortOption.order,
-		EnableTotalRecordCount: true,
-		Fields: 'PrimaryImageAspectRatio,SortName,Path,ChildCount,MediaSourceCount,ProductionYear,ImageTags,OfficialRating,CommunityRating,CriticRating,RunTimeTicks,UserData'
-	};
-	if (filters.length > 0) params.Filters = filters.join(',');
-	const result = await effectiveApi.getItems(params);
-	let newItems = result.Items || [];
-	if (currentFolderCollectionType === 'movies' || currentFolderCollectionType === 'tvshows') {
-		newItems = newItems.filter(i => i.Type !== 'BoxSet');
-	}
-	if (generation !== fetchGenerationRef.current) return;
-	apiFetchIndexRef.current = append ? apiFetchIndexRef.current + newItems.length : newItems.length;
-	setAllItems(prev => {
-		if (!append) return newItems;
-		const combined = [...prev, ...newItems];
-		const seen = new Set();
-		return combined.filter(i => { if (seen.has(i.Id)) return false; seen.add(i.Id); return true; });
-	});
-	setTotalCount(result.TotalRecordCount || 0);
-} else {
-	const params = {
-		StartIndex: startIndex,
-		Limit: 150,
-		SortBy: sortOption.field,
-		SortOrder: sortOption.order,
-		Recursive: true,
-		EnableTotalRecordCount: true,
-		Fields: 'SortName,ProductionYear,ImageTags,OfficialRating,CommunityRating,CriticRating,RunTimeTicks,ProviderIds,UserData'
-	};
+			if (isFolderView) {
+				const params = {
+					ParentId: currentFolderId,
+					StartIndex: startIndex,
+					Limit: 150,
+					SortBy: `IsFolder,${sortOption.field}`,
+					SortOrder: sortOption.order,
+					EnableTotalRecordCount: true,
+					Fields: 'PrimaryImageAspectRatio,SortName,Path,ChildCount,MediaSourceCount,ProductionYear,ImageTags,OfficialRating,CommunityRating,CriticRating,RunTimeTicks,UserData'
+				};
+				if (filters.length > 0) params.Filters = filters.join(',');
+				const result = await effectiveApi.getItems(params);
+				let newItems = result.Items || [];
+				if (currentFolderCollectionType === 'movies' || currentFolderCollectionType === 'tvshows') {
+					newItems = newItems.filter(i => i.Type !== 'BoxSet');
+				}
+				if (generation !== fetchGenerationRef.current) return;
+				apiFetchIndexRef.current = append ? apiFetchIndexRef.current + newItems.length : newItems.length;
+				setAllItems(prev => {
+					if (!append) return newItems;
+					const combined = [...prev, ...newItems];
+					const seen = new Set();
+					return combined.filter(i => { if (seen.has(i.Id)) return false; seen.add(i.Id); return true; });
+				});
+				setTotalCount(result.TotalRecordCount || 0);
+			} else {
+				const params = {
+					StartIndex: startIndex,
+					Limit: 150,
+					SortBy: sortOption.field,
+					SortOrder: sortOption.order,
+					Recursive: true,
+					EnableTotalRecordCount: true,
+					Fields: 'SortName,ProductionYear,ImageTags,OfficialRating,CommunityRating,CriticRating,RunTimeTicks,ProviderIds,UserData'
+				};
 
-	if (library?.Id) params.ParentId = library.Id;
-	if (genreFilter) params.Genres = genreFilter;
-	if (studioFilter) params.Studios = studioFilter;
+				if (library?.Id) params.ParentId = library.Id;
+				if (genreFilter) params.Genres = genreFilter;
+				if (studioFilter) params.Studios = studioFilter;
 
-	const itemTypes = getItemTypeForLibrary();
-	if (itemTypes) params.IncludeItemTypes = itemTypes;
+				const itemTypes = getItemTypeForLibrary();
+				if (itemTypes) params.IncludeItemTypes = itemTypes;
 
-	const excludeTypes = getExcludeItemTypes();
-	if (excludeTypes) params.ExcludeItemTypes = excludeTypes;
+				const excludeTypes = getExcludeItemTypes();
+				if (excludeTypes) params.ExcludeItemTypes = excludeTypes;
 
-	const collectionType = library?.CollectionType?.toLowerCase();
-	if (collectionType === 'movies') params.CollapseBoxSetItems = false;
+				const collectionType = library?.CollectionType?.toLowerCase();
+				if (collectionType === 'movies') params.CollapseBoxSetItems = false;
 
-	if (filters.length > 0) params.Filters = filters.join(',');
+				if (filters.length > 0) params.Filters = filters.join(',');
 
-	// Playlists are not children of the music library, so they are fetched without
-	// a parent. Artists and album artists are different lists behind different
-	// endpoints.
-	if (isMusicLibrary && musicContentType === 'playlists') delete params.ParentId;
+				// Playlists are not children of the music library, so they are fetched without
+				// a parent. Artists and album artists are different lists behind different
+				// endpoints.
+				if (isMusicLibrary && musicContentType === 'playlists') delete params.ParentId;
 
-	const artistParams = {
-		ParentId: library?.Id,
-		StartIndex: startIndex,
-		Limit: 150,
-		SortBy: sortOption.field,
-		SortOrder: sortOption.order,
-		EnableTotalRecordCount: true,
-		Fields: 'PrimaryImageAspectRatio,SortName,ProductionYear,ImageTags,UserData',
-		ImageTypeLimit: 1,
-		EnableImageTypes: 'Primary,Backdrop,Thumb',
-		...(filters.length > 0 ? {Filters: filters.join(',')} : {})
-	};
+				const artistParams = {
+					ParentId: library?.Id,
+					StartIndex: startIndex,
+					Limit: 150,
+					SortBy: sortOption.field,
+					SortOrder: sortOption.order,
+					EnableTotalRecordCount: true,
+					Fields: 'PrimaryImageAspectRatio,SortName,ProductionYear,ImageTags,UserData',
+					ImageTypeLimit: 1,
+					EnableImageTypes: 'Primary,Backdrop,Thumb',
+					...(filters.length > 0 ? {Filters: filters.join(',')} : {})
+				};
 
-	let result;
-	if (isMusicLibrary && musicContentType === 'albumArtists') {
-		result = await effectiveApi.getAlbumArtists(artistParams);
-	} else if (isMusicLibrary && musicContentType === 'artists') {
-		result = await effectiveApi.getArtists(artistParams);
-	} else if (isMusicLibrary && musicContentType === 'genres') {
-		result = await effectiveApi.getMusicGenres({
-			ParentId: library?.Id,
-			StartIndex: startIndex,
-			Limit: 150,
-			SortBy: sortOption.field,
-			SortOrder: sortOption.order,
-			EnableTotalRecordCount: true,
-			Fields: 'PrimaryImageAspectRatio,ItemCounts'
-		});
-	} else {
-		result = await effectiveApi.getItems(params);
-	}
+				let result;
+				if (isMusicLibrary && musicContentType === 'albumArtists') {
+					result = await effectiveApi.getAlbumArtists(artistParams);
+				} else if (isMusicLibrary && musicContentType === 'artists') {
+					result = await effectiveApi.getArtists(artistParams);
+				} else if (isMusicLibrary && musicContentType === 'genres') {
+					result = await effectiveApi.getMusicGenres({
+						ParentId: library?.Id,
+						StartIndex: startIndex,
+						Limit: 150,
+						SortBy: sortOption.field,
+						SortOrder: sortOption.order,
+						EnableTotalRecordCount: true,
+						Fields: 'PrimaryImageAspectRatio,ItemCounts'
+					});
+				} else {
+					result = await effectiveApi.getItems(params);
+				}
 
-	let newItems = result.Items || [];
+				let newItems = result.Items || [];
 
-	if (excludeTypes && newItems.length > 0) {
-		newItems = newItems.filter(item => item.Type !== 'BoxSet');
-	}
+				if (excludeTypes && newItems.length > 0) {
+					newItems = newItems.filter(item => item.Type !== 'BoxSet');
+				}
 
-	apiFetchIndexRef.current = append ? apiFetchIndexRef.current + (result.Items?.length || 0) : (result.Items?.length || 0);
-	if (generation !== fetchGenerationRef.current) return;
-	setAllItems(prev => {
-		if (!append) return newItems;
-		const combined = [...prev, ...newItems];
-		const seen = new Set();
-		return combined.filter(i => { if (seen.has(i.Id)) return false; seen.add(i.Id); return true; });
-	});
-	setTotalCount(result.TotalRecordCount || 0);
-}
-} catch (err) { console.error('[Library] loadItems error:', err); } finally {
-setIsLoading(false);
-loadingMoreRef.current = false;
-}
-}, [effectiveApi, library, genreFilter, studioFilter, sortKey, favoritesOnly, watchedOnly, isFolderView, currentFolderId, currentFolderCollectionType, isMusicLibrary, musicContentType, getItemTypeForLibrary, getExcludeItemTypes]);
+				apiFetchIndexRef.current = append ? apiFetchIndexRef.current + (result.Items?.length || 0) : (result.Items?.length || 0);
+				if (generation !== fetchGenerationRef.current) return;
+				setAllItems(prev => {
+					if (!append) return newItems;
+					const combined = [...prev, ...newItems];
+					const seen = new Set();
+					return combined.filter(i => { if (seen.has(i.Id)) return false; seen.add(i.Id); return true; });
+				});
+				setTotalCount(result.TotalRecordCount || 0);
+			}
+		} catch (err) { console.error('[Library] loadItems error:', err); } finally {
+			setIsLoading(false);
+			loadingMoreRef.current = false;
+		}
+	}, [effectiveApi, library, genreFilter, studioFilter, sortKey, favoritesOnly, watchedOnly, isFolderView, currentFolderId, currentFolderCollectionType, isMusicLibrary, musicContentType, getItemTypeForLibrary, getExcludeItemTypes]);
 
-loadItemsRef.current = loadItems;
+	loadItemsRef.current = loadItems;
 
-useEffect(() => {
-	if (isMusicBrowseHome) {
-		setIsLoading(false);
-		return;
-	}
-	if (library || genreFilter || studioFilter) {
-		setIsLoading(true);
-		setAllItems([]);
-		setTotalCount(0);
-		loadingMoreRef.current = false;
-		apiFetchIndexRef.current = 0;
-		initialFocusDoneRef.current = false;
-		loadItemsRef.current(0, false);
-	}
-}, [library, sortKey, favoritesOnly, watchedOnly, musicContentType, isFolderView, currentFolderId, genreFilter, studioFilter, isMusicBrowseHome]);
-
-// Favorites is the albums grid with the filter on rather than a type of its own.
-const handleOpenMusicGrid = useCallback((target) => {
-	if (!target) return;
-	setMusicGridView(target);
-	setMusicContentType(target === 'favorites' ? 'albums' : target);
-	setFavoritesOnly(target === 'favorites');
-	setAllItems([]);
-	apiFetchIndexRef.current = 0;
-	initialFocusDoneRef.current = false;
-}, []);
-
-useEffect(() => {
-if (items.length > 0 && !isLoading && !initialFocusDoneRef.current) {
-setTimeout(() => {
-Spotlight.focus('library-grid');
-initialFocusDoneRef.current = true;
-}, 100);
-}
-}, [items.length, isLoading]);
-
-const handleItemClick = useCallback((ev) => {
-const itemIndex = ev.currentTarget?.dataset?.index;
-if (itemIndex === undefined) return;
-
-const item = itemsRef.current[parseInt(itemIndex, 10)];
-if (item) {
-		if (isFolderView && item.IsFolder && !FOLDER_DETAIL_TYPES.includes(item.Type)) {
-			setFolderStack(prev => [...prev, {id: item.Id, name: item.Name, collectionType: item.CollectionType}]);
+	useEffect(() => {
+		if (isMusicBrowseHome) {
+			setIsLoading(false);
 			return;
 		}
-		if (item.Type === 'Photo' && onViewPhoto) {
-			onViewPhoto(item, itemsRef.current);
-		} else {
-			onSelectItem?.(item);
+		if (library || genreFilter || studioFilter) {
+			setIsLoading(true);
+			setAllItems([]);
+			setTotalCount(0);
+			loadingMoreRef.current = false;
+			apiFetchIndexRef.current = 0;
+			initialFocusDoneRef.current = false;
+			loadItemsRef.current(0, false);
 		}
-	}
-}, [isFolderView, onSelectItem, onViewPhoto]);
+	}, [library, sortKey, favoritesOnly, watchedOnly, musicContentType, isFolderView, currentFolderId, genreFilter, studioFilter, isMusicBrowseHome]);
 
-const handleScrollStop = useCallback(() => {
-	if (apiFetchIndexRef.current < totalCount && !isLoading && !loadingMoreRef.current) {
-		loadItems(apiFetchIndexRef.current, true);
-	}
-}, [totalCount, isLoading, loadItems]);
+	// Favorites is the albums grid with the filter on rather than a type of its own.
+	const handleOpenMusicGrid = useCallback((target) => {
+		if (!target) return;
+		setMusicGridView(target);
+		setMusicContentType(target === 'favorites' ? 'albums' : target);
+		setFavoritesOnly(target === 'favorites');
+		setAllItems([]);
+		apiFetchIndexRef.current = 0;
+		initialFocusDoneRef.current = false;
+	}, []);
 
-// Back past the panels: drop out of a music grid, then climb the folder stack.
-const handleBackBeyondPanels = useCallback(() => {
-	if (musicGridView) {
-		setMusicGridView(null);
-		setFavoritesOnly(false);
-		return true;
-	}
-	if (isFolderView && folderStack.length > 0) {
-		setFolderStack(prev => prev.slice(0, -1));
-		return true;
-	}
-	return false;
-}, [musicGridView, isFolderView, folderStack]);
+	useEffect(() => {
+		if (items.length > 0 && !isLoading && !initialFocusDoneRef.current) {
+			setTimeout(() => {
+				Spotlight.focus('library-grid');
+				initialFocusDoneRef.current = true;
+			}, 100);
+		}
+	}, [items.length, isLoading]);
 
-// There is one back slot, and the music browse screen claims it while it's up. Nothing
-// here would be true there anyway, since it only shows with no grid, panel or folder stack.
-const {
-	showSortPanel, showSettingsPanel,
-	handleToggleSortPanel, handleCloseSortPanel,
-	handleToggleSettingsPanel, handleCloseSettingsPanel
-} = useSortSettingsPanels({
-	backHandlerRef,
-	sortFocusId: 'sort-option-0',
-	settingsFocusId: 'settings-image-size',
-	onBack: handleBackBeyondPanels,
-	enabled: !isMusicBrowseHome
-});
+	const handleItemClick = useCallback((ev) => {
+		const itemIndex = ev.currentTarget?.dataset?.index;
+		if (itemIndex === undefined) return;
 
-useEffect(() => {
-	return () => {
-		if (ratingsTimeoutRef.current) clearTimeout(ratingsTimeoutRef.current);
-		if (ratingsAbortRef.current && typeof ratingsAbortRef.current.abort === 'function') ratingsAbortRef.current.abort();
-	};
-}, []);
+		const item = itemsRef.current[parseInt(itemIndex, 10)];
+		if (item) {
+			if (isFolderView && item.IsFolder && !FOLDER_DETAIL_TYPES.includes(item.Type)) {
+				setFolderStack(prev => [...prev, {id: item.Id, name: item.Name, collectionType: item.CollectionType}]);
+				return;
+			}
+			if (item.Type === 'Photo' && onViewPhoto) {
+				onViewPhoto(item, itemsRef.current);
+			} else {
+				onSelectItem?.(item);
+			}
+		}
+	}, [isFolderView, onSelectItem, onViewPhoto]);
 
-const handleSortSelect = useCallback((ev) => {
-const key = ev.currentTarget?.dataset?.sortKey;
-if (key) {
-setSortKey(key);
-handleCloseSortPanel();
-setTimeout(() => Spotlight.focus('library-grid'), 100);
-}
-}, [setSortKey, handleCloseSortPanel]);
+	const handleScrollStop = useCallback(() => {
+		if (apiFetchIndexRef.current < totalCount && !isLoading && !loadingMoreRef.current) {
+			loadItems(apiFetchIndexRef.current, true);
+		}
+	}, [totalCount, isLoading, loadItems]);
 
-const handleToggleFavorites = useCallback(() => {
-setFavoritesOnly(prev => !prev);
-handleCloseSortPanel();
-setTimeout(() => Spotlight.focus('library-grid'), 100);
-}, [handleCloseSortPanel]);
+	// Back past the panels: drop out of a music grid, then climb the folder stack.
+	const handleBackBeyondPanels = useCallback(() => {
+		if (musicGridView) {
+			setMusicGridView(null);
+			setFavoritesOnly(false);
+			return true;
+		}
+		if (isFolderView && folderStack.length > 0) {
+			setFolderStack(prev => prev.slice(0, -1));
+			return true;
+		}
+		return false;
+	}, [musicGridView, isFolderView, folderStack]);
 
-const handleToggleWatched = useCallback(() => {
-	setWatchedOnly(prev => !prev);
-	handleCloseSortPanel();
-	setTimeout(() => Spotlight.focus('library-grid'), 100);
-}, [handleCloseSortPanel]);
+	// There is one back slot, and the music browse screen claims it while it's up. Nothing
+	// here would be true there anyway, since it only shows with no grid, panel or folder stack.
+	const {
+		showSortPanel, showSettingsPanel,
+		handleToggleSortPanel, handleCloseSortPanel,
+		handleToggleSettingsPanel, handleCloseSettingsPanel
+	} = useSortSettingsPanels({
+		backHandlerRef,
+		sortFocusId: 'sort-option-0',
+		settingsFocusId: 'settings-image-size',
+		onBack: handleBackBeyondPanels,
+		enabled: !isMusicBrowseHome
+	});
 
-const handleCycleImageSize = useCallback(() => {
-	setImageSize(cycleValue(IMAGE_SIZES, imageSize));
-}, [imageSize, setImageSize]);
+	useEffect(() => {
+		return () => {
+			if (ratingsTimeoutRef.current) clearTimeout(ratingsTimeoutRef.current);
+			if (ratingsAbortRef.current && typeof ratingsAbortRef.current.abort === 'function') ratingsAbortRef.current.abort();
+		};
+	}, []);
 
-const handleCycleImageType = useCallback(() => {
-	setImageType(cycleValue(IMAGE_TYPES, imageType));
-}, [imageType, setImageType]);
+	const handleSortSelect = useCallback((ev) => {
+		const key = ev.currentTarget?.dataset?.sortKey;
+		if (key) {
+			setSortKey(key);
+			handleCloseSortPanel();
+			setTimeout(() => Spotlight.focus('library-grid'), 100);
+		}
+	}, [setSortKey, handleCloseSortPanel]);
 
-const handleCycleGridDirection = useCallback(() => {
-	setGridDirection(cycleValue(GRID_DIRECTIONS, gridDirection));
-}, [gridDirection, setGridDirection]);
-
-const handleToggleFolderView = useCallback(() => {
-	if (folderViewMode !== 'local') return;
-	setFolderView(isFolderView ? 'off' : 'on');
-	setFolderStack([]);
-}, [folderViewMode, isFolderView, setFolderView]);
-
-const handleFolderBreadcrumb = useCallback((ev) => {
-	const depth = parseInt(ev.currentTarget?.dataset?.depth, 10);
-	if (!isNaN(depth)) setFolderStack(prev => prev.slice(0, depth));
-}, []);
-
-const handleMusicContentSelect = useCallback((ev) => {
-	const key = ev.currentTarget?.dataset?.contentKey;
-	if (key) {
-		setMusicContentType(key);
+	const handleToggleFavorites = useCallback(() => {
+		setFavoritesOnly(prev => !prev);
 		handleCloseSortPanel();
 		setTimeout(() => Spotlight.focus('library-grid'), 100);
-	}
-}, [handleCloseSortPanel]);
+	}, [handleCloseSortPanel]);
 
-const effectiveImageType = isSquareDefault ? 'square' : imageType;
-const isWideImage = effectiveImageType === 'thumbnail';
-const isSquareImage = effectiveImageType === 'square';
-const activeSortOptions = isMusicLibrary ? MUSIC_SORT_OPTIONS : SORT_OPTIONS;
-const posterHeight = isSquareImage
-	? ({small: 140, medium: 180, large: 240}[imageSize] || 180)
-	: isWideImage
-		? ({small: 120, medium: 160, large: 210}[imageSize] || 160)
-		: ({small: 200, medium: 270, large: 350}[imageSize] || 270);
+	const handleToggleWatched = useCallback(() => {
+		setWatchedOnly(prev => !prev);
+		handleCloseSortPanel();
+		setTimeout(() => Spotlight.focus('library-grid'), 100);
+	}, [handleCloseSortPanel]);
 
-const gridItemSize = isSquareImage
-	? ({small: {minWidth: 130, minHeight: 180}, medium: {minWidth: 170, minHeight: 220}, large: {minWidth: 220, minHeight: 280}}[imageSize] || {minWidth: 170, minHeight: 220})
-	: isWideImage
-		? ({small: {minWidth: 220, minHeight: 170}, medium: {minWidth: 280, minHeight: 220}, large: {minWidth: 360, minHeight: 280}}[imageSize] || {minWidth: 280, minHeight: 220})
-		: ({small: {minWidth: 130, minHeight: 270}, medium: {minWidth: 170, minHeight: 340}, large: {minWidth: 220, minHeight: 430}}[imageSize] || {minWidth: 170, minHeight: 340});
+	const handleCycleImageSize = useCallback(() => {
+		setImageSize(cycleValue(IMAGE_SIZES, imageSize));
+	}, [imageSize, setImageSize]);
 
-const renderItem = useCallback(({index, ...rest}) => {
-const item = itemsRef.current[index];
-const isNearEnd = index >= items.length - 50;
-if (isNearEnd && apiFetchIndexRef.current < totalCount && !isLoading && !loadingMoreRef.current) {
-loadItems(apiFetchIndexRef.current, true);
-}
+	const handleCycleImageType = useCallback(() => {
+		setImageType(cycleValue(IMAGE_TYPES, imageType));
+	}, [imageType, setImageType]);
 
-if (!item) {
-return (
-<div {...rest} className={css.itemCard}>
-<div className={css.posterPlaceholder} style={{height: posterHeight}}>
-<div className={css.loadingPlaceholder} />
-</div>
-</div>
-);
-}
+	const handleCycleGridDirection = useCallback(() => {
+		setGridDirection(cycleValue(GRID_DIRECTIONS, gridDirection));
+	}, [gridDirection, setGridDirection]);
 
-const isFolder = isFolderView && item.IsFolder && !FOLDER_DETAIL_TYPES.includes(item.Type);
-let imageId, imgApiType;
-if (effectiveImageType === 'thumbnail') {
-	if (item.ImageTags?.Thumb) {
-		imageId = item.Id;
-		imgApiType = 'Thumb';
-	} else {
-		imageId = getPrimaryImageId(item);
-		imgApiType = 'Primary';
-	}
-} else {
-	imageId = getPrimaryImageId(item);
-	imgApiType = 'Primary';
-}
-const imageUrl = imageId ? getImageUrl(effectiveServerUrl, imageId, imgApiType, {maxHeight: 300, quality: 70}) : null;
+	const handleToggleFolderView = useCallback(() => {
+		if (folderViewMode !== 'local') return;
+		setFolderView(isFolderView ? 'off' : 'on');
+		setFolderStack([]);
+	}, [folderViewMode, isFolderView, setFolderView]);
 
-return (
-<SpottableDiv
-{...rest}
-className={`${css.itemCard} ${isSquareImage ? css.squareCard : ''}`}
-onClick={handleItemClick}
-// eslint-disable-next-line react/jsx-no-bind
-onFocus={() => {
-	setFocusedItem(item);
-	if (settings?.mdblistEnabled && settings?.useMoonfinPlugin) {
-		if (ratingsTimeoutRef.current) {
-			clearTimeout(ratingsTimeoutRef.current);
+	const handleFolderBreadcrumb = useCallback((ev) => {
+		const depth = parseInt(ev.currentTarget?.dataset?.depth, 10);
+		if (!isNaN(depth)) setFolderStack(prev => prev.slice(0, depth));
+	}, []);
+
+	const handleMusicContentSelect = useCallback((ev) => {
+		const key = ev.currentTarget?.dataset?.contentKey;
+		if (key) {
+			setMusicContentType(key);
+			handleCloseSortPanel();
+			setTimeout(() => Spotlight.focus('library-grid'), 100);
 		}
-		if (ratingsAbortRef.current && typeof ratingsAbortRef.current.abort === 'function') {
-			ratingsAbortRef.current.abort();
+	}, [handleCloseSortPanel]);
+
+	const effectiveImageType = isSquareDefault ? 'square' : imageType;
+	const isWideImage = effectiveImageType === 'thumbnail';
+	const isSquareImage = effectiveImageType === 'square';
+	const activeSortOptions = isMusicLibrary ? MUSIC_SORT_OPTIONS : SORT_OPTIONS;
+	const posterHeight = isSquareImage
+		? ({small: 140, medium: 180, large: 240}[imageSize] || 180)
+		: isWideImage
+			? ({small: 120, medium: 160, large: 210}[imageSize] || 160)
+			: ({small: 200, medium: 270, large: 350}[imageSize] || 270);
+
+	const gridItemSize = isSquareImage
+		? ({small: {minWidth: 130, minHeight: 180}, medium: {minWidth: 170, minHeight: 220}, large: {minWidth: 220, minHeight: 280}}[imageSize] || {minWidth: 170, minHeight: 220})
+		: isWideImage
+			? ({small: {minWidth: 220, minHeight: 170}, medium: {minWidth: 280, minHeight: 220}, large: {minWidth: 360, minHeight: 280}}[imageSize] || {minWidth: 280, minHeight: 220})
+			: ({small: {minWidth: 130, minHeight: 270}, medium: {minWidth: 170, minHeight: 340}, large: {minWidth: 220, minHeight: 430}}[imageSize] || {minWidth: 170, minHeight: 340});
+
+	const renderItem = useCallback(({index, ...rest}) => {
+		const item = itemsRef.current[index];
+		const isNearEnd = index >= items.length - 50;
+		if (isNearEnd && apiFetchIndexRef.current < totalCount && !isLoading && !loadingMoreRef.current) {
+			loadItems(apiFetchIndexRef.current, true);
 		}
-		ratingsTimeoutRef.current = setTimeout(() => {
-			const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-			ratingsAbortRef.current = controller;
-			const signal = controller ? controller.signal : undefined;
-			const sourcesKey = Array.isArray(settings?.mdblistRatingSources)
-				? settings.mdblistRatingSources.join(',')
-				: '';
-			// Episodes have no MDBList ratings, so show the TMDB episode rating when
-			// that feature is on.
-			const episodeRatingsEnabled = settings?.tmdbEpisodeRatingsEnabled && isRatingSourceEnabled(settings, 'tmdb');
-			const fetchPromise = item.Type === 'Episode'
-				? (episodeRatingsEnabled
-					? fetchEpisodeRatings(effectiveServerUrl, item, {signal})
-					: Promise.resolve([]))
-				: fetchRatings(effectiveServerUrl, item, {signal, sourcesKey});
-			fetchPromise.then(r => {
-				if (!(controller && controller.signal.aborted)) {
-					const display = buildDisplayRatings(r, effectiveServerUrl);
-					setFocusedRatings(display);
-				}
-			}).catch(() => {
-				if (!(controller && controller.signal.aborted)) {
-					setFocusedRatings([]);
-				}
-			});
-		}, 300);
-	} else {
-		setFocusedRatings([]);
+
+		if (!item) {
+			return (
+				<div {...rest} className={css.itemCard}>
+					<div className={css.posterPlaceholder} style={{height: posterHeight}}>
+						<div className={css.loadingPlaceholder} />
+					</div>
+				</div>
+			);
+		}
+
+		const isFolder = isFolderView && item.IsFolder && !FOLDER_DETAIL_TYPES.includes(item.Type);
+		let imageId, imgApiType;
+		if (effectiveImageType === 'thumbnail') {
+			if (item.ImageTags?.Thumb) {
+				imageId = item.Id;
+				imgApiType = 'Thumb';
+			} else {
+				imageId = getPrimaryImageId(item);
+				imgApiType = 'Primary';
+			}
+		} else {
+			imageId = getPrimaryImageId(item);
+			imgApiType = 'Primary';
+		}
+		const imageUrl = imageId ? getImageUrl(effectiveServerUrl, imageId, imgApiType, {maxHeight: 300, quality: 70}) : null;
+
+		return (
+			<SpottableDiv
+				{...rest}
+				className={`${css.itemCard} ${isSquareImage ? css.squareCard : ''}`}
+				onClick={handleItemClick}
+				// eslint-disable-next-line react/jsx-no-bind
+				onFocus={() => {
+					setFocusedItem(item);
+					if (settings?.mdblistEnabled && settings?.useMoonfinPlugin) {
+						if (ratingsTimeoutRef.current) {
+							clearTimeout(ratingsTimeoutRef.current);
+						}
+						if (ratingsAbortRef.current && typeof ratingsAbortRef.current.abort === 'function') {
+							ratingsAbortRef.current.abort();
+						}
+						ratingsTimeoutRef.current = setTimeout(() => {
+							const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+							ratingsAbortRef.current = controller;
+							const signal = controller ? controller.signal : undefined;
+							const sourcesKey = Array.isArray(settings?.mdblistRatingSources)
+								? settings.mdblistRatingSources.join(',')
+								: '';
+							// Episodes have no MDBList ratings, so show the TMDB episode rating when
+							// that feature is on.
+							const episodeRatingsEnabled = settings?.tmdbEpisodeRatingsEnabled && isRatingSourceEnabled(settings, 'tmdb');
+							const fetchPromise = item.Type === 'Episode'
+								? (episodeRatingsEnabled
+									? fetchEpisodeRatings(effectiveServerUrl, item, {signal})
+									: Promise.resolve([]))
+								: fetchRatings(effectiveServerUrl, item, {signal, sourcesKey});
+							fetchPromise.then(r => {
+								if (!(controller && controller.signal.aborted)) {
+									const display = buildDisplayRatings(r, effectiveServerUrl);
+									setFocusedRatings(display);
+								}
+							}).catch(() => {
+								if (!(controller && controller.signal.aborted)) {
+									setFocusedRatings([]);
+								}
+							});
+						}, 300);
+					} else {
+						setFocusedRatings([]);
+					}
+				}}
+				data-index={index}
+			>
+				<div className={css.itemCardInner}>
+					{imageUrl ? (
+						<img
+							className={css.poster}
+							style={{height: posterHeight}}
+							src={imageUrl}
+							alt={item.Name}
+							loading="lazy"
+						/>
+					) : (
+						<div className={css.posterPlaceholder} style={{height: posterHeight}}>
+							{isFolder ? (
+								<svg viewBox="0 0 24 24" className={css.placeholderIcon}>
+									<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+								</svg>
+							) : (
+								<svg viewBox="0 0 24 24" className={css.placeholderIcon}>
+									<path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
+								</svg>
+							)}
+						</div>
+					)}
+					{isFolder && (
+						<div className={css.folderLabel}>
+							<svg viewBox="0 0 24 24" className={css.folderIcon}><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" /></svg>
+							<span>{item.Name}</span>
+						</div>
+					)}
+					{item.UserData?.IsFavorite && (
+						<div className={css.favoriteBadge}>
+							<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+						</div>
+					)}
+					{item.UserData?.Played && (
+						<div className={css.watchedBadge}>
+							<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+						</div>
+					)}
+				</div>
+			</SpottableDiv>
+		);
+	}, [effectiveServerUrl, handleItemClick, items.length, totalCount, isLoading, loadItems, effectiveImageType, posterHeight, isSquareImage, isFolderView, settings]);
+
+	const currentSort = activeSortOptions.find(o => o.key === sortKey);
+	const sortLabel = currentSort ? currentSort.label : $L('Name');
+	const filterParts = [];
+	if (favoritesOnly) filterParts.push($L('Favorites'));
+	if (watchedOnly) filterParts.push($L('Watched'));
+	const filterLabel = filterParts.length > 0 ? filterParts.join(' & ') : $L('All items');
+	const folderName = folderStack.length > 0 ? folderStack[folderStack.length - 1].name : library?.Name;
+	const displayName = genreFilter || studioFilter || library?.Name || '';
+	const statusText = isFolderView
+		? $L("Browsing folders in '{folderName}' sorted by {sortLabel}").replace('{folderName}', folderName).replace('{sortLabel}', sortLabel)
+		: genreFilter
+			? (library
+				? $L("Showing {filterLabel} from '{genreFilter}' in '{libraryName}' sorted by {sortLabel}").replace('{filterLabel}', filterLabel).replace('{genreFilter}', genreFilter).replace('{libraryName}', library.Name).replace('{sortLabel}', sortLabel)
+				: $L("Showing {filterLabel} from '{genreFilter}' sorted by {sortLabel}").replace('{filterLabel}', filterLabel).replace('{genreFilter}', genreFilter).replace('{sortLabel}', sortLabel))
+			: studioFilter
+				? $L("Showing {filterLabel} from '{genreFilter}' sorted by {sortLabel}").replace('{filterLabel}', filterLabel).replace('{genreFilter}', studioFilter).replace('{sortLabel}', sortLabel)
+				: $L("Showing {filterLabel} from '{libraryName}' sorted by {sortLabel}").replace('{filterLabel}', filterLabel).replace('{libraryName}', library?.Name).replace('{sortLabel}', sortLabel);
+
+	const backdropsEnabled = settings?.showHomeBackdrop !== false && !settings?.hideBackdropsInLibraries;
+
+	const backdropId = focusedItem?.BackdropImageTags?.length
+		? focusedItem.Id
+		: (focusedItem?.ParentBackdropImageTags?.length ? focusedItem.ParentBackdropItemId : null);
+	const backdropTag = focusedItem?.BackdropImageTags?.length
+		? focusedItem.BackdropImageTags[0]
+		: (focusedItem?.ParentBackdropImageTags?.length ? focusedItem.ParentBackdropImageTags[0] : null);
+
+	const backdropUrl = useMemo(() => {
+		if (!backdropsEnabled || !backdropId) return '';
+		return getImageUrl(effectiveServerUrl, backdropId, 'Backdrop', {maxWidth: 1920, quality: 80, tag: backdropTag});
+	}, [backdropsEnabled, backdropId, backdropTag, effectiveServerUrl]);
+
+	if (!library && !genreFilter && !studioFilter) {
+		return (
+			<div className={css.page}>
+				<div className={css.empty}>{$L('No library selected')}</div>
+			</div>
+		);
 	}
-}}
-data-index={index}
->
-<div className={css.itemCardInner}>
-{imageUrl ? (
-<img
-className={css.poster}
-style={{height: posterHeight}}
-src={imageUrl}
-alt={item.Name}
-loading="lazy"
-/>
-) : (
-<div className={css.posterPlaceholder} style={{height: posterHeight}}>
-{isFolder ? (
-<svg viewBox="0 0 24 24" className={css.placeholderIcon}>
-<path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-</svg>
-) : (
-<svg viewBox="0 0 24 24" className={css.placeholderIcon}>
-<path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
-</svg>
-)}
-</div>
-)}
-{isFolder && (
-<div className={css.folderLabel}>
-<svg viewBox="0 0 24 24" className={css.folderIcon}><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" /></svg>
-<span>{item.Name}</span>
-</div>
-)}
-{item.UserData?.IsFavorite && (
-<div className={css.favoriteBadge}>
-<svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
-</div>
-)}
-{item.UserData?.Played && (
-<div className={css.watchedBadge}>
-<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-</div>
-)}
-</div>
-</SpottableDiv>
-);
-}, [effectiveServerUrl, handleItemClick, items.length, totalCount, isLoading, loadItems, effectiveImageType, posterHeight, isSquareImage, isFolderView, settings]);
 
-const currentSort = activeSortOptions.find(o => o.key === sortKey);
-const sortLabel = currentSort ? currentSort.label : $L('Name');
-const filterParts = [];
-if (favoritesOnly) filterParts.push($L('Favorites'));
-if (watchedOnly) filterParts.push($L('Watched'));
-const filterLabel = filterParts.length > 0 ? filterParts.join(' & ') : $L('All items');
-const folderName = folderStack.length > 0 ? folderStack[folderStack.length - 1].name : library?.Name;
-const displayName = genreFilter || studioFilter || library?.Name || '';
-const statusText = isFolderView
-	? $L("Browsing folders in '{folderName}' sorted by {sortLabel}").replace('{folderName}', folderName).replace('{sortLabel}', sortLabel)
-	: genreFilter
-		? (library
-			? $L("Showing {filterLabel} from '{genreFilter}' in '{libraryName}' sorted by {sortLabel}").replace('{filterLabel}', filterLabel).replace('{genreFilter}', genreFilter).replace('{libraryName}', library.Name).replace('{sortLabel}', sortLabel)
-			: $L("Showing {filterLabel} from '{genreFilter}' sorted by {sortLabel}").replace('{filterLabel}', filterLabel).replace('{genreFilter}', genreFilter).replace('{sortLabel}', sortLabel))
-		: studioFilter
-			? $L("Showing {filterLabel} from '{genreFilter}' sorted by {sortLabel}").replace('{filterLabel}', filterLabel).replace('{genreFilter}', studioFilter).replace('{sortLabel}', sortLabel)
-			: $L("Showing {filterLabel} from '{libraryName}' sorted by {sortLabel}").replace('{filterLabel}', filterLabel).replace('{libraryName}', library?.Name).replace('{sortLabel}', sortLabel);
+	if (isMusicBrowseHome) {
+		return (
+			<MusicBrowse
+				library={library}
+				api={effectiveApi}
+				serverUrl={effectiveServerUrl}
+				onSelectItem={onSelectItem}
+				onOpenGrid={handleOpenMusicGrid}
+				onHome={onHome}
+				backHandlerRef={backHandlerRef}
+			/>
+		);
+	}
 
-const backdropsEnabled = settings?.showHomeBackdrop !== false && !settings?.hideBackdropsInLibraries;
+	const focusedInfoParts = [];
+	if (focusedItem) {
+		if (focusedItem.ProductionYear) focusedInfoParts.push(String(focusedItem.ProductionYear));
+		if (focusedItem.OfficialRating) focusedInfoParts.push(focusedItem.OfficialRating);
+		if (focusedItem.RunTimeTicks > 0 && focusedItem.Type !== 'Series') {
+			const dur = formatDuration(focusedItem.RunTimeTicks);
+			if (dur !== '0m') focusedInfoParts.push(dur);
+		}
+	}
 
-const backdropId = focusedItem?.BackdropImageTags?.length
-	? focusedItem.Id
-	: (focusedItem?.ParentBackdropImageTags?.length ? focusedItem.ParentBackdropItemId : null);
-const backdropTag = focusedItem?.BackdropImageTags?.length
-	? focusedItem.BackdropImageTags[0]
-	: (focusedItem?.ParentBackdropImageTags?.length ? focusedItem.ParentBackdropImageTags[0] : null);
+	const ratingElements = [];
+	const showCommunityRating = !Array.isArray(settings?.mdblistRatingSources) || settings.mdblistRatingSources.includes('stars');
+	if (focusedItem && focusedItem.CommunityRating && showCommunityRating) {
+		ratingElements.push(
+			<span key="community" className={css.pluginRating}>
+				<span className={css.communityStar}>{"\u2605"}</span>
+				<span>{focusedItem.CommunityRating.toFixed(1)}</span>
+			</span>
+		);
+	}
+	// The server's own critic rating stands in until plugin ratings actually
+	// arrive, so it stays visible when there's no API key or nothing came back.
+	if (focusedItem && focusedRatings.length === 0 && focusedItem.CriticRating != null) {
+		ratingElements.push(
+			<span key="rt" className={css.pluginRating}>
+				<img className={css.ratingIcon} src={getRtFallbackIcon(focusedItem.CriticRating)} alt="Rotten Tomatoes" />
+				<span>{focusedItem.CriticRating}%</span>
+			</span>
+		);
+	}
+	for (let i = 0; i < focusedRatings.length; i++) {
+		const r = focusedRatings[i];
+		ratingElements.push(
+			<span key={'r' + i} className={css.pluginRating}>
+				{r.iconUrl && <img className={css.ratingIcon} src={r.iconUrl} alt={r.name} />}
+				<span>{r.formatted}</span>
+			</span>
+		);
+	}
 
-const backdropUrl = useMemo(() => {
-	if (!backdropsEnabled || !backdropId) return '';
-	return getImageUrl(effectiveServerUrl, backdropId, 'Backdrop', {maxWidth: 1920, quality: 80, tag: backdropTag});
-}, [backdropsEnabled, backdropId, backdropTag, effectiveServerUrl]);
-
-if (!library && !genreFilter && !studioFilter) {
-return (
-<div className={css.page}>
-<div className={css.empty}>{$L('No library selected')}</div>
-</div>
-);
-}
-
-if (isMusicBrowseHome) {
 	return (
-		<MusicBrowse
-			library={library}
-			api={effectiveApi}
-			serverUrl={effectiveServerUrl}
-			onSelectItem={onSelectItem}
-			onOpenGrid={handleOpenMusicGrid}
-			onHome={onHome}
-			backHandlerRef={backHandlerRef}
-		/>
+		<div className={css.page}>
+			{backdropsEnabled && (
+				<BackdropLayer targetUrl={backdropUrl} blurAmount={settings?.backdropBlurHome} />
+			)}
+			<div className={css.content}>
+				<div className={css.header}>
+					{isFolderView && folderStack.length > 0 ? (
+						<div className={css.breadcrumb}>
+							<SpottableButton
+								className={css.breadcrumbItem}
+								onClick={handleFolderBreadcrumb}
+								data-depth={0}
+								spotlightId="breadcrumb-root"
+							>
+								{library.Name}
+							</SpottableButton>
+							{folderStack.map((f, i) => (
+								<span key={f.id} className={css.breadcrumbSegment}>
+									<span className={css.breadcrumbSep}>›</span>
+									{i < folderStack.length - 1 ? (
+										<SpottableButton
+											className={css.breadcrumbItem}
+											onClick={handleFolderBreadcrumb}
+											data-depth={i + 1}
+										>
+											{f.name}
+										</SpottableButton>
+									) : (
+										<span className={css.breadcrumbCurrent}>{f.name}</span>
+									)}
+								</span>
+							))}
+							<div className={css.itemCount}>{totalCount} {$L('Items')}</div>
+						</div>
+					) : (
+						<>
+							<div className={css.libraryTitle}>{displayName}</div>
+							<div className={css.itemCount}>{totalCount} {$L('Items')}</div>
+						</>
+					)}
+				</div>
+
+				{focusedItem && settings?.showMediaDetailsOnLibraryPage !== false && (
+					<div className={css.focusedInfo}>
+						<div className={css.focusedName}>{focusedItem.Name}</div>
+						<div className={css.focusedMeta}>
+							{focusedInfoParts.map((part, i) => (
+								<span key={i} className={css.metaItem}>{part}</span>
+							))}
+							{ratingElements.length > 0 && focusedInfoParts.length > 0 && (
+								<span className={css.metaSeparator} />
+							)}
+							{ratingElements}
+						</div>
+					</div>
+				)}
+
+				<ToolbarContainer className={css.toolbar} spotlightId="library-toolbar" onKeyDown={handleToolbarKeyDown}>
+					<SpottableButton
+						className={css.toolbarBtn}
+						onClick={onHome}
+						spotlightId="library-home-btn"
+					>
+						<svg className={css.toolbarIcon} viewBox="0 0 24 24">
+							<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+						</svg>
+					</SpottableButton>
+
+					<SpottableButton
+						className={css.toolbarBtn}
+						onClick={handleToggleSortPanel}
+						spotlightId="library-sort-btn"
+					>
+						<svg className={css.toolbarIcon} viewBox="0 -960 960 960">
+							<path d="m80-280 162-400h63l161 400h-63l-38-99H181l-38 99H80Zm121-151h144l-70-185h-4l-70 185Zm347 151v-62l233-286H566v-52h272v63L607-332h233v52H548ZM384-784l96-96 96 96H384Zm96 704-96-96h192l-96 96Z" />
+						</svg>
+					</SpottableButton>
+
+					<SpottableButton
+						className={css.toolbarBtn}
+						onClick={handleToggleSettingsPanel}
+						spotlightId="library-settings-btn"
+					>
+						<svg className={css.toolbarIcon} viewBox="0 -960 960 960">
+							<path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z" />
+						</svg>
+					</SpottableButton>
+
+					<div className={css.letterNav}>
+						{LETTERS.map((letter, index) => (
+							<SpottableButton
+								key={letter}
+								className={`${css.letterButton} ${startLetter === letter ? css.active : ''}`}
+								onClick={handleLetterSelect}
+								data-letter={letter}
+								spotlightId={index === 0 ? 'library-letter-hash' : undefined}
+							>
+								{letter}
+							</SpottableButton>
+						))}
+					</div>
+				</ToolbarContainer>
+
+				<GridContainer className={css.gridContainer}>
+					{isLoading && items.length === 0 ? (
+						<div className={css.loading}>
+							<LoadingSpinner />
+						</div>
+					) : items.length === 0 ? (
+						<div className={css.empty}>{$L('No items found')}</div>
+					) : (
+						<div className={css.gridWrapper}>
+							<VirtualGridList
+								className={css.grid}
+								dataSize={items.length}
+								itemRenderer={renderItem}
+								itemSize={gridItemSize}
+								direction={gridDirection}
+								horizontalScrollbar="hidden"
+								verticalScrollbar="hidden"
+								spacing={20}
+								onScrollStop={handleScrollStop}
+								onKeyDown={handleGridKeyDown}
+								spotlightId="library-grid"
+							/>
+						</div>
+					)}
+				</GridContainer>
+
+				<div className={css.statusBar}>
+					<div className={css.statusText}>{statusText}</div>
+					<div className={css.statusCount}>{items.length} | {totalCount}</div>
+				</div>
+			</div>
+
+			{showSortPanel && (
+				<div className={css.sortPanelOverlay} onClick={handleCloseSortPanel}>
+					<SortPanelContainer
+						className={css.sortPanel}
+						spotlightId="sort-panel"
+						onClick={stopPropagation}
+					>
+						<h2 className={css.sortPanelTitle}>{$L('Sort & Filter')}</h2>
+
+						<div className={css.sortSection}>
+							<div className={css.sortSectionLabel}>{$L('Sort By')}</div>
+							{activeSortOptions.map((option, index) => (
+								<SpottableButton
+									key={option.key}
+									className={`${css.sortOption} ${sortKey === option.key ? css.sortOptionActive : ''}`}
+									onClick={handleSortSelect}
+									data-sort-key={option.key}
+									spotlightId={`sort-option-${index}`}
+								>
+									<span className={css.radioCircle}>
+										{sortKey === option.key && <span className={css.radioFill} />}
+									</span>
+									<span className={css.sortOptionLabel}>{$L(option.label)}</span>
+								</SpottableButton>
+							))}
+						</div>
+
+						{isMusicLibrary && (
+							<div className={css.filterSection}>
+								<div className={css.sortSectionLabel}>{$L('Show')}</div>
+								{MUSIC_CONTENT_TYPES.map((ct) => (
+									<SpottableButton
+										key={ct.key}
+										className={`${css.sortOption} ${musicContentType === ct.key ? css.sortOptionActive : ''}`}
+										onClick={handleMusicContentSelect}
+										data-content-key={ct.key}
+										spotlightId={`music-content-${ct.key}`}
+									>
+										<span className={css.radioCircle}>
+											{musicContentType === ct.key && <span className={css.radioFill} />}
+										</span>
+										<span className={css.sortOptionLabel}>{$L(ct.label)}</span>
+									</SpottableButton>
+								))}
+							</div>
+						)}
+
+						<div className={css.filterSection}>
+							<div className={css.sortSectionLabel}>{$L('Filters')}</div>
+							<SpottableButton
+								className={`${css.sortOption} ${favoritesOnly ? css.sortOptionActive : ''}`}
+								onClick={handleToggleFavorites}
+								spotlightId="filter-favorites"
+							>
+								<span className={css.checkboxSquare}>
+									{favoritesOnly && (
+										<svg viewBox="0 0 24 24" className={css.checkIcon}>
+											<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+										</svg>
+									)}
+								</span>
+								<span className={css.sortOptionLabel}>{$L('Favorites Only')}</span>
+							</SpottableButton>
+							<SpottableButton
+								className={`${css.sortOption} ${watchedOnly ? css.sortOptionActive : ''}`}
+								onClick={handleToggleWatched}
+								spotlightId="filter-watched"
+							>
+								<span className={css.checkboxSquare}>
+									{watchedOnly && (
+										<svg viewBox="0 0 24 24" className={css.checkIcon}>
+											<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+										</svg>
+									)}
+								</span>
+								<span className={css.sortOptionLabel}>{$L('Watched Only')}</span>
+							</SpottableButton>
+						</div>
+					</SortPanelContainer>
+				</div>
+			)}
+
+			{showSettingsPanel && (
+				<div className={css.sortPanelOverlay} onClick={handleCloseSettingsPanel}>
+					<SettingsPanelContainer
+						className={css.sortPanel}
+						spotlightId="settings-panel"
+						onClick={stopPropagation}
+					>
+						<div className={css.settingsHeader}>{isStudioMode ? $L('STUDIO') : isGenreMode ? $L('GENRE') : $L('LIBRARIES')}</div>
+						<h2 className={css.sortPanelTitle}>{displayName}</h2>
+
+						<SpottableButton
+							className={css.settingRow}
+							onClick={handleCycleImageSize}
+							spotlightId="settings-image-size"
+						>
+							<div className={css.settingLabel}>{$L('Image size')}</div>
+							<div className={css.settingValue}>{$L(capitalize(imageSize))}</div>
+						</SpottableButton>
+
+						{!isSquareDefault && (
+							<SpottableButton
+								className={css.settingRow}
+								onClick={handleCycleImageType}
+								spotlightId="settings-image-type"
+							>
+								<div className={css.settingLabel}>{$L('Image type')}</div>
+								<div className={css.settingValue}>{$L(capitalize(imageType))}</div>
+							</SpottableButton>
+						)}
+
+						<SpottableButton
+							className={css.settingRow}
+							onClick={handleCycleGridDirection}
+							spotlightId="settings-grid-direction"
+						>
+							<div className={css.settingLabel}>{$L('Grid direction')}</div>
+							<div className={css.settingValue}>{$L(capitalize(gridDirection))}</div>
+						</SpottableButton>
+						{!isFilterMode && (
+							<SpottableButton
+								className={css.settingRow}
+								onClick={handleToggleFolderView}
+								spotlightId="settings-folder-view"
+							>
+								<div className={css.settingLabel}>{$L('Folder view')}</div>
+								<div className={css.settingValue}>{isFolderView ? $L('On') : $L('Off')}</div>
+							</SpottableButton>
+						)}
+					</SettingsPanelContainer>
+				</div>
+			)}
+		</div>
 	);
-}
-
-const focusedInfoParts = [];
-if (focusedItem) {
-	if (focusedItem.ProductionYear) focusedInfoParts.push(String(focusedItem.ProductionYear));
-	if (focusedItem.OfficialRating) focusedInfoParts.push(focusedItem.OfficialRating);
-	if (focusedItem.RunTimeTicks > 0 && focusedItem.Type !== 'Series') {
-		const dur = formatDuration(focusedItem.RunTimeTicks);
-		if (dur !== '0m') focusedInfoParts.push(dur);
-	}
-}
-
-const ratingElements = [];
-const showCommunityRating = !Array.isArray(settings?.mdblistRatingSources) || settings.mdblistRatingSources.includes('stars');
-if (focusedItem && focusedItem.CommunityRating && showCommunityRating) {
-	ratingElements.push(
-		<span key="community" className={css.pluginRating}>
-			<span className={css.communityStar}>{"\u2605"}</span>
-			<span>{focusedItem.CommunityRating.toFixed(1)}</span>
-		</span>
-	);
-}
-// The server's own critic rating stands in until plugin ratings actually
-// arrive, so it stays visible when there's no API key or nothing came back.
-if (focusedItem && focusedRatings.length === 0 && focusedItem.CriticRating != null) {
-	ratingElements.push(
-		<span key="rt" className={css.pluginRating}>
-			<img className={css.ratingIcon} src={getRtFallbackIcon(focusedItem.CriticRating)} alt="Rotten Tomatoes" />
-			<span>{focusedItem.CriticRating}%</span>
-		</span>
-	);
-}
-for (let i = 0; i < focusedRatings.length; i++) {
-	const r = focusedRatings[i];
-	ratingElements.push(
-		<span key={'r' + i} className={css.pluginRating}>
-			{r.iconUrl && <img className={css.ratingIcon} src={r.iconUrl} alt={r.name} />}
-			<span>{r.formatted}</span>
-		</span>
-	);
-}
-
-return (
-<div className={css.page}>
-{backdropsEnabled && (
-	<BackdropLayer targetUrl={backdropUrl} blurAmount={settings?.backdropBlurHome} />
-)}
-<div className={css.content}>
-<div className={css.header}>
-{isFolderView && folderStack.length > 0 ? (
-<div className={css.breadcrumb}>
-<SpottableButton
-	className={css.breadcrumbItem}
-	onClick={handleFolderBreadcrumb}
-	data-depth={0}
-	spotlightId="breadcrumb-root"
->
-	{library.Name}
-</SpottableButton>
-{folderStack.map((f, i) => (
-<span key={f.id} className={css.breadcrumbSegment}>
-	<span className={css.breadcrumbSep}>›</span>
-	{i < folderStack.length - 1 ? (
-		<SpottableButton
-			className={css.breadcrumbItem}
-			onClick={handleFolderBreadcrumb}
-			data-depth={i + 1}
-		>
-			{f.name}
-		</SpottableButton>
-	) : (
-		<span className={css.breadcrumbCurrent}>{f.name}</span>
-	)}
-</span>
-))}
-<div className={css.itemCount}>{totalCount} {$L('Items')}</div>
-</div>
-) : (
-<>
-<div className={css.libraryTitle}>{displayName}</div>
-<div className={css.itemCount}>{totalCount} {$L('Items')}</div>
-</>
-)}
-</div>
-
-{focusedItem && settings?.showMediaDetailsOnLibraryPage !== false && (
-<div className={css.focusedInfo}>
-	<div className={css.focusedName}>{focusedItem.Name}</div>
-	<div className={css.focusedMeta}>
-		{focusedInfoParts.map((part, i) => (
-			<span key={i} className={css.metaItem}>{part}</span>
-		))}
-		{ratingElements.length > 0 && focusedInfoParts.length > 0 && (
-			<span className={css.metaSeparator} />
-		)}
-		{ratingElements}
-	</div>
-</div>
-)}
-
-<ToolbarContainer className={css.toolbar} spotlightId="library-toolbar" onKeyDown={handleToolbarKeyDown}>
-<SpottableButton
-className={css.toolbarBtn}
-onClick={onHome}
-spotlightId="library-home-btn"
->
-<svg className={css.toolbarIcon} viewBox="0 0 24 24">
-<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-</svg>
-</SpottableButton>
-
-<SpottableButton
-className={css.toolbarBtn}
-onClick={handleToggleSortPanel}
-spotlightId="library-sort-btn"
->
-<svg className={css.toolbarIcon} viewBox="0 -960 960 960">
-<path d="m80-280 162-400h63l161 400h-63l-38-99H181l-38 99H80Zm121-151h144l-70-185h-4l-70 185Zm347 151v-62l233-286H566v-52h272v63L607-332h233v52H548ZM384-784l96-96 96 96H384Zm96 704-96-96h192l-96 96Z" />
-</svg>
-</SpottableButton>
-
-<SpottableButton
-className={css.toolbarBtn}
-onClick={handleToggleSettingsPanel}
-spotlightId="library-settings-btn"
->
-<svg className={css.toolbarIcon} viewBox="0 -960 960 960">
-<path d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z" />
-</svg>
-</SpottableButton>
-
-<div className={css.letterNav}>
-{LETTERS.map((letter, index) => (
-<SpottableButton
-key={letter}
-className={`${css.letterButton} ${startLetter === letter ? css.active : ''}`}
-onClick={handleLetterSelect}
-data-letter={letter}
-spotlightId={index === 0 ? 'library-letter-hash' : undefined}
->
-{letter}
-</SpottableButton>
-))}
-</div>
-</ToolbarContainer>
-
-<GridContainer className={css.gridContainer}>
-{isLoading && items.length === 0 ? (
-<div className={css.loading}>
-<LoadingSpinner />
-</div>
-) : items.length === 0 ? (
-<div className={css.empty}>{$L('No items found')}</div>
-) : (
-<div className={css.gridWrapper}>
-<VirtualGridList
-className={css.grid}
-dataSize={items.length}
-itemRenderer={renderItem}
-itemSize={gridItemSize}
-direction={gridDirection}
-horizontalScrollbar="hidden"
-verticalScrollbar="hidden"
-spacing={20}
-onScrollStop={handleScrollStop}
-onKeyDown={handleGridKeyDown}
-spotlightId="library-grid"
-/>
-</div>
-)}
-</GridContainer>
-
-<div className={css.statusBar}>
-<div className={css.statusText}>{statusText}</div>
-<div className={css.statusCount}>{items.length} | {totalCount}</div>
-</div>
-</div>
-
-{showSortPanel && (
-<div className={css.sortPanelOverlay} onClick={handleCloseSortPanel}>
-<SortPanelContainer
-className={css.sortPanel}
-spotlightId="sort-panel"
-onClick={stopPropagation}
->
-<h2 className={css.sortPanelTitle}>{$L('Sort & Filter')}</h2>
-
-<div className={css.sortSection}>
-<div className={css.sortSectionLabel}>{$L('Sort By')}</div>
-{activeSortOptions.map((option, index) => (
-<SpottableButton
-key={option.key}
-className={`${css.sortOption} ${sortKey === option.key ? css.sortOptionActive : ''}`}
-onClick={handleSortSelect}
-data-sort-key={option.key}
-spotlightId={`sort-option-${index}`}
->
-<span className={css.radioCircle}>
-{sortKey === option.key && <span className={css.radioFill} />}
-</span>
-<span className={css.sortOptionLabel}>{$L(option.label)}</span>
-</SpottableButton>
-))}
-</div>
-
-{isMusicLibrary && (
-<div className={css.filterSection}>
-<div className={css.sortSectionLabel}>{$L('Show')}</div>
-{MUSIC_CONTENT_TYPES.map((ct) => (
-<SpottableButton
-key={ct.key}
-className={`${css.sortOption} ${musicContentType === ct.key ? css.sortOptionActive : ''}`}
-onClick={handleMusicContentSelect}
-data-content-key={ct.key}
-spotlightId={`music-content-${ct.key}`}
->
-<span className={css.radioCircle}>
-{musicContentType === ct.key && <span className={css.radioFill} />}
-</span>
-<span className={css.sortOptionLabel}>{$L(ct.label)}</span>
-</SpottableButton>
-))}
-</div>
-)}
-
-<div className={css.filterSection}>
-<div className={css.sortSectionLabel}>{$L('Filters')}</div>
-<SpottableButton
-className={`${css.sortOption} ${favoritesOnly ? css.sortOptionActive : ''}`}
-onClick={handleToggleFavorites}
-spotlightId="filter-favorites"
->
-<span className={css.checkboxSquare}>
-{favoritesOnly && (
-<svg viewBox="0 0 24 24" className={css.checkIcon}>
-<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-</svg>
-)}
-</span>
-<span className={css.sortOptionLabel}>{$L('Favorites Only')}</span>
-</SpottableButton>
-<SpottableButton
-className={`${css.sortOption} ${watchedOnly ? css.sortOptionActive : ''}`}
-onClick={handleToggleWatched}
-spotlightId="filter-watched"
->
-<span className={css.checkboxSquare}>
-{watchedOnly && (
-<svg viewBox="0 0 24 24" className={css.checkIcon}>
-<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-</svg>
-)}
-</span>
-<span className={css.sortOptionLabel}>{$L('Watched Only')}</span>
-</SpottableButton>
-</div>
-</SortPanelContainer>
-</div>
-)}
-
-{showSettingsPanel && (
-<div className={css.sortPanelOverlay} onClick={handleCloseSettingsPanel}>
-<SettingsPanelContainer
-className={css.sortPanel}
-spotlightId="settings-panel"
-onClick={stopPropagation}
->
-<div className={css.settingsHeader}>{isStudioMode ? $L('STUDIO') : isGenreMode ? $L('GENRE') : $L('LIBRARIES')}</div>
-<h2 className={css.sortPanelTitle}>{displayName}</h2>
-
-<SpottableButton
-className={css.settingRow}
-onClick={handleCycleImageSize}
-spotlightId="settings-image-size"
->
-<div className={css.settingLabel}>{$L('Image size')}</div>
-<div className={css.settingValue}>{$L(capitalize(imageSize))}</div>
-</SpottableButton>
-
-{!isSquareDefault && (
-<SpottableButton
-className={css.settingRow}
-onClick={handleCycleImageType}
-spotlightId="settings-image-type"
->
-<div className={css.settingLabel}>{$L('Image type')}</div>
-<div className={css.settingValue}>{$L(capitalize(imageType))}</div>
-</SpottableButton>
-)}
-
-<SpottableButton
-className={css.settingRow}
-onClick={handleCycleGridDirection}
-spotlightId="settings-grid-direction"
->
-<div className={css.settingLabel}>{$L('Grid direction')}</div>
-<div className={css.settingValue}>{$L(capitalize(gridDirection))}</div>
-</SpottableButton>
-{!isFilterMode && (
-<SpottableButton
-	className={css.settingRow}
-	onClick={handleToggleFolderView}
-	spotlightId="settings-folder-view"
->
-<div className={css.settingLabel}>{$L('Folder view')}</div>
-<div className={css.settingValue}>{isFolderView ? $L('On') : $L('Off')}</div>
-</SpottableButton>
-)}
-</SettingsPanelContainer>
-</div>
-)}
-</div>
-);
 };
 
 export default Library;
