@@ -10,7 +10,8 @@ import * as connectionPool from '../../services/connectionPool';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {getImageUrl, getPrimaryImageId} from '../../utils/helpers';
 import {useStorage} from '../../hooks/useStorage';
-import {KEYS} from '../../utils/keys';
+import useSortSettingsPanels from '../../hooks/useSortSettingsPanels';
+import {GRID_DIRECTIONS, IMAGE_SIZES, IMAGE_TYPES, LETTERS, capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, stopPropagation} from '../../utils/gridChrome';
 
 import css from './Favorites.module.less';
 
@@ -20,8 +21,6 @@ const ToolbarContainer = SpotlightContainerDecorator({enterTo: 'last-focused', r
 const GridContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
 const SortPanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
 const SettingsPanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
-
-const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const SORT_OPTIONS = [
 {key: 'SortName', field: 'SortName', order: 'Ascending', label: $L('Name')},
@@ -41,7 +40,8 @@ const TYPE_FILTERS = [
 {key: 'people', label: $L('People'), types: 'Person'}
 ];
 
-const LETTERS = ['#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+const handleToolbarKeyDown = createToolbarKeyDown('favorites-grid');
+const handleGridKeyDown = createGridKeyDown(css.grid, 'favorites-letter-hash');
 
 const Favorites = ({onSelectItem, onSelectPerson, onHome, backHandlerRef}) => {
 const {api, serverUrl, hasMultipleServers} = useAuth();
@@ -54,11 +54,19 @@ const [totalCount, setTotalCount] = useState(0);
 const [sortKey, setSortKey] = useStorage('favorites_sortKey', 'SortName');
 const [typeFilterKey, setTypeFilterKey] = useState('all');
 const [startLetter, setStartLetter] = useState(null);
-const [showSortPanel, setShowSortPanel] = useState(false);
-const [showSettingsPanel, setShowSettingsPanel] = useState(false);
 const [imageSize, setImageSize] = useStorage('favorites_imageSize', 'medium');
 const [imageType, setImageType] = useStorage('favorites_imageType', 'poster');
 const [gridDirection, setGridDirection] = useStorage('favorites_gridDirection', 'vertical');
+
+const {
+showSortPanel, showSettingsPanel,
+handleToggleSortPanel, handleCloseSortPanel,
+handleToggleSettingsPanel, handleCloseSettingsPanel
+} = useSortSettingsPanels({
+backHandlerRef,
+sortFocusId: 'fav-sort-option-0',
+settingsFocusId: 'fav-settings-image-size'
+});
 
 const loadingMoreRef = useRef(false);
 const apiFetchIndexRef = useRef(0);
@@ -193,109 +201,35 @@ setStartLetter(letter === startLetter ? null : letter);
 }
 }, [startLetter]);
 
-const handleToolbarKeyDown = useCallback((e) => {
-if (e.keyCode === KEYS.DOWN) {
-e.preventDefault();
-e.stopPropagation();
-Spotlight.focus('favorites-grid');
-}
-}, []);
-
-const handleGridKeyDown = useCallback((e) => {
-if (e.keyCode === KEYS.UP) {
-const grid = document.querySelector(`.${css.grid}`);
-if (grid) {
-const scrollTop = grid.scrollTop || 0;
-if (scrollTop < 50) {
-e.preventDefault();
-e.stopPropagation();
-Spotlight.focus('favorites-letter-hash');
-}
-}
-}
-}, []);
-
-const handleToggleSortPanel = useCallback(() => {
-setShowSortPanel(prev => !prev);
-}, []);
-
-const handleCloseSortPanel = useCallback(() => {
-setShowSortPanel(false);
-}, []);
-
-const handleToggleSettingsPanel = useCallback(() => {
-setShowSettingsPanel(prev => !prev);
-}, []);
-
-const handleCloseSettingsPanel = useCallback(() => {
-setShowSettingsPanel(false);
-}, []);
-
-useEffect(() => {
-if (!backHandlerRef) return;
-backHandlerRef.current = () => {
-if (showSettingsPanel) {
-setShowSettingsPanel(false);
-return true;
-}
-if (showSortPanel) {
-setShowSortPanel(false);
-return true;
-}
-return false;
-};
-return () => { if (backHandlerRef) backHandlerRef.current = null; };
-}, [backHandlerRef, showSortPanel, showSettingsPanel]);
-
-useEffect(() => {
-if (showSortPanel) {
-setTimeout(() => Spotlight.focus('fav-sort-option-0'), 100);
-}
-}, [showSortPanel]);
-
-useEffect(() => {
-if (showSettingsPanel) {
-setTimeout(() => Spotlight.focus('fav-settings-image-size'), 100);
-}
-}, [showSettingsPanel]);
-
 const handleSortSelect = useCallback((ev) => {
 const key = ev.currentTarget?.dataset?.sortKey;
 if (key) {
 setSortKey(key);
-setShowSortPanel(false);
+handleCloseSortPanel();
 setTimeout(() => Spotlight.focus('favorites-grid'), 100);
 }
-}, [setSortKey]);
+}, [setSortKey, handleCloseSortPanel]);
 
 const handleTypeFilterSelect = useCallback((ev) => {
 const key = ev.currentTarget?.dataset?.filterKey;
 if (key) {
 setTypeFilterKey(key);
-setShowSortPanel(false);
+handleCloseSortPanel();
 setTimeout(() => Spotlight.focus('favorites-grid'), 100);
 }
-}, []);
+}, [handleCloseSortPanel]);
 
 const handleCycleImageSize = useCallback(() => {
-const sizes = ['small', 'medium', 'large'];
-const idx = sizes.indexOf(imageSize);
-setImageSize(sizes[(idx + 1) % sizes.length]);
+setImageSize(cycleValue(IMAGE_SIZES, imageSize));
 }, [imageSize, setImageSize]);
 
 const handleCycleImageType = useCallback(() => {
-const types = ['poster', 'thumbnail'];
-const idx = types.indexOf(imageType);
-setImageType(types[(idx + 1) % types.length]);
+setImageType(cycleValue(IMAGE_TYPES, imageType));
 }, [imageType, setImageType]);
 
 const handleCycleGridDirection = useCallback(() => {
-const dirs = ['vertical', 'horizontal'];
-const idx = dirs.indexOf(gridDirection);
-setGridDirection(dirs[(idx + 1) % dirs.length]);
+setGridDirection(cycleValue(GRID_DIRECTIONS, gridDirection));
 }, [gridDirection, setGridDirection]);
-
-const stopPropagation = useCallback((e) => e.stopPropagation(), []);
 
 const isWideImage = imageType === 'thumbnail';
 const posterHeight = isWideImage

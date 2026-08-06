@@ -10,7 +10,8 @@ import * as connectionPool from '../../services/connectionPool';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {getImageUrl, getBackdropId} from '../../utils/helpers';
 import {useStorage} from '../../hooks/useStorage';
-import {KEYS} from '../../utils/keys';
+import useSortSettingsPanels from '../../hooks/useSortSettingsPanels';
+import {capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, stopPropagation} from '../../utils/gridChrome';
 
 import css from './Genres.module.less';
 
@@ -21,8 +22,6 @@ const GridContainer = SpotlightContainerDecorator({enterTo: 'last-focused', rest
 const SortPanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
 const SettingsPanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
 
-const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-
 const SORT_OPTIONS = [
 {key: 'name-asc', label: $L('Name (A-Z)')},
 {key: 'name-desc', label: $L('Name (Z-A)')},
@@ -30,6 +29,11 @@ const SORT_OPTIONS = [
 {key: 'count-asc', label: $L('Least Items')},
 {key: 'random', label: $L('Random')}
 ];
+
+const CARD_SIZES = ['small', 'medium', 'large'];
+
+const handleToolbarKeyDown = createToolbarKeyDown('genres-grid');
+const handleGridKeyDown = createGridKeyDown(css.grid, 'genres-home-btn');
 
 const Genres = ({onSelectGenre, onHome, backHandlerRef}) => {
 const {api, serverUrl, hasMultipleServers} = useAuth();
@@ -40,9 +44,17 @@ const [isLoading, setIsLoading] = useState(true);
 const [sortOrder, setSortOrder] = useStorage('genres_sortOrder', 'name-asc');
 const [selectedLibrary, setSelectedLibrary] = useState(null);
 const [libraries, setLibraries] = useState([]);
-const [showSortPanel, setShowSortPanel] = useState(false);
-const [showSettingsPanel, setShowSettingsPanel] = useState(false);
 const [cardSize, setCardSize] = useStorage('genres_cardSize', 'medium');
+
+const {
+showSortPanel, showSettingsPanel,
+handleToggleSortPanel, handleCloseSortPanel,
+handleToggleSettingsPanel, handleCloseSettingsPanel
+} = useSortSettingsPanels({
+backHandlerRef,
+sortFocusId: 'genre-sort-option-0',
+settingsFocusId: 'genres-settings-card-size'
+});
 
 const sortedGenresRef = useRef([]);
 
@@ -254,66 +266,18 @@ onSelectGenre?.(genre, library);
 }
 }, [onSelectGenre, selectedLibrary]);
 
-const handleToggleSortPanel = useCallback(() => {
-setShowSortPanel(prev => !prev);
-}, []);
-
-const handleCloseSortPanel = useCallback(() => {
-setShowSortPanel(false);
-}, []);
-
-const handleToggleSettingsPanel = useCallback(() => {
-setShowSettingsPanel(prev => !prev);
-}, []);
-
-const handleCloseSettingsPanel = useCallback(() => {
-setShowSettingsPanel(false);
-}, []);
-
 const handleCycleCardSize = useCallback(() => {
-const sizes = ['small', 'medium', 'large'];
-const idx = sizes.indexOf(cardSize);
-setCardSize(sizes[(idx + 1) % sizes.length]);
+setCardSize(cycleValue(CARD_SIZES, cardSize));
 }, [cardSize, setCardSize]);
-
-const stopPropagation = useCallback((e) => e.stopPropagation(), []);
-
-useEffect(() => {
-if (!backHandlerRef) return;
-backHandlerRef.current = () => {
-if (showSettingsPanel) {
-setShowSettingsPanel(false);
-return true;
-}
-if (showSortPanel) {
-setShowSortPanel(false);
-return true;
-}
-return false;
-};
-return () => { if (backHandlerRef) backHandlerRef.current = null; };
-}, [backHandlerRef, showSortPanel, showSettingsPanel]);
-
-useEffect(() => {
-if (showSettingsPanel) {
-setTimeout(() => Spotlight.focus('genres-settings-card-size'), 100);
-}
-}, [showSettingsPanel]);
-
-useEffect(() => {
-if (showSortPanel) {
-setTimeout(() => Spotlight.focus('genre-sort-option-0'), 100);
-}
-}, [showSortPanel]);
 
 const handleSortSelect = useCallback((ev) => {
 const key = ev.currentTarget?.dataset?.sortKey;
 if (key) {
 setSortOrder(key);
-setShowSortPanel(false);
+handleCloseSortPanel();
 setTimeout(() => Spotlight.focus('genres-grid'), 100);
 }
-}, [setSortOrder]);
+}, [setSortOrder, handleCloseSortPanel]);
 
 const handleLibrarySelect = useCallback((ev) => {
 const libIndex = ev.currentTarget?.dataset?.libIndex;
@@ -322,31 +286,9 @@ setSelectedLibrary(null);
 } else if (libIndex !== undefined) {
 setSelectedLibrary(libraries[parseInt(libIndex, 10)]);
 }
-setShowSortPanel(false);
+handleCloseSortPanel();
 setTimeout(() => Spotlight.focus('genres-grid'), 100);
-}, [libraries]);
-
-const handleToolbarKeyDown = useCallback((e) => {
-if (e.keyCode === KEYS.DOWN) {
-e.preventDefault();
-e.stopPropagation();
-Spotlight.focus('genres-grid');
-}
-}, []);
-
-const handleGridKeyDown = useCallback((e) => {
-if (e.keyCode === KEYS.UP) {
-const grid = document.querySelector(`.${css.grid}`);
-if (grid) {
-const scrollTop = grid.scrollTop || 0;
-if (scrollTop < 50) {
-e.preventDefault();
-e.stopPropagation();
-Spotlight.focus('genres-home-btn');
-}
-}
-}
-}, []);
+}, [libraries, handleCloseSortPanel]);
 
 const renderGenreCard = useCallback(({index, ...rest}) => {
 const genre = sortedGenresRef.current[index];

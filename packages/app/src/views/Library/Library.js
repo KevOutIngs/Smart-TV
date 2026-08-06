@@ -14,7 +14,8 @@ import {useSettings} from '../../context/SettingsContext';
 import {fetchRatings, fetchEpisodeRatings, buildDisplayRatings, isRatingSourceEnabled} from '../../services/mdblistApi';
 import {getRtFallbackIcon} from '../../components/icons/rtIcons';
 import {useStorage} from '../../hooks/useStorage';
-import {KEYS} from '../../utils/keys';
+import useSortSettingsPanels from '../../hooks/useSortSettingsPanels';
+import {GRID_DIRECTIONS, IMAGE_SIZES, IMAGE_TYPES, LETTERS, capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, stopPropagation} from '../../utils/gridChrome';
 
 import css from './Library.module.less';
 
@@ -24,8 +25,6 @@ const ToolbarContainer = SpotlightContainerDecorator({enterTo: 'last-focused', r
 const GridContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
 const SortPanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
 const SettingsPanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
-
-const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const SORT_OPTIONS = [
 	{key: 'SortName', field: 'SortName', order: 'Ascending', label: $L('Name')},
@@ -55,9 +54,10 @@ const MUSIC_CONTENT_TYPES = [
 	{key: 'genres', label: $L('Genres'), itemType: 'MusicGenre'}
 ];
 
-const LETTERS = ['#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
-
 const FOLDER_DETAIL_TYPES = ['Series', 'BoxSet', 'Playlist', 'MusicAlbum', 'MusicArtist'];
+
+const handleToolbarKeyDown = createToolbarKeyDown('library-grid');
+const handleGridKeyDown = createGridKeyDown(css.grid, 'library-letter-hash');
 
 const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto, onHome, backHandlerRef}) => {
 const {api, serverUrl} = useAuth();
@@ -85,8 +85,6 @@ const [favoritesOnly, setFavoritesOnly] = useState(false);
 const [watchedOnly, setWatchedOnly] = useState(false);
 const [musicContentType, setMusicContentType] = useState('albums');
 const [startLetter, setStartLetter] = useState(null);
-const [showSortPanel, setShowSortPanel] = useState(false);
-const [showSettingsPanel, setShowSettingsPanel] = useState(false);
 const [focusedItem, setFocusedItem] = useState(null);
 const [focusedRatings, setFocusedRatings] = useState([]);
 const [musicGridView, setMusicGridView] = useState(null);
@@ -387,67 +385,33 @@ setStartLetter(letter === startLetter ? null : letter);
 }
 }, [startLetter]);
 
-const handleToolbarKeyDown = useCallback((e) => {
-if (e.keyCode === KEYS.DOWN) {
-e.preventDefault();
-e.stopPropagation();
-Spotlight.focus('library-grid');
-}
-}, []);
+// Back past the panels: drop out of a music grid, then climb the folder stack.
+const handleBackBeyondPanels = useCallback(() => {
+	if (musicGridView) {
+		setMusicGridView(null);
+		setFavoritesOnly(false);
+		return true;
+	}
+	if (isFolderView && folderStack.length > 0) {
+		setFolderStack(prev => prev.slice(0, -1));
+		return true;
+	}
+	return false;
+}, [musicGridView, isFolderView, folderStack]);
 
-const handleGridKeyDown = useCallback((e) => {
-if (e.keyCode === KEYS.UP) {
-const grid = document.querySelector(`.${css.grid}`);
-if (grid) {
-const scrollTop = grid.scrollTop || 0;
-if (scrollTop < 50) {
-e.preventDefault();
-e.stopPropagation();
-Spotlight.focus('library-letter-hash');
-}
-}
-}
-}, []);
-
-const handleToggleSortPanel = useCallback(() => {
-setShowSortPanel(prev => !prev);
-}, []);
-
-const handleCloseSortPanel = useCallback(() => {
-setShowSortPanel(false);
-}, []);
-
-useEffect(() => {
-	if (!backHandlerRef) return;
-	// There is one slot, and the music browse screen claims it while it is up.
-	// Nothing below would be true there anyway, since it only shows when there is
-	// no grid, no panel and no folder stack.
-	if (isMusicBrowseHome) return;
-	const handler = () => {
-		if (showSettingsPanel) {
-			setShowSettingsPanel(false);
-			return true;
-		}
-		if (showSortPanel) {
-			setShowSortPanel(false);
-			return true;
-		}
-		if (musicGridView) {
-			setMusicGridView(null);
-			setFavoritesOnly(false);
-			return true;
-		}
-		if (isFolderView && folderStack.length > 0) {
-			setFolderStack(prev => prev.slice(0, -1));
-			return true;
-		}
-		return false;
-	};
-	backHandlerRef.current = handler;
-	// Only hand the slot back if it's still ours, so a late cleanup can't null out
-	// whoever claimed it after us.
-	return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
-}, [backHandlerRef, showSortPanel, showSettingsPanel, musicGridView, isFolderView, folderStack, isMusicBrowseHome]);
+// There is one back slot, and the music browse screen claims it while it's up. Nothing
+// here would be true there anyway, since it only shows with no grid, panel or folder stack.
+const {
+	showSortPanel, showSettingsPanel,
+	handleToggleSortPanel, handleCloseSortPanel,
+	handleToggleSettingsPanel, handleCloseSettingsPanel
+} = useSortSettingsPanels({
+	backHandlerRef,
+	sortFocusId: 'sort-option-0',
+	settingsFocusId: 'settings-image-size',
+	onBack: handleBackBeyondPanels,
+	enabled: !isMusicBrowseHome
+});
 
 useEffect(() => {
 	return () => {
@@ -456,69 +420,37 @@ useEffect(() => {
 	};
 }, []);
 
-useEffect(() => {
-	if (showSortPanel) {
-		setTimeout(() => {
-			Spotlight.focus('sort-option-0');
-		}, 100);
-	}
-}, [showSortPanel]);
-
-useEffect(() => {
-	if (showSettingsPanel) {
-		setTimeout(() => {
-			Spotlight.focus('settings-image-size');
-		}, 100);
-	}
-}, [showSettingsPanel]);
-
 const handleSortSelect = useCallback((ev) => {
 const key = ev.currentTarget?.dataset?.sortKey;
 if (key) {
 setSortKey(key);
-setShowSortPanel(false);
+handleCloseSortPanel();
 setTimeout(() => Spotlight.focus('library-grid'), 100);
 }
-}, [setSortKey]);
+}, [setSortKey, handleCloseSortPanel]);
 
 const handleToggleFavorites = useCallback(() => {
 setFavoritesOnly(prev => !prev);
-setShowSortPanel(false);
+handleCloseSortPanel();
 setTimeout(() => Spotlight.focus('library-grid'), 100);
-}, []);
+}, [handleCloseSortPanel]);
 
 const handleToggleWatched = useCallback(() => {
 	setWatchedOnly(prev => !prev);
-	setShowSortPanel(false);
+	handleCloseSortPanel();
 	setTimeout(() => Spotlight.focus('library-grid'), 100);
-}, []);
-
-const handleToggleSettingsPanel = useCallback(() => {
-	setShowSettingsPanel(prev => !prev);
-}, []);
-
-const handleCloseSettingsPanel = useCallback(() => {
-	setShowSettingsPanel(false);
-}, []);
-
-const stopPropagation = useCallback((e) => e.stopPropagation(), []);
+}, [handleCloseSortPanel]);
 
 const handleCycleImageSize = useCallback(() => {
-	const sizes = ['small', 'medium', 'large'];
-	const idx = sizes.indexOf(imageSize);
-	setImageSize(sizes[(idx + 1) % sizes.length]);
+	setImageSize(cycleValue(IMAGE_SIZES, imageSize));
 }, [imageSize, setImageSize]);
 
 const handleCycleImageType = useCallback(() => {
-	const types = ['poster', 'thumbnail'];
-	const idx = types.indexOf(imageType);
-	setImageType(types[(idx + 1) % types.length]);
+	setImageType(cycleValue(IMAGE_TYPES, imageType));
 }, [imageType, setImageType]);
 
 const handleCycleGridDirection = useCallback(() => {
-	const dirs = ['vertical', 'horizontal'];
-	const idx = dirs.indexOf(gridDirection);
-	setGridDirection(dirs[(idx + 1) % dirs.length]);
+	setGridDirection(cycleValue(GRID_DIRECTIONS, gridDirection));
 }, [gridDirection, setGridDirection]);
 
 const handleToggleFolderView = useCallback(() => {
@@ -536,10 +468,10 @@ const handleMusicContentSelect = useCallback((ev) => {
 	const key = ev.currentTarget?.dataset?.contentKey;
 	if (key) {
 		setMusicContentType(key);
-		setShowSortPanel(false);
+		handleCloseSortPanel();
 		setTimeout(() => Spotlight.focus('library-grid'), 100);
 	}
-}, []);
+}, [handleCloseSortPanel]);
 
 const effectiveImageType = isSquareDefault ? 'square' : imageType;
 const isWideImage = effectiveImageType === 'thumbnail';
