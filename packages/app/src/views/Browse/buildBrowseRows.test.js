@@ -179,6 +179,6 @@ describe('sameRowList', () => {
 // one of them would either never appear or never be gated.
 describe('favourite rows', () => {
 	test('the rows that get built are exactly the ones the gate knows about', () => {
-		expect(FAVORITE_ROW_CONFIGS.map((row) => row.id)).toEqual(FAVORITE_ROW_IDS);
+		expect(FAVORITE_ROW_CONFIGS.map((config) => config.id)).toEqual(FAVORITE_ROW_IDS);
 	});
 });
