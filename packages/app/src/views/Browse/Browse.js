@@ -7,9 +7,6 @@ import {useSeerr} from '../../context/SeerrContext';
 import {ClassicMediaRow, ModernMediaRow} from '../../components/MediaRow';
 import SeerrTileRow from '../../components/SeerrTileRow';
 import LibraryButtonRow from '../../components/LibraryButtonRow';
-import {getExternalHomeRowConfigs, fetchExternalPresetRow, fetchCustomHomeRow, fetchCalendarRows} from '../../utils/externalHomeRows';
-import {getSeerrHomeRowConfigs, fetchSeerrHomeRow, SEERR_SECTION_TO_CONFIG} from '../../utils/seerrHomeRows';
-import {resolveItemsByProviderIds} from '../../services/jellyfinApi';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {getImageUrl, getBackdropId} from '../../utils/helpers';
 import {toCssColor} from '../../theme/themeSpec';
@@ -21,6 +18,8 @@ import BannerBar from './BannerBar';
 import BookshelfBar from './BookshelfBar';
 import BackdropLayer from './BackdropLayer';
 import useBrowseData from './useBrowseData';
+import useSeerrRows from './useSeerrRows';
+import useExternalRows from './useExternalRows';
 import {buildBrowseRows, sameRowList} from './buildBrowseRows';
 
 import css from './Browse.module.less';
@@ -49,8 +48,13 @@ const Browse = ({
 	const {settings, activeTheme, loaded: settingsLoaded} = useSettings();
 	const {isEnabled: seerrEnabled, isAuthenticated: seerrAuthenticated, user: seerrUser} = useSeerr();
 	const seerrUserId = seerrUser?.seerrUserId;
-	const [seerrRows, setSeerrRows] = useState([]);
-	const [externalRows, setExternalRows] = useState([]);
+	const seerrRows = useSeerrRows({
+		seerrEnabled,
+		seerrAuthenticated,
+		seerrUserId,
+		homeRows: settings.homeRows
+	});
+	const externalRows = useExternalRows({settings});
 	const unifiedMode = settings.unifiedLibraryMode && hasMultipleServers;
 	const isLegacy = typeof document !== 'undefined' && (' ' + document.documentElement.className + ' ').indexOf(' legacy ') >= 0;
 	const [focusedItemForBackdrop, setFocusedItemForBackdrop] = useState(null);
@@ -79,7 +83,6 @@ const Browse = ({
 	const getItemServerUrl = useCallback((item) => {
 		return item?._serverUrl || serverUrl;
 	}, [serverUrl]);
-
 
 	const uiPanelStyle = useMemo(() => {
 		return {
@@ -290,8 +293,6 @@ const Browse = ({
 		initialFocusSetRef.current = false;
 	}, [accessToken]);
 
-
-
 	const targetBackdropUrl = useMemo(() => {
 		if (browseMode === 'featured') return '';
 		if (!focusedItemForBackdrop || isLegacy || settings.showHomeBackdrop === false) return '';
@@ -377,154 +378,6 @@ const Browse = ({
 			handleSelectItem(item);
 		}
 	}, [handleSelectSeerrItem, handleSelectItem]);
-
-	useEffect(() => {
-		if (!seerrEnabled || !seerrAuthenticated) {
-			setSeerrRows([]);
-			return;
-		}
-		const enabledSections = (settings.homeRows || []).filter((r) => r.enabled && SEERR_SECTION_TO_CONFIG[r.id]);
-		if (enabledSections.length === 0) {
-			setSeerrRows([]);
-			return;
-		}
-
-		let cancelled = false;
-		const configs = getSeerrHomeRowConfigs();
-
-		(async () => {
-			const built = await Promise.all(enabledSections.map(async (section) => {
-				const configId = SEERR_SECTION_TO_CONFIG[section.id];
-				const cfg = configs.find((c) => c.id === configId);
-				if (!cfg) return null;
-				const items = await fetchSeerrHomeRow(configId, {userId: seerrUserId});
-				if (!items.length) return null;
-				return {
-					id: section.id,
-					title: cfg.title,
-					items,
-					type: cfg.cardType,
-					isSeerrRow: true,
-					isTileRow: cfg.type === 'genre' || cfg.type === 'studio' || cfg.type === 'network'
-				};
-			}));
-			if (!cancelled) setSeerrRows(built.filter(Boolean));
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [seerrEnabled, seerrAuthenticated, seerrUserId, settings.homeRows]);
-
-	// External home rows (TMDB/IMDb presets and user custom rows). Items come back
-	// as provider ids, so each row is resolved against the local library before
-	// rendering: owned titles become playable, unowned fall back to Seerr.
-	useEffect(() => {
-		if (!settings.useMoonfinPlugin) {
-			setExternalRows([]);
-			return;
-		}
-		const enabledPresets = (settings.homeRows || []).filter((r) => r.enabled && (r.id.startsWith('tmdb_') || r.id.startsWith('imdb-'))).map((r) => r.id);
-		const customRows = (settings.customHomeRows || []).filter((r) => r.enabled);
-		const radarrEnabled = (settings.homeRows || []).some((r) => r.enabled && r.id === 'radarr_calendar');
-		const sonarrEnabled = (settings.homeRows || []).some((r) => r.enabled && r.id === 'sonarr_calendar');
-		const calendarsEnabled = radarrEnabled || sonarrEnabled;
-		if (enabledPresets.length === 0 && customRows.length === 0 && !calendarsEnabled) {
-			setExternalRows([]);
-			return;
-		}
-
-		let cancelled = false;
-		const presetConfigs = getExternalHomeRowConfigs();
-
-		(async () => {
-			try {
-				const presetData = await Promise.all(enabledPresets.map(async (id) => {
-					const cfg = presetConfigs.find((c) => c.id === id);
-					if (!cfg) return null;
-					const items = await fetchExternalPresetRow(id);
-					return {id, title: cfg.title, items: items || []};
-				}));
-
-				const customData = await Promise.all(customRows.map(async (row) => {
-					const items = await fetchCustomHomeRow(row);
-					return {id: `external-${row.id}`, title: row.name || row.title || $L('Custom'), items: items || [], isCustomRow: true};
-				}));
-
-				const calendarSettings = {
-					mergeRadarrSonarrCalendars: settings.mergeRadarrSonarrCalendars,
-					radarrCalendarShowCinema: settings.radarrCalendarShowCinema,
-					radarrCalendarShowDigital: settings.radarrCalendarShowDigital,
-					radarrCalendarShowPhysical: settings.radarrCalendarShowPhysical,
-					radarrCalendarShowDate: settings.radarrCalendarShowDate,
-					sonarrCalendarShowDate: settings.sonarrCalendarShowDate,
-					sonarrCalendarShowEpisodeInfo: settings.sonarrCalendarShowEpisodeInfo
-				};
-				const calendarRows = calendarsEnabled ? await fetchCalendarRows(calendarSettings, {radarrEnabled, sonarrEnabled}) : [];
-
-				const allRows = [
-					...presetData,
-					...customData,
-					...calendarRows.map(r => ({...r, isCalendarRow: true}))
-				].filter(r => r && r.items && r.items.length > 0);
-
-				const allItemsToResolve = [];
-				const rowIndices = [];
-				for (const r of allRows) {
-					rowIndices.push({
-						start: allItemsToResolve.length,
-						count: r.items.length
-					});
-					allItemsToResolve.push(...r.items);
-				}
-
-				const resolvedAllItems = await resolveItemsByProviderIds(allItemsToResolve);
-
-				const presetRows = [];
-				const builtCustomRows = [];
-				const resolvedCalendarRows = [];
-
-				for (let i = 0; i < allRows.length; i++) {
-					const r = allRows[i];
-					const sliceInfo = rowIndices[i];
-					const resolvedItems = resolvedAllItems.slice(sliceInfo.start, sliceInfo.start + sliceInfo.count);
-
-					if (r.isCalendarRow) {
-						resolvedCalendarRows.push({
-							...r,
-							items: resolvedItems
-						});
-					} else {
-						const resolvedRow = {
-							id: r.id,
-							title: r.title,
-							items: resolvedItems,
-							isExternalRow: true,
-							isCustomRow: r.isCustomRow
-						};
-						if (r.isCustomRow) {
-							builtCustomRows.push(resolvedRow);
-						} else {
-							presetRows.push(resolvedRow);
-						}
-					}
-				}
-
-				if (!cancelled) {
-					setExternalRows([...presetRows, ...builtCustomRows, ...resolvedCalendarRows].filter(Boolean));
-				}
-			} catch (err) {
-				console.warn('[Browse] Failed to fetch and resolve external rows:', err);
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [settings.useMoonfinPlugin, settings.homeRows, settings.customHomeRows,
-		settings.mergeRadarrSonarrCalendars,
-		settings.radarrCalendarShowCinema, settings.radarrCalendarShowDigital, settings.radarrCalendarShowPhysical,
-		settings.radarrCalendarShowDate, settings.sonarrCalendarShowDate, settings.sonarrCalendarShowEpisodeInfo]);
 
 	const handleNavigateDownFromFeatured = useCallback(() => {
 		setBrowseMode('rows');
