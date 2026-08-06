@@ -153,7 +153,7 @@ const GamePlayer = ({library, game, startFresh, onBack, backHandlerRef}) => {
 	// BACK toggles the overlay (a TV remote has no Start/Select); Exit lives in the overlay.
 	useEffect(() => {
 		if (!backHandlerRef) return undefined;
-		backHandlerRef.current = () => {
+		const handler = () => {
 			const s = stateRef.current;
 			if (s.unsupported) { /* the unsupported dialog dismisses itself on BACK */ }
 			else if (s.error) { if (onBack) onBack(); }
@@ -162,7 +162,8 @@ const GamePlayer = ({library, game, startFresh, onBack, backHandlerRef}) => {
 			else { openOverlay(); }
 			return true;
 		};
-		return () => { backHandlerRef.current = null; };
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, openOverlay, closeOverlay, onBack]);
 
 	// Pause Spotlight once the game is running (resumed by the overlay).

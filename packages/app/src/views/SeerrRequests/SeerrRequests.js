@@ -409,17 +409,14 @@ const SeerrRequests = ({onSelectItem, onClose, backHandlerRef, ...rest}) => {
 
 	// Back closes the thread overlay before the panel pops.
 	useEffect(() => {
-		if (!backHandlerRef) return;
-		if (activeIssue) {
-			backHandlerRef.current = () => {
-				setActiveIssue(null);
-				return true;
-			};
-		} else {
-			backHandlerRef.current = null;
-		}
+		if (!backHandlerRef || !activeIssue) return undefined;
+		const handler = () => {
+			setActiveIssue(null);
+			return true;
+		};
+		backHandlerRef.current = handler;
 		return () => {
-			if (backHandlerRef) backHandlerRef.current = null;
+			if (backHandlerRef.current === handler) backHandlerRef.current = null;
 		};
 	}, [activeIssue, backHandlerRef]);
 

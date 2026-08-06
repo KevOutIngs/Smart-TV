@@ -128,14 +128,15 @@ const Recordings = ({onPlayRecording, backHandlerRef}) => {
 
 	useEffect(() => {
 		if (!backHandlerRef) return;
-		backHandlerRef.current = () => {
+		const handler = () => {
 			if (selectedItem) {
 				setSelectedItem(null);
 				return true;
 			}
 			return false;
 		};
-		return () => { if (backHandlerRef) backHandlerRef.current = null; };
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, selectedItem]);
 
 	useEffect(() => {

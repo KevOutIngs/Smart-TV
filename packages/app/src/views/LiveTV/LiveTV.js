@@ -188,14 +188,15 @@ const LiveTV = ({onPlayChannel, onRecordings, backHandlerRef}) => {
 
 	useEffect(() => {
 		if (!backHandlerRef) return;
-		backHandlerRef.current = () => {
+		const handler = () => {
 			if (selectedProgram) {
 				setSelectedProgram(null);
 				return true;
 			}
 			return false;
 		};
-		return () => { if (backHandlerRef) backHandlerRef.current = null; };
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, selectedProgram]);
 
 	useEffect(() => {

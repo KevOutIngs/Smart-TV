@@ -28,8 +28,8 @@ const useSeerrRequests = ({
 	const handleCloseReportPopup = useCallback(() => setShowReportPopup(false), []);
 
 	useEffect(() => {
-		if (!backHandlerRef) return;
-		backHandlerRef.current = () => {
+		if (!backHandlerRef) return undefined;
+		const handler = () => {
 			if (showReportPopup) { setShowReportPopup(false); return true; }
 			if (showAdvancedPopup) { setShowAdvancedPopup(false); return true; }
 			if (showSeasonPopup) { setShowSeasonPopup(false); return true; }
@@ -37,7 +37,8 @@ const useSeerrRequests = ({
 			if (showCancelPopup) { setShowCancelPopup(false); return true; }
 			return false;
 		};
-		return () => { if (backHandlerRef) backHandlerRef.current = null; };
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, showQualityPopup, showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup]);
 
 	// Issue reports need the seerr internal media id, so the title has to be at least

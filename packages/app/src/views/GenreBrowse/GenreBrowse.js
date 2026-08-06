@@ -270,7 +270,7 @@ const GenreBrowse = ({genre, libraryId, onSelectItem, backHandlerRef}) => {
 
 	useEffect(() => {
 		if (!backHandlerRef) return;
-		backHandlerRef.current = () => {
+		const handler = () => {
 			if (showSortModal || showFilterModal) {
 				setShowSortModal(false);
 				setShowFilterModal(false);
@@ -278,7 +278,8 @@ const GenreBrowse = ({genre, libraryId, onSelectItem, backHandlerRef}) => {
 			}
 			return false;
 		};
-		return () => { if (backHandlerRef) backHandlerRef.current = null; };
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, showSortModal, showFilterModal]);
 
 	useEffect(() => {

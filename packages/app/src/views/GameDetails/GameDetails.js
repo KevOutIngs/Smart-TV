@@ -49,8 +49,9 @@ const GameDetails = ({library, gameId, initialGame, onPlay, onSelectGame, backHa
 	useEffect(() => {
 		if (!backHandlerRef) return undefined;
 		// While the unsupported dialog is open it handles BACK itself, otherwise the app pops the panel.
-		backHandlerRef.current = () => showUnsupported;
-		return () => { backHandlerRef.current = null; };
+		const handler = () => showUnsupported;
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, showUnsupported]);
 
 	useEffect(() => {

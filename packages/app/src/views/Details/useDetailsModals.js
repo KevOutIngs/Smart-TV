@@ -117,7 +117,7 @@ const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed}) => {
 	// first refusal before the whole thing is dismissed.
 	useEffect(() => {
 		if (!backHandlerRef) return;
-		backHandlerRef.current = () => {
+		const handler = () => {
 			if (showArtworkModal) {
 				if (artworkModalBackRef.current?.()) return true;
 				handleCloseArtworkModal();
@@ -131,7 +131,8 @@ const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed}) => {
 			if (showMediaInfo) { setShowMediaInfo(false); return true; }
 			return false;
 		};
-		return () => { if (backHandlerRef) backHandlerRef.current = null; };
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, activeModal, showMediaInfo, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
 
 	return {

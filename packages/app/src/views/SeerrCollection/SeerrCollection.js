@@ -288,17 +288,14 @@ const SeerrCollection = ({collectionId, onSelectItem, backHandlerRef, ...rest}) 
 	}, []);
 
 	useEffect(() => {
-		if (!backHandlerRef) return;
-		if (showRequestPopup) {
-			backHandlerRef.current = () => {
-				setShowRequestPopup(false);
-				return true;
-			};
-		} else {
-			backHandlerRef.current = null;
-		}
+		if (!backHandlerRef || !showRequestPopup) return undefined;
+		const handler = () => {
+			setShowRequestPopup(false);
+			return true;
+		};
+		backHandlerRef.current = handler;
 		return () => {
-			if (backHandlerRef) backHandlerRef.current = null;
+			if (backHandlerRef.current === handler) backHandlerRef.current = null;
 		};
 	}, [showRequestPopup, backHandlerRef]);
 

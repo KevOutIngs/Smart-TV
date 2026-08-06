@@ -74,12 +74,13 @@ const ChangeArtworkModal = ({open, item: initialItem, api, serverUrl, onClose, o
 	// is left, letting the parent close the modal.
 	useEffect(() => {
 		if (!backHandlerRef) return undefined;
-		backHandlerRef.current = () => {
+		const handler = () => {
 			if (!activeLayer) return false;
 			activeLayer.close();
 			return true;
 		};
-		return () => { if (backHandlerRef) backHandlerRef.current = null; };
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, activeLayer]);
 
 	const gridRemoteImages = useMemo(

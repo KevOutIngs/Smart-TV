@@ -52,8 +52,9 @@ const Games = ({library, onSelectGame, onHome, backHandlerRef}) => {
 
 	useEffect(() => {
 		if (!backHandlerRef) return undefined;
-		backHandlerRef.current = () => { if (onHome) onHome(); return true; };
-		return () => { backHandlerRef.current = null; };
+		const handler = () => { if (onHome) onHome(); return true; };
+		backHandlerRef.current = handler;
+		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
 	}, [backHandlerRef, onHome]);
 
 	useEffect(() => {
