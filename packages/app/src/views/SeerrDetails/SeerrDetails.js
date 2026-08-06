@@ -1,19 +1,22 @@
-import {useCallback, useEffect, useState, useRef, useMemo} from 'react';
+import {useCallback, useEffect, useRef, useMemo} from 'react';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import Image from '@enact/sandstone/Image';
 import $L from '@enact/i18n/$L';
-import seerrApi, {canRequestMovies, canRequestTv, canRequest4kMovies, canRequest4kTv, hasAdvancedRequestPermission, canCreateIssues} from '../../services/seerrApi';
+import seerrApi from '../../services/seerrApi';
 import {isLegacyTizen} from '../../platform';
 import {useSeerr} from '../../context/SeerrContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import SeerrDownloadProgress from '../../components/SeerrDownloadProgress';
-import {MEDIA_STATUS, REQUEST_STATUS, getMediaDownloadSummary} from '../../utils/seerrStatus';
-import {KEYS} from '../../utils/keys';
+import {MEDIA_STATUS} from '../../utils/seerrStatus';
 import css from './SeerrDetails.module.less';
 
-import {formatCurrency, formatDate, formatRuntime, getStatusBadge, isSeasonRerequestable, isStatusBlocked} from './seerrBadges';
+import {formatRuntime} from './seerrBadges';
 import {LastFocusedContainer, SpottableDiv, safeFocus} from './seerrFocus';
+import {handleActionButtonsKeyDown, handleCastSectionKeyDown, handleCollectionBannerKeyDown, handleKeywordsSectionKeyDown, handleRowNavigateDown, handleRowNavigateUp} from './seerrDetailsNav';
 import {CastCard, HorizontalMediaRow, KeywordTag} from './SeerrCards';
+import {buildMediaFacts} from './seerrMediaFacts';
+import useSeerrDetailsData from './useSeerrDetailsData';
+import useSeerrRequests from './useSeerrRequests';
 import {AdvancedOptionsPopup} from './AdvancedOptionsPopup';
 import {CancelRequestPopup} from './CancelRequestPopup';
 import {QualitySelectionPopup} from './QualitySelectionPopup';
@@ -29,127 +32,28 @@ const supportsExternalTrailerSearch = !isLegacyTizen();
 
 const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfin, onSelectPerson, onSelectKeyword, onBack, onOpenCollection, backHandlerRef}) => {
 	const {isAuthenticated, user: contextUser} = useSeerr();
-	const [details, setDetails] = useState(null);
-	const [loading, setLoading] = useState(true);
-	const [requesting, setRequesting] = useState(false);
-	const [error, setError] = useState(null);
-	const [recommendations, setRecommendations] = useState([]);
-	const [similar, setSimilar] = useState([]);
-	const [showQualityPopup, setShowQualityPopup] = useState(false);
-	const [showSeasonPopup, setShowSeasonPopup] = useState(false);
-	const [showAdvancedPopup, setShowAdvancedPopup] = useState(false);
-	const [pendingIs4k, setPendingIs4k] = useState(false);
-	const [pendingSeasons, setPendingSeasons] = useState(null);
-	const [showCancelPopup, setShowCancelPopup] = useState(false);
-	const [showReportPopup, setShowReportPopup] = useState(false);
-	const [quota, setQuota] = useState(null);
-	const [userPermissions, setUserPermissions] = useState(null);
-	const [has4kServer, setHas4kServer] = useState(false);
-	const [hasHdServer, setHasHdServer] = useState(false);
-	const [servers, setServers] = useState([]);
+
+	const {
+		details, setDetails, loading, error, setError, recommendations, similar,
+		quota, userPermissions, servers, hasHdServer, has4kServer,
+		hdStatus, status4k, hdDownload, download4k
+	} = useSeerrDetailsData({mediaId, mediaType, contextUser});
+
+	const {
+		canReportIssue, canRequestAny, canRequestHd, canRequest4k, hasAdvanced,
+		statusBadge, requestButtonLabel, pendingIs4k, pendingRequests,
+		seasonStatusMapHd, seasonStatusMap4k,
+		showQualityPopup, showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup,
+		handleRequestClick, handleQualitySelect, handleSeasonConfirm, handleAdvancedConfirm,
+		handleCancelRequestClick, handleCancelConfirm, handleReportIssueClick, handleReportSubmit,
+		handleCloseQualityPopup, handleCloseSeasonPopup, handleCloseAdvancedPopup,
+		handleCloseCancelPopup, handleCloseReportPopup
+	} = useSeerrRequests({
+		mediaId, mediaType, details, setDetails, setError, isAuthenticated,
+		userPermissions, hasHdServer, has4kServer, hdStatus, status4k, backHandlerRef
+	});
+
 	const contentRef = useRef(null);
-
-	const handleCloseQualityPopup = useCallback(() => setShowQualityPopup(false), []);
-	const handleCloseSeasonPopup = useCallback(() => setShowSeasonPopup(false), []);
-	const handleCloseAdvancedPopup = useCallback(() => setShowAdvancedPopup(false), []);
-	const handleCloseCancelPopup = useCallback(() => setShowCancelPopup(false), []);
-	const handleCloseReportPopup = useCallback(() => setShowReportPopup(false), []);
-
-	useEffect(() => {
-		if (!backHandlerRef) return;
-		backHandlerRef.current = () => {
-			if (showReportPopup) { setShowReportPopup(false); return true; }
-			if (showAdvancedPopup) { setShowAdvancedPopup(false); return true; }
-			if (showSeasonPopup) { setShowSeasonPopup(false); return true; }
-			if (showQualityPopup) { setShowQualityPopup(false); return true; }
-			if (showCancelPopup) { setShowCancelPopup(false); return true; }
-			return false;
-		};
-		return () => { if (backHandlerRef) backHandlerRef.current = null; };
-	}, [backHandlerRef, showQualityPopup, showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup]);
-
-	useEffect(() => {
-		if (!mediaId || !mediaType) return;
-
-		const loadDetails = async () => {
-			setLoading(true);
-			setError(null);
-			try {
-				const [data, userData, serversData] = await Promise.all([
-					mediaType === 'movie'
-						? seerrApi.getMovie(mediaId)
-						: seerrApi.getTv(mediaId),
-					seerrApi.getUser().catch(() => null),
-					(mediaType === 'movie'
-						? seerrApi.getRadarrServers()
-						: seerrApi.getSonarrServers()
-					).catch(() => [])
-				]);
-
-				setDetails(data);
-
-				const apiPermissions = userData?.permissions;
-				const contextPermissions = contextUser?.permissions;
-				if (apiPermissions != null) {
-					setUserPermissions(apiPermissions);
-				} else if (contextPermissions != null) {
-					setUserPermissions(contextPermissions);
-				} else {
-					setUserPermissions(null);
-				}
-
-				// Quota is display only and the server still enforces it, so
-				// a failed fetch just hides the quota lines.
-				if (userData?.id != null) {
-					seerrApi.getUserQuota(userData.id)
-						.then((q) => setQuota(q || null))
-						.catch(() => setQuota(null));
-				}
-
-				const serversList = Array.isArray(serversData) ? serversData : [];
-				const serversWithType = serversList.map(s => ({
-					...s,
-					isRadarr: mediaType === 'movie'
-				}));
-				setServers(serversWithType);
-				setHas4kServer(serversList.some(s => s.is4k));
-				setHasHdServer(serversList.some(s => !s.is4k));
-
-				const loadMultiplePages = async (fetcher) => {
-					const allResults = [];
-					for (let page = 1; page <= 3; page++) {
-						try {
-							const pageData = await fetcher(mediaId, page);
-							if (pageData?.results) allResults.push(...pageData.results);
-						} catch {
-							break;
-						}
-					}
-					return allResults;
-				};
-
-				const [recsData, similarData] = await Promise.all([
-					loadMultiplePages(mediaType === 'movie'
-						? seerrApi.getMovieRecommendations
-						: seerrApi.getTvRecommendations
-					),
-					loadMultiplePages(mediaType === 'movie'
-						? seerrApi.getMovieSimilar
-						: seerrApi.getTvSimilar
-					)
-				]);
-				setRecommendations(recsData.slice(0, 20));
-				setSimilar(similarData.slice(0, 20));
-			} catch (err) {
-				console.error('Failed to load details:', err);
-				setError(err.message || $L('Failed to load details'));
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		loadDetails();
-	}, [mediaId, mediaType, contextUser]);
 
 	useEffect(() => {
 		if (!loading && details) {
@@ -159,278 +63,11 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 		}
 	}, [loading, details]);
 
-	const hdStatus = useMemo(() => details?.mediaInfo?.status ?? null, [details]);
-	const status4k = useMemo(() => details?.mediaInfo?.status4k ?? null, [details]);
-
-	const hdDownload = useMemo(() =>
-		getMediaDownloadSummary(details?.mediaInfo, false),
-	[details]
-	);
-	const download4k = useMemo(() =>
-		getMediaDownloadSummary(details?.mediaInfo, true),
-	[details]
-	);
-
-	// Poll the details while a download is active so the progress bars
-	// advance. Quiet refetch: only the details payload is swapped, and a
-	// failed tick is ignored instead of surfacing the error UI.
-	useEffect(() => {
-		if (loading || !mediaId || !mediaType || (!hdDownload && !download4k)) return;
-		const id = setInterval(() => {
-			(mediaType === 'movie'
-				? seerrApi.getMovie(mediaId)
-				: seerrApi.getTv(mediaId)
-			).then((data) => {
-				if (data) setDetails(data);
-			}).catch(() => {});
-		}, 30000);
-		return () => clearInterval(id);
-	}, [loading, hdDownload, download4k, mediaId, mediaType]);
-
-	// Issue reports need the seerr internal media id, so the title has to be
-	// at least partially available on the server.
-	const canReportIssue = useMemo(() => {
-		if (!canCreateIssues(userPermissions)) return false;
-		if (details?.mediaInfo?.id == null) return false;
-		const watchable = [MEDIA_STATUS.PARTIALLY_AVAILABLE, MEDIA_STATUS.AVAILABLE];
-		return watchable.indexOf(hdStatus) !== -1 || watchable.indexOf(status4k) !== -1;
-	}, [userPermissions, details, hdStatus, status4k]);
-
-	const handleReportIssueClick = useCallback(() => setShowReportPopup(true), []);
-
-	const handleReportSubmit = useCallback(async ({issueType, message, problemSeason, problemEpisode}) => {
-		try {
-			await seerrApi.createIssue({
-				issueType,
-				message,
-				mediaId: details.mediaInfo.id,
-				problemSeason,
-				problemEpisode
-			});
-			setShowReportPopup(false);
-		} catch (err) {
-			console.error('[SeerrDetails] Issue report failed:', err.message);
-		}
-	}, [details]);
-
 	const handleOpenCollection = useCallback(() => {
 		if (details?.collection?.id != null) {
 			onOpenCollection?.(details.collection.id);
 		}
 	}, [details, onOpenCollection]);
-
-	const handleCollectionBannerKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.UP) {
-			e.preventDefault();
-			e.stopPropagation();
-			safeFocus('action-buttons');
-		} else if (e.keyCode === KEYS.DOWN) {
-			e.preventDefault();
-			e.stopPropagation();
-			const castFocused = safeFocus('cast-section');
-			if (!castFocused) {
-				const recFocused = safeFocus('details-row-0');
-				if (!recFocused) {
-					safeFocus('details-row-1');
-				}
-			}
-		}
-	}, []);
-	const requests = useMemo(() => details?.mediaInfo?.requests ?? [], [details]);
-	const hdDeclined = useMemo(() => requests.some(r => !r.is4k && r.status === 3), [requests]);
-	const fourKDeclined = useMemo(() => requests.some(r => r.is4k && r.status === 3), [requests]);
-	const pendingRequests = useMemo(() => requests.filter(r => r.status === MEDIA_STATUS.PENDING), [requests]);
-
-	const getSeasonStatusMap = useCallback((is4k) => {
-		const statusMap = new Map();
-		if (!requests || requests.length === 0) return statusMap;
-
-		requests.forEach(req => {
-			if (req.is4k === is4k) {
-				req.seasons?.forEach(seasonReq => {
-					const existingStatus = statusMap.get(seasonReq.seasonNumber);
-					const newStatus = seasonReq.status;
-					if (!existingStatus ||
-						(isSeasonRerequestable(existingStatus) && !isSeasonRerequestable(newStatus)) ||
-						(newStatus === REQUEST_STATUS.COMPLETED) ||
-						(newStatus === REQUEST_STATUS.APPROVED && existingStatus === REQUEST_STATUS.PENDING)) {
-						statusMap.set(seasonReq.seasonNumber, newStatus);
-					}
-				});
-			}
-		});
-		return statusMap;
-	}, [requests]);
-
-	const seasonStatusMapHd = useMemo(() => getSeasonStatusMap(false), [getSeasonStatusMap]);
-	const seasonStatusMap4k = useMemo(() => getSeasonStatusMap(true), [getSeasonStatusMap]);
-
-	const isBlacklisted = useMemo(() =>
-		hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED,
-	[hdStatus, status4k]);
-
-	const canRequestHd = useMemo(() => {
-		if (!isAuthenticated || isBlacklisted) return false;
-		const blocked = isStatusBlocked(hdStatus) || hdDeclined;
-		if (blocked) return false;
-		const userCanHd = mediaType === 'movie'
-			? canRequestMovies(userPermissions)
-			: canRequestTv(userPermissions);
-		return userCanHd && hasHdServer;
-	}, [isAuthenticated, isBlacklisted, hdStatus, hdDeclined, userPermissions, hasHdServer, mediaType]);
-
-	const canRequest4k = useMemo(() => {
-		if (!isAuthenticated || isBlacklisted) return false;
-		const blocked = isStatusBlocked(status4k) || fourKDeclined;
-		if (blocked) return false;
-		const userCan4k = mediaType === 'movie'
-			? canRequest4kMovies(userPermissions)
-			: canRequest4kTv(userPermissions);
-		return userCan4k && has4kServer;
-	}, [isAuthenticated, isBlacklisted, status4k, fourKDeclined, userPermissions, has4kServer, mediaType]);
-
-	const canRequestAny = canRequestHd || canRequest4k;
-
-	const hasAdvanced = useMemo(() =>
-		hasAdvancedRequestPermission(userPermissions),
-	[userPermissions]);
-
-	const statusBadge = useMemo(() =>
-		getStatusBadge(hdStatus, status4k, hdDeclined, fourKDeclined),
-	[hdStatus, status4k, hdDeclined, fourKDeclined]
-	);
-
-	const requestButtonLabel = useMemo(() => {
-		if (!canRequestAny) {
-			if (hdDeclined && fourKDeclined) return $L('Declined');
-			if (fourKDeclined) return `4K ${$L('Declined')}`;
-			if (hdDeclined) return `HD ${$L('Declined')}`;
-			if (hdStatus === MEDIA_STATUS.AVAILABLE && status4k === MEDIA_STATUS.AVAILABLE) return $L('Available');
-			if (status4k === MEDIA_STATUS.AVAILABLE) return `4K ${$L('Available')}`;
-			if (hdStatus === MEDIA_STATUS.AVAILABLE) return `HD ${$L('Available')}`;
-			if (hdStatus === MEDIA_STATUS.PROCESSING && status4k === MEDIA_STATUS.PROCESSING) return $L('Processing');
-			if (status4k === MEDIA_STATUS.PROCESSING) return `4K ${$L('Processing')}`;
-			if (hdStatus === MEDIA_STATUS.PROCESSING) return `HD ${$L('Processing')}`;
-			if (hdStatus === MEDIA_STATUS.PENDING && status4k === MEDIA_STATUS.PENDING) return $L('Pending');
-			if (status4k === MEDIA_STATUS.PENDING) return `4K ${$L('Pending')}`;
-			if (hdStatus === MEDIA_STATUS.PENDING) return `HD ${$L('Pending')}`;
-			if (hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED) return $L('Blacklisted');
-			return $L('Unavailable');
-		}
-		if (hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE || status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE) return $L('Request More');
-		return $L('Request');
-	}, [canRequestAny, hdStatus, status4k, hdDeclined, fourKDeclined]);
-
-	const handleRequest = useCallback(async (is4K = false, seasons = null, advancedOptions = null) => {
-		if (requesting) return;
-
-		setShowQualityPopup(false);
-		setShowSeasonPopup(false);
-		setShowAdvancedPopup(false);
-		setRequesting(true);
-		try {
-			const options = {
-				is4k: is4K,
-				...(advancedOptions || {})
-			};
-
-			if (mediaType === 'movie') {
-				await seerrApi.requestMovie(mediaId, options);
-			} else {
-				await seerrApi.requestTv(mediaId, {
-					...options,
-					seasons: seasons || 'all'
-				});
-			}
-			const updated = mediaType === 'movie'
-				? await seerrApi.getMovie(mediaId)
-				: await seerrApi.getTv(mediaId);
-			setDetails(updated);
-		} catch (err) {
-			console.error('Request failed:', err);
-			setError(err.message || $L('Request failed'));
-		} finally {
-			setRequesting(false);
-		}
-	}, [mediaId, mediaType, requesting]);
-
-	const proceedWithRequest = useCallback((is4K, seasons = null) => {
-		if (hasAdvanced) {
-			setPendingIs4k(is4K);
-			setPendingSeasons(seasons);
-			setShowAdvancedPopup(true);
-		} else {
-			handleRequest(is4K, seasons);
-		}
-	}, [hasAdvanced, handleRequest]);
-
-	const handleQualitySelect = useCallback((is4K) => {
-		setShowQualityPopup(false);
-		if (mediaType === 'tv' && details?.seasons?.length > 0) {
-			setPendingIs4k(is4K);
-			setShowSeasonPopup(true);
-		} else {
-			proceedWithRequest(is4K);
-		}
-	}, [mediaType, details?.seasons, proceedWithRequest]);
-
-	const handleSeasonConfirm = useCallback((selectedSeasons) => {
-		proceedWithRequest(pendingIs4k, selectedSeasons);
-	}, [pendingIs4k, proceedWithRequest]);
-
-	const handleAdvancedConfirm = useCallback((advancedOptions) => {
-		handleRequest(pendingIs4k, pendingSeasons, advancedOptions);
-	}, [pendingIs4k, pendingSeasons, handleRequest]);
-
-	const handleRequestClick = useCallback(() => {
-		if (!canRequestAny) return;
-
-		if (!hasHdServer && !has4kServer) {
-			const mediaTypeName = mediaType === 'movie' ? $L('movies') : $L('TV shows');
-			setError($L('No Radarr/Sonarr server configured for {mediaType} in Seerr').replace('{mediaType}', mediaTypeName));
-			return;
-		}
-
-		if (canRequestHd && canRequest4k) {
-			setShowQualityPopup(true);
-		} else if (canRequest4k) {
-			if (mediaType === 'tv' && details?.seasons?.length > 0) {
-				setPendingIs4k(true);
-				setShowSeasonPopup(true);
-			} else {
-				proceedWithRequest(true);
-			}
-		} else if (canRequestHd) {
-			if (mediaType === 'tv' && details?.seasons?.length > 0) {
-				setPendingIs4k(false);
-				setShowSeasonPopup(true);
-			} else {
-				proceedWithRequest(false);
-			}
-		}
-	}, [canRequestAny, canRequestHd, canRequest4k, proceedWithRequest, hasHdServer, has4kServer, mediaType, details?.seasons]);
-
-	const handleCancelRequestClick = useCallback(() => {
-		if (pendingRequests.length > 0) {
-			setShowCancelPopup(true);
-		}
-	}, [pendingRequests]);
-
-	const handleCancelConfirm = useCallback(async () => {
-		setShowCancelPopup(false);
-		try {
-			for (const req of pendingRequests) {
-				await seerrApi.cancelRequest(req.id);
-			}
-			const updated = mediaType === 'movie'
-				? await seerrApi.getMovie(mediaId)
-				: await seerrApi.getTv(mediaId);
-			setDetails(updated);
-		} catch (err) {
-			console.error('Cancel failed:', err);
-			setError(err.message || $L('Failed to cancel request'));
-		}
-	}, [pendingRequests, mediaId, mediaType]);
 
 	const handleTrailer = useCallback(() => {
 		const mediaTitle = details?.title || details?.name || 'Unknown';
@@ -459,144 +96,7 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 		onSelectKeyword?.(keyword, mediaType);
 	}, [onSelectKeyword, mediaType]);
 
-	const handleActionButtonsKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.DOWN) {
-			e.preventDefault();
-			e.stopPropagation();
-			const bannerFocused = safeFocus('collection-banner');
-			if (bannerFocused) return;
-			const castFocused = safeFocus('cast-section');
-			if (!castFocused) {
-				const recFocused = safeFocus('details-row-0');
-				if (!recFocused) {
-					safeFocus('details-row-1');
-				}
-			}
-		}
-	}, []);
-
-	const handleRowNavigateUp = useCallback((fromRowIndex) => {
-		if (fromRowIndex === 0) {
-			const castFocused = safeFocus('cast-section');
-			if (!castFocused) {
-				safeFocus('action-buttons');
-			}
-		} else {
-			const targetIndex = fromRowIndex - 1;
-			const focused = safeFocus(`details-row-${targetIndex}`);
-			if (!focused) {
-				const castFocused = safeFocus('cast-section');
-				if (!castFocused) {
-					safeFocus('action-buttons');
-				}
-			}
-		}
-	}, []);
-
-	const handleRowNavigateDown = useCallback((fromRowIndex) => {
-		const targetIndex = fromRowIndex + 1;
-		const focused = safeFocus(`details-row-${targetIndex}`);
-		if (!focused) {
-			const keywordsFocused = safeFocus('keywords-section');
-			if (!keywordsFocused) {
-				safeFocus('seasons-section');
-			}
-		}
-	}, []);
-
-	const handleCastSectionKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.UP) {
-			e.preventDefault();
-			e.stopPropagation();
-			const bannerFocused = safeFocus('collection-banner');
-			if (!bannerFocused) {
-				safeFocus('action-buttons');
-			}
-		} else if (e.keyCode === KEYS.DOWN) {
-			e.preventDefault();
-			e.stopPropagation();
-			const recFocused = safeFocus('details-row-0');
-			if (!recFocused) {
-				const simFocused = safeFocus('details-row-1');
-				if (!simFocused) {
-					safeFocus('keywords-section');
-				}
-			}
-		}
-	}, []);
-
-	const handleKeywordsSectionKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.UP) {
-			// Up arrow - navigate to previous section
-			e.preventDefault();
-			e.stopPropagation();
-			const simFocused = safeFocus('details-row-1');
-			if (!simFocused) {
-				const recFocused = safeFocus('details-row-0');
-				if (!recFocused) {
-					const castFocused = safeFocus('cast-section');
-					if (!castFocused) {
-						safeFocus('action-buttons');
-					}
-				}
-			}
-		}
-	}, []);
-
-	const mediaFacts = useMemo(() => {
-		if (!details) return [];
-		const facts = [];
-
-		const tmdbScore = Number(details.voteAverage);
-		if (Number.isFinite(tmdbScore) && tmdbScore > 0) {
-			facts.push({label: $L('TMDB Score'), value: `${Math.round(tmdbScore * 10)}%`});
-		}
-
-		const productionStatus = details.status;
-		if (productionStatus) {
-			facts.push({label: $L('Status'), value: productionStatus});
-		}
-
-		// TV Show specific fields
-		if (mediaType === 'tv') {
-			if (details.firstAirDate) {
-				const formatted = formatDate(details.firstAirDate);
-				if (formatted) facts.push({label: $L('First Air Date'), value: formatted});
-			}
-			if (details.lastAirDate) {
-				const formatted = formatDate(details.lastAirDate);
-				if (formatted) facts.push({label: $L('Last Air Date'), value: formatted});
-			}
-			if (details.numberOfSeasons) {
-				facts.push({label: $L('Seasons'), value: details.numberOfSeasons.toString()});
-			}
-			// Networks
-			if (details.networks?.length > 0) {
-				facts.push({label: $L('Networks'), value: details.networks.slice(0, 3).map(n => n.name).join(', ')});
-			}
-		}
-
-		// Movie specific fields
-		if (mediaType === 'movie') {
-			if (details.releaseDate) {
-				const formatted = formatDate(details.releaseDate);
-				if (formatted) facts.push({label: $L('Release Date'), value: formatted});
-			}
-			if (details.runtime) {
-				facts.push({label: $L('Runtime'), value: formatRuntime(details.runtime)});
-			}
-			if (details.budget) {
-				const formatted = formatCurrency(details.budget);
-				if (formatted) facts.push({label: $L('Budget'), value: formatted});
-			}
-			if (details.revenue) {
-				const formatted = formatCurrency(details.revenue);
-				if (formatted) facts.push({label: $L('Revenue'), value: formatted});
-			}
-		}
-
-		return facts;
-	}, [details, mediaType]);
+	const mediaFacts = useMemo(() => buildMediaFacts(details, mediaType), [details, mediaType]);
 
 	if (loading) {
 		return (
