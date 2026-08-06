@@ -1,6 +1,6 @@
 import Spotlight from '@enact/spotlight';
 
-import {capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, stopPropagation} from './gridChrome';
+import {capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, filterByStartLetter, stopPropagation} from './gridChrome';
 import {KEYS} from './keys';
 
 jest.mock('@enact/spotlight', () => ({__esModule: true, default: {focus: jest.fn()}}));
@@ -143,5 +143,46 @@ describe('createGridKeyDown', () => {
 			expect(Spotlight.focus).not.toHaveBeenCalled();
 			expect(e.preventDefault).not.toHaveBeenCalled();
 		});
+	});
+});
+
+describe('filterByStartLetter', () => {
+	const items = [
+		{SortName: 'Alien'},
+		{SortName: 'alien 3'},
+		{SortName: 'Blade Runner'},
+		{SortName: '2001'},
+		{SortName: 'Ω Project'}
+	];
+
+	test('no letter picked leaves the list as it was', () => {
+		expect(filterByStartLetter(items, null)).toBe(items);
+	});
+
+	test('matches on the first letter whatever the case', () => {
+		expect(filterByStartLetter(items, 'A')).toEqual([{SortName: 'Alien'}, {SortName: 'alien 3'}]);
+	});
+
+	// Hash is the catch all at the front of the strip, so everything the alphabet can't
+	// reach has to land there or it becomes unreachable.
+	test('hash takes everything outside the latin alphabet', () => {
+		expect(filterByStartLetter(items, '#')).toEqual([{SortName: '2001'}, {SortName: 'Ω Project'}]);
+	});
+
+	test('falls back to the display name when the server sent no sort name', () => {
+		const noSortName = [{Name: 'Casablanca'}, {SortName: '', Name: 'Chinatown'}];
+
+		expect(filterByStartLetter(noSortName, 'C')).toEqual(noSortName);
+	});
+
+	// An item with neither name would otherwise read as an empty first character, which
+	// matches no letter but does match the hash test.
+	test('an item with no name at all falls to hash', () => {
+		expect(filterByStartLetter([{}], '#')).toEqual([{}]);
+		expect(filterByStartLetter([{}], 'A')).toEqual([]);
+	});
+
+	test('a letter nothing starts with comes back empty', () => {
+		expect(filterByStartLetter(items, 'Z')).toEqual([]);
 	});
 });

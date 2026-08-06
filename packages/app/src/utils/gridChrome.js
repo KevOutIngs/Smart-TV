@@ -9,6 +9,19 @@ import {KEYS} from './keys';
 
 export const LETTERS = ['#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
+// The alphabet strip filters on the name the server sorts by, falling back to the display
+// name when it sent no sort name. Hash collects everything that doesn't start with a letter,
+// which is where numbers and non-latin titles land.
+export const filterByStartLetter = (items, startLetter) => {
+	if (!startLetter) return items;
+
+	return items.filter((item) => {
+		const firstChar = (item.SortName || item.Name || '').charAt(0).toUpperCase();
+		if (startLetter === '#') return !/[A-Z]/.test(firstChar);
+		return firstChar === startLetter;
+	});
+};
+
 // What the image and layout rows on the settings panel step through.
 export const IMAGE_SIZES = ['small', 'medium', 'large'];
 export const IMAGE_TYPES = ['poster', 'thumbnail'];

@@ -15,6 +15,7 @@ import {fetchRatings, fetchEpisodeRatings, buildDisplayRatings, isRatingSourceEn
 import {getRtFallbackIcon} from '../../components/icons/rtIcons';
 import {useStorage} from '../../hooks/useStorage';
 import useSortSettingsPanels from '../../hooks/useSortSettingsPanels';
+import useStartLetter from '../../hooks/useStartLetter';
 import {GRID_DIRECTIONS, IMAGE_SIZES, IMAGE_TYPES, LETTERS, capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, stopPropagation} from '../../utils/gridChrome';
 
 import css from './Library.module.less';
@@ -84,7 +85,6 @@ const [totalCount, setTotalCount] = useState(0);
 const [favoritesOnly, setFavoritesOnly] = useState(false);
 const [watchedOnly, setWatchedOnly] = useState(false);
 const [musicContentType, setMusicContentType] = useState('albums');
-const [startLetter, setStartLetter] = useState(null);
 const [focusedItem, setFocusedItem] = useState(null);
 const [focusedRatings, setFocusedRatings] = useState([]);
 const [musicGridView, setMusicGridView] = useState(null);
@@ -117,19 +117,11 @@ const fetchGenerationRef = useRef(0);
 
 const isMusicBrowseHome = isMusicLibrary && !isFilterMode && !isFolderView && !musicGridView;
 
-const items = useMemo(() => {
-if (!startLetter) {
-return allItems;
-}
-return allItems.filter(item => {
-const name = item.SortName || item.Name || '';
-const firstChar = name.charAt(0).toUpperCase();
-if (startLetter === '#') {
-return !/[A-Z]/.test(firstChar);
-}
-return firstChar === startLetter;
+const {startLetter, handleLetterSelect, items} = useStartLetter({
+allItems,
+isLoading,
+gridSpotlightId: 'library-grid'
 });
-}, [allItems, startLetter]);
 
 const itemsRef = useRef(items);
 itemsRef.current = items;
@@ -346,14 +338,6 @@ initialFocusDoneRef.current = true;
 }
 }, [items.length, isLoading]);
 
-useEffect(() => {
-if (startLetter && items.length > 0 && !isLoading) {
-setTimeout(() => {
-Spotlight.focus('library-grid');
-}, 100);
-}
-}, [startLetter, items.length, isLoading]);
-
 const handleItemClick = useCallback((ev) => {
 const itemIndex = ev.currentTarget?.dataset?.index;
 if (itemIndex === undefined) return;
@@ -377,13 +361,6 @@ const handleScrollStop = useCallback(() => {
 		loadItems(apiFetchIndexRef.current, true);
 	}
 }, [totalCount, isLoading, loadItems]);
-
-const handleLetterSelect = useCallback((ev) => {
-const letter = ev.currentTarget?.dataset?.letter;
-if (letter) {
-setStartLetter(letter === startLetter ? null : letter);
-}
-}, [startLetter]);
 
 // Back past the panels: drop out of a music grid, then climb the folder stack.
 const handleBackBeyondPanels = useCallback(() => {

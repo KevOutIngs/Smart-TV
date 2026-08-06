@@ -11,6 +11,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import {getImageUrl, getPrimaryImageId} from '../../utils/helpers';
 import {useStorage} from '../../hooks/useStorage';
 import useSortSettingsPanels from '../../hooks/useSortSettingsPanels';
+import useStartLetter from '../../hooks/useStartLetter';
 import {GRID_DIRECTIONS, IMAGE_SIZES, IMAGE_TYPES, LETTERS, capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, stopPropagation} from '../../utils/gridChrome';
 
 import css from './Favorites.module.less';
@@ -53,7 +54,6 @@ const [isLoading, setIsLoading] = useState(true);
 const [totalCount, setTotalCount] = useState(0);
 const [sortKey, setSortKey] = useStorage('favorites_sortKey', 'SortName');
 const [typeFilterKey, setTypeFilterKey] = useState('all');
-const [startLetter, setStartLetter] = useState(null);
 const [imageSize, setImageSize] = useStorage('favorites_imageSize', 'medium');
 const [imageType, setImageType] = useStorage('favorites_imageType', 'poster');
 const [gridDirection, setGridDirection] = useStorage('favorites_gridDirection', 'vertical');
@@ -72,15 +72,11 @@ const loadingMoreRef = useRef(false);
 const apiFetchIndexRef = useRef(0);
 const initialFocusDoneRef = useRef(false);
 
-const items = useMemo(() => {
-if (!startLetter) return allItems;
-return allItems.filter(item => {
-const name = item.SortName || '';
-const firstChar = name.charAt(0).toUpperCase();
-if (startLetter === '#') return !/[A-Z]/.test(firstChar);
-return firstChar === startLetter;
+const {startLetter, handleLetterSelect, items} = useStartLetter({
+allItems,
+isLoading,
+gridSpotlightId: 'favorites-grid'
 });
-}, [allItems, startLetter]);
 
 const itemsRef = useRef(items);
 itemsRef.current = items;
@@ -169,12 +165,6 @@ initialFocusDoneRef.current = true;
 }
 }, [items.length, isLoading]);
 
-useEffect(() => {
-if (startLetter && items.length > 0 && !isLoading) {
-setTimeout(() => Spotlight.focus('favorites-grid'), 100);
-}
-}, [startLetter, items.length, isLoading]);
-
 const handleItemClick = useCallback((ev) => {
 const itemIndex = ev.currentTarget?.dataset?.index;
 if (itemIndex === undefined) return;
@@ -193,13 +183,6 @@ if (!unifiedMode && apiFetchIndexRef.current < totalCount && !isLoading && !load
 loadItems(apiFetchIndexRef.current, true);
 }
 }, [unifiedMode, totalCount, isLoading, loadItems]);
-
-const handleLetterSelect = useCallback((ev) => {
-const letter = ev.currentTarget?.dataset?.letter;
-if (letter) {
-setStartLetter(letter === startLetter ? null : letter);
-}
-}, [startLetter]);
 
 const handleSortSelect = useCallback((ev) => {
 const key = ev.currentTarget?.dataset?.sortKey;
