@@ -4,16 +4,7 @@
 
 import $L from '@enact/i18n/$L';
 
-const FAVORITES_ROW_IDS = [
-	'favoriteMovies',
-	'favoriteSeries',
-	'favoriteEpisodes',
-	'favoritePeople',
-	'favoriteArtists',
-	'favoriteMusicVideos',
-	'favoriteAlbums',
-	'favoriteSongs'
-];
+import {isPluginSourcedRow, isRowEnabledBySetting} from '../../utils/homeRowGates';
 
 export const COLLECTIONS_SECTION_SOURCE = 'collections';
 export const GENRES_SECTION_SOURCE = 'genres';
@@ -21,23 +12,9 @@ export const GENRES_SECTION_SOURCE = 'genres';
 export const INITIAL_PLUGIN_SECTION_RENDER_COUNT = 60;
 export const PLUGIN_SECTION_RENDER_STEP = 60;
 
-// A row the viewer has switched off elsewhere still sits in the stored order, so the editor
-// hides it rather than offering a reorder that would not show up anywhere.
-export const isHomeRowVisibleByGates = (rowId, currentSettings) => {
-	if (FAVORITES_ROW_IDS.includes(rowId)) return currentSettings.displayFavoritesRows;
-	if (rowId === 'collections') return currentSettings.displayCollectionsRows;
-	if (rowId === 'genres') return currentSettings.displayGenresRows;
-	if (rowId === 'playlists') return currentSettings.displayPlaylistsRows;
-	if (rowId === 'imdb-top250-movies') return currentSettings.imdbTop250MoviesEnabled;
-	if (rowId === 'imdb-top250-tv') return currentSettings.imdbTop250TvShowsEnabled;
-	if (rowId === 'imdb-popular-movies') return currentSettings.imdbMostPopularMoviesEnabled;
-	if (rowId === 'imdb-popular-tv') return currentSettings.imdbMostPopularTvShowsEnabled;
-	if (rowId === 'imdb-lowest-rated') return currentSettings.imdbLowestRatedMoviesEnabled;
-	if (rowId === 'imdb-top-english') return currentSettings.imdbTopEnglishMoviesEnabled;
-	if (rowId.startsWith('seerr_') || rowId.startsWith('tmdb_') || rowId === 'radarr_calendar' || rowId === 'sonarr_calendar') {
-		return currentSettings.useMoonfinPlugin;
-	}
-	return true;
+export const isHomeRowVisibleByGates = (rowId, settings) => {
+	if (isPluginSourcedRow(rowId)) return settings.useMoonfinPlugin;
+	return isRowEnabledBySetting(rowId, settings);
 };
 
 export const mergeDiscoveredPluginSections = (existingSections, discoveredSections, source, toPluginSection) => {

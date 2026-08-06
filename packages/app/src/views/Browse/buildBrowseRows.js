@@ -5,22 +5,8 @@
 import $L from '@enact/i18n/$L';
 
 import {SERVER_TO_TV_ROW, TV_TO_SERVER_ROW} from '../../utils/homeLayout';
-import {FAVORITE_ROW_CONFIGS, FAVORITE_ROW_IDS, isHiddenByMap, parseHiddenMap} from './browseFilters';
-
-// Rows the viewer has switched off through a setting rather than through the row list.
-const isRowVisibleByGates = (rowId, settings) => {
-	if (FAVORITE_ROW_IDS.includes(rowId)) return settings.displayFavoritesRows;
-	if (rowId === 'collections') return settings.displayCollectionsRows;
-	if (rowId === 'genres') return settings.displayGenresRows;
-	if (rowId === 'playlists') return settings.displayPlaylistsRows;
-	if (rowId === 'imdb-top250-movies') return settings.imdbTop250MoviesEnabled;
-	if (rowId === 'imdb-top250-tv') return settings.imdbTop250TvShowsEnabled;
-	if (rowId === 'imdb-popular-movies') return settings.imdbMostPopularMoviesEnabled;
-	if (rowId === 'imdb-popular-tv') return settings.imdbMostPopularTvShowsEnabled;
-	if (rowId === 'imdb-lowest-rated') return settings.imdbLowestRatedMoviesEnabled;
-	if (rowId === 'imdb-top-english') return settings.imdbTopEnglishMoviesEnabled;
-	return true;
-};
+import {FAVORITE_ROW_CONFIGS, isHiddenByMap, parseHiddenMap} from './browseFilters';
+import {isRowEnabledBySetting} from '../../utils/homeRowGates';
 
 // Titles are resolved on every build rather than stored, so a row that came out of the cache
 // is named in the language being read now.
@@ -82,7 +68,7 @@ const buildRowOrder = (homeRowsConfig, pluginSectionsConfig) => {
 
 const isRowEnabled = (row, {enabledRowIdsSet, enabledPluginIds, settings}) => {
 	if (row.isPluginRow) return enabledPluginIds.includes(row.id);
-	if (!isRowVisibleByGates(row.id, settings)) return false;
+	if (!isRowEnabledBySetting(row.id, settings)) return false;
 	if (row.isLatestRow) return enabledRowIdsSet.has('latest-media') || enabledRowIdsSet.has('latestmedia');
 	if (row.isRecentlyReleasedRow) return enabledRowIdsSet.has('recently-released') || enabledRowIdsSet.has('recentlyreleased');
 	return enabledRowIdsSet.has(row.id) || enabledRowIdsSet.has(TV_TO_SERVER_ROW[row.id]) || enabledRowIdsSet.has(SERVER_TO_TV_ROW[row.id]);

@@ -3,6 +3,8 @@
 jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
 
 import {buildBrowseRows, sameRowList} from './buildBrowseRows';
+import {FAVORITE_ROW_CONFIGS} from './browseFilters';
+import {FAVORITE_ROW_IDS} from '../../utils/homeRowGates';
 
 const row = (id, items = [], extra = {}) => ({id, items, title: id, ...extra});
 const item = (Id, extra = {}) => ({Id, ...extra});
@@ -170,5 +172,13 @@ describe('sameRowList', () => {
 		expect(sameRowList([row('a', [item('1')])], [row('a', [item('2')])])).toBe(false);
 		expect(sameRowList([row('a', [item('1'), item('9')])], [row('a', [item('1'), item('8')])])).toBe(false);
 		expect(sameRowList([{...row('a'), title: 'X'}], [{...row('a'), title: 'Y'}])).toBe(false);
+	});
+});
+
+// The rows are built from one list and gated by another, so a favourite row added to only
+// one of them would either never appear or never be gated.
+describe('favourite rows', () => {
+	test('the rows that get built are exactly the ones the gate knows about', () => {
+		expect(FAVORITE_ROW_CONFIGS.map((row) => row.id)).toEqual(FAVORITE_ROW_IDS);
 	});
 });

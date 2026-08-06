@@ -16,8 +16,6 @@ export const FAVORITE_ROW_CONFIGS = [
 	{id: 'favoriteSongs', title: $L('Favorite Songs'), includeItemTypes: 'Audio', type: 'square'}
 ];
 
-export const FAVORITE_ROW_IDS = FAVORITE_ROW_CONFIGS.map((row) => row.id);
-
 export const parseHiddenMap = (val) => {
 	if (!val) return {};
 	try {
