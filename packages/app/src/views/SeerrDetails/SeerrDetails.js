@@ -12,9 +12,14 @@ import {useSeerr} from '../../context/SeerrContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import SeerrDownloadProgress from '../../components/SeerrDownloadProgress';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
-import {ISSUE_TYPE, getIssueTypeLabel, getMediaDownloadSummary, isUnlimitedQuota} from '../../utils/seerrStatus';
+import {ISSUE_TYPE, MEDIA_STATUS, REQUEST_STATUS, getIssueTypeLabel, getMediaDownloadSummary, isUnlimitedQuota} from '../../utils/seerrStatus';
 import {KEYS} from '../../utils/keys';
 import css from './SeerrDetails.module.less';
+
+import {
+	formatCurrency, formatDate, formatRuntime, getSeasonStatusColor,
+	getSeasonStatusLabel, getStatusBadge, isSeasonRerequestable, isStatusBlocked
+} from './seerrBadges';
 
 const safeFocus = (spotlightId) => {
 	try {
@@ -39,119 +44,6 @@ const KeywordsSectionContainer = SpotlightContainerDecorator({
 	enterTo: 'last-focused',
 	restrict: 'self-only'
 }, 'div');
-
-const STATUS = {
-	UNKNOWN: 1,
-	PENDING: 2,
-	PROCESSING: 3,
-	PARTIALLY_AVAILABLE: 4,
-	AVAILABLE: 5,
-	BLACKLISTED: 6
-};
-
-const REQUEST_STATUS = {
-	PENDING: 1,
-	APPROVED: 2,
-	DECLINED: 3,
-	FAILED: 4,
-	COMPLETED: 5
-};
-
-const getSeasonStatusLabel = (status) => {
-	switch (status) {
-		case REQUEST_STATUS.PENDING: return $L('Pending');
-		case REQUEST_STATUS.APPROVED: return $L('Processing');
-		case REQUEST_STATUS.DECLINED: return $L('Declined');
-		case REQUEST_STATUS.FAILED: return $L('Failed');
-		case REQUEST_STATUS.COMPLETED: return $L('Available');
-		default: return null;
-	}
-};
-
-const getSeasonStatusColor = (status) => {
-	switch (status) {
-		case REQUEST_STATUS.PENDING: return 'yellow';
-		case REQUEST_STATUS.APPROVED: return 'indigo';
-		case REQUEST_STATUS.DECLINED: return 'red';
-		case REQUEST_STATUS.FAILED: return 'red';
-		case REQUEST_STATUS.COMPLETED: return 'green';
-		default: return 'gray';
-	}
-};
-
-// Declined and failed seasons can be requested again.
-const isSeasonRerequestable = (status) =>
-	status === REQUEST_STATUS.DECLINED || status === REQUEST_STATUS.FAILED;
-
-const getStatusBadge = (hdStatus, status4k, hdDeclined, fourKDeclined) => {
-	if (hdDeclined && fourKDeclined) return {text: $L('DECLINED'), color: 'red'};
-	if (fourKDeclined && hdStatus === STATUS.AVAILABLE) return {text: $L('HD AVAILABLE • 4K DECLINED'), color: 'mixed'};
-	if (hdDeclined && status4k === STATUS.AVAILABLE) return {text: $L('HD DECLINED • 4K AVAILABLE'), color: 'mixed'};
-	if (fourKDeclined) return {text: $L('4K DECLINED'), color: 'red'};
-	if (hdDeclined) return {text: $L('HD DECLINED'), color: 'red'};
-
-	if (hdStatus === STATUS.AVAILABLE && status4k === STATUS.AVAILABLE) return {text: $L('HD + 4K AVAILABLE'), color: 'green'};
-
-	if (status4k === STATUS.AVAILABLE) return {text: $L('4K AVAILABLE'), color: 'green'};
-	if (hdStatus === STATUS.AVAILABLE) return {text: $L('HD AVAILABLE'), color: 'green'};
-
-	if (hdStatus === STATUS.PARTIALLY_AVAILABLE && status4k === STATUS.PARTIALLY_AVAILABLE) return {text: $L('PARTIALLY AVAILABLE'), color: 'purple'};
-	if (hdStatus === STATUS.PARTIALLY_AVAILABLE && status4k === STATUS.PROCESSING) return {text: $L('HD PARTIAL • 4K PROCESSING'), color: 'mixed'};
-	if (hdStatus === STATUS.PARTIALLY_AVAILABLE && status4k === STATUS.PENDING) return {text: $L('HD PARTIAL • 4K PENDING'), color: 'mixed'};
-	if (hdStatus === STATUS.PARTIALLY_AVAILABLE) return {text: $L('HD PARTIALLY AVAILABLE'), color: 'purple'};
-	if (status4k === STATUS.PARTIALLY_AVAILABLE && hdStatus === STATUS.PROCESSING) return {text: $L('HD PROCESSING • 4K PARTIAL'), color: 'mixed'};
-	if (status4k === STATUS.PARTIALLY_AVAILABLE && hdStatus === STATUS.PENDING) return {text: $L('HD PENDING • 4K PARTIAL'), color: 'mixed'};
-	if (status4k === STATUS.PARTIALLY_AVAILABLE) return {text: $L('4K PARTIALLY AVAILABLE'), color: 'purple'};
-
-	if (hdStatus === STATUS.PROCESSING && status4k === STATUS.PROCESSING) return {text: $L('PROCESSING'), color: 'indigo'};
-	if (hdStatus === STATUS.PROCESSING && status4k === STATUS.PENDING) return {text: $L('HD PROCESSING • 4K PENDING'), color: 'mixed'};
-	if (status4k === STATUS.PROCESSING && hdStatus === STATUS.PENDING) return {text: $L('HD PENDING • 4K PROCESSING'), color: 'mixed'};
-	if (status4k === STATUS.PROCESSING) return {text: $L('4K PROCESSING'), color: 'indigo'};
-	if (hdStatus === STATUS.PROCESSING) return {text: $L('HD PROCESSING'), color: 'indigo'};
-
-	if (hdStatus === STATUS.PENDING && status4k === STATUS.PENDING) return {text: $L('PENDING'), color: 'yellow'};
-	if (status4k === STATUS.PENDING) return {text: $L('4K PENDING'), color: 'yellow'};
-	if (hdStatus === STATUS.PENDING) return {text: $L('HD PENDING'), color: 'yellow'};
-
-	if (hdStatus === STATUS.BLACKLISTED || status4k === STATUS.BLACKLISTED) return {text: $L('BLACKLISTED'), color: 'red'};
-
-	return {text: $L('NOT REQUESTED'), color: 'gray'};
-};
-
-const isStatusBlocked = (currentStatus) => {
-	return currentStatus != null && currentStatus >= 2 && currentStatus !== STATUS.PARTIALLY_AVAILABLE;
-};
-
-const formatDate = (dateStr) => {
-	if (!dateStr) return null;
-	try {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString(undefined, {year: 'numeric', month: 'long', day: 'numeric'});
-	} catch {
-		return null;
-	}
-};
-
-const formatCurrency = (amount) => {
-	if (!amount || amount <= 0) return null;
-	try {
-		return new Intl.NumberFormat(undefined, {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0
-		}).format(amount);
-	} catch {
-		return `$${Math.round(amount).toLocaleString()}`;
-	}
-};
-
-const formatRuntime = (minutes) => {
-	if (!minutes) return null;
-	const hours = Math.floor(minutes / 60);
-	const mins = minutes % 60;
-	return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-};
 
 const CastCard = memo(({person, onSelect}) => {
 	const photoUrl = person.profilePath
@@ -262,10 +154,10 @@ const HorizontalMediaRow = memo(({title, items, onSelect, rowIndex, onNavigateUp
 const QualitySelectionPopup = memo(({open, title, hdStatus, status4k, canRequestHd, canRequest4k, quota, isTv, onSelect, onClose}) => {
 	const getButtonLabel = useCallback((is4k, currentStatus) => {
 		const quality = is4k ? '4K' : 'HD';
-		if (currentStatus === STATUS.PENDING) return `${quality} (${$L('Pending')})`;
-		if (currentStatus === STATUS.PROCESSING) return `${quality} (${$L('Processing')})`;
-		if (currentStatus === STATUS.AVAILABLE) return `${quality} (${$L('Available')})`;
-		if (currentStatus === STATUS.PARTIALLY_AVAILABLE) return `${$L('Request More')} ${quality}`;
+		if (currentStatus === MEDIA_STATUS.PENDING) return `${quality} (${$L('Pending')})`;
+		if (currentStatus === MEDIA_STATUS.PROCESSING) return `${quality} (${$L('Processing')})`;
+		if (currentStatus === MEDIA_STATUS.AVAILABLE) return `${quality} (${$L('Available')})`;
+		if (currentStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE) return `${$L('Request More')} ${quality}`;
 		return `${$L('Request')} ${quality}`;
 	}, []);
 
@@ -1051,7 +943,7 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 	const canReportIssue = useMemo(() => {
 		if (!canCreateIssues(userPermissions)) return false;
 		if (details?.mediaInfo?.id == null) return false;
-		const watchable = [STATUS.PARTIALLY_AVAILABLE, STATUS.AVAILABLE];
+		const watchable = [MEDIA_STATUS.PARTIALLY_AVAILABLE, MEDIA_STATUS.AVAILABLE];
 		return watchable.indexOf(hdStatus) !== -1 || watchable.indexOf(status4k) !== -1;
 	}, [userPermissions, details, hdStatus, status4k]);
 
@@ -1098,7 +990,7 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 	const requests = useMemo(() => details?.mediaInfo?.requests ?? [], [details]);
 	const hdDeclined = useMemo(() => requests.some(r => !r.is4k && r.status === 3), [requests]);
 	const fourKDeclined = useMemo(() => requests.some(r => r.is4k && r.status === 3), [requests]);
-	const pendingRequests = useMemo(() => requests.filter(r => r.status === STATUS.PENDING), [requests]);
+	const pendingRequests = useMemo(() => requests.filter(r => r.status === MEDIA_STATUS.PENDING), [requests]);
 
 	const getSeasonStatusMap = useCallback((is4k) => {
 		const statusMap = new Map();
@@ -1125,7 +1017,7 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 	const seasonStatusMap4k = useMemo(() => getSeasonStatusMap(true), [getSeasonStatusMap]);
 
 	const isBlacklisted = useMemo(() =>
-		hdStatus === STATUS.BLACKLISTED || status4k === STATUS.BLACKLISTED,
+		hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED,
 	[hdStatus, status4k]);
 
 	const canRequestHd = useMemo(() => {
@@ -1164,19 +1056,19 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 			if (hdDeclined && fourKDeclined) return $L('Declined');
 			if (fourKDeclined) return `4K ${$L('Declined')}`;
 			if (hdDeclined) return `HD ${$L('Declined')}`;
-			if (hdStatus === STATUS.AVAILABLE && status4k === STATUS.AVAILABLE) return $L('Available');
-			if (status4k === STATUS.AVAILABLE) return `4K ${$L('Available')}`;
-			if (hdStatus === STATUS.AVAILABLE) return `HD ${$L('Available')}`;
-			if (hdStatus === STATUS.PROCESSING && status4k === STATUS.PROCESSING) return $L('Processing');
-			if (status4k === STATUS.PROCESSING) return `4K ${$L('Processing')}`;
-			if (hdStatus === STATUS.PROCESSING) return `HD ${$L('Processing')}`;
-			if (hdStatus === STATUS.PENDING && status4k === STATUS.PENDING) return $L('Pending');
-			if (status4k === STATUS.PENDING) return `4K ${$L('Pending')}`;
-			if (hdStatus === STATUS.PENDING) return `HD ${$L('Pending')}`;
-			if (hdStatus === STATUS.BLACKLISTED || status4k === STATUS.BLACKLISTED) return $L('Blacklisted');
+			if (hdStatus === MEDIA_STATUS.AVAILABLE && status4k === MEDIA_STATUS.AVAILABLE) return $L('Available');
+			if (status4k === MEDIA_STATUS.AVAILABLE) return `4K ${$L('Available')}`;
+			if (hdStatus === MEDIA_STATUS.AVAILABLE) return `HD ${$L('Available')}`;
+			if (hdStatus === MEDIA_STATUS.PROCESSING && status4k === MEDIA_STATUS.PROCESSING) return $L('Processing');
+			if (status4k === MEDIA_STATUS.PROCESSING) return `4K ${$L('Processing')}`;
+			if (hdStatus === MEDIA_STATUS.PROCESSING) return `HD ${$L('Processing')}`;
+			if (hdStatus === MEDIA_STATUS.PENDING && status4k === MEDIA_STATUS.PENDING) return $L('Pending');
+			if (status4k === MEDIA_STATUS.PENDING) return `4K ${$L('Pending')}`;
+			if (hdStatus === MEDIA_STATUS.PENDING) return `HD ${$L('Pending')}`;
+			if (hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED) return $L('Blacklisted');
 			return $L('Unavailable');
 		}
-		if (hdStatus === STATUS.PARTIALLY_AVAILABLE || status4k === STATUS.PARTIALLY_AVAILABLE) return $L('Request More');
+		if (hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE || status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE) return $L('Request More');
 		return $L('Request');
 	}, [canRequestAny, hdStatus, status4k, hdDeclined, fourKDeclined]);
 
@@ -1502,7 +1394,7 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 		: details.firstAirDate
 			? new Date(details.firstAirDate).getFullYear()
 			: null;
-	const isAvailable = hdStatus === STATUS.AVAILABLE || hdStatus === STATUS.PARTIALLY_AVAILABLE;
+	const isAvailable = hdStatus === MEDIA_STATUS.AVAILABLE || hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE;
 	const keywords = details.keywords || [];
 
 	return (
