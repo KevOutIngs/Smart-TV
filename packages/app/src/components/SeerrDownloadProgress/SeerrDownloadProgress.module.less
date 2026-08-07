@@ -1,7 +1,8 @@
+@import '../../styles/mixins.less';
+
 .container {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
 	width: 100%;
 	max-width: 560px;
 }
@@ -31,3 +32,5 @@
 		transition: none;
 	}
 }
+
+.container { .flex-col-gap(6px); }

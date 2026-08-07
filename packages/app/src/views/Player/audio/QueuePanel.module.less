@@ -1,3 +1,5 @@
+@import '../../../styles/mixins.less';
+
 .list {
 	height: 100%;
 	overflow-y: auto;
@@ -14,7 +16,6 @@
 .row {
 	display: flex;
 	align-items: center;
-	gap: 12px;
 	padding: 8px 12px;
 	margin: 3px 0;
 	border-radius: 16px;
@@ -94,3 +95,5 @@
 	font-size: 16px;
 	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.54);
 }
+
+.row { .flex-row-gap(12px); }

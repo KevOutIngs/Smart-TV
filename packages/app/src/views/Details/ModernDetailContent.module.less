@@ -1,8 +1,13 @@
+@import '../../styles/mixins.less';
+
 @bg: #0b0d10;
 
 .backdrop {
 	position: absolute;
-	inset: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
 	z-index: 0;
 	background: @bg;
 	overflow: hidden;
@@ -12,7 +17,10 @@
 
 .backdropImage {
 	position: absolute;
-	inset: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
@@ -22,7 +30,35 @@
 .backdrop::after {
 	content: '';
 	position: absolute;
-	inset: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+
+	// Declared twice on purpose. Older TVs have no custom properties, so they
+	// drop the var() pass below and keep this static one, which is all that
+	// stands between white hero text and a full-brightness backdrop. Writing
+	// var(--x, fallback) instead doesn't work, since the build resolves any
+	// var() that has a fallback ahead of time and would freeze the opacity
+	// setting everywhere.
+	background-image:
+		linear-gradient(to right,
+			rgba(11, 13, 16, 1) 0%,
+			rgba(11, 13, 16, 0.9) 35%,
+			rgba(11, 13, 16, 0.45) 60%,
+			rgba(11, 13, 16, 0) 85%
+		),
+		linear-gradient(to top,
+			rgba(11, 13, 16, 1) 0%,
+			rgba(11, 13, 16, 0.4) 42%,
+			rgba(11, 13, 16, 0) 80%
+		),
+		radial-gradient(ellipse at 72% 28%,
+			rgba(0, 0, 0, 0) 42%,
+			rgba(0, 0, 0, 0.45) 100%
+		);
+	background-color: rgba(0, 0, 0, 0.4);
+
 	background-image:
 		linear-gradient(to right,
 			rgba(11, 13, 16, var(--gradient-scale)) 0%,
@@ -43,6 +79,14 @@
 }
 
 .backdropPerson::after {
+	// Static pass first, see .backdrop::after above.
+	background-image: linear-gradient(to top,
+		rgba(11, 13, 16, 1) 0%,
+		rgba(11, 13, 16, 0.6) 50%,
+		rgba(11, 13, 16, 0.45) 100%
+	);
+	background-color: rgba(0, 0, 0, 0.4);
+
 	background-image: linear-gradient(to top,
 		rgba(11, 13, 16, var(--gradient-scale)) 0%,
 		rgba(11, 13, 16, calc(0.6 * var(--gradient-scale))) 50%,
@@ -68,19 +112,26 @@
 	display: flex;
 	flex-direction: row;
 	align-items: flex-start;
-	gap: 60px;
 	min-height: 56vh;
+	// The 60px gap lives on .hasUpNext .heroMain instead, because a `> * + *`
+	// rule here would beat .upNext's `margin-left: auto` and drag the card in
+	// off the right edge.
 }
 
 .heroMain {
-	width: clamp(450px, 85%, 1100px);
+	width: 85%;
+	min-width: 450px;
+	max-width: 1100px;
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
 }
 
 .hasUpNext .heroMain {
-	width: clamp(360px, 50%, 680px);
+	width: 50%;
+	min-width: 360px;
+	max-width: 680px;
+	// Stands in for .hero's gap, see above.
+	margin-right: 60px;
 }
 
 .heroPerson {
@@ -163,7 +214,6 @@
 .descriptionContainer {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
 	padding: 24px;
 	border-radius: 16px;
 	border: 1px solid rgba(255, 255, 255, 0.08);
@@ -201,7 +251,6 @@
 	flex-direction: row;
 	align-items: center;
 	flex-wrap: nowrap;
-	gap: 16px;
 	margin-top: 28px;
 }
 
@@ -306,7 +355,8 @@
 
 .upNextThumb {
 	position: relative;
-	aspect-ratio: 16 / 9;
+	// 400px wide (.upNext) at 16:9.
+	height: 225px;
 	background: #1a1d22;
 }
 
@@ -318,7 +368,10 @@
 
 .upNextPlay {
 	position: absolute;
-	inset: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -353,7 +406,6 @@
 	padding: 14px 16px;
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
 }
 
 .upNextTitle {
@@ -383,20 +435,17 @@
 	display: flex;
 	flex-direction: row;
 	flex-wrap: wrap;
-	gap: 30px;
 }
 
 .episodeList {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
 	max-width: 1600px;
 }
 
 .episodeRow {
 	display: flex;
 	flex-direction: row;
-	gap: 24px;
 	padding: 12px;
 	border-radius: 14px;
 	background: rgba(255, 255, 255, 0.04);
@@ -414,7 +463,6 @@
 	position: relative;
 	flex: 0 0 260px;
 	width: 260px;
-	aspect-ratio: 16 / 9;
 	border-radius: 10px;
 	overflow: hidden;
 	background: #1a1d22;
@@ -448,7 +496,6 @@
 .episodeBody {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
 	padding-top: 6px;
 	min-width: 0;
 }
@@ -480,7 +527,6 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 10px;
 	cursor: pointer;
 	outline: none;
 }
@@ -536,14 +582,14 @@
 	flex-shrink: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
 	cursor: pointer;
 	outline: none;
 }
 
 .chapterThumb {
 	position: relative;
-	aspect-ratio: 16 / 9;
+	// 300px wide (.chapterCard) at 16:9.
+	height: 168.75px;
 	border-radius: 10px;
 	overflow: hidden;
 	background: #1a1d22;
@@ -584,14 +630,12 @@
 .trackList {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
 	max-width: 900px;
 }
 
 .trackRow {
 	display: flex;
 	align-items: center;
-	gap: 20px;
 	padding: 14px 20px;
 	border-radius: 10px;
 	cursor: pointer;
@@ -624,7 +668,6 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 12px;
 	cursor: pointer;
 	outline: none;
 }
@@ -669,7 +712,6 @@
 .detailsPanel {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
 	max-width: 900px;
 }
 
@@ -710,3 +752,21 @@
 	color: var(--theme-text-primary, #ffffff);
 	margin: 0 0 12px;
 }
+
+// Gap fallbacks, see styles/mixins.less. .title, .episodeOverview and
+// .detailStream declare their own margin further up, so these have to stay last.
+.heroMain             { .flex-col-gap(20px); }
+.descriptionContainer { .flex-col-gap(12px); }
+.actions              { .flex-row-gap(16px); }
+.upNextInfo           { .flex-col-gap(6px); }
+.episodeList          { .flex-col-gap(16px); }
+.episodeRow           { .flex-row-gap(24px); }
+.episodeBody          { .flex-col-gap(8px); }
+.castCard             { .flex-col-gap(10px); }
+.chapterCard          { .flex-col-gap(8px); }
+.trackList            { .flex-col-gap(4px); }
+.trackRow             { .flex-row-gap(20px); }
+.studioCard           { .flex-col-gap(12px); }
+.detailsPanel         { .flex-col-gap(20px); }
+
+.grid                 { .flex-wrap-gap(30px); }

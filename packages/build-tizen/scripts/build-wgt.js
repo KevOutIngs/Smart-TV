@@ -387,6 +387,13 @@ async function main() {
 			error('Lint check failed!');
 			process.exit(1);
 		}
+		// enact lint is ESLint only and never sees .less.
+		log('Checking CSS against the browser targets...');
+		const cssGate = spawnSync('node', [path.join(REPO_ROOT, 'scripts', 'check-legacy-css.js')], {stdio: 'inherit'});
+		if (cssGate.status !== 0) {
+			error('CSS target check failed!');
+			process.exit(1);
+		}
 		success('Lint checks passed');
 	}
 

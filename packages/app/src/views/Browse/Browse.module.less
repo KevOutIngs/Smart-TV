@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 @accent: var(--theme-accent, #00a4dc);
 
 .page {
@@ -377,13 +379,14 @@
 	bottom: 0;
 	left: 0;
 	transform: none;
-	width: clamp(280px, 42%, 560px);
+	width: 42%;
+	min-width: 280px;
+	max-width: 560px;
 	padding: 50px 48px 44px 60px;
 	display: -webkit-flex;
 	display: flex;
 	-webkit-flex-direction: column;
 	flex-direction: column;
-	gap: 0;
 	z-index: 2;
 	border-radius: 16px;
 	background: none;
@@ -412,17 +415,19 @@
 	display: flex;
 	-webkit-flex-direction: column;
 	flex-direction: column;
-	gap: 14px;
 }
 
 .makdTextWithLogo {
 	margin-top: auto;
-	margin-bottom: clamp(110px, 15vh, 200px);
+	// Plain vh rather than clamp(110px, 15vh, 200px). The bounds never bind at
+	// either screen type, 162px at fhd and 324px at uhd, so this is equivalent.
+	margin-bottom: 15vh;
 }
 
 .makdTextNoLogo {
 	margin-top: auto;
-	margin-bottom: clamp(90px, 12vh, 170px);
+	// Same as .makdTextWithLogo, the clamp bounds never bind.
+	margin-bottom: 12vh;
 }
 
 .makdTitle {
@@ -1365,3 +1370,5 @@
 		box-shadow: 0 0 6px rgba(var(--theme-accent-rgb, 255, 46, 146), 0.5);
 	}
 }
+
+.makdTextBlock { .flex-col-gap(14px); }

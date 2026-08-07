@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 // Geometry follows Moonfin Core's next up overlay. Core draws its TV layout
 // through a 1.45x scale, so every value there is multiplied by that to land in
 // the real 1920x1080 pixels this stylesheet is written in.
@@ -35,11 +37,17 @@
 .thumb {
 	position: relative;
 	width: 100%;
-	aspect-ratio: 16 / 9;
+	// The overlay is 493px normally and 435px when minimal, so no single height
+	// works here. padding-bottom resolves against the width on every engine.
+	height: 0;
+	padding-bottom: 56.25%;
 	background: rgba(0, 0, 0, 0.4);
 }
 
 .thumbImage {
+	position: absolute;
+	top: 0;
+	left: 0;
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
@@ -48,7 +56,10 @@
 
 .thumbFade {
 	position: absolute;
-	inset: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
 	background: linear-gradient(to top, rgba(0, 0, 0, 0.87) 4%, transparent 55%);
 }
 
@@ -109,7 +120,6 @@
 	display: flex;
 	flex-direction: row;
 	align-items: center;
-	gap: 16px;
 }
 
 .playBtn {
@@ -167,7 +177,10 @@
 
 .ringCenter {
 	position: absolute;
-	inset: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -200,3 +213,5 @@
 	width: 29px;
 	height: 29px;
 }
+
+.actions { .flex-row-gap(16px); }

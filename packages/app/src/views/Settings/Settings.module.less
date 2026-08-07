@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 .page {
 position: fixed;
 top: 0;
@@ -325,7 +327,6 @@ margin-left: 12px;
 .themeCardList {
 display: flex;
 flex-direction: column;
-gap: 4px;
 margin-bottom: 4px;
 }
 
@@ -560,3 +561,5 @@ overflow: hidden;
 height: 100%;
 background: var(--theme-focus-border-color, #00a4dc);
 }
+
+.themeCardList { .flex-col-gap(4px); }

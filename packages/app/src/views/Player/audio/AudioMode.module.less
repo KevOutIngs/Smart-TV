@@ -1,3 +1,5 @@
+@import '../../../styles/mixins.less';
+
 .header {
 	display: flex;
 	align-items: center;
@@ -53,7 +55,6 @@
 	flex: 1;
 	display: flex;
 	align-items: stretch;
-	gap: 24px;
 	padding: 0 16px 260px;
 	min-height: 0;
 }
@@ -177,3 +178,5 @@
 	min-height: 0;
 	overflow: hidden;
 }
+
+.body { .flex-row-gap(24px); }

@@ -116,6 +116,13 @@ try {
 		process.exit(1);
 	}
 
+	// enact lint is ESLint only and never sees .less.
+	console.log('\n Checking CSS against the browser targets...');
+	if (spawnSync('node', [path.join(ROOT_DIR, 'scripts', 'check-legacy-css.js')], {stdio: 'inherit'}).status !== 0) {
+		console.error('CSS target check failed.');
+		process.exit(1);
+	}
+
 	// Production build with Enact
 	console.log('\n Building with Enact...');
 	const browserslistConfig = path.join(APP_DIR, '.browserslistrc');

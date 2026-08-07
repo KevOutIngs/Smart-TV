@@ -1,6 +1,10 @@
-// Gap fallback mixins for webOS compatibility
-// webOS 3.x-4.x use older Chromium that doesn't support flexbox gap
-// These use margin-based spacing which works everywhere
+// Margin-based stand-ins for flexbox gap. Gap needs Chrome 84 and Safari 14.1,
+// so it does nothing on most of the TVs we support, and nothing in the build
+// polyfills it, which leaves a plain gap collapsing silently to zero spacing.
+//
+// Call these from a block at the end of the stylesheet. A `> * + *` rule sits at
+// the same specificity as a plain class, so any child that declares its own
+// margin further down the file would otherwise win and eat the spacing.
 
 .flex-row-gap(@size) {
 	> * + * {
@@ -14,11 +18,17 @@
 	}
 }
 
-.flex-gap(@size) {
-	margin: -(@size / 2);
-	
+// Wrapping containers need this instead. `> * + *` would indent the first item
+// of every row after the first and give no row-to-row spacing at all. Splitting
+// the column spacing across the children and cancelling it on the container's
+// outer edges lands every item exactly where gap put it, whatever padding the
+// container carries. The top edge stays at zero so nothing collapses with the
+// parent's margin-top.
+.flex-wrap-gap(@row; @col: @row) {
+	margin: 0 -(@col / 2) -@row;
+
 	> * {
-		margin: (@size / 2);
+		margin: 0 (@col / 2) @row;
 	}
 }
 

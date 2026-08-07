@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 /* ============================================
    Details Screen - Moonfin webOS
    Matching Plugin design, Enact-ready
@@ -746,7 +748,6 @@
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
-	gap: 6px;
 }
 
 .nextUpTitle {
@@ -1899,3 +1900,5 @@
 	color: #fff;
 	font-size: 18px;
 }
+
+.nextUpInfo { .flex-col-gap(6px); }

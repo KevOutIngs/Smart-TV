@@ -1,8 +1,9 @@
+@import '../../styles/mixins.less';
+
 .tabBar {
 	display: inline-flex;
 	flex-direction: row;
 	flex-wrap: nowrap;
-	gap: 6px;
 	align-items: center;
 	padding: 8px;
 	border-radius: 999px;
@@ -33,3 +34,5 @@
 	color: #101114;
 	transform: scale(1.05);
 }
+
+.tabBar { .flex-row-gap(6px); }

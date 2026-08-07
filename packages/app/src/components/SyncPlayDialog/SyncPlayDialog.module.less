@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 @accent: var(--theme-accent, #00a4dc);
 
 .overlay {
@@ -80,7 +82,6 @@
 
 .createSection {
 	display: flex;
-	gap: 10px;
 	margin-bottom: 20px;
 }
 
@@ -155,7 +156,6 @@
 .divider {
 	display: flex;
 	align-items: center;
-	gap: 12px;
 	margin: 20px 0;
 	color: var(--theme-text-muted, rgba(255, 255, 255, 0.35));
 	font-size: 18px;
@@ -172,7 +172,6 @@
 .groupsList {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
 }
 
 .emptyState {
@@ -214,7 +213,6 @@
 .groupInfo {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
 }
 
 .groupName {
@@ -236,14 +234,12 @@
 .groupView {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
 }
 
 .groupHeader {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 12px;
 }
 
 .groupTitle {
@@ -326,7 +322,6 @@
 .queueControls {
 	display: -webkit-flex;
 	display: flex;
-	gap: 10px;
 }
 
 .controlBtn {
@@ -363,7 +358,6 @@
 	padding: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
 }
 
 .member {
@@ -388,3 +382,12 @@
 	from { transform: scale(0.95); opacity: 0; }
 	to { transform: scale(1); opacity: 1; }
 }
+
+.createSection { .flex-row-gap(10px); }
+.divider       { .flex-row-gap(12px); }
+.groupsList    { .flex-col-gap(10px); }
+.groupInfo     { .flex-col-gap(4px); }
+.groupView     { .flex-col-gap(20px); }
+.groupHeader   { .flex-row-gap(12px); }
+.queueControls { .flex-row-gap(10px); }
+.membersList   { .flex-col-gap(8px); }

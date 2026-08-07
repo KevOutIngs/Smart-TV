@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 @accent: var(--theme-accent, #00a4dc);
 
 .overlay {
@@ -62,7 +64,6 @@
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 4px;
 }
 
 .breadcrumbLink {
@@ -99,7 +100,6 @@
 .headerRight {
 	display: flex;
 	align-items: center;
-	gap: 8px;
 }
 
 .chevronBtn,
@@ -138,7 +138,6 @@
 
 .filterBar {
 	display: flex;
-	gap: 12px;
 	margin-bottom: 20px;
 	flex-shrink: 0;
 }
@@ -235,7 +234,6 @@
 
 .cardRow {
 	display: flex;
-	gap: 12px;
 	padding: 4px 0;
 }
 
@@ -392,7 +390,6 @@
 	align-items: center;
 	margin-bottom: 16px;
 	flex-shrink: 0;
-	gap: 16px;
 }
 
 .backBtn {
@@ -428,7 +425,6 @@
 .resolutionChips {
 	margin-left: auto;
 	display: flex;
-	gap: 8px;
 }
 
 .resolutionChip {
@@ -530,7 +526,6 @@
 	margin-bottom: 20px;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
 }
 
 .sourceItem {
@@ -596,7 +591,6 @@
 .formButtons {
 	display: flex;
 	justify-content: flex-end;
-	gap: 12px;
 }
 
 .btn {
@@ -638,3 +632,12 @@
 		transform: scale(1);
 	}
 }
+
+.breadcrumbs     { .flex-wrap-gap(4px); }
+.headerRight     { .flex-row-gap(8px); }
+.filterBar       { .flex-row-gap(12px); }
+.cardRow         { .flex-row-gap(12px); }
+.gridHeader      { .flex-row-gap(16px); }
+.resolutionChips { .flex-row-gap(8px); }
+.sourcesList     { .flex-col-gap(4px); }
+.formButtons     { .flex-row-gap(12px); }

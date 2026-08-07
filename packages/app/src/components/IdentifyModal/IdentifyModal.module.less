@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 @accent: var(--theme-accent, #00a4dc);
 
 .overlay {
@@ -102,7 +104,6 @@
 	padding: 8px 0;
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
 }
 
 .input {
@@ -131,7 +132,6 @@
 	display: flex;
 	justify-content: center;
 	margin-top: 20px;
-	gap: 12px;
 }
 
 .btn {
@@ -190,3 +190,6 @@
 		transform: scale(1);
 	}
 }
+
+.form        { .flex-col-gap(12px); }
+.formButtons { .flex-row-gap(12px); }

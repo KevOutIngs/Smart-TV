@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 @accent: var(--theme-accent, #00a4dc);
 
 .overlay {
@@ -142,7 +144,6 @@
 	display: flex;
 	justify-content: center;
 	margin-top: 20px;
-	gap: 12px;
 }
 
 .btn {
@@ -201,3 +202,5 @@
 		transform: scale(1);
 	}
 }
+
+.formButtons { .flex-row-gap(12px); }

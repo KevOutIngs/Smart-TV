@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 @accent: var(--accent-color, #00a4dc);
 
 .modal {
@@ -56,7 +58,6 @@
 	flex-wrap: nowrap;
 	justify-content: center;
 	overflow-x: auto;
-	gap: 40px;
 	padding: 20px 10px;
 	margin-bottom: 24px;
 }
@@ -223,7 +224,6 @@
 
 .actionRow {
 	display: flex;
-	gap: 10px;
 
 	> * {
 		flex: 1;
@@ -298,3 +298,6 @@
 		margin-left: 12px;
 	}
 }
+
+.userGrid  { .flex-row-gap(40px); }
+.actionRow { .flex-row-gap(10px); }
