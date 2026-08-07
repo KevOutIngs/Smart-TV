@@ -4,6 +4,7 @@ import MediaRow from '../../components/MediaRow';
 import MediaCard from '../../components/MediaCard';
 import RatingsRow from '../../components/RatingsRow';
 import {formatDuration, getImageUrl} from '../../utils/helpers';
+import {castPhotoUrl} from './detailsMedia';
 import {isMdblistEnabled} from '../../services/mdblistApi';
 import {formatTime} from '../Player/PlayerConstants';
 import {SeerrStatusBadge, SeerrDownloadBars, SeerrSeasonDot} from '../../components/seerr/SeerrStatusBadge';
@@ -352,9 +353,9 @@ const ClassicDetailScreen = ({
 						{cast.map(person => (
 							<SpottableDiv key={person.Id} className={css.castCard} data-person-id={person.Id} onClick={onCastSelect}>
 								<div className={css.castImageWrapper}>
-									{person.PrimaryImageTag ? (
+									{castPhotoUrl(person, serverUrl, 280) ? (
 										<img
-											src={getImageUrl(serverUrl, person.Id, 'Primary', {maxHeight: 280, quality: 80})}
+											src={castPhotoUrl(person, serverUrl, 280)}
 											className={css.castImage}
 											alt=""
 										/>

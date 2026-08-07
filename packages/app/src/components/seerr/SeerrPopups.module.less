@@ -11,84 +11,6 @@
 	margin: 0 auto;
 }
 
-.qualityPopupContent {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	min-width: 300px;
-
-	> * + * {
-		margin-top: 16px;
-	}
-}
-
-.qualityPopupTitle {
-	font-size: 24px;
-	font-weight: 700;
-	color: var(--theme-text-primary, #ffffff);
-	margin: 0;
-}
-
-.qualityPopupSubtitle {
-	font-size: 16px;
-	color: var(--theme-text-secondary, #9ca3af);
-	margin: 0;
-}
-
-.qualityButtons {
-	display: flex;
-	flex-direction: column;
-	width: 100%;
-
-	> * + * {
-		margin-top: 16px;
-	}
-}
-
-.qualityButton {
-	width: 100%;
-	padding: 16px 24px;
-	font-size: 18px;
-	font-weight: 600;
-	background: rgba(var(--theme-accent-rgb, 99, 102, 241), 0.2);
-	border: 2px solid var(--theme-accent, #6366f1);
-	border-radius: 12px;
-	color: var(--theme-text-primary, #ffffff);
-	cursor: pointer;
-	transition: all 0.2s;
-
-	&:focus {
-		background: var(--theme-button-focused, rgba(var(--theme-accent-rgb, 99, 102, 241), 0.6));
-		border-color: var(--theme-focus-border-color, #6366f1);
-		transform: scale(1.05);
-	}
-}
-
-.qualityButtonDisabled {
-	opacity: 0.4;
-	cursor: not-allowed;
-
-	&:focus {
-		transform: none;
-		background: rgba(var(--theme-accent-rgb, 99, 102, 241), 0.2);
-	}
-}
-
-.qualityCancelButton {
-	padding: 12px 32px;
-	font-size: 16px;
-	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.1);
-	border: 1px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
-	border-radius: 8px;
-	color: var(--theme-text-secondary, #9ca3af);
-	cursor: pointer;
-	transition: all 0.2s;
-
-	&:focus {
-		background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
-	}
-}
-
 .cancelPopupContent {
 	display: flex;
 	flex-direction: column;
@@ -768,7 +690,6 @@
 }
 
 :global(html[data-theme-id='neon_pulse']) {
-	.qualityPopupTitle,
 	.cancelPopupTitle,
 	.seasonPopupTitle,
 	.advancedPopupTitle,
@@ -780,7 +701,6 @@
 		letter-spacing: 0.4px;
 	}
 
-	.qualityPopupSubtitle,
 	.cancelPopupDescription,
 	.seasonPopupSubtitle,
 	.advancedPopupSubtitle,
@@ -789,7 +709,6 @@
 	}
 
 	.seasonCheckItem,
-	.qualityButton,
 	.cancelConfirmButton,
 	.cancelKeepButton,
 	.advancedConfirmButton {

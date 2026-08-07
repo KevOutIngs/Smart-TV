@@ -122,3 +122,7 @@ export const withUnknownIds = (catalogue, saved, stored) => {
 	const offElsewhere = toIds(stored.hidden).filter((id) => !known.has(id));
 	return {order, hidden: [...saved.hidden, ...offElsewhere]};
 };
+
+// With nothing in the library to play, mark or add anywhere, the only actions left worth
+// offering are the ones that ask Seerr for the title.
+export const seerrOnlyRow = (buttons) => buttons.filter((item) => item.id.startsWith('seerr'));

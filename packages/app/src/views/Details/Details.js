@@ -15,6 +15,8 @@ import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubt
 import useLongPress from '../../utils/longPress';
 import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 
+import {isSeerrOnlyItem} from '../../utils/seerrTarget';
+import {buildSeerrDetailItem} from '../../utils/seerrDetailItem';
 import {COLLECTION_ITEM_TYPES, IDENTIFIABLE_TYPES, getMediaBadges, shuffleArray} from './detailsMedia';
 import useDetailsItem from './useDetailsItem';
 import useDetailsModals from './useDetailsModals';
@@ -83,15 +85,19 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	// keep its title hidden behind the fallback.
 	useEffect(() => setLogoFailed(false), [itemId]);
 
+	// Seerr supplies the whole screen for a title the library doesn't have.
+	const seerrOnly = isSeerrOnlyItem(initialItem);
+
 	const data = useDetailsItem({
 		itemId,
 		effectiveApi,
 		effectiveServerUrl,
 		settings,
-		tagWithServerInfo
+		tagWithServerInfo,
+		skip: seerrOnly
 	});
 	const {
-		item, setItem, isLoading, seasons, episodes, similar, extras, cast, nextUp, nextEpisode,
+		setItem, isLoading: libraryLoading, seasons, episodes, similar, extras, cast, nextUp, nextEpisode,
 		collectionItems, parentCollection, parentCollectionName, albumTracks, artistAlbums,
 		playlistItems, setPlaylistItems, episodeRatings, refreshItem,
 		selectedVersionIndex, setSelectedVersionIndex,
@@ -99,7 +105,14 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		selectedSubtitleIndex, setSelectedSubtitleIndex
 	} = data;
 
-	const seerr = useSeerrOverlay({item});
+	const seerr = useSeerrOverlay({item: seerrOnly ? initialItem : data.item});
+
+	const seerrItem = useMemo(
+		() => (seerrOnly ? buildSeerrDetailItem(seerr.details, seerr.mediaType) : null),
+		[seerrOnly, seerr.details, seerr.mediaType]
+	);
+	const item = seerrOnly ? seerrItem : data.item;
+	const isLoading = seerrOnly ? seerr.loading : libraryLoading;
 
 	// The Seerr popups have to answer BACK before the screen's own overlays do, and the ref is
 	// how they reach the handler useDetailsModals owns.
@@ -163,10 +176,10 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	useEffect(() => {
 		if (isLoading || !loadedItemId) return undefined;
 		const timer = setTimeout(() => {
-			Spotlight.focus('details-primary-btn');
+			Spotlight.focus(seerrOnly ? 'details-action-buttons' : 'details-primary-btn');
 		}, 150);
 		return () => clearTimeout(timer);
-	}, [isLoading, loadedItemId]);
+	}, [isLoading, loadedItemId, seerrOnly]);
 
 	const logoUrl = useMemo(
 			() => (item ? getLogoUrl(effectiveServerUrl, item, {maxWidth: 400, quality: 90}) : null),
@@ -487,10 +500,15 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	const handleCastSelect = useCallback((ev) => {
 		const personId = ev.currentTarget.dataset.personId;
-		if (personId) {
-			onSelectPerson?.({Id: personId});
+		if (!personId) return;
+		// A Seerr cast member is a TMDB person, so they open on the Seerr side of the app.
+		if (seerrOnly) {
+			const person = item?.People?.find((p) => p.Id === personId);
+			seerrNav?.onSelectPerson?.(Number(personId), person?.Name);
+			return;
 		}
-	}, [onSelectPerson]);
+		onSelectPerson?.({Id: personId});
+	}, [onSelectPerson, seerrOnly, seerrNav, item]);
 
 	const handlePlaylistItemSelect = useCallback((ev) => {
 		const plItemId = ev.currentTarget.dataset.playlistItemId;
@@ -621,9 +639,9 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	}
 
 	const backdropId = getBackdropId(item);
-	const backdropUrl = backdropId
-		? getImageUrl(effectiveServerUrl, backdropId, 'Backdrop', {maxWidth: 1920, quality: 90})
-		: null;
+	// Seerr artwork already arrives as a finished url, since it lives on TMDB rather than here.
+	const backdropUrl = item._externalBackdropUrl ||
+		(backdropId ? getImageUrl(effectiveServerUrl, backdropId, 'Backdrop', {maxWidth: 1920, quality: 90}) : null);
 
 	const isEpisode = item.Type === 'Episode';
 	const isSeries = item.Type === 'Series';
@@ -641,15 +659,17 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	// music and playlists rather than offering a call the server would reject.
 	const canAddToCollection = COLLECTION_ITEM_TYPES.includes(item.Type);
 
-	let posterUrl = null;
-	if (isEpisode) {
-		if (item.ImageTags?.Thumb) {
-			posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Thumb', {maxWidth: 500, quality: 90});
+	let posterUrl = item._externalPosterUrl || null;
+	if (!posterUrl) {
+		if (isEpisode) {
+			if (item.ImageTags?.Thumb) {
+				posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Thumb', {maxWidth: 500, quality: 90});
+			} else if (item.ImageTags?.Primary) {
+				posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Primary', {maxWidth: 500, quality: 90});
+			}
 		} else if (item.ImageTags?.Primary) {
-			posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Primary', {maxWidth: 500, quality: 90});
+			posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Primary', {maxHeight: 600, quality: 90});
 		}
-	} else if (item.ImageTags?.Primary) {
-		posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Primary', {maxHeight: 600, quality: 90});
 	}
 
 	const year = item.ProductionYear || '';
@@ -675,6 +695,8 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	const hasPlaybackPosition = item.UserData?.PlaybackPositionTicks > 0;
 	const resumeTimeText = hasPlaybackPosition ? formatDuration(item.UserData.PlaybackPositionTicks) : '';
+
+	const detailCast = seerrOnly ? item.People || [] : cast;
 
 	const personMovies = isPerson ? similar.filter(i => i.Type === 'Movie') : [];
 	const personSeries = isPerson ? similar.filter(i => i.Type === 'Series') : [];
@@ -744,6 +766,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 					settings={settings}
 					seerr={seerr}
 					seerrNav={seerrNav}
+					seerrOnly={seerrOnly}
 					onSelectSeerrCard={handleSelectSeerrCard}
 					canChangeArtwork={canChangeArtwork}
 					handleOpenArtworkModal={modals.handleOpenArtworkModal}
@@ -777,7 +800,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 					episodes={episodes}
 					similar={similar}
 					extras={extras}
-					cast={cast}
+					cast={detailCast}
 					nextUp={nextUp}
 					collectionItems={collectionItems}
 					albumTracks={albumTracks}
@@ -945,6 +968,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			item={item}
 			settings={settings}
 			seerr={seerr}
+			seerrOnly={seerrOnly}
 			isSeries={isSeries}
 			isSeason={isSeason}
 			isEpisode={isEpisode}
@@ -1013,7 +1037,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				nextEpisode={nextEpisode}
 				collectionItems={collectionItems}
 				extras={extras}
-				cast={cast}
+				cast={detailCast}
 				parentCollection={parentCollection}
 				parentCollectionName={parentCollectionName}
 				similar={similar}

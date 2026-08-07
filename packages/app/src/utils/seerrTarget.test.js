@@ -1,4 +1,4 @@
-import {seerrTargetFor} from './seerrTarget';
+import {seerrTargetFor, seerrDetailStub, isSeerrOnlyItem} from './seerrTarget';
 
 const movie = (providerIds) => ({Type: 'Movie', ProviderIds: providerIds});
 
@@ -25,5 +25,22 @@ describe('seerrTargetFor', () => {
 		expect(seerrTargetFor(movie({Tmdb: ''}))).toEqual(idle);
 		expect(seerrTargetFor(movie({Tmdb: 'not-a-number'}))).toEqual(idle);
 		expect(seerrTargetFor(movie(undefined))).toEqual(idle);
+	});
+});
+
+describe('seerrDetailStub', () => {
+	it('carries the Seerr identity that seerrTargetFor reads back out', () => {
+		const stub = seerrDetailStub({mediaId: 603, mediaType: 'movie'});
+		expect(isSeerrOnlyItem(stub)).toBe(true);
+		expect(seerrTargetFor(stub)).toEqual({mediaId: 603, mediaType: 'movie'});
+	});
+
+	it('calls a series a Series, so the screen lays it out as one', () => {
+		expect(seerrDetailStub({mediaId: 1399, mediaType: 'tv'}).Type).toBe('Series');
+		expect(seerrDetailStub({mediaId: 603, mediaType: 'movie'}).Type).toBe('Movie');
+	});
+
+	it('leaves a library item alone', () => {
+		expect(isSeerrOnlyItem({Type: 'Movie', ProviderIds: {Tmdb: '603'}})).toBe(false);
 	});
 });

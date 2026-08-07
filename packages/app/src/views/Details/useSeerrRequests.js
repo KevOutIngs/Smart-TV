@@ -1,9 +1,6 @@
 // The request flow: what the viewer is allowed to ask for, which popup that takes them
-// through, and cancelling or reporting a problem afterwards.
-//
-// HD and 4K are tracked separately and the detail screen gives each one its own button, so the
-// per-track calls are the ones to reach for. The combined pair, handleRequestClick with the
-// quality popup behind it, is only still here for the standalone Seerr screen.
+// through, and cancelling or reporting a problem afterwards. HD and 4K are tracked separately
+// and each has its own control, so everything here works one track at a time.
 
 import {useCallback, useMemo, useState} from 'react';
 import $L from '@enact/i18n/$L';
@@ -17,18 +14,16 @@ const useSeerrRequests = ({
 	userPermissions, hasHdServer, has4kServer, hdStatus, status4k
 }) => {
 	const [requesting, setRequesting] = useState(false);
-	const [showQualityPopup, setShowQualityPopup] = useState(false);
 	const [showSeasonPopup, setShowSeasonPopup] = useState(false);
 	const [showAdvancedPopup, setShowAdvancedPopup] = useState(false);
 	const [pendingIs4k, setPendingIs4k] = useState(false);
 	const [pendingSeasons, setPendingSeasons] = useState(null);
 	const [showCancelPopup, setShowCancelPopup] = useState(false);
-	// Which track the cancel popup is about, or null for every open request at once.
-	const [cancelScope, setCancelScope] = useState(null);
+	// Which track the cancel popup is about.
+	const [cancelScope, setCancelScope] = useState(false);
 	const [showReportPopup, setShowReportPopup] = useState(false);
 	const [showManagePopup, setShowManagePopup] = useState(false);
 
-	const handleCloseQualityPopup = useCallback(() => setShowQualityPopup(false), []);
 	const handleCloseSeasonPopup = useCallback(() => setShowSeasonPopup(false), []);
 	const handleCloseAdvancedPopup = useCallback(() => setShowAdvancedPopup(false), []);
 	const handleCloseCancelPopup = useCallback(() => setShowCancelPopup(false), []);
@@ -43,10 +38,9 @@ const useSeerrRequests = ({
 		if (showReportPopup) { setShowReportPopup(false); return true; }
 		if (showAdvancedPopup) { setShowAdvancedPopup(false); return true; }
 		if (showSeasonPopup) { setShowSeasonPopup(false); return true; }
-		if (showQualityPopup) { setShowQualityPopup(false); return true; }
 		if (showCancelPopup) { setShowCancelPopup(false); return true; }
 		return false;
-	}, [showQualityPopup, showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup, showManagePopup]);
+	}, [showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup, showManagePopup]);
 
 	// Issue reports need the seerr internal media id, so the title has to be at least
 	// partially available on the server before the button is offered.
@@ -151,8 +145,6 @@ const useSeerrRequests = ({
 		return userCan4k && has4kServer;
 	}, [isAuthenticated, isBlacklisted, status4k, fourKDeclined, userPermissions, has4kServer, mediaType]);
 
-	const canRequestAny = canRequestHd || canRequest4k;
-
 	const hasAdvanced = useMemo(() =>
 		hasAdvancedRequestPermission(userPermissions),
 	[userPermissions]);
@@ -161,27 +153,6 @@ const useSeerrRequests = ({
 		getStatusBadge(hdStatus, status4k, hdDeclined, fourKDeclined),
 	[hdStatus, status4k, hdDeclined, fourKDeclined]
 	);
-
-	const requestButtonLabel = useMemo(() => {
-		if (!canRequestAny) {
-			if (hdDeclined && fourKDeclined) return $L('Declined');
-			if (fourKDeclined) return `4K ${$L('Declined')}`;
-			if (hdDeclined) return `HD ${$L('Declined')}`;
-			if (hdStatus === MEDIA_STATUS.AVAILABLE && status4k === MEDIA_STATUS.AVAILABLE) return $L('Available');
-			if (status4k === MEDIA_STATUS.AVAILABLE) return `4K ${$L('Available')}`;
-			if (hdStatus === MEDIA_STATUS.AVAILABLE) return `HD ${$L('Available')}`;
-			if (hdStatus === MEDIA_STATUS.PROCESSING && status4k === MEDIA_STATUS.PROCESSING) return $L('Processing');
-			if (status4k === MEDIA_STATUS.PROCESSING) return `4K ${$L('Processing')}`;
-			if (hdStatus === MEDIA_STATUS.PROCESSING) return `HD ${$L('Processing')}`;
-			if (hdStatus === MEDIA_STATUS.PENDING && status4k === MEDIA_STATUS.PENDING) return $L('Pending');
-			if (status4k === MEDIA_STATUS.PENDING) return `4K ${$L('Pending')}`;
-			if (hdStatus === MEDIA_STATUS.PENDING) return `HD ${$L('Pending')}`;
-			if (hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED) return $L('Blacklisted');
-			return $L('Unavailable');
-		}
-		if (hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE || status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE) return $L('Request More');
-		return $L('Request');
-	}, [canRequestAny, hdStatus, status4k, hdDeclined, fourKDeclined]);
 
 	const reloadDetails = useCallback(async () => {
 		const updated = mediaType === 'movie'
@@ -205,7 +176,6 @@ const useSeerrRequests = ({
 	const handleRequest = useCallback(async (is4K = false, seasons = null, advancedOptions = null) => {
 		if (requesting) return;
 
-		setShowQualityPopup(false);
 		setShowSeasonPopup(false);
 		setShowAdvancedPopup(false);
 		setRequesting(true);
@@ -252,11 +222,6 @@ const useSeerrRequests = ({
 		proceedWithRequest(is4k);
 	}, [mediaType, details?.seasons, proceedWithRequest]);
 
-	const handleQualitySelect = useCallback((is4K) => {
-		setShowQualityPopup(false);
-		handleRequestTrack(is4K);
-	}, [handleRequestTrack]);
-
 	const handleSeasonConfirm = useCallback((selectedSeasons) => {
 		proceedWithRequest(pendingIs4k, selectedSeasons);
 	}, [pendingIs4k, proceedWithRequest]);
@@ -265,36 +230,15 @@ const useSeerrRequests = ({
 		handleRequest(pendingIs4k, pendingSeasons, advancedOptions);
 	}, [pendingIs4k, pendingSeasons, handleRequest]);
 
-	const handleRequestClick = useCallback(() => {
-		if (!canRequestAny) return;
-
-		if (!hasHdServer && !has4kServer) {
-			const mediaTypeName = mediaType === 'movie' ? $L('movies') : $L('TV shows');
-			setError($L('No Radarr/Sonarr server configured for {mediaType} in Seerr').replace('{mediaType}', mediaTypeName));
-			return;
-		}
-
-		if (canRequestHd && canRequest4k) {
-			setShowQualityPopup(true);
-			return;
-		}
-		handleRequestTrack(canRequest4k);
-	}, [canRequestAny, canRequestHd, canRequest4k, handleRequestTrack, hasHdServer, has4kServer, mediaType, setError]);
-
-	const handleCancelRequestClick = useCallback(() => {
-		if (activeRequests.length === 0) return;
-		setCancelScope(null);
-		setShowCancelPopup(true);
-	}, [activeRequests]);
-
 	const handleCancelTrack = useCallback((is4k) => {
 		setCancelScope(is4k);
 		setShowCancelPopup(true);
 	}, []);
 
-	const cancelTargets = useMemo(() => (
-		cancelScope === null ? activeRequests : activeRequests.filter(r => Boolean(r.is4k) === cancelScope)
-	), [activeRequests, cancelScope]);
+	const cancelTargets = useMemo(
+		() => activeRequests.filter(r => Boolean(r.is4k) === cancelScope),
+		[activeRequests, cancelScope]
+	);
 
 	const handleCancelConfirm = useCallback(async () => {
 		setShowCancelPopup(false);
@@ -335,25 +279,20 @@ const useSeerrRequests = ({
 		canManage,
 		canReportIssue,
 		canRequest4k,
-		canRequestAny,
 		canRequestHd,
 		closeTopPopup,
 		fourKDeclined,
 		handleAdvancedConfirm,
 		handleCancelConfirm,
-		handleCancelRequestClick,
 		handleCloseAdvancedPopup,
 		handleCloseCancelPopup,
 		handleCloseManagePopup,
-		handleCloseQualityPopup,
 		handleCloseReportPopup,
 		handleCancelTrack,
 		handleCloseSeasonPopup,
 		handleManageRequestsClick,
-		handleQualitySelect,
 		handleReportIssueClick,
 		handleReportSubmit,
-		handleRequestClick,
 		handleRequestTrack,
 		handleResolveRequest,
 		handleSeasonConfirm,
@@ -363,7 +302,6 @@ const useSeerrRequests = ({
 		hdDeclined,
 		pendingIs4k,
 		pendingRequests,
-		requestButtonLabel,
 		requestLabel,
 		requestLabel4k,
 		seasonMarkers,
@@ -372,7 +310,6 @@ const useSeerrRequests = ({
 		showAdvancedPopup,
 		showCancelPopup,
 		showManagePopup,
-		showQualityPopup,
 		showReportPopup,
 		showSeasonPopup,
 		statusBadge

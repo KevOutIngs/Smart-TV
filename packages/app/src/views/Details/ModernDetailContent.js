@@ -12,9 +12,10 @@ import {SeerrChips, SeerrFacts, SeerrCollectionBanner} from '../../components/se
 import RatingsRow from '../../components/RatingsRow';
 import DetailsTabBar from '../../components/DetailsTabBar';
 import {getImageUrl, formatDuration} from '../../utils/helpers';
+import {castPhotoUrl} from './detailsMedia';
 import {KEYS} from '../../utils/keys';
 import {DETAIL_ICON_PATHS} from './detailIcons';
-import {arrange, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
+import {arrange, seerrOnlyRow, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
 
 import css from './ModernDetailContent.module.less';
 
@@ -64,7 +65,7 @@ const ModernDetailContent = (props) => {
 		handleChapterSelect, handleExtraSelect, handleTrackPlay,
 		onSelectItem, onSelectPerson, onSelectStudio,
 		canChangeArtwork, handleOpenArtworkModal, handleOpenIdentifyModal,
-		seerr, seerrNav, onSelectSeerrCard
+		seerr, seerrNav, seerrOnly, onSelectSeerrCard
 	} = props;
 
 	// Blur and opacity share one stored value, and the blur options reach 40 while
@@ -363,9 +364,7 @@ const ModernDetailContent = (props) => {
 	const renderCastTab = () => (
 		<RowContainer className={css.grid}>
 			{cast.map((person) => {
-				const photo = person.PrimaryImageTag
-					? getImageUrl(effectiveServerUrl, person.Id, 'Primary', {maxHeight: 300, quality: 80})
-					: null;
+				const photo = castPhotoUrl(person, effectiveServerUrl, 300);
 				return (
 					<SpottableDiv key={person.Id} className={css.castCard} data-person-id={person.Id} onClick={handleCastClick}>
 						<div className={css.castPhoto}>
@@ -536,7 +535,7 @@ const ModernDetailContent = (props) => {
 
 	// Declaration order is where a button the user never placed ends up, so keep it stable.
 	const renderActionButtons = () => {
-		const customizable = arrange([
+		const offered = [
 			{id: 'seerrRequest', when: seerr.showsRequest, render: () => (
 				<ActionButton
 					path={seerr.hasOpenHdRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}
@@ -567,14 +566,19 @@ const ModernDetailContent = (props) => {
 			{id: 'seerrReportIssue', when: seerr.showsReportIssue, render: () => <ActionButton path={DETAIL_ICON_PATHS.reportIssue} label={$L('Report Issue')} onClick={seerr.handleReportIssueClick} />},
 			{id: 'seerrManage', when: seerr.showsManage, render: () => <ActionButton path={DETAIL_ICON_PATHS.manageRequests} label={$L('Manage Requests')} onClick={seerr.handleManageRequestsClick} />},
 			{id: 'admin', when: Boolean(handleOpenIdentifyModal), render: () => <ActionButton path={DETAIL_ICON_PATHS.admin} label={$L('Admin Controls')} onClick={handleOpenIdentifyModal} />}
-		].filter((btn) => btn.when), {order: settings[DETAIL_ORDER_KEY], hidden: settings[DETAIL_HIDDEN_KEY]});
+		];
+		const rowButtons = seerrOnly ? seerrOnlyRow(offered) : offered;
+		const customizable = arrange(
+			rowButtons.filter((btn) => btn.when),
+			{order: settings[DETAIL_ORDER_KEY], hidden: settings[DETAIL_HIDDEN_KEY]}
+		);
 
 		return (
 			<RowContainer className={css.actions} spotlightId="details-action-buttons" onFocus={handleActionsFocus} onKeyDown={handleActionsKeyDown}>
-				{hasPlaybackPosition && !isBook && (
+				{!seerrOnly && hasPlaybackPosition && !isBook && (
 					<ActionButton primary path={DETAIL_ICON_PATHS.play} label={$L('Resume')} detail={resumeTimeText} onClick={handleResume} spotlightId="details-primary-btn" />
 				)}
-				{(isBook ? isReadableBook : true) && (
+				{!seerrOnly && (isBook ? isReadableBook : true) && (
 					<ActionButton
 						primary={!hasPlaybackPosition}
 						path={isBook ? DETAIL_ICON_PATHS.book : hasPlaybackPosition ? DETAIL_ICON_PATHS.restart : DETAIL_ICON_PATHS.play}

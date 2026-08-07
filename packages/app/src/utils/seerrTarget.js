@@ -8,7 +8,20 @@
 
 export const IDLE = {mediaId: null, mediaType: null};
 
+// How a Seerr title reaches the detail screen when the library has nothing to open for it.
+export const seerrDetailStub = ({mediaId, mediaType}) => ({
+	Id: `seerr-${mediaType}-${mediaId}`,
+	Type: mediaType === 'tv' ? 'Series' : 'Movie',
+	_seerrMediaId: mediaId,
+	_seerrMediaType: mediaType
+});
+
+export const isSeerrOnlyItem = (item) => item?._seerrMediaId != null;
+
 export const seerrTargetFor = (item) => {
+	if (isSeerrOnlyItem(item)) {
+		return {mediaId: Number(item._seerrMediaId), mediaType: item._seerrMediaType === 'tv' ? 'tv' : 'movie'};
+	}
 	if (item?.Type !== 'Movie' && item?.Type !== 'Series') return IDLE;
 	const tmdbId = Number(item.ProviderIds?.Tmdb);
 	if (!Number.isFinite(tmdbId) || tmdbId <= 0) return IDLE;

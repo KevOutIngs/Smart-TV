@@ -1,4 +1,4 @@
-import {ordered, arrange, hiddenSet, withUnknownIds, DETAIL_BUTTONS, OSD_BUTTONS} from './buttonLayout';
+import {ordered, arrange, hiddenSet, withUnknownIds, seerrOnlyRow, DETAIL_BUTTONS, OSD_BUTTONS} from './buttonLayout';
 
 const ids = (list) => list.map((item) => item.id);
 const declare = (...list) => list.map((id) => ({id}));
@@ -105,5 +105,12 @@ describe('the button catalogues', () => {
 	it('leaves the primary play button out, since it always leads the row', () => {
 		expect(ids(DETAIL_BUTTONS)).not.toContain('play');
 		expect(ids(DETAIL_BUTTONS)).not.toContain('restart');
+	});
+});
+
+describe('seerrOnlyRow', () => {
+	it('keeps only the actions that ask Seerr for a title', () => {
+		const row = declare('seerrRequest', 'watched', 'seerrRequest4k', 'favorite', 'seerrManage');
+		expect(ids(seerrOnlyRow(row))).toEqual(['seerrRequest', 'seerrRequest4k', 'seerrManage']);
 	});
 });

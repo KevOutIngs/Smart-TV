@@ -11,6 +11,7 @@ import {AuthProvider, useAuth} from '../context/AuthContext';
 import {useSettings} from '../context/SettingsContext';
 import * as connectionPool from '../services/connectionPool';
 import * as jellyfinApi from '../services/jellyfinApi';
+import {seerrDetailStub} from '../utils/seerrTarget';
 import serverLogger from '../services/serverLogger';
 import {isBackKey, KEYS} from '../utils/keys';
 import {applyPerfTier} from '../utils/perfTier';
@@ -57,7 +58,6 @@ const Person = lazy(() => import('../views/Person'));
 const LiveTV = lazy(() => import('../views/LiveTV'));
 const Recordings = lazy(() => import('../views/Recordings'));
 const SeerrDiscover = lazy(() => import('../views/SeerrDiscover'));
-const SeerrDetails = lazy(() => import('../views/SeerrDetails'));
 const SeerrRequests = lazy(() => import('../views/SeerrRequests'));
 const SeerrBrowse = lazy(() => import('../views/SeerrBrowse'));
 const SeerrPerson = lazy(() => import('../views/SeerrPerson'));
@@ -109,18 +109,17 @@ const PANELS = {
 	PERSON: 9,
 	LIVETV: 10,
 	SEERR_DISCOVER: 11,
-	SEERR_DETAILS: 12,
-	SEERR_REQUESTS: 13,
-	GENRE_BROWSE: 14,
-	RECORDINGS: 15,
-	SEERR_BROWSE: 16,
-	SEERR_PERSON: 17,
-	ADD_SERVER: 18,
-	ADD_USER: 19,
-	GAMES: 20,
-	GAME_DETAILS: 21,
-	GAME_PLAYER: 22,
-	SEERR_COLLECTION: 23
+	SEERR_REQUESTS: 12,
+	GENRE_BROWSE: 13,
+	RECORDINGS: 14,
+	SEERR_BROWSE: 15,
+	SEERR_PERSON: 16,
+	ADD_SERVER: 17,
+	ADD_USER: 18,
+	GAMES: 19,
+	GAME_DETAILS: 20,
+	GAME_PLAYER: 21,
+	SEERR_COLLECTION: 22
 };
 
 const AppContent = (props) => {
@@ -153,7 +152,6 @@ const AppContent = (props) => {
 	const [isResume, setIsResume] = useState(false);
 	const [isPlayerPaused, setIsPlayerPaused] = useState(false);
 	const [panelHistory, setPanelHistory] = useState([]);
-	const [seerrItem, setSeerrItem] = useState(null);
 	const [seerrBrowse, setSeerrBrowse] = useState(null);
 	const [seerrPerson, setSeerrPerson] = useState(null);
 	const [authChecked, setAuthChecked] = useState(false);
@@ -169,7 +167,6 @@ const AppContent = (props) => {
 	const cleanupHandlersRef = useRef(null);
 	const backHandlerRef = useRef(null);
 	const detailsItemStackRef = useRef([]);
-	const seerrItemStackRef = useRef([]);
 	const [seerrCollection, setSeerrCollection] = useState(null);
 	const prevUserIdRef = useRef(null);
 	const [photoViewerItem, setPhotoViewerItem] = useState(null);
@@ -501,7 +498,6 @@ const AppContent = (props) => {
 
 	const handleBack = useCallback(() => {
 		detailsItemStackRef.current = [];
-		seerrItemStackRef.current = [];
 		if (panelIndex === PANELS.ADD_SERVER || panelIndex === PANELS.ADD_USER) {
 			setPanelHistory([]);
 			setPanelIndex(PANELS.SETTINGS);
@@ -562,10 +558,6 @@ const AppContent = (props) => {
 					setSelectedItem(detailsItemStackRef.current.pop());
 					return;
 				}
-				if (panelIndex === PANELS.SEERR_DETAILS && seerrItemStackRef.current.length > 0) {
-					setSeerrItem(seerrItemStackRef.current.pop());
-					return;
-				}
 				handleBack();
 			}
 		};
@@ -587,21 +579,6 @@ const AppContent = (props) => {
 	}, []);
 
 	const handleSelectItem = useCallback((item) => {
-		if (item.isSeerr) {
-			const seerrMapped = normalizeSeerrSelection(item);
-			if (!seerrMapped) {
-				return;
-			}
-			if (panelIndex === PANELS.SEERR_DETAILS && seerrItem) {
-				seerrItemStackRef.current.push(seerrItem);
-				setSeerrItem(seerrMapped);
-			} else {
-				seerrItemStackRef.current = [];
-				setSeerrItem(seerrMapped);
-				navigateTo(PANELS.SEERR_DETAILS);
-			}
-			return;
-		}
 		if (item.Type === 'Photo') {
 			setPhotoViewerItem(item);
 			return;
@@ -626,7 +603,7 @@ const AppContent = (props) => {
 			setSelectedItem(item);
 			navigateTo(PANELS.DETAILS);
 		}
-	}, [navigateTo, panelIndex, selectedItem, seerrItem]);
+	}, [navigateTo, panelIndex, selectedItem]);
 
 	const handleViewPhoto = useCallback((item, siblings) => {
 		setPhotoViewerItem(item);
@@ -861,7 +838,6 @@ const AppContent = (props) => {
 		setSelectedGenre(null);
 		setGenreFilter(null);
 		setStudioFilter(null);
-		setSeerrItem(null);
 		setSeerrBrowse(null);
 		setSeerrPerson(null);
 		window.dispatchEvent(new CustomEvent('moonfin:browseRefresh'));
@@ -898,20 +874,15 @@ const AppContent = (props) => {
 		setPanelIndex(PANELS.BROWSE);
 	}, []);
 
+	// A Seerr title opens on the same detail screen as everything else, carrying its Seerr
+	// identity in place of a library id.
 	const handleSelectSeerrItem = useCallback((item) => {
 		const normalized = normalizeSeerrSelection(item);
 		if (!normalized) {
 			return;
 		}
-		if (panelIndex === PANELS.SEERR_DETAILS && seerrItem) {
-			seerrItemStackRef.current.push(seerrItem);
-			setSeerrItem(normalized);
-		} else {
-			seerrItemStackRef.current = [];
-			setSeerrItem(normalized);
-			navigateTo(PANELS.SEERR_DETAILS);
-		}
-	}, [navigateTo, panelIndex, seerrItem]);
+		handleSelectItem(seerrDetailStub(normalized));
+	}, [handleSelectItem]);
 
 	const handleSelectSeerrGenre = useCallback((genreId, genreName, mediaType) => {
 		setSeerrBrowse({browseType: 'genre', item: {id: genreId, name: genreName}, mediaType});
@@ -944,14 +915,15 @@ const AppContent = (props) => {
 	}, [navigateTo]);
 
 	// Everywhere the detail screen can send a viewer into the Seerr side of the app, bundled
-	// into one prop rather than five.
+	// into one prop rather than six.
 	const seerrNav = useMemo(() => ({
 		onSelectItem: handleSelectSeerrItem,
+		onSelectPerson: handleSelectSeerrPerson,
 		onSelectKeyword: handleSelectSeerrKeyword,
 		onSelectGenre: handleSelectSeerrGenre,
 		onSelectNetwork: handleSelectSeerrNetwork,
 		onOpenCollection: handleOpenSeerrCollection
-	}), [handleSelectSeerrItem, handleSelectSeerrKeyword, handleSelectSeerrGenre, handleSelectSeerrNetwork, handleOpenSeerrCollection]);
+	}), [handleSelectSeerrItem, handleSelectSeerrPerson, handleSelectSeerrKeyword, handleSelectSeerrGenre, handleSelectSeerrNetwork, handleOpenSeerrCollection]);
 
 	const handlePinInputChange = useCallback((e) => {
 		const nextValue = String(e.target.value || '').replace(/\D/g, '').slice(0, 4);
@@ -1033,7 +1005,6 @@ const AppContent = (props) => {
 			case PANELS.FAVORITES: return 'favorites';
 			case PANELS.GENRES: return 'genres';
 			case PANELS.SEERR_DISCOVER:
-			case PANELS.SEERR_DETAILS:
 			case PANELS.SEERR_REQUESTS:
 			case PANELS.SEERR_BROWSE:
 			case PANELS.SEERR_PERSON:
@@ -1196,22 +1167,6 @@ const AppContent = (props) => {
 								onOpenRequests={handleOpenSeerrRequests}
 
 							/>
-						)}
-					</Panel>
-					<Panel>
-						{panelIndex === PANELS.SEERR_DETAILS && (
-							<SeerrDetails
-								mediaType={seerrItem?.mediaType}
-								mediaId={seerrItem?.mediaId}
-								onSelectItem={handleSelectSeerrItem}
-								onPlayInMoonfin={handleSelectItem}
-								onSelectPerson={handleSelectSeerrPerson}
-								onSelectKeyword={handleSelectSeerrKeyword}
-								onOpenCollection={handleOpenSeerrCollection}
-							onClose={handleBack}
-							onBack={handleBack}
-							backHandlerRef={backHandlerRef}
-						/>
 						)}
 					</Panel>
 					<Panel>

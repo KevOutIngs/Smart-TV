@@ -8,7 +8,7 @@ import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitl
 // Everything the screen shows about one item. The item itself is fetched first and rendered
 // on its own, then the rows that hang off it fill in behind, because waiting for all of them
 // would leave the screen blank for as long as the slowest one takes.
-const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tagWithServerInfo}) => {
+const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tagWithServerInfo, skip}) => {
 	const [item, setItem] = useState(null);
 	const [seasons, setSeasons] = useState([]);
 	const [episodes, setEpisodes] = useState([]);
@@ -31,21 +31,31 @@ const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tag
 	const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState(-1);
 
 	useEffect(() => {
+		// Whatever the last item brought with it has to go before anything else, or its rows
+		// stay on screen under the next title.
+		setSeasons([]);
+		setEpisodes([]);
+		setEpisodeRatings({});
+		setSimilar([]);
+		setExtras([]);
+		setCast([]);
+		setNextUp([]);
+		setCollectionItems([]);
+		setParentCollection([]);
+		setParentCollectionName('');
+		setAlbumTracks([]);
+		setArtistAlbums([]);
+		setPlaylistItems([]);
+
+		// A Seerr title has no id the server would recognise, so asking for one would only 404
+		// and leave the screen spinning.
+		if (skip) {
+			setIsLoading(false);
+			return;
+		}
+
 		const loadItem = async () => {
 			setIsLoading(true);
-			setSeasons([]);
-			setEpisodes([]);
-			setEpisodeRatings({});
-			setSimilar([]);
-			setExtras([]);
-			setCast([]);
-			setNextUp([]);
-			setCollectionItems([]);
-			setParentCollection([]);
-			setParentCollectionName('');
-			setAlbumTracks([]);
-			setArtistAlbums([]);
-			setPlaylistItems([]);
 
 			let data;
 			try {
@@ -200,7 +210,7 @@ const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tag
 			bg().catch(() => {});
 		};
 		loadItem();
-	}, [effectiveApi, itemId, tagWithServerInfo]);
+	}, [effectiveApi, itemId, tagWithServerInfo, skip]);
 
 	useEffect(() => {
 		if (!item || !episodes.length) return undefined;

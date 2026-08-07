@@ -369,8 +369,8 @@ const Browse = ({
 		}
 	}, [onSelectSeerrItem, onSelectSeerrGenre, onSelectSeerrStudio, onSelectSeerrNetwork]);
 
-	// External row items that resolved to a library item are real Jellyfin items
-	// and open normally, unresolved ones fall back to the Seerr detail.
+	// External row items that resolved to a library item open as the library item, and the ones
+	// that did not open as the Seerr title they came from.
 	const handleSelectExternalItem = useCallback((item) => {
 		if (item && item._seerr && !item._resolvedFromExternal) {
 			handleSelectSeerrItem(item);

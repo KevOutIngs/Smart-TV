@@ -1,7 +1,7 @@
 import {Fragment} from 'react';
 import $L from '@enact/i18n/$L';
 
-import {arrange, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
+import {arrange, seerrOnlyRow, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
 import {DETAIL_ICON_PATHS} from './detailIcons';
 import {SpottableDiv, HorizontalContainer} from './detailsSpottables';
 import {handleButtonRowKeyDown} from './detailsFocus';
@@ -14,6 +14,7 @@ const DetailActionButtons = ({
 	item,
 	settings,
 	seerr,
+	seerrOnly,
 	isSeries,
 	isSeason,
 	isEpisode,
@@ -50,7 +51,7 @@ const DetailActionButtons = ({
 	onOpenIdentifyModal
 }) => {
 	// Declaration order is where a button the user never placed ends up, so keep it stable.
-	const customizable = arrange([
+	const offered = [
 		{id: 'seerrRequest', when: seerr.showsRequest, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={seerr.hasOpenHdRequest ? seerr.onCancel : seerr.onRequest}>
 				<div className={css.btnAction}>
@@ -234,11 +235,16 @@ const DetailActionButtons = ({
 				<span className={css.btnLabel}>{$L('Admin Controls')}</span>
 			</SpottableDiv>
 		)}
-	].filter((btn) => btn.when), {order: settings[DETAIL_ORDER_KEY], hidden: settings[DETAIL_HIDDEN_KEY]});
+	];
+	const rowButtons = seerrOnly ? seerrOnlyRow(offered) : offered;
+	const customizable = arrange(
+		rowButtons.filter((btn) => btn.when),
+		{order: settings[DETAIL_ORDER_KEY], hidden: settings[DETAIL_HIDDEN_KEY]}
+	);
 
 	return (
 		<HorizontalContainer className={css.actionButtons} onKeyDown={handleButtonRowKeyDown} onFocus={onFocusRow} spotlightId="details-action-buttons">
-			{!isBook && hasPlaybackPosition && (
+			{!seerrOnly && !isBook && hasPlaybackPosition && (
 				<SpottableDiv className={css.btnWrapper} {...resumeLongPress} spotlightId="details-primary-btn">
 					<div className={css.btnAction}>
 						<span className={css.btnIcon}>▶</span>
@@ -247,7 +253,7 @@ const DetailActionButtons = ({
 					<span className={css.btnDetail}>{resumeTimeText}</span>
 				</SpottableDiv>
 			)}
-			{(isBook ? isReadableBook : true) && (
+			{!seerrOnly && (isBook ? isReadableBook : true) && (
 				<SpottableDiv className={css.btnWrapper} {...playLongPress} onFocus={onFocusRow} spotlightId={hasPlaybackPosition ? undefined : 'details-primary-btn'}>
 					<div className={css.btnAction}>
 						{hasPlaybackPosition && !isBook ? (

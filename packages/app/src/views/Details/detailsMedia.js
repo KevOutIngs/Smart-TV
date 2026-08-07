@@ -3,6 +3,8 @@
 
 import $L from '@enact/i18n/$L';
 
+import {getImageUrl} from '../../utils/helpers';
+
 // Caps that match the mobile clients, so a title forced down on one device looks the
 // same on the others. The server transcodes to fit whichever is chosen.
 export const TRANSCODE_QUALITIES = [
@@ -82,4 +84,12 @@ export const getMediaBadges = (item, versionIndex = 0) => {
 	}
 
 	return badges;
+};
+
+// A cast photo, wherever it lives. A Seerr title's people come from TMDB with the url already
+// resolved, while the library's own people are fetched from the server by id.
+export const castPhotoUrl = (person, serverUrl, maxHeight) => {
+	if (person._externalImageUrl) return person._externalImageUrl;
+	if (!person.PrimaryImageTag) return null;
+	return getImageUrl(serverUrl, person.Id, 'Primary', {maxHeight, quality: 80});
 };

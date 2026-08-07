@@ -5,8 +5,7 @@ import {ReportIssuePopup} from '../../components/seerr/ReportIssuePopup';
 import {SeasonSelectionPopup} from '../../components/seerr/SeasonSelectionPopup';
 
 // The popups the Seerr actions raise. They all run off the overlay, so a screen with no Seerr
-// side renders nothing at all here. There is no quality picker, because HD and 4K each have
-// their own button and so already say which track they are for.
+// side renders nothing at all here.
 const SeerrDialogs = ({seerr, title}) => {
 	if (!seerr.isActive) return null;
 
