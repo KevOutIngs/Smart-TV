@@ -1,6 +1,7 @@
 import {AdvancedOptionsPopup} from '../../components/seerr/AdvancedOptionsPopup';
 import {CancelRequestPopup} from '../../components/seerr/CancelRequestPopup';
 import {ManageRequestsPopup} from '../../components/seerr/ManageRequestsPopup';
+import {QualitySelectionPopup} from '../../components/seerr/QualitySelectionPopup';
 import {ReportIssuePopup} from '../../components/seerr/ReportIssuePopup';
 import {SeasonSelectionPopup} from '../../components/seerr/SeasonSelectionPopup';
 
@@ -13,6 +14,19 @@ const SeerrDialogs = ({seerr, title}) => {
 
 	return (
 		<>
+			<QualitySelectionPopup
+				open={seerr.showQualityPopup}
+				title={title}
+				hdStatus={seerr.hdStatus}
+				status4k={seerr.status4k}
+				canRequestHd={seerr.canRequestHd}
+				canRequest4k={seerr.canRequest4k}
+				quota={isTv ? seerr.quota?.tv : seerr.quota?.movie}
+				isTv={isTv}
+				onSelect={seerr.handleRequestTrack}
+				onClose={seerr.handleCloseQualityPopup}
+			/>
+
 			{isTv && (
 				<SeasonSelectionPopup
 					open={seerr.showSeasonPopup}

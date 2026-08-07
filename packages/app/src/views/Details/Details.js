@@ -105,7 +105,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		selectedSubtitleIndex, setSelectedSubtitleIndex
 	} = data;
 
-	const seerr = useSeerrOverlay({item: seerrOnly ? initialItem : data.item});
+	const seerr = useSeerrOverlay({item: seerrOnly ? initialItem : data.item, seerrOnly});
 
 	const seerrItem = useMemo(
 		() => (seerrOnly ? buildSeerrDetailItem(seerr.details, seerr.mediaType) : null),

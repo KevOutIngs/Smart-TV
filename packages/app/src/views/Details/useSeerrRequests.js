@@ -14,6 +14,7 @@ const useSeerrRequests = ({
 	userPermissions, hasHdServer, has4kServer, hdStatus, status4k
 }) => {
 	const [requesting, setRequesting] = useState(false);
+	const [showQualityPopup, setShowQualityPopup] = useState(false);
 	const [showSeasonPopup, setShowSeasonPopup] = useState(false);
 	const [showAdvancedPopup, setShowAdvancedPopup] = useState(false);
 	const [pendingIs4k, setPendingIs4k] = useState(false);
@@ -24,6 +25,7 @@ const useSeerrRequests = ({
 	const [showReportPopup, setShowReportPopup] = useState(false);
 	const [showManagePopup, setShowManagePopup] = useState(false);
 
+	const handleCloseQualityPopup = useCallback(() => setShowQualityPopup(false), []);
 	const handleCloseSeasonPopup = useCallback(() => setShowSeasonPopup(false), []);
 	const handleCloseAdvancedPopup = useCallback(() => setShowAdvancedPopup(false), []);
 	const handleCloseCancelPopup = useCallback(() => setShowCancelPopup(false), []);
@@ -35,12 +37,13 @@ const useSeerrRequests = ({
 	// would otherwise overwrite the other.
 	const closeTopPopup = useCallback(() => {
 		if (showManagePopup) { setShowManagePopup(false); return true; }
+		if (showQualityPopup) { setShowQualityPopup(false); return true; }
 		if (showReportPopup) { setShowReportPopup(false); return true; }
 		if (showAdvancedPopup) { setShowAdvancedPopup(false); return true; }
 		if (showSeasonPopup) { setShowSeasonPopup(false); return true; }
 		if (showCancelPopup) { setShowCancelPopup(false); return true; }
 		return false;
-	}, [showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup, showManagePopup]);
+	}, [showQualityPopup, showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup, showManagePopup]);
 
 	// Issue reports need the seerr internal media id, so the title has to be at least
 	// partially available on the server before the button is offered.
@@ -161,17 +164,15 @@ const useSeerrRequests = ({
 		setDetails(updated);
 	}, [mediaId, mediaType, setDetails]);
 
-	// What each track's control says. Taking a request back wins over asking for more, so the
-	// viewer is offered the thing they can still change rather than told what they already know.
-	const requestLabel = useMemo(() => {
-		if (hasOpenHdRequest) return $L('Cancel Request');
-		return hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE ? $L('Request More') : $L('Request');
-	}, [hasOpenHdRequest, hdStatus]);
+	// Each label speaks only for its own half, since asking and taking back are
+	// separate controls.
+	const requestLabel = useMemo(() =>
+		hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE ? $L('Request More') : $L('Request'),
+	[hdStatus]);
 
-	const requestLabel4k = useMemo(() => {
-		if (hasOpenFourKRequest) return $L('Cancel 4K Request');
-		return status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE ? $L('Request More 4K') : $L('Request 4K');
-	}, [hasOpenFourKRequest, status4k]);
+	const requestLabel4k = useMemo(() =>
+		status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE ? $L('Request More 4K') : $L('Request 4K'),
+	[status4k]);
 
 	const handleRequest = useCallback(async (is4K = false, seasons = null, advancedOptions = null) => {
 		if (requesting) return;
@@ -214,6 +215,7 @@ const useSeerrRequests = ({
 
 	// A series asks which seasons first, everything else goes straight on to the request.
 	const handleRequestTrack = useCallback((is4k) => {
+		setShowQualityPopup(false);
 		if (mediaType === 'tv' && details?.seasons?.length > 0) {
 			setPendingIs4k(is4k);
 			setShowSeasonPopup(true);
@@ -221,6 +223,16 @@ const useSeerrRequests = ({
 		}
 		proceedWithRequest(is4k);
 	}, [mediaType, details?.seasons, proceedWithRequest]);
+
+	// The single request control for a title with nothing owned. A viewer allowed
+	// both tracks picks one first, anyone else goes straight to the track they hold.
+	const handleRequestChoose = useCallback(() => {
+		if (canRequestHd && canRequest4k) {
+			setShowQualityPopup(true);
+			return;
+		}
+		handleRequestTrack(canRequest4k);
+	}, [canRequestHd, canRequest4k, handleRequestTrack]);
 
 	const handleSeasonConfirm = useCallback((selectedSeasons) => {
 		proceedWithRequest(pendingIs4k, selectedSeasons);
@@ -289,8 +301,10 @@ const useSeerrRequests = ({
 		handleCloseManagePopup,
 		handleCloseReportPopup,
 		handleCancelTrack,
+		handleCloseQualityPopup,
 		handleCloseSeasonPopup,
 		handleManageRequestsClick,
+		handleRequestChoose,
 		handleReportIssueClick,
 		handleReportSubmit,
 		handleRequestTrack,
@@ -310,6 +324,7 @@ const useSeerrRequests = ({
 		showAdvancedPopup,
 		showCancelPopup,
 		showManagePopup,
+		showQualityPopup,
 		showReportPopup,
 		showSeasonPopup,
 		statusBadge

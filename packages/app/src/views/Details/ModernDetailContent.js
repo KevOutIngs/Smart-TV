@@ -535,20 +535,45 @@ const ModernDetailContent = (props) => {
 
 	// Declaration order is where a button the user never placed ends up, so keep it stable.
 	const renderActionButtons = () => {
+		// Asking and taking back are separate buttons sharing one arrangement
+		// slot, so a partly available series with an open request offers both at
+		// once.
 		const offered = [
 			{id: 'seerrRequest', when: seerr.showsRequest, render: () => (
-				<ActionButton
-					path={seerr.hasOpenHdRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}
-					label={seerr.requestLabel}
-					onClick={seerr.hasOpenHdRequest ? seerr.onCancel : seerr.onRequest}
-				/>
+				<>
+					{seerr.offersRequest && (
+						<ActionButton
+							path={DETAIL_ICON_PATHS.request}
+							label={seerr.requestLabel}
+							onClick={seerr.onRequestPrimary}
+						/>
+					)}
+					{seerr.hasOpenHdRequest && (
+						<ActionButton
+							path={DETAIL_ICON_PATHS.cancelRequest}
+							label={$L('Cancel Request')}
+							onClick={seerr.onCancel}
+						/>
+					)}
+				</>
 			)},
 			{id: 'seerrRequest4k', when: seerr.showsRequest4k, render: () => (
-				<ActionButton
-					path={seerr.hasOpenFourKRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}
-					label={seerr.requestLabel4k}
-					onClick={seerr.hasOpenFourKRequest ? seerr.onCancel4k : seerr.onRequest4k}
-				/>
+				<>
+					{seerr.offersRequest4k && (
+						<ActionButton
+							path={DETAIL_ICON_PATHS.request}
+							label={seerr.requestLabel4k}
+							onClick={seerr.onRequest4k}
+						/>
+					)}
+					{seerr.hasOpenFourKRequest && (
+						<ActionButton
+							path={DETAIL_ICON_PATHS.cancelRequest}
+							label={$L('Cancel 4K Request')}
+							onClick={seerr.onCancel4k}
+						/>
+					)}
+				</>
 			)},
 			{id: 'shuffle', when: isSeries || isSeason, render: () => <ActionButton path={DETAIL_ICON_PATHS.shuffle} label={$L('Shuffle')} onClick={handleShuffle} />},
 			{id: 'version', when: hasMultipleVersions, render: () => <ActionButton path={DETAIL_ICON_PATHS.version} label={$L('Version')} onClick={handleOpenVersionModal} />},

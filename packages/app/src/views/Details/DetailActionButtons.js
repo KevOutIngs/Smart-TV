@@ -50,27 +50,32 @@ const DetailActionButtons = ({
 	onOpenDeleteDialog,
 	onOpenIdentifyModal
 }) => {
+	// Asking and taking back are separate buttons sharing one arrangement slot,
+	// so a partly available series with an open request offers both at once.
+	const seerrButton = (label, icon, onClick) => (
+		<SpottableDiv className={css.btnWrapper} onClick={onClick}>
+			<div className={css.btnAction}>
+				<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+					<path d={icon}/>
+				</svg>
+			</div>
+			<span className={css.btnLabel}>{label}</span>
+		</SpottableDiv>
+	);
+
 	// Declaration order is where a button the user never placed ends up, so keep it stable.
 	const offered = [
 		{id: 'seerrRequest', when: seerr.showsRequest, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={seerr.hasOpenHdRequest ? seerr.onCancel : seerr.onRequest}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={seerr.hasOpenHdRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{seerr.requestLabel}</span>
-			</SpottableDiv>
+			<>
+				{seerr.offersRequest && seerrButton(seerr.requestLabel, DETAIL_ICON_PATHS.request, seerr.onRequestPrimary)}
+				{seerr.hasOpenHdRequest && seerrButton($L('Cancel Request'), DETAIL_ICON_PATHS.cancelRequest, seerr.onCancel)}
+			</>
 		)},
 		{id: 'seerrRequest4k', when: seerr.showsRequest4k, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={seerr.hasOpenFourKRequest ? seerr.onCancel4k : seerr.onRequest4k}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={seerr.hasOpenFourKRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{seerr.requestLabel4k}</span>
-			</SpottableDiv>
+			<>
+				{seerr.offersRequest4k && seerrButton(seerr.requestLabel4k, DETAIL_ICON_PATHS.request, seerr.onRequest4k)}
+				{seerr.hasOpenFourKRequest && seerrButton($L('Cancel 4K Request'), DETAIL_ICON_PATHS.cancelRequest, seerr.onCancel4k)}
+			</>
 		)},
 		{id: 'shuffle', when: isSeries || isSeason, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onShuffle}>

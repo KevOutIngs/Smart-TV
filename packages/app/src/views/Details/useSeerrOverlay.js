@@ -10,7 +10,7 @@ import {IDLE, seerrTargetFor} from '../../utils/seerrTarget';
 import useSeerrDetailsData from './useSeerrDetailsData';
 import useSeerrRequests from './useSeerrRequests';
 
-const useSeerrOverlay = ({item}) => {
+const useSeerrOverlay = ({item, seerrOnly}) => {
 	const {isEnabled, isAuthenticated, user, displayName} = useSeerr();
 
 	const target = useMemo(
@@ -51,6 +51,11 @@ const useSeerrOverlay = ({item}) => {
 
 	const isActive = Boolean(target.mediaId && data.details);
 
+	const offersRequest = seerrOnly
+		? requests.canRequestHd || requests.canRequest4k
+		: requests.canRequestHd;
+	const offersRequest4k = !seerrOnly && requests.canRequest4k;
+
 	const {handleRequestTrack, handleCancelTrack} = requests;
 	const onRequest = useCallback(() => handleRequestTrack(false), [handleRequestTrack]);
 	const onRequest4k = useCallback(() => handleRequestTrack(true), [handleRequestTrack]);
@@ -65,17 +70,24 @@ const useSeerrOverlay = ({item}) => {
 		displayName,
 		mediaType: target.mediaType,
 		isActive,
-		onRequest,
 		onRequest4k,
 		onCancel,
 		onCancel4k,
 		actionError,
 		clearActionError,
-		// HD and 4K get a slot each, since they are tracked separately and a title already in
-		// the library has its HD track filled. Worked out once so the two button rows agree
+		// With nothing owned, one control covers both tracks and asks which
+		// quality first when the viewer holds both permissions. A library title
+		// gets a button per track instead, since there the 4K one asks for the
+		// track that is missing. Worked out once so the two button rows agree
 		// without restating the rules.
-		showsRequest: isActive && (requests.hasOpenHdRequest || requests.canRequestHd),
-		showsRequest4k: isActive && (requests.hasOpenFourKRequest || requests.canRequest4k),
+		offersRequest,
+		offersRequest4k,
+		requestLabel: seerrOnly && !requests.canRequestHd
+			? requests.requestLabel4k
+			: requests.requestLabel,
+		onRequestPrimary: seerrOnly ? requests.handleRequestChoose : onRequest,
+		showsRequest: isActive && (offersRequest || requests.hasOpenHdRequest),
+		showsRequest4k: isActive && (offersRequest4k || requests.hasOpenFourKRequest),
 		showsReportIssue: isActive && requests.canReportIssue,
 		showsManage: isActive && requests.canManage && requests.pendingRequests.length > 0
 	};
