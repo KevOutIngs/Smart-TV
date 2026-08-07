@@ -2,7 +2,7 @@
 // English source string, so handing the string straight back is faithful enough here.
 jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
 
-import {MEDIA_STATUS, REQUEST_STATUS} from '../../utils/seerrStatus';
+import {MEDIA_STATUS, REQUEST_STATUS} from './seerrStatus';
 import {
 	formatCurrency, formatDate, formatRuntime, getSeasonStatusColor,
 	getSeasonStatusLabel, getStatusBadge, isSeasonRerequestable, isStatusBlocked

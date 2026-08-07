@@ -4,7 +4,7 @@ import Spotlight from '@enact/spotlight';
 // Every overlay the detail screen can raise, and the BACK handling that closes them in the
 // right order. The track pickers share one activeModal slot because only one of them is ever
 // up at a time, while the dialogs that own their own component get a flag each.
-const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed}) => {
+const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed, seerrBackRef}) => {
 	const [activeModal, setActiveModal] = useState(null);
 	const [showMediaInfo, setShowMediaInfo] = useState(false);
 	const [showPlaylistModal, setShowPlaylistModal] = useState(false);
@@ -114,10 +114,12 @@ const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed}) => {
 	}, [onArtworkClosed]);
 
 	// BACK closes the innermost overlay. The artwork modal browses within itself, so it gets
-	// first refusal before the whole thing is dismissed.
+	// first refusal before the whole thing is dismissed. The Seerr popups run off their own
+	// state, so they answer through a ref rather than a flag of ours.
 	useEffect(() => {
 		if (!backHandlerRef) return;
 		const handler = () => {
+			if (seerrBackRef?.current?.()) return true;
 			if (showArtworkModal) {
 				if (artworkModalBackRef.current?.()) return true;
 				handleCloseArtworkModal();
@@ -133,7 +135,7 @@ const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed}) => {
 		};
 		backHandlerRef.current = handler;
 		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
-	}, [backHandlerRef, activeModal, showMediaInfo, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
+	}, [backHandlerRef, seerrBackRef, activeModal, showMediaInfo, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
 
 	return {
 		activeModal,

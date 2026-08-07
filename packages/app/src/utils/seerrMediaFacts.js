@@ -56,3 +56,6 @@ export const buildMediaFacts = (details, mediaType) => {
 
 	return facts;
 };
+
+// Whether the panel would draw anything, so a caller can drop the space around it too.
+export const hasMediaFacts = (details, mediaType) => buildMediaFacts(details, mediaType).length > 0;

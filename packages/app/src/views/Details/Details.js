@@ -19,11 +19,13 @@ import {COLLECTION_ITEM_TYPES, IDENTIFIABLE_TYPES, getMediaBadges, shuffleArray}
 import useDetailsItem from './useDetailsItem';
 import useDetailsModals from './useDetailsModals';
 import useDetailsTrailer from './useDetailsTrailer';
+import useSeerrOverlay from './useSeerrOverlay';
 import DetailScrollPage from './DetailScrollPage';
 import DetailBackdrop from './DetailBackdrop';
 import DetailActionButtons from './DetailActionButtons';
 import DetailTrackModals from './DetailTrackModals';
 import DetailDialogs from './DetailDialogs';
+import SeerrDialogs from './SeerrDialogs';
 import TrailerOverlay from './TrailerOverlay';
 import ClassicDetailScreen from './ClassicDetailScreen';
 import PersonScreen from './PersonScreen';
@@ -35,7 +37,7 @@ import AudioTrackScreen from './AudioTrackScreen';
 
 import css from './Details.module.less';
 
-const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onSelectStudio, onItemDeleted, backHandlerRef}) => {
+const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onSelectStudio, onItemDeleted, seerrNav, backHandlerRef}) => {
 	const {api, serverUrl, user} = useAuth();
 	const {settings} = useSettings();
 	const {isInGroup: isSyncPlayInGroup} = useSyncPlay();
@@ -97,7 +99,25 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		selectedSubtitleIndex, setSelectedSubtitleIndex
 	} = data;
 
-	const modals = useDetailsModals({backHandlerRef, itemId, onArtworkClosed: refreshItem});
+	const seerr = useSeerrOverlay({item});
+
+	// The Seerr popups have to answer BACK before the screen's own overlays do, and the ref is
+	// how they reach the handler useDetailsModals owns.
+	const seerrBackRef = useRef(null);
+	useEffect(() => {
+		seerrBackRef.current = seerr.closeTopPopup;
+	}, [seerr.closeTopPopup]);
+
+	// A request that failed leaves the button looking exactly as it did, so the toast is the
+	// only thing that says so.
+	const {actionError: seerrActionError, clearActionError: clearSeerrActionError} = seerr;
+	useEffect(() => {
+		if (!seerrActionError) return;
+		showToast(seerrActionError);
+		clearSeerrActionError();
+	}, [seerrActionError, clearSeerrActionError, showToast]);
+
+	const modals = useDetailsModals({backHandlerRef, itemId, onArtworkClosed: refreshItem, seerrBackRef});
 	const {activeModal, openModal, closeModal, advancedResumeRef} = modals;
 
 	const trailer = useDetailsTrailer({
@@ -459,6 +479,12 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		} catch { /* ignore */ }
 	}, [item, effectiveApi, onPlay]);
 
+	// A Seerr row card is a title rather than a library item, so it goes back through the Seerr
+	// side of the app with the identity the card was built from.
+	const handleSelectSeerrCard = useCallback((card) => {
+		if (card?._seerrRaw) seerrNav?.onSelectItem?.(card._seerrRaw);
+	}, [seerrNav]);
+
 	const handleCastSelect = useCallback((ev) => {
 		const personId = ev.currentTarget.dataset.personId;
 		if (personId) {
@@ -705,6 +731,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				toastMessage={toastMessage}
 				onToastEnd={handleToastEnd}
 			/>
+			<SeerrDialogs seerr={seerr} title={item.Name} />
 		</>
 	);
 
@@ -715,6 +742,9 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 					key={item.Id}
 					item={item}
 					settings={settings}
+					seerr={seerr}
+					seerrNav={seerrNav}
+					onSelectSeerrCard={handleSelectSeerrCard}
 					canChangeArtwork={canChangeArtwork}
 					handleOpenArtworkModal={modals.handleOpenArtworkModal}
 					effectiveApi={effectiveApi}
@@ -914,6 +944,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		<DetailActionButtons
 			item={item}
 			settings={settings}
+			seerr={seerr}
 			isSeries={isSeries}
 			isSeason={isSeason}
 			isEpisode={isEpisode}
@@ -972,6 +1003,9 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				badges={badges}
 				tagline={tagline}
 				actionButtons={actionButtons}
+				seerr={seerr}
+				seerrNav={seerrNav}
+				onSelectSeerrCard={handleSelectSeerrCard}
 				seasons={seasons}
 				episodes={episodes}
 				episodeRatings={episodeRatings}

@@ -7,6 +7,8 @@ import Spotlight from '@enact/spotlight';
 import {Scroller} from '@enact/sandstone/Scroller';
 
 import MediaCard from '../../components/MediaCard';
+import {SeerrStatusBadge, SeerrDownloadBars} from '../../components/seerr/SeerrStatusBadge';
+import {SeerrChips, SeerrFacts, SeerrCollectionBanner} from '../../components/seerr/SeerrSections';
 import RatingsRow from '../../components/RatingsRow';
 import DetailsTabBar from '../../components/DetailsTabBar';
 import {getImageUrl, formatDuration} from '../../utils/helpers';
@@ -61,7 +63,8 @@ const ModernDetailContent = (props) => {
 		handleOpenVersionModal, handleOpenAudioModal, handleOpenSubtitleModal, handleOpenMediaInfo, handleOpenPlaylistModal, handleOpenCollectionModal, handleOpenDeleteDialog,
 		handleChapterSelect, handleExtraSelect, handleTrackPlay,
 		onSelectItem, onSelectPerson, onSelectStudio,
-		canChangeArtwork, handleOpenArtworkModal, handleOpenIdentifyModal
+		canChangeArtwork, handleOpenArtworkModal, handleOpenIdentifyModal,
+		seerr, seerrNav, onSelectSeerrCard
 	} = props;
 
 	// Blur and opacity share one stored value, and the blur options reach 40 while
@@ -264,8 +267,9 @@ const ModernDetailContent = (props) => {
 		if (extras.length) list.push({id: 'extras', label: $L('Extras')});
 		if (supportsMediaSourceSelection && mediaSource?.MediaStreams?.length) list.push({id: 'details', label: $L('Details')});
 		if (similar.length) list.push({id: 'similar', label: $L('More Like This')});
+		if (seerr.isActive) list.push({id: 'seerr', label: seerr.displayName});
 		return list;
-	}, [isSeries, seasons.length, isSeason, isEpisode, episodes.length, isPerson, personMovies.length, personSeries.length, isAlbum, isPlaylist, albumTracks.length, playlistItems.length, isMusicArtist, artistAlbums.length, isBoxSet, collectionItems.length, cast.length, item.Studios, item.Chapters, extras.length, supportsMediaSourceSelection, mediaSource, similar.length]);
+	}, [isSeries, seasons.length, isSeason, isEpisode, episodes.length, isPerson, personMovies.length, personSeries.length, isAlbum, isPlaylist, albumTracks.length, playlistItems.length, isMusicArtist, artistAlbums.length, isBoxSet, collectionItems.length, cast.length, item.Studios, item.Chapters, extras.length, supportsMediaSourceSelection, mediaSource, similar.length, seerr.isActive, seerr.displayName]);
 
 	const [activeTab, setActiveTab] = useState(null);
 	// Expanded Tabs on keeps the first tab open and lets focus follow selection.
@@ -323,10 +327,10 @@ const ModernDetailContent = (props) => {
 		}
 	}, [currentTab]);
 
-	const renderGrid = (items, cardType) => (
+	const renderGrid = (items, cardType, onSelect = onSelectItem) => (
 		<RowContainer className={css.grid}>
 			{items.map((it) => (
-				<MediaCard key={it.Id} item={it} serverUrl={effectiveServerUrl} cardType={cardType} onSelect={onSelectItem} />
+				<MediaCard key={it.Id} item={it} serverUrl={effectiveServerUrl} cardType={cardType} onSelect={onSelect} />
 			))}
 		</RowContainer>
 	);
@@ -457,10 +461,48 @@ const ModernDetailContent = (props) => {
 		);
 	};
 
+	// The season cards carry a marker for what Seerr has, or is getting, for that season.
+	const renderSeasonsGrid = () => (
+		<RowContainer className={css.grid}>
+			{seasons.map((season) => (
+				<MediaCard
+					key={season.Id}
+					item={season}
+					serverUrl={effectiveServerUrl}
+					cardType="portrait"
+					onSelect={onSelectItem}
+					seerrSeasonStatus={seerr.seasonMarkers.get(season.IndexNumber)}
+				/>
+			))}
+		</RowContainer>
+	);
+
+	// Everything Seerr adds to a title, in one tab: where it is filed, the production facts,
+	// what it is like, and the collection it belongs to.
+	const renderSeerrTab = () => (
+		<div className={css.seerrTab}>
+			<SeerrChips details={seerr.details} mediaType={seerr.mediaType} seerrNav={seerrNav} />
+			<SeerrFacts details={seerr.details} mediaType={seerr.mediaType} />
+			{seerr.similarCards.length > 0 && (
+				<div>
+					<h3 className={css.seerrHeading}>{seerr.mediaType === 'tv' ? $L('Similar Series') : $L('Similar Titles')}</h3>
+					{renderGrid(seerr.similarCards, 'portrait', onSelectSeerrCard)}
+				</div>
+			)}
+			{seerr.recommendationCards.length > 0 && (
+				<div>
+					<h3 className={css.seerrHeading}>{$L('Recommendations')}</h3>
+					{renderGrid(seerr.recommendationCards, 'portrait', onSelectSeerrCard)}
+				</div>
+			)}
+			<SeerrCollectionBanner collection={seerr.details?.collection} onOpen={seerrNav?.onOpenCollection} />
+		</div>
+	);
+
 	const renderTabContent = () => {
 		switch (currentTab) {
 			case 'seasons':
-				return renderGrid(seasons, 'portrait');
+				return renderSeasonsGrid();
 			case 'episodes':
 				return renderEpisodesTab();
 			case 'movies':
@@ -485,6 +527,8 @@ const ModernDetailContent = (props) => {
 				return renderStudiosTab();
 			case 'details':
 				return renderDetailsTab();
+			case 'seerr':
+				return renderSeerrTab();
 			default:
 				return null;
 		}
@@ -493,6 +537,20 @@ const ModernDetailContent = (props) => {
 	// Declaration order is where a button the user never placed ends up, so keep it stable.
 	const renderActionButtons = () => {
 		const customizable = arrange([
+			{id: 'seerrRequest', when: seerr.showsRequest, render: () => (
+				<ActionButton
+					path={seerr.hasOpenHdRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}
+					label={seerr.requestLabel}
+					onClick={seerr.hasOpenHdRequest ? seerr.onCancel : seerr.onRequest}
+				/>
+			)},
+			{id: 'seerrRequest4k', when: seerr.showsRequest4k, render: () => (
+				<ActionButton
+					path={seerr.hasOpenFourKRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}
+					label={seerr.requestLabel4k}
+					onClick={seerr.hasOpenFourKRequest ? seerr.onCancel4k : seerr.onRequest4k}
+				/>
+			)},
 			{id: 'shuffle', when: isSeries || isSeason, render: () => <ActionButton path={DETAIL_ICON_PATHS.shuffle} label={$L('Shuffle')} onClick={handleShuffle} />},
 			{id: 'version', when: hasMultipleVersions, render: () => <ActionButton path={DETAIL_ICON_PATHS.version} label={$L('Version')} onClick={handleOpenVersionModal} />},
 			{id: 'audio', when: hasMultipleAudio, render: () => <ActionButton path={DETAIL_ICON_PATHS.audio} label={$L('Audio')} onClick={handleOpenAudioModal} />},
@@ -506,6 +564,8 @@ const ModernDetailContent = (props) => {
 			{id: 'collection', when: Boolean(handleOpenCollectionModal), render: () => <ActionButton path={DETAIL_ICON_PATHS.collection} label={$L('Add to Collection')} onClick={handleOpenCollectionModal} />},
 			{id: 'deleteFiles', when: item.CanDelete, render: () => <ActionButton path={DETAIL_ICON_PATHS.delete} label={$L('Delete')} onClick={handleOpenDeleteDialog} />},
 			{id: 'artwork', when: canChangeArtwork, render: () => <ActionButton path={DETAIL_ICON_PATHS.artwork} label={$L('Change Artwork')} onClick={handleOpenArtworkModal} spotlightId="details-artwork-btn" />},
+			{id: 'seerrReportIssue', when: seerr.showsReportIssue, render: () => <ActionButton path={DETAIL_ICON_PATHS.reportIssue} label={$L('Report Issue')} onClick={seerr.handleReportIssueClick} />},
+			{id: 'seerrManage', when: seerr.showsManage, render: () => <ActionButton path={DETAIL_ICON_PATHS.manageRequests} label={$L('Manage Requests')} onClick={seerr.handleManageRequestsClick} />},
 			{id: 'admin', when: Boolean(handleOpenIdentifyModal), render: () => <ActionButton path={DETAIL_ICON_PATHS.admin} label={$L('Admin Controls')} onClick={handleOpenIdentifyModal} />}
 		].filter((btn) => btn.when), {order: settings[DETAIL_ORDER_KEY], hidden: settings[DETAIL_HIDDEN_KEY]});
 
@@ -588,6 +648,7 @@ const ModernDetailContent = (props) => {
 									{metaPieces.map((piece, i) => <span key={i} className={css.metaItem}>{piece}</span>)}
 								</div>
 							)}
+							<SeerrStatusBadge seerr={seerr} />
 							{!isPerson && <RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />}
 							{tagline && <div className={css.tagline}>{tagline}</div>}
 							{item.Overview && (
@@ -606,6 +667,7 @@ const ModernDetailContent = (props) => {
 						{renderUpNext()}
 					</div>
 					{!isBoxSet && !isPerson && renderActionButtons()}
+					<SeerrDownloadBars seerr={seerr} />
 					{tabs.length > 0 && (
 						<div className={css.tabsSection} onKeyDown={handleTabsKeyDown}>
 							<DetailsTabBar

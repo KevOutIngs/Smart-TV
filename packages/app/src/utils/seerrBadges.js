@@ -4,7 +4,7 @@
 
 import $L from '@enact/i18n/$L';
 
-import {MEDIA_STATUS, REQUEST_STATUS} from '../../utils/seerrStatus';
+import {MEDIA_STATUS, REQUEST_STATUS} from './seerrStatus';
 
 export const getSeasonStatusLabel = (status) => {
 	switch (status) {
@@ -30,6 +30,18 @@ export const getSeasonStatusColor = (status) => {
 
 export const isSeasonRerequestable = (status) =>
 	status === REQUEST_STATUS.DECLINED || status === REQUEST_STATUS.FAILED;
+
+// The season maps say where a request stands, while the marker on a card speaks in media
+// status. Declined and failed get no marker, since a season nobody is getting looks the same
+// as one nobody asked for.
+export const seasonMarkerStatus = (requestStatus) => {
+	switch (requestStatus) {
+		case REQUEST_STATUS.PENDING: return MEDIA_STATUS.PENDING;
+		case REQUEST_STATUS.APPROVED: return MEDIA_STATUS.PROCESSING;
+		case REQUEST_STATUS.COMPLETED: return MEDIA_STATUS.AVAILABLE;
+		default: return null;
+	}
+};
 
 // Declined beats everything, then availability, then the states on the way to it. Order
 // matters throughout: each check assumes the ones above it already said no.
@@ -66,6 +78,15 @@ export const getStatusBadge = (hdStatus, status4k, hdDeclined, fourKDeclined) =>
 	if (hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED) return {text: $L('BLACKLISTED'), color: 'red'};
 
 	return {text: $L('NOT REQUESTED'), color: 'gray'};
+};
+
+// On a title already in the library, "we have this in HD" only repeats what the screen it sits
+// on already says, so the badge earns its place only when it adds something: a request in
+// flight, a 4K track, a part-finished series, or anything that went wrong.
+export const isStatusNoteworthy = (hdStatus, status4k, hdDeclined, fourKDeclined) => {
+	if (hdDeclined || fourKDeclined) return true;
+	if (status4k > MEDIA_STATUS.UNKNOWN) return true;
+	return hdStatus > MEDIA_STATUS.UNKNOWN && hdStatus !== MEDIA_STATUS.AVAILABLE;
 };
 
 // Anything past unknown is already requested, so it can't be requested again. Partially

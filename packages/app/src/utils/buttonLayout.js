@@ -14,7 +14,15 @@ export const OSD_HIDDEN_KEY = 'hiddenOsdButtonsTv';
 
 // Play, Resume and Restart are absent on purpose. They are one button wearing different
 // labels, it always leads the row, and it anchors the focus the screen hands out.
+//
+// The two request buttons lead the list, so for anyone who arranged this row before Seerr was
+// offered here they land right after the primary button. HD and 4K get a slot each because
+// they are tracked separately, and on a title already in the library the HD one is filled and
+// only 4K is left to ask for. The other clients also offer a watchlist toggle, which this app
+// has no call for, so that id is absent and rides through a save untouched.
 export const DETAIL_BUTTONS = [
+	{id: 'seerrRequest', label: 'Request'},
+	{id: 'seerrRequest4k', label: 'Request 4K'},
 	{id: 'shuffle', label: 'Shuffle'},
 	{id: 'version', label: 'Version'},
 	{id: 'audio', label: 'Audio'},
@@ -28,6 +36,8 @@ export const DETAIL_BUTTONS = [
 	{id: 'collection', label: 'Add to Collection'},
 	{id: 'deleteFiles', label: 'Delete'},
 	{id: 'artwork', label: 'Change Artwork'},
+	{id: 'seerrReportIssue', label: 'Report Issue'},
+	{id: 'seerrManage', label: 'Manage Requests'},
 	{id: 'admin', label: 'Admin Controls'}
 ];
 
@@ -79,4 +89,36 @@ export const ordered = (all, stored) => {
 export const arrange = (all, {order, hidden} = {}) => {
 	const off = hiddenSet(hidden);
 	return ordered(all, order).filter((item) => !off.has(item.id));
+};
+
+// A save from this app has to carry through the ids it has no button for. The other clients
+// offer buttons this one doesn't and everyone shares these two settings, so writing back only
+// what is in the catalogue would erase what those clients arranged. Each carried id goes behind
+// the id it was stored after, the same way `ordered` places a button nobody arranged.
+export const withUnknownIds = (catalogue, saved, stored) => {
+	const known = new Set(catalogue.map((item) => item.id));
+	const leading = [];
+	const trailing = new Map();
+	let anchor = null;
+	toIds(stored.order).forEach((id) => {
+		if (known.has(id)) {
+			anchor = id;
+		} else if (anchor === null) {
+			leading.push(id);
+		} else {
+			const behind = trailing.get(anchor);
+			if (behind) behind.push(id);
+			else trailing.set(anchor, [id]);
+		}
+	});
+
+	const order = [...leading];
+	saved.order.forEach((id) => {
+		order.push(id);
+		const behind = trailing.get(id);
+		if (behind) order.push(...behind);
+	});
+
+	const offElsewhere = toIds(stored.hidden).filter((id) => !known.has(id));
+	return {order, hidden: [...saved.hidden, ...offElsewhere]};
 };

@@ -3,7 +3,7 @@ import Image from '@enact/sandstone/Image';
 
 import seerrApi from '../../services/seerrApi';
 import {KEYS} from '../../utils/keys';
-import {LastFocusedContainer, SpottableDiv} from './seerrFocus';
+import {LastFocusedContainer, SpottableDiv} from '../../components/seerr/seerrFocus';
 
 import css from './SeerrDetails.module.less';
 

@@ -10,18 +10,18 @@ import SeerrDownloadProgress from '../../components/SeerrDownloadProgress';
 import {MEDIA_STATUS} from '../../utils/seerrStatus';
 import css from './SeerrDetails.module.less';
 
-import {formatRuntime} from './seerrBadges';
-import {LastFocusedContainer, SpottableDiv, safeFocus} from './seerrFocus';
+import {formatRuntime} from '../../utils/seerrBadges';
+import {LastFocusedContainer, SpottableDiv, safeFocus} from '../../components/seerr/seerrFocus';
 import {handleActionButtonsKeyDown, handleCastSectionKeyDown, handleCollectionBannerKeyDown, handleKeywordsSectionKeyDown, handleRowNavigateDown, handleRowNavigateUp} from './seerrDetailsNav';
 import {CastCard, HorizontalMediaRow, KeywordTag} from './SeerrCards';
-import {buildMediaFacts} from './seerrMediaFacts';
-import useSeerrDetailsData from './useSeerrDetailsData';
-import useSeerrRequests from './useSeerrRequests';
-import {AdvancedOptionsPopup} from './AdvancedOptionsPopup';
-import {CancelRequestPopup} from './CancelRequestPopup';
-import {QualitySelectionPopup} from './QualitySelectionPopup';
-import {ReportIssuePopup} from './ReportIssuePopup';
-import {SeasonSelectionPopup} from './SeasonSelectionPopup';
+import {buildMediaFacts} from '../../utils/seerrMediaFacts';
+import useSeerrDetailsData from '../Details/useSeerrDetailsData';
+import useSeerrRequests from '../Details/useSeerrRequests';
+import {AdvancedOptionsPopup} from '../../components/seerr/AdvancedOptionsPopup';
+import {CancelRequestPopup} from '../../components/seerr/CancelRequestPopup';
+import {QualitySelectionPopup} from '../../components/seerr/QualitySelectionPopup';
+import {ReportIssuePopup} from '../../components/seerr/ReportIssuePopup';
+import {SeasonSelectionPopup} from '../../components/seerr/SeasonSelectionPopup';
 
 const KeywordsSectionContainer = SpotlightContainerDecorator({
 	enterTo: 'last-focused',
@@ -41,17 +41,23 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 
 	const {
 		canReportIssue, canRequestAny, canRequestHd, canRequest4k, hasAdvanced,
-		statusBadge, requestButtonLabel, pendingIs4k, pendingRequests,
+		statusBadge, requestButtonLabel, pendingIs4k, activeRequests, cancelTargets,
 		seasonStatusMapHd, seasonStatusMap4k,
 		showQualityPopup, showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup,
 		handleRequestClick, handleQualitySelect, handleSeasonConfirm, handleAdvancedConfirm,
 		handleCancelRequestClick, handleCancelConfirm, handleReportIssueClick, handleReportSubmit,
 		handleCloseQualityPopup, handleCloseSeasonPopup, handleCloseAdvancedPopup,
-		handleCloseCancelPopup, handleCloseReportPopup
+		handleCloseCancelPopup, handleCloseReportPopup, closeTopPopup
 	} = useSeerrRequests({
 		mediaId, mediaType, details, setDetails, setError, isAuthenticated,
-		userPermissions, hasHdServer, has4kServer, hdStatus, status4k, backHandlerRef
+		userPermissions, hasHdServer, has4kServer, hdStatus, status4k
 	});
+
+	useEffect(() => {
+		if (!backHandlerRef) return undefined;
+		backHandlerRef.current = closeTopPopup;
+		return () => { if (backHandlerRef.current === closeTopPopup) backHandlerRef.current = null; };
+	}, [backHandlerRef, closeTopPopup]);
 
 	const contentRef = useRef(null);
 
@@ -202,7 +208,7 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 			{/* Cancel Request Popup */}
 			<CancelRequestPopup
 				open={showCancelPopup}
-				pendingRequests={pendingRequests}
+				requests={cancelTargets}
 				title={title}
 				onConfirm={handleCancelConfirm}
 				onClose={handleCloseCancelPopup}
@@ -310,8 +316,7 @@ const SeerrDetails = ({mediaType, mediaId, onClose, onSelectItem, onPlayInMoonfi
 								<span className={css.btnLabel}>{requestButtonLabel}</span>
 							</div>
 
-							{/* Cancel Request Button - show if pending requests exist */}
-							{pendingRequests.length > 0 && (
+								{activeRequests.length > 0 && (
 								<div className={css.btnWrapper}>
 									<SpottableDiv className={css.btnAction} onClick={handleCancelRequestClick}>
 										<span className={css.btnIcon}>

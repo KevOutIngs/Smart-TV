@@ -6,6 +6,9 @@ import RatingsRow from '../../components/RatingsRow';
 import {formatDuration, getImageUrl} from '../../utils/helpers';
 import {isMdblistEnabled} from '../../services/mdblistApi';
 import {formatTime} from '../Player/PlayerConstants';
+import {SeerrStatusBadge, SeerrDownloadBars, SeerrSeasonDot} from '../../components/seerr/SeerrStatusBadge';
+import {SeerrChips, SeerrFacts, SeerrCollectionBanner, hasSeerrChips} from '../../components/seerr/SeerrSections';
+import {hasMediaFacts} from '../../utils/seerrMediaFacts';
 import {SpottableDiv, RowContainer} from './detailsSpottables';
 import {handleSectionKeyDown, handleScrollerFocus} from './detailsFocus';
 import {PosterBadges, WatchedCheckIcon, FavoriteHeartIcon} from './DetailBadges';
@@ -36,6 +39,9 @@ const ClassicDetailScreen = ({
 	badges,
 	tagline,
 	actionButtons,
+	seerr,
+	seerrNav,
+	onSelectSeerrCard,
 	seasons,
 	episodes,
 	episodeRatings,
@@ -103,6 +109,7 @@ const ClassicDetailScreen = ({
 							))}
 						</div>
 					)}
+					<SeerrStatusBadge seerr={seerr} />
 				</div>
 
 				<RatingsRow item={item} serverUrl={serverUrl} pluginEnabled={isMdblistEnabled(settings)} />
@@ -129,6 +136,8 @@ const ClassicDetailScreen = ({
 		</div>
 
 		{!isBoxSet && actionButtons}
+
+		<SeerrDownloadBars seerr={seerr} />
 
 		<DetailMetadata item={item} />
 
@@ -160,6 +169,7 @@ const ClassicDetailScreen = ({
 												<span>{season.Name}</span>
 											</div>
 										)}
+										<SeerrSeasonDot status={seerr.seasonMarkers.get(season.IndexNumber)} />
 										{isWatched && (
 											<div className={css.watchedIndicator}>
 												<WatchedCheckIcon />
@@ -395,6 +405,52 @@ const ClassicDetailScreen = ({
 							/>
 						))}
 					</div>
+				</RowContainer>
+			)}
+
+			{seerr.isActive && seerr.similarCards.length > 0 && (
+				<RowContainer className={css.section}>
+					<div className={css.sectionHeader}>
+						<h3 className={css.sectionTitle}>
+							{seerr.mediaType === 'tv' ? $L('Similar Series') : $L('Similar Titles')}
+						</h3>
+					</div>
+					<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
+						{seerr.similarCards.map(card => (
+							<MediaCard key={card.Id} item={card} serverUrl={serverUrl} onSelect={onSelectSeerrCard} />
+						))}
+					</div>
+				</RowContainer>
+			)}
+
+			{seerr.isActive && seerr.recommendationCards.length > 0 && (
+				<RowContainer className={css.section}>
+					<div className={css.sectionHeader}>
+						<h3 className={css.sectionTitle}>{$L('Recommendations')}</h3>
+					</div>
+					<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
+						{seerr.recommendationCards.map(card => (
+							<MediaCard key={card.Id} item={card} serverUrl={serverUrl} onSelect={onSelectSeerrCard} />
+						))}
+					</div>
+				</RowContainer>
+			)}
+
+			{seerr.isActive && hasSeerrChips(seerr.details) && (
+				<RowContainer className={css.section}>
+					<SeerrChips details={seerr.details} mediaType={seerr.mediaType} seerrNav={seerrNav} />
+				</RowContainer>
+			)}
+
+			{seerr.isActive && hasMediaFacts(seerr.details, seerr.mediaType) && (
+				<RowContainer className={css.section}>
+					<SeerrFacts details={seerr.details} mediaType={seerr.mediaType} />
+				</RowContainer>
+			)}
+
+			{seerr.isActive && seerr.details?.collection && seerrNav?.onOpenCollection && (
+				<RowContainer className={css.section}>
+					<SeerrCollectionBanner collection={seerr.details.collection} onOpen={seerrNav.onOpenCollection} />
 				</RowContainer>
 			)}
 		</div>

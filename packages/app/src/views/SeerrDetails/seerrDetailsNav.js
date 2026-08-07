@@ -2,7 +2,7 @@
 // the title, so each move lists its targets in order and takes the first one that is there.
 
 import {KEYS} from '../../utils/keys';
-import {safeFocus} from './seerrFocus';
+import {safeFocus} from '../../components/seerr/seerrFocus';
 
 const focusFirst = (...spotlightIds) => spotlightIds.some((id) => safeFocus(id));
 

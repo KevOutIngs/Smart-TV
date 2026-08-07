@@ -13,6 +13,7 @@ import css from './Details.module.less';
 const DetailActionButtons = ({
 	item,
 	settings,
+	seerr,
 	isSeries,
 	isSeason,
 	isEpisode,
@@ -50,6 +51,26 @@ const DetailActionButtons = ({
 }) => {
 	// Declaration order is where a button the user never placed ends up, so keep it stable.
 	const customizable = arrange([
+		{id: 'seerrRequest', when: seerr.showsRequest, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={seerr.hasOpenHdRequest ? seerr.onCancel : seerr.onRequest}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d={seerr.hasOpenHdRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{seerr.requestLabel}</span>
+			</SpottableDiv>
+		)},
+		{id: 'seerrRequest4k', when: seerr.showsRequest4k, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={seerr.hasOpenFourKRequest ? seerr.onCancel4k : seerr.onRequest4k}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d={seerr.hasOpenFourKRequest ? DETAIL_ICON_PATHS.cancelRequest : DETAIL_ICON_PATHS.request}/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{seerr.requestLabel4k}</span>
+			</SpottableDiv>
+		)},
 		{id: 'shuffle', when: isSeries || isSeason, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onShuffle}>
 				<div className={css.btnAction}>
@@ -181,6 +202,26 @@ const DetailActionButtons = ({
 					</svg>
 				</div>
 				<span className={css.btnLabel}>{$L('Delete')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'seerrReportIssue', when: seerr.showsReportIssue, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={seerr.handleReportIssueClick}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d={DETAIL_ICON_PATHS.reportIssue}/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Report Issue')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'seerrManage', when: seerr.showsManage, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={seerr.handleManageRequestsClick}>
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d={DETAIL_ICON_PATHS.manageRequests}/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{$L('Manage Requests')}</span>
 			</SpottableDiv>
 		)},
 		{id: 'admin', when: canIdentify, render: () => (

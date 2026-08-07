@@ -2,6 +2,7 @@ import {memo, useCallback, useMemo, useRef, useEffect} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
 import {getImageUrl} from '../../utils/helpers';
 import {useSettings} from '../../context/SettingsContext';
+import {SeerrSeasonDot} from '../seerr/SeerrStatusBadge';
 
 import css from './MediaCard.module.less';
 
@@ -56,7 +57,7 @@ const requestedArtwork = (item, imageType, serverUrl) => {
 	return null;
 };
 
-const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'poster', onSelect, onFocusItem, showServerBadge = false, showOverview = false, eagerLoad = false, spotlightId, onSpotlightLeft, onSpotlightRight}) => {
+const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'poster', onSelect, onFocusItem, showServerBadge = false, showOverview = false, eagerLoad = false, seerrSeasonStatus, spotlightId, onSpotlightLeft, onSpotlightRight}) => {
 	const {settings} = useSettings();
 	const focusTimeoutRef = useRef(null);
 
@@ -257,6 +258,8 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 				{item._seerr && [2, 3, 4, 5].includes(item.mediaInfo?.status) && (
 					<div className={`${css.seerrBadge} ${css[`seerr${item.mediaInfo.status}`]}`} />
 				)}
+
+				<SeerrSeasonDot status={seerrSeasonStatus} />
 
 				{showIndicators && item.UserData?.Played && (
 					<div className={css.watchedBadge}>

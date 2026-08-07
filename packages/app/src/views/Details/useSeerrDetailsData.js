@@ -1,5 +1,6 @@
-// Everything the detail screen knows about one title: the payload itself, the recommendation
-// and similar rows, and the viewer's permissions, quota and configured servers.
+// Everything Seerr knows about one title: the payload itself, the recommendation and similar
+// rows, and the viewer's permissions, quota and configured servers. Without a media id it sits
+// idle, which is how a title Seerr has nothing to say about costs nothing.
 
 import {useEffect, useMemo, useState} from 'react';
 import $L from '@enact/i18n/$L';
@@ -20,7 +21,18 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 	const [servers, setServers] = useState([]);
 
 	useEffect(() => {
-		if (!mediaId || !mediaType) return;
+		if (!mediaId || !mediaType) {
+			setDetails(null);
+			setRecommendations([]);
+			setSimilar([]);
+			setError(null);
+			setLoading(false);
+			return;
+		}
+
+		// Moving to another title while a fetch is in flight has to drop the late answer,
+		// or the screen shows one title's request state against another's artwork.
+		let cancelled = false;
 
 		const loadDetails = async () => {
 			setLoading(true);
@@ -37,6 +49,7 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 					).catch(() => [])
 				]);
 
+				if (cancelled) return;
 				setDetails(data);
 
 				const apiPermissions = userData?.permissions;
@@ -53,8 +66,8 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 				// a failed fetch just hides the quota lines.
 				if (userData?.id != null) {
 					seerrApi.getUserQuota(userData.id)
-						.then((q) => setQuota(q || null))
-						.catch(() => setQuota(null));
+						.then((q) => { if (!cancelled) setQuota(q || null); })
+						.catch(() => { if (!cancelled) setQuota(null); });
 				}
 
 				const serversList = Array.isArray(serversData) ? serversData : [];
@@ -89,17 +102,20 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 						: seerrApi.getTvSimilar
 					)
 				]);
+				if (cancelled) return;
 				setRecommendations(recsData.slice(0, 20));
 				setSimilar(similarData.slice(0, 20));
 			} catch (err) {
+				if (cancelled) return;
 				console.error('Failed to load details:', err);
 				setError(err.message || $L('Failed to load details'));
 			} finally {
-				setLoading(false);
+				if (!cancelled) setLoading(false);
 			}
 		};
 
 		loadDetails();
+		return () => { cancelled = true; };
 	}, [mediaId, mediaType, contextUser]);
 
 	const hdStatus = useMemo(() => details?.mediaInfo?.status ?? null, [details]);

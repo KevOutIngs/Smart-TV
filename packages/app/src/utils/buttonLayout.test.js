@@ -1,4 +1,4 @@
-import {ordered, arrange, hiddenSet, DETAIL_BUTTONS, OSD_BUTTONS} from './buttonLayout';
+import {ordered, arrange, hiddenSet, withUnknownIds, DETAIL_BUTTONS, OSD_BUTTONS} from './buttonLayout';
 
 const ids = (list) => list.map((item) => item.id);
 const declare = (...list) => list.map((id) => ({id}));
@@ -57,6 +57,36 @@ describe('arrange', () => {
 
 	it('can empty the row', () => {
 		expect(arrange(all, {hidden: ['a', 'b', 'c', 'd']})).toEqual([]);
+	});
+});
+
+describe('withUnknownIds', () => {
+	const catalogue = declare('a', 'b', 'c');
+
+	it('leaves a save alone when the stored arrangement holds nothing extra', () => {
+		const merged = withUnknownIds(catalogue, {order: ['c', 'a', 'b'], hidden: ['a']}, {order: ['a', 'b', 'c'], hidden: []});
+		expect(merged).toEqual({order: ['c', 'a', 'b'], hidden: ['a']});
+	});
+
+	it('puts an id this app has no button for back behind the one it was stored after', () => {
+		const merged = withUnknownIds(catalogue, {order: ['c', 'b', 'a'], hidden: []}, {order: ['a', 'download', 'b', 'c'], hidden: []});
+		expect(merged.order).toEqual(['c', 'b', 'a', 'download']);
+	});
+
+	it('leads the row with a carried id that was stored before anything this app offers', () => {
+		const merged = withUnknownIds(catalogue, {order: ['b', 'a', 'c'], hidden: []}, {order: ['playOffline', 'a', 'b', 'c'], hidden: []});
+		expect(merged.order).toEqual(['playOffline', 'b', 'a', 'c']);
+	});
+
+	it('keeps a carried id switched off, so hiding it on another device sticks', () => {
+		const merged = withUnknownIds(catalogue, {order: ['a', 'b', 'c'], hidden: ['b']}, {order: ['a', 'b', 'c', 'cast'], hidden: ['cast']});
+		expect(merged.hidden).toEqual(['b', 'cast']);
+	});
+
+	it('accepts the comma joined form Core stores locally', () => {
+		const merged = withUnknownIds(catalogue, {order: ['a', 'b', 'c'], hidden: []}, {order: 'a,cast,b,c', hidden: 'cast'});
+		expect(merged.order).toEqual(['a', 'cast', 'b', 'c']);
+		expect(merged.hidden).toEqual(['cast']);
 	});
 });
 

@@ -3,11 +3,11 @@ import Popup from '@enact/sandstone/Popup';
 import Button from '@enact/sandstone/Button';
 import $L from '@enact/i18n/$L';
 
-import SpottableInput from '../../components/SpottableInput/SpottableInput';
+import SpottableInput from '../SpottableInput/SpottableInput';
 import {ISSUE_TYPE, getIssueTypeLabel} from '../../utils/seerrStatus';
 import {LastFocusedContainer, SpottableDiv} from './seerrFocus';
 
-import css from './SeerrDetails.module.less';
+import css from './SeerrPopups.module.less';
 
 // Reports a problem with a title back to Seerr, optionally against one season or episode.
 
@@ -79,7 +79,7 @@ export const ReportIssuePopup = memo(({open, title, isTv, seasons, onSubmit, onC
 
 	return (
 		<Popup open={open} onClose={onClose} position="center" className={css.reportPopup}>
-			<div className={css.reportPopupContent}>
+			<div className={`${css.popupSurface} ${css.reportPopupContent}`}>
 				<h2 className={css.seasonPopupTitle}>{$L('Report Issue')}</h2>
 				<p className={css.seasonPopupSubtitle}>{title}</p>
 

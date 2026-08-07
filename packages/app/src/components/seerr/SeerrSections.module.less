@@ -1,0 +1,117 @@
+.heading {
+	font-size: 24px;
+	font-weight: 600;
+	color: var(--theme-text-primary, #ffffff);
+	margin: 0 0 12px;
+}
+
+.chipList {
+	display: flex;
+	flex-wrap: wrap;
+
+	> * {
+		margin-right: 12px;
+		margin-bottom: 12px;
+	}
+}
+
+.chip {
+	display: inline-block;
+	padding: 10px 20px;
+	background: var(--theme-surface-variant, #374151);
+	border-radius: 100px;
+	font-size: 14px;
+	color: var(--theme-text-primary, #ffffff);
+	cursor: pointer;
+	transition: all 0.2s;
+	outline: none;
+
+	&:focus {
+		background: var(--theme-text-muted, #4b5563);
+		transform: scale(1.05);
+	}
+}
+
+.facts {
+	max-width: 520px;
+}
+
+.factRow {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 10px 16px;
+	border: 1px solid var(--theme-border-color, #374151);
+	border-bottom: none;
+
+	&:last-child {
+		border-bottom: 1px solid var(--theme-border-color, #374151);
+		border-radius: 0 0 8px 8px;
+	}
+
+	&:first-child {
+		border-radius: 8px 8px 0 0;
+	}
+}
+
+.factLabel {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--theme-text-secondary, #d1d5db);
+}
+
+.factValue {
+	font-size: 14px;
+	color: var(--theme-text-secondary, #9ca3af);
+	text-align: right;
+}
+
+.collectionBanner {
+	position: relative;
+	display: flex;
+	align-items: center;
+	max-width: 1100px;
+	padding: 22px 28px;
+	border-radius: 12px;
+	border: 3px solid var(--theme-card-border, rgba(255, 255, 255, 0.12));
+	background-color: var(--theme-surface, #181818);
+	background-size: cover;
+	background-position: center;
+	overflow: hidden;
+	cursor: pointer;
+
+	&:focus {
+		border-color: var(--theme-focus-border-color, #ffffff);
+		outline: none;
+		transform: scale(1.01);
+	}
+}
+
+.collectionBannerScrim {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: linear-gradient(to right, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.55));
+}
+
+.collectionBannerText {
+	position: relative;
+	flex: 1;
+	font-size: 24px;
+	font-weight: 600;
+	color: #ffffff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.collectionBannerCta {
+	position: relative;
+	font-size: 20px;
+	font-weight: 600;
+	color: var(--theme-accent, #00a4dc);
+	margin-left: 20px;
+	white-space: nowrap;
+}

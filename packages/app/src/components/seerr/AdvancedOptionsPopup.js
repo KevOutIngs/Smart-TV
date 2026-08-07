@@ -6,7 +6,7 @@ import $L from '@enact/i18n/$L';
 import seerrApi from '../../services/seerrApi';
 import {LastFocusedContainer, SpottableDiv} from './seerrFocus';
 
-import css from './SeerrDetails.module.less';
+import css from './SeerrPopups.module.less';
 
 // Picks which server and profile a request goes to, for viewers allowed to override the
 // defaults.
@@ -98,8 +98,8 @@ export const AdvancedOptionsPopup = memo(({open, title, servers, is4k, onConfirm
 	const canConfirm = selectedServerId != null;
 
 	return (
-		<Popup open={open} onClose={onClose} position="center" className={css.advancedPopup}>
-			<div className={css.advancedPopupContent}>
+		<Popup open={open} onClose={onClose} position="center">
+			<div className={`${css.popupSurface} ${css.advancedPopupContent}`}>
 				<h2 className={css.advancedPopupTitle}>{$L('Request Options')}</h2>
 				<p className={css.advancedPopupSubtitle}>{title} ({is4k ? '4K' : 'HD'})</p>
 

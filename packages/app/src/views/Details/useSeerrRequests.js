@@ -1,16 +1,20 @@
 // The request flow: what the viewer is allowed to ask for, which popup that takes them
 // through, and cancelling or reporting a problem afterwards.
+//
+// HD and 4K are tracked separately and the detail screen gives each one its own button, so the
+// per-track calls are the ones to reach for. The combined pair, handleRequestClick with the
+// quality popup behind it, is only still here for the standalone Seerr screen.
 
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useMemo, useState} from 'react';
 import $L from '@enact/i18n/$L';
 
-import seerrApi, {canRequestMovies, canRequestTv, canRequest4kMovies, canRequest4kTv, hasAdvancedRequestPermission, canCreateIssues} from '../../services/seerrApi';
+import seerrApi, {canRequestMovies, canRequestTv, canRequest4kMovies, canRequest4kTv, hasAdvancedRequestPermission, canCreateIssues, canManageRequests} from '../../services/seerrApi';
 import {MEDIA_STATUS, REQUEST_STATUS} from '../../utils/seerrStatus';
-import {getStatusBadge, isSeasonRerequestable, isStatusBlocked} from './seerrBadges';
+import {getStatusBadge, isSeasonRerequestable, isStatusBlocked, seasonMarkerStatus} from '../../utils/seerrBadges';
 
 const useSeerrRequests = ({
 	mediaId, mediaType, details, setDetails, setError, isAuthenticated,
-	userPermissions, hasHdServer, has4kServer, hdStatus, status4k, backHandlerRef
+	userPermissions, hasHdServer, has4kServer, hdStatus, status4k
 }) => {
 	const [requesting, setRequesting] = useState(false);
 	const [showQualityPopup, setShowQualityPopup] = useState(false);
@@ -19,27 +23,30 @@ const useSeerrRequests = ({
 	const [pendingIs4k, setPendingIs4k] = useState(false);
 	const [pendingSeasons, setPendingSeasons] = useState(null);
 	const [showCancelPopup, setShowCancelPopup] = useState(false);
+	// Which track the cancel popup is about, or null for every open request at once.
+	const [cancelScope, setCancelScope] = useState(null);
 	const [showReportPopup, setShowReportPopup] = useState(false);
+	const [showManagePopup, setShowManagePopup] = useState(false);
 
 	const handleCloseQualityPopup = useCallback(() => setShowQualityPopup(false), []);
 	const handleCloseSeasonPopup = useCallback(() => setShowSeasonPopup(false), []);
 	const handleCloseAdvancedPopup = useCallback(() => setShowAdvancedPopup(false), []);
 	const handleCloseCancelPopup = useCallback(() => setShowCancelPopup(false), []);
 	const handleCloseReportPopup = useCallback(() => setShowReportPopup(false), []);
+	const handleCloseManagePopup = useCallback(() => setShowManagePopup(false), []);
 
-	useEffect(() => {
-		if (!backHandlerRef) return undefined;
-		const handler = () => {
-			if (showReportPopup) { setShowReportPopup(false); return true; }
-			if (showAdvancedPopup) { setShowAdvancedPopup(false); return true; }
-			if (showSeasonPopup) { setShowSeasonPopup(false); return true; }
-			if (showQualityPopup) { setShowQualityPopup(false); return true; }
-			if (showCancelPopup) { setShowCancelPopup(false); return true; }
-			return false;
-		};
-		backHandlerRef.current = handler;
-		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
-	}, [backHandlerRef, showQualityPopup, showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup]);
+	// BACK dismisses the innermost popup. Handed back rather than installed on a handler ref,
+	// because the detail screen already owns that ref for its own overlays and one of the two
+	// would otherwise overwrite the other.
+	const closeTopPopup = useCallback(() => {
+		if (showManagePopup) { setShowManagePopup(false); return true; }
+		if (showReportPopup) { setShowReportPopup(false); return true; }
+		if (showAdvancedPopup) { setShowAdvancedPopup(false); return true; }
+		if (showSeasonPopup) { setShowSeasonPopup(false); return true; }
+		if (showQualityPopup) { setShowQualityPopup(false); return true; }
+		if (showCancelPopup) { setShowCancelPopup(false); return true; }
+		return false;
+	}, [showQualityPopup, showSeasonPopup, showAdvancedPopup, showCancelPopup, showReportPopup, showManagePopup]);
 
 	// Issue reports need the seerr internal media id, so the title has to be at least
 	// partially available on the server before the button is offered.
@@ -63,14 +70,21 @@ const useSeerrRequests = ({
 			});
 			setShowReportPopup(false);
 		} catch (err) {
-			console.error('[SeerrDetails] Issue report failed:', err.message);
+			console.error('Issue report failed:', err.message);
 		}
 	}, [details]);
 
 	const requests = useMemo(() => details?.mediaInfo?.requests ?? [], [details]);
 	const hdDeclined = useMemo(() => requests.some(r => !r.is4k && r.status === REQUEST_STATUS.DECLINED), [requests]);
 	const fourKDeclined = useMemo(() => requests.some(r => r.is4k && r.status === REQUEST_STATUS.DECLINED), [requests]);
-	const pendingRequests = useMemo(() => requests.filter(r => r.status === MEDIA_STATUS.PENDING), [requests]);
+	// Seerr's own rule for what is still open, and so what can be taken back. Approving or
+	// declining, though, only applies to a request nobody has ruled on yet.
+	const activeRequests = useMemo(() => requests.filter(
+		r => r.status === REQUEST_STATUS.PENDING || r.status === REQUEST_STATUS.APPROVED
+	), [requests]);
+	const pendingRequests = useMemo(() => requests.filter(r => r.status === REQUEST_STATUS.PENDING), [requests]);
+	const hasOpenHdRequest = useMemo(() => activeRequests.some(r => !r.is4k), [activeRequests]);
+	const hasOpenFourKRequest = useMemo(() => activeRequests.some(r => r.is4k), [activeRequests]);
 
 	const getSeasonStatusMap = useCallback((is4k) => {
 		const statusMap = new Map();
@@ -95,6 +109,23 @@ const useSeerrRequests = ({
 
 	const seasonStatusMapHd = useMemo(() => getSeasonStatusMap(false), [getSeasonStatusMap]);
 	const seasonStatusMap4k = useMemo(() => getSeasonStatusMap(true), [getSeasonStatusMap]);
+
+	// What to mark each season card with, keyed by season number. The server keeps its own
+	// per-season list and that wins where it exists, and the requests fill in the seasons it
+	// says nothing about, which is how a brand new request shows before Seerr has caught up.
+	const seasonMarkers = useMemo(() => {
+		const markers = new Map();
+		(details?.mediaInfo?.seasons || []).forEach((season) => {
+			const status = season.status > MEDIA_STATUS.UNKNOWN ? season.status : season.status4k;
+			if (status > MEDIA_STATUS.UNKNOWN) markers.set(season.seasonNumber, status);
+		});
+		seasonStatusMapHd.forEach((requestStatus, seasonNumber) => {
+			if (markers.has(seasonNumber)) return;
+			const status = seasonMarkerStatus(requestStatus);
+			if (status) markers.set(seasonNumber, status);
+		});
+		return markers;
+	}, [details, seasonStatusMapHd]);
 
 	const isBlacklisted = useMemo(() =>
 		hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED,
@@ -152,6 +183,25 @@ const useSeerrRequests = ({
 		return $L('Request');
 	}, [canRequestAny, hdStatus, status4k, hdDeclined, fourKDeclined]);
 
+	const reloadDetails = useCallback(async () => {
+		const updated = mediaType === 'movie'
+			? await seerrApi.getMovie(mediaId)
+			: await seerrApi.getTv(mediaId);
+		setDetails(updated);
+	}, [mediaId, mediaType, setDetails]);
+
+	// What each track's control says. Taking a request back wins over asking for more, so the
+	// viewer is offered the thing they can still change rather than told what they already know.
+	const requestLabel = useMemo(() => {
+		if (hasOpenHdRequest) return $L('Cancel Request');
+		return hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE ? $L('Request More') : $L('Request');
+	}, [hasOpenHdRequest, hdStatus]);
+
+	const requestLabel4k = useMemo(() => {
+		if (hasOpenFourKRequest) return $L('Cancel 4K Request');
+		return status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE ? $L('Request More 4K') : $L('Request 4K');
+	}, [hasOpenFourKRequest, status4k]);
+
 	const handleRequest = useCallback(async (is4K = false, seasons = null, advancedOptions = null) => {
 		if (requesting) return;
 
@@ -173,17 +223,14 @@ const useSeerrRequests = ({
 					seasons: seasons || 'all'
 				});
 			}
-			const updated = mediaType === 'movie'
-				? await seerrApi.getMovie(mediaId)
-				: await seerrApi.getTv(mediaId);
-			setDetails(updated);
+			await reloadDetails();
 		} catch (err) {
 			console.error('Request failed:', err);
 			setError(err.message || $L('Request failed'));
 		} finally {
 			setRequesting(false);
 		}
-	}, [mediaId, mediaType, requesting, setDetails, setError]);
+	}, [mediaId, mediaType, requesting, reloadDetails, setError]);
 
 	const proceedWithRequest = useCallback((is4K, seasons = null) => {
 		if (hasAdvanced) {
@@ -195,15 +242,20 @@ const useSeerrRequests = ({
 		}
 	}, [hasAdvanced, handleRequest]);
 
+	// A series asks which seasons first, everything else goes straight on to the request.
+	const handleRequestTrack = useCallback((is4k) => {
+		if (mediaType === 'tv' && details?.seasons?.length > 0) {
+			setPendingIs4k(is4k);
+			setShowSeasonPopup(true);
+			return;
+		}
+		proceedWithRequest(is4k);
+	}, [mediaType, details?.seasons, proceedWithRequest]);
+
 	const handleQualitySelect = useCallback((is4K) => {
 		setShowQualityPopup(false);
-		if (mediaType === 'tv' && details?.seasons?.length > 0) {
-			setPendingIs4k(is4K);
-			setShowSeasonPopup(true);
-		} else {
-			proceedWithRequest(is4K);
-		}
-	}, [mediaType, details?.seasons, proceedWithRequest]);
+		handleRequestTrack(is4K);
+	}, [handleRequestTrack]);
 
 	const handleSeasonConfirm = useCallback((selectedSeasons) => {
 		proceedWithRequest(pendingIs4k, selectedSeasons);
@@ -224,71 +276,102 @@ const useSeerrRequests = ({
 
 		if (canRequestHd && canRequest4k) {
 			setShowQualityPopup(true);
-		} else if (canRequest4k) {
-			if (mediaType === 'tv' && details?.seasons?.length > 0) {
-				setPendingIs4k(true);
-				setShowSeasonPopup(true);
-			} else {
-				proceedWithRequest(true);
-			}
-		} else if (canRequestHd) {
-			if (mediaType === 'tv' && details?.seasons?.length > 0) {
-				setPendingIs4k(false);
-				setShowSeasonPopup(true);
-			} else {
-				proceedWithRequest(false);
-			}
+			return;
 		}
-	}, [canRequestAny, canRequestHd, canRequest4k, proceedWithRequest, hasHdServer, has4kServer, mediaType, details?.seasons, setError]);
+		handleRequestTrack(canRequest4k);
+	}, [canRequestAny, canRequestHd, canRequest4k, handleRequestTrack, hasHdServer, has4kServer, mediaType, setError]);
 
 	const handleCancelRequestClick = useCallback(() => {
-		if (pendingRequests.length > 0) {
-			setShowCancelPopup(true);
-		}
-	}, [pendingRequests]);
+		if (activeRequests.length === 0) return;
+		setCancelScope(null);
+		setShowCancelPopup(true);
+	}, [activeRequests]);
+
+	const handleCancelTrack = useCallback((is4k) => {
+		setCancelScope(is4k);
+		setShowCancelPopup(true);
+	}, []);
+
+	const cancelTargets = useMemo(() => (
+		cancelScope === null ? activeRequests : activeRequests.filter(r => Boolean(r.is4k) === cancelScope)
+	), [activeRequests, cancelScope]);
 
 	const handleCancelConfirm = useCallback(async () => {
 		setShowCancelPopup(false);
 		try {
-			for (const req of pendingRequests) {
+			for (const req of cancelTargets) {
 				await seerrApi.cancelRequest(req.id);
 			}
-			const updated = mediaType === 'movie'
-				? await seerrApi.getMovie(mediaId)
-				: await seerrApi.getTv(mediaId);
-			setDetails(updated);
+			await reloadDetails();
 		} catch (err) {
 			console.error('Cancel failed:', err);
 			setError(err.message || $L('Failed to cancel request'));
 		}
-	}, [pendingRequests, mediaId, mediaType, setDetails, setError]);
+	}, [cancelTargets, reloadDetails, setError]);
+
+	// Approving and declining are offered on the title itself, so a moderator doesn't have to
+	// find their way to the requests screen for something already in front of them.
+	const canManage = useMemo(() => canManageRequests(userPermissions), [userPermissions]);
+
+	const handleManageRequestsClick = useCallback(() => setShowManagePopup(true), []);
+
+	const handleResolveRequest = useCallback(async (requestId, approved) => {
+		try {
+			if (approved) {
+				await seerrApi.approveRequest(requestId);
+			} else {
+				await seerrApi.declineRequest(requestId);
+			}
+			await reloadDetails();
+		} catch (err) {
+			console.error('Request update failed:', err);
+			setError(err.message || $L('Failed to update request'));
+		}
+	}, [reloadDetails, setError]);
 
 	return {
+		activeRequests,
+		cancelTargets,
+		canManage,
 		canReportIssue,
 		canRequest4k,
 		canRequestAny,
 		canRequestHd,
+		closeTopPopup,
+		fourKDeclined,
 		handleAdvancedConfirm,
 		handleCancelConfirm,
 		handleCancelRequestClick,
 		handleCloseAdvancedPopup,
 		handleCloseCancelPopup,
+		handleCloseManagePopup,
 		handleCloseQualityPopup,
 		handleCloseReportPopup,
+		handleCancelTrack,
 		handleCloseSeasonPopup,
+		handleManageRequestsClick,
 		handleQualitySelect,
 		handleReportIssueClick,
 		handleReportSubmit,
 		handleRequestClick,
+		handleRequestTrack,
+		handleResolveRequest,
 		handleSeasonConfirm,
 		hasAdvanced,
+		hasOpenHdRequest,
+		hasOpenFourKRequest,
+		hdDeclined,
 		pendingIs4k,
 		pendingRequests,
 		requestButtonLabel,
+		requestLabel,
+		requestLabel4k,
+		seasonMarkers,
 		seasonStatusMap4k,
 		seasonStatusMapHd,
 		showAdvancedPopup,
 		showCancelPopup,
+		showManagePopup,
 		showQualityPopup,
 		showReportPopup,
 		showSeasonPopup,

@@ -943,6 +943,16 @@ const AppContent = (props) => {
 		navigateTo(PANELS.SEERR_PERSON);
 	}, [navigateTo]);
 
+	// Everywhere the detail screen can send a viewer into the Seerr side of the app, bundled
+	// into one prop rather than five.
+	const seerrNav = useMemo(() => ({
+		onSelectItem: handleSelectSeerrItem,
+		onSelectKeyword: handleSelectSeerrKeyword,
+		onSelectGenre: handleSelectSeerrGenre,
+		onSelectNetwork: handleSelectSeerrNetwork,
+		onOpenCollection: handleOpenSeerrCollection
+	}), [handleSelectSeerrItem, handleSelectSeerrKeyword, handleSelectSeerrGenre, handleSelectSeerrNetwork, handleOpenSeerrCollection]);
+
 	const handlePinInputChange = useCallback((e) => {
 		const nextValue = String(e.target.value || '').replace(/\D/g, '').slice(0, 4);
 		setPinCodeInput(nextValue);
@@ -1107,6 +1117,7 @@ const AppContent = (props) => {
 								onSelectPerson={handleSelectPerson}
 								onSelectStudio={handleSelectStudio}
 								onItemDeleted={handleBack}
+								seerrNav={seerrNav}
 							backHandlerRef={backHandlerRef}
 						/>
 						)}

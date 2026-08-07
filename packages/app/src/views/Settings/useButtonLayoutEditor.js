@@ -1,7 +1,7 @@
 import {useCallback, useState} from 'react';
 
 import {
-	ordered, hiddenSet, DETAIL_BUTTONS, OSD_BUTTONS,
+	ordered, hiddenSet, withUnknownIds, DETAIL_BUTTONS, OSD_BUTTONS,
 	DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY, OSD_ORDER_KEY, OSD_HIDDEN_KEY
 } from '../../utils/buttonLayout';
 
@@ -28,13 +28,18 @@ const useButtonLayoutEditor = ({settings, updateSettings, pushView, popView}) =>
 	const openOsdButtons = useCallback(() => openButtonLayout('osd'), [openButtonLayout]);
 
 	const saveButtonLayout = useCallback(() => {
-		const {orderKey, hiddenKey} = buttonLayoutKeys(buttonLayoutKind);
-		updateSettings({
-			[orderKey]: tempButtons.map((btn) => btn.id),
-			[hiddenKey]: tempButtons.filter((btn) => !btn.enabled).map((btn) => btn.id)
-		});
+		const {catalogue, orderKey, hiddenKey} = buttonLayoutKeys(buttonLayoutKind);
+		const merged = withUnknownIds(
+			catalogue,
+			{
+				order: tempButtons.map((btn) => btn.id),
+				hidden: tempButtons.filter((btn) => !btn.enabled).map((btn) => btn.id)
+			},
+			{order: settings[orderKey], hidden: settings[hiddenKey]}
+		);
+		updateSettings({[orderKey]: merged.order, [hiddenKey]: merged.hidden});
 		popView();
-	}, [buttonLayoutKind, tempButtons, updateSettings, popView]);
+	}, [buttonLayoutKind, tempButtons, settings, updateSettings, popView]);
 
 	const resetButtonLayout = useCallback(() => {
 		setTempButtons(buttonLayoutKeys(buttonLayoutKind).catalogue.map((btn) => ({...btn, enabled: true})));

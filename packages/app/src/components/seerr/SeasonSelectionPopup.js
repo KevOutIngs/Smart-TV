@@ -5,10 +5,10 @@ import $L from '@enact/i18n/$L';
 
 import {isUnlimitedQuota} from '../../utils/seerrStatus';
 import {KEYS} from '../../utils/keys';
-import {getSeasonStatusColor, getSeasonStatusLabel, isSeasonRerequestable} from './seerrBadges';
+import {getSeasonStatusColor, getSeasonStatusLabel, isSeasonRerequestable} from '../../utils/seerrBadges';
 import {LastFocusedContainer, SpottableDiv, safeFocus} from './seerrFocus';
 
-import css from './SeerrDetails.module.less';
+import css from './SeerrPopups.module.less';
 
 // Picks which seasons of a series to request. Seasons already requested are shown with what
 // became of them, and only the declined and failed ones can be chosen again.
@@ -105,8 +105,8 @@ export const SeasonSelectionPopup = memo(({open, title, seasons, seasonStatusMap
 	const canConfirm = selectedSeasons.size > 0 && !quotaBlocked && !overCap;
 
 	return (
-		<Popup open={open} onClose={onClose} position="center" className={css.seasonPopup}>
-			<div className={css.seasonPopupContent}>
+		<Popup open={open} onClose={onClose} position="center">
+			<div className={`${css.popupSurface} ${css.seasonPopupContent}`}>
 				<h2 className={css.seasonPopupTitle}>{$L('Select Seasons')}</h2>
 				<p className={css.seasonPopupSubtitle}>{title}</p>
 				{!isUnlimitedQuota(quota) && (

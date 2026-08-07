@@ -5,7 +5,7 @@ import $L from '@enact/i18n/$L';
 
 import {MEDIA_STATUS, isUnlimitedQuota} from '../../utils/seerrStatus';
 
-import css from './SeerrDetails.module.less';
+import css from './SeerrPopups.module.less';
 
 // Asks whether a request is for HD or 4K, when the viewer is allowed to choose.
 
@@ -31,8 +31,8 @@ export const QualitySelectionPopup = memo(({open, title, hdStatus, status4k, can
 	}, [canRequest4k, quotaBlocked, onSelect]);
 
 	return (
-		<Popup open={open} onClose={onClose} position="center" className={css.qualityPopup}>
-			<div className={css.qualityPopupContent}>
+		<Popup open={open} onClose={onClose} position="center">
+			<div className={`${css.popupSurface} ${css.qualityPopupContent}`}>
 				<h2 className={css.qualityPopupTitle}>{$L('Request')} {title}</h2>
 				<p className={css.qualityPopupSubtitle}>{$L('Select quality to request')}</p>
 				<div className={css.qualityButtons}>
