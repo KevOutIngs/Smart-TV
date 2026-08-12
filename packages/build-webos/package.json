@@ -6,8 +6,5 @@
 		"build": "node build.js",
 		"install-tv": "ares-install ./build/*.ipk -d tv",
 		"launch-tv": "ares-launch org.moonfin.webos -d tv"
-	},
-	"devDependencies": {
-		"@webos-tools/cli": "^3.2.1"
 	}
 }

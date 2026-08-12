@@ -13,6 +13,15 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const NODE_MODULES = path.join(ROOT, 'node_modules');
+// @enact/cli lives in the tools/ folder, while the framework packages like
+// @enact/ui and @enact/sandstone stay in the root node_modules.
+const TOOLS_NODE_MODULES = path.join(ROOT, 'tools', 'node_modules');
+
+function resolveModulePath(relPath) {
+	const inTools = relPath.startsWith('@enact/cli') &&
+		fs.existsSync(path.join(TOOLS_NODE_MODULES, '@enact/cli'));
+	return path.join(inTools ? TOOLS_NODE_MODULES : NODE_MODULES, relPath);
+}
 
 let patchCount = 0;
 let skipCount = 0;
@@ -26,7 +35,7 @@ function recordFailure(description, relPath, reason) {
 }
 
 function patchFile(relPath, patches) {
-	const filePath = path.join(NODE_MODULES, relPath);
+	const filePath = resolveModulePath(relPath);
 	if (!fs.existsSync(filePath)) {
 		failCount++;
 		failures.push(`${relPath}: file not found`);
@@ -381,7 +390,7 @@ patchFile('@enact/ui/useScroll/Scrollbar.js', [
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n[Patch 6] buffer — replace ** exponentiation with Math.pow()');
 
-const bufferPath = path.join(NODE_MODULES, '@enact/cli/node_modules/buffer/index.js');
+const bufferPath = resolveModulePath('@enact/cli/node_modules/buffer/index.js');
 if (fs.existsSync(bufferPath)) {
 	let bufSrc = fs.readFileSync(bufferPath, 'utf8');
 	let bufModified = false;

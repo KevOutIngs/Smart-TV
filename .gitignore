@@ -1,6 +1,9 @@
 # dependencies
 node_modules
 
+# keeps the build CLIs' pinned dependencies out of the repo, see tools/package.json
+tools/package-lock.json
+
 # testing
 coverage
 

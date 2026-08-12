@@ -82,7 +82,7 @@ npm run build:tizen:all   # Samsung: Regular, Oblong, and Legacy
 npm run build:webos       # LG
 ```
 
-Node.js 18+ and npm 9+ are the only prerequisites. Full details, including the individual variant builds and the dev servers, are on [Building from Source](https://github.com/Moonfin-Client/Smart-TV/wiki/Building-from-Source).
+Node.js 18+ and npm 9+ are the only prerequisites. `npm install` also sets up the build CLIs in the git-ignored `tools/` directory, which keeps them out of the lockfile on purpose. See `tools/package.json` for the reasoning. Full details, including the individual variant builds and the dev servers, are on [Building from Source](https://github.com/Moonfin-Client/Smart-TV/wiki/Building-from-Source).
 
 ## Contributing
 
