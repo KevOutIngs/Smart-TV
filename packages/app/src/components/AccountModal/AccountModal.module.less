@@ -56,10 +56,19 @@
 .userGrid {
 	display: flex;
 	flex-wrap: nowrap;
-	justify-content: center;
 	overflow-x: auto;
 	padding: 20px 10px;
 	margin-bottom: 24px;
+
+	// justify-content: center would clip this, because on a scroll container
+	// half the overflow lands before scrollLeft zero where nothing reaches it.
+	// Auto margins on empty edge items centre a short row and collapse once it
+	// outgrows the modal.
+	&::before,
+	&::after {
+		content: '';
+		margin: auto;
+	}
 }
 
 .userCard {
