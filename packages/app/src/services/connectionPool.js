@@ -146,25 +146,28 @@ export const getNextUpFromAllServers = async (maxDays = 0) => {
 	);
 };
 
+// Each server hands its libraries back in the order the viewer arranged them
+// there, so group the servers and leave those runs alone. The index holds a run
+// together because sort isn't stable on the older TV engines.
+const groupLibrariesByServer = (libraries) => libraries
+	.map((library, index) => ({library, index}))
+	.sort((a, b) =>
+		(a.library._serverName || '').localeCompare(b.library._serverName || '') ||
+		a.index - b.index
+	)
+	.map((entry) => entry.library);
+
 /**
  * Get libraries from all servers
  * @returns {Promise<Array>} All libraries tagged with server info
  */
 export const getLibrariesFromAllServers = async () => {
-	return executeAll(
-		async (api) => {
-			const result = await api.getLibraries();
-			return result.Items || [];
-		},
-		{
-			sortBy: (a, b) => {
-				if (a._serverName !== b._serverName) {
-					return a._serverName.localeCompare(b._serverName);
-				}
-				return (a.Name || '').localeCompare(b.Name || '');
-			}
-		}
-	);
+	const libraries = await executeAll(async (api) => {
+		const result = await api.getLibraries();
+		return result.Items || [];
+	});
+
+	return groupLibrariesByServer(libraries);
 };
 
 /**
@@ -491,20 +494,12 @@ export const getGenreItemsFromAllServers = async (params) => {
  * @returns {Promise<Array>} All libraries (including hidden) tagged with server info
  */
 export const getAllLibrariesFromAllServers = async () => {
-	return executeAll(
-		async (api) => {
-			const result = await api.getAllLibraries();
-			return result.Items || [];
-		},
-		{
-			sortBy: (a, b) => {
-				if (a._serverName !== b._serverName) {
-					return a._serverName.localeCompare(b._serverName);
-				}
-				return (a.Name || '').localeCompare(b.Name || '');
-			}
-		}
-	);
+	const libraries = await executeAll(async (api) => {
+		const result = await api.getAllLibraries();
+		return result.Items || [];
+	});
+
+	return groupLibrariesByServer(libraries);
 };
 
 /**

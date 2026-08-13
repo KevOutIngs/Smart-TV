@@ -265,7 +265,6 @@ const AppContent = (props) => {
 					const result = await api.getLibraries();
 					libs = result.Items || [];
 				}
-				libs.sort((a, b) => (a.Name || '').localeCompare(b.Name || ''));
 				setLibraries(libs);
 				// Warm the plugin's game library list so selecting a tile can tell a game
 				// library from a normal one without waiting on a request.
