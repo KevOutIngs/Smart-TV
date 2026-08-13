@@ -3,6 +3,7 @@ import $L from '@enact/i18n/$L';
 
 import {TRANSCODE_QUALITIES} from './detailsMedia';
 import {ModalContainer} from '../../utils/spotlightContainers';
+import {numberedTrackName, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
 import {SpottableButton, SpottableDiv} from './detailsSpottables';
 
 import css from './Details.module.less';
@@ -86,18 +87,21 @@ const DetailTrackModals = ({
 					<ModalContainer className={css.trackModalPanel} onClick={stopPropagation} data-modal="audio" spotlightId="audio-modal">
 						<h2 className={css.trackModalTitle}>{$L('Select Audio Track')}</h2>
 						<div className={css.trackList}>
-							{audioStreams.map((stream, i) => (
-								<SpottableButton
-									key={stream.Index}
-									className={`${css.trackItem} ${i === selectedAudioIndex ? css.selected : ''}`}
-									data-index={i}
-									data-selected={i === selectedAudioIndex ? 'true' : undefined}
-									onClick={onSelectAudio}
-								>
-									<span className={css.trackName}>{stream.DisplayTitle || stream.Language || `${$L('Track')} ${i + 1}`}</span>
-									{stream.Channels && <span className={css.trackInfo}>{stream.Channels}ch</span>}
-								</SpottableButton>
-							))}
+							{audioStreams.map((stream, i) => {
+								const detail = audioTrackDetail({language: stream.Language, displayTitle: stream.DisplayTitle, codec: stream.Codec, channels: stream.Channels});
+								return (
+									<SpottableButton
+										key={stream.Index}
+										className={`${css.trackItem} ${i === selectedAudioIndex ? css.selected : ''}`}
+										data-index={i}
+										data-selected={i === selectedAudioIndex ? 'true' : undefined}
+										onClick={onSelectAudio}
+									>
+										<span className={css.trackName}>{numberedTrackName(i + 1, stream.DisplayTitle || stream.Language)}</span>
+										{detail && <span className={css.trackInfo}>{detail}</span>}
+									</SpottableButton>
+								);
+							})}
 						</div>
 						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
@@ -124,8 +128,8 @@ const DetailTrackModals = ({
 									data-selected={i === selectedSubtitleIndex ? 'true' : undefined}
 									onClick={onSelectSubtitle}
 								>
-									<span className={css.trackName}>{stream.DisplayTitle || stream.Language || `${$L('Track')} ${i + 1}`}</span>
-									{stream.IsForced && <span className={css.trackInfo}>{$L('Forced')}</span>}
+									<span className={css.trackName}>{numberedTrackName(i + 1, stream.DisplayTitle || stream.Language)}</span>
+									<span className={css.trackInfo}>{subtitleTrackDetail({codec: stream.Codec, isExternal: stream.IsExternal, deliveryMethod: stream.DeliveryMethod, isForced: stream.IsForced})}</span>
 								</SpottableButton>
 							))}
 						</div>

@@ -10,6 +10,7 @@ import SubtitleSettingsOverlay from './SubtitleSettingsOverlay';
 import {isHdrVideoStream} from '../../utils/videoRange';
 import {getPlatform} from '../../platform';
 import {ModalContainer} from '../../utils/spotlightContainers';
+import {numberedTrackName, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
 import {
 	SpottableButton, SpottableDiv,
 	formatTime, getQualityPresets,
@@ -368,18 +369,21 @@ const PlayerControls = ({
 					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="audio" spotlightId="audio-modal">
 						<h2 className={css.modalTitle}>{$L('Select Audio Track')}</h2>
 						<div className={css.trackList}>
-							{audioStreams.map((stream) => (
-								<SpottableButton
-									key={stream.index}
-									className={`${css.trackItem} ${stream.index === selectedAudioIndex ? css.selected : ''}`}
-									data-index={stream.index}
-									data-selected={stream.index === selectedAudioIndex ? 'true' : undefined}
-									onClick={handleSelectAudio}
-								>
-									<span className={css.trackName}>{stream.displayTitle}</span>
-									{stream.channels && <span className={css.trackInfo}>{stream.channels}ch</span>}
-								</SpottableButton>
-							))}
+							{audioStreams.map((stream, i) => {
+								const detail = audioTrackDetail({language: stream.language, displayTitle: stream.displayTitle, codec: stream.codec, channels: stream.channels});
+								return (
+									<SpottableButton
+										key={stream.index}
+										className={`${css.trackItem} ${stream.index === selectedAudioIndex ? css.selected : ''}`}
+										data-index={stream.index}
+										data-selected={stream.index === selectedAudioIndex ? 'true' : undefined}
+										onClick={handleSelectAudio}
+									>
+										<span className={css.trackName}>{numberedTrackName(i + 1, stream.displayTitle)}</span>
+										{detail && <span className={css.trackInfo}>{detail}</span>}
+									</SpottableButton>
+								);
+							})}
 						</div>
 						<p className={css.modalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
@@ -400,7 +404,7 @@ const PlayerControls = ({
 							>
 								<span className={css.trackName}>{$L('Off')}</span>
 							</SpottableButton>
-							{subtitleStreams.map((stream) => (
+							{subtitleStreams.map((stream, i) => (
 								<SpottableButton
 									key={stream.index}
 									className={`${css.trackItem} ${stream.index === selectedSubtitleIndex ? css.selected : ''}`}
@@ -409,8 +413,8 @@ const PlayerControls = ({
 									onClick={handleSelectSubtitle}
 									onKeyDown={handleSubtitleKeyDown}
 								>
-									<span className={css.trackName}>{stream.displayTitle}</span>
-									{stream.isForced && <span className={css.trackInfo}>{$L('Forced')}</span>}
+									<span className={css.trackName}>{numberedTrackName(i + 1, stream.displayTitle)}</span>
+									<span className={css.trackInfo}>{subtitleTrackDetail({codec: stream.codec, isExternal: stream.isExternal, deliveryMethod: stream.deliveryMethod, isForced: stream.isForced})}</span>
 								</SpottableButton>
 							))}
 						</div>
