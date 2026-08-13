@@ -7,7 +7,11 @@ import {MUSIC_FOCUS_IDS} from './musicFocus';
 import css from './MusicFilterPanel.module.less';
 
 const SpottableButton = Spottable('div');
-const PanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
+const PanelContainer = SpotlightContainerDecorator({
+	enterTo: 'last-focused',
+	restrict: 'self-only',
+	leaveFor: {left: '', right: '', up: '', down: ''}
+}, 'div');
 
 const MUSIC_SORT_CHOICES = [
 	{key: 'name', label: $L('Name')},

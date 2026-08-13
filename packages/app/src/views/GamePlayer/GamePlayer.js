@@ -14,7 +14,11 @@ import * as ejs from '../../utils/emulatorjs';
 import css from './GamePlayer.module.less';
 
 const SpottableRow = Spottable('div');
-const OverlayContainer = SpotlightContainerDecorator({enterTo: 'default-element', restrict: 'self-only'}, 'div');
+const OverlayContainer = SpotlightContainerDecorator({
+	enterTo: 'default-element',
+	restrict: 'self-only',
+	leaveFor: {left: '', right: '', up: '', down: ''}
+}, 'div');
 
 // One emulator-setting row. OK / right cycles the value forward, left cycles back.
 const SettingRow = memo(({opt, first, onChange}) => {

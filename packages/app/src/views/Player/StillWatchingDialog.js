@@ -8,7 +8,8 @@ import css from './StillWatchingDialog.module.less';
 const DialogContainer = SpotlightContainerDecorator({
 	enterTo: 'default-element',
 	defaultElement: '[data-spot-default="true"]',
-	restrict: 'self-only'
+	restrict: 'self-only',
+	leaveFor: {left: '', right: '', up: '', down: ''}
 }, 'div');
 
 /**
