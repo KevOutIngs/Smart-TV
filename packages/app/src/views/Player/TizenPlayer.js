@@ -43,28 +43,18 @@ import {
 	mapSubtitleStreamsFromMediaSource,
 	mapRemoteSubtitleOptions
 } from './remoteSubtitleUtils';
-import {getVideoDisplayAspectRatio} from './aspectRatioUtils';
+import {getVideoDisplayAspectRatio, getZoomDisplayRect} from './aspectRatioUtils';
 import {mapJellyfinTrackToTizen} from './tizenTrackUtils';
 import serverLogger from '../../services/serverLogger';
 import {summarizeAvplayTracks, describeSubtitleStream, describeSubtitleStreams} from './subtitleDiagnostics';
 
 import css from './TizenPlayer.module.less';
 
-// setDisplayRect works in the app coordinate space, not panel pixels. Handing it
-// the panel resolution on a 4K set makes the video plane four times the visible
-// area, which is why the display method modes all looked identical.
-const getTizenFullscreenRect = () => {
-	if (typeof window === 'undefined') {
-		return {x: 0, y: 0, width: 1920, height: 1080};
-	}
-
-	return {
-		x: 0,
-		y: 0,
-		width: Math.max(1, Math.round(window.innerWidth || 1920)),
-		height: Math.max(1, Math.round(window.innerHeight || 1080))
-	};
-};
+// AVPlay reads a display rect against a 1920x1080 screen whatever the app renders at, so
+// these stay fixed rather than following the window. Handing it panel pixels on a 4K set
+// makes the video plane four times the visible area and every display mode look the same.
+const AVPLAY_SCREEN = {width: 1920, height: 1080};
+const AVPLAY_FULLSCREEN_RECT = {x: 0, y: 0, ...AVPLAY_SCREEN};
 
 const getRootFontSizePx = () => {
 	if (typeof window === 'undefined' || typeof document === 'undefined') return 24;
@@ -138,6 +128,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [castMembers, setCastMembers] = useState([]);
 	const [isLoadingCastMembers, setIsLoadingCastMembers] = useState(false);
 	const zoomModeRef = useRef('fit');
+	const videoAspectRatioRef = useRef(null);
 
 	const lyrics = useLyrics(item, isAudioMode, currentTime);
 
@@ -209,6 +200,18 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 	const applyDisplayWindow = useCallback(() => {
 		const mode = zoomModeRef.current;
+		const aspect = videoAspectRatioRef.current;
+
+		// AVPlay shapes its letterbox from the decoded frame, the size the picture is stored
+		// at rather than the size it should be shown at, so anamorphic DVD rips come out
+		// squeezed. Its own dar/par mode covers that in principle but stopped scaling right
+		// on recent Tizen, so hand it a box of the shape the stream declares and let it fill.
+		if (mode === 'fit' && aspect) {
+			avplaySetDisplayMethod('PLAYER_DISPLAY_MODE_FULL_SCREEN');
+			setDisplayWindow(getZoomDisplayRect(AVPLAY_SCREEN, aspect, 'fit'));
+			return;
+		}
+
 		if (mode === 'stretch') {
 			avplaySetDisplayMethod('PLAYER_DISPLAY_MODE_FULL_SCREEN');
 		} else if (mode === 'fill') {
@@ -218,7 +221,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		}
 		// setting the rect after the method is what makes the scaler pick up a
 		// mid playback mode change
-		setDisplayWindow(getTizenFullscreenRect());
+		setDisplayWindow(AVPLAY_FULLSCREEN_RECT);
 	}, []);
 
 	const enforceRootFontSize = useCallback(() => {
@@ -285,6 +288,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	useEffect(() => {
 		zoomModeRef.current = zoomMode;
 	}, [zoomMode]);
+
+	useEffect(() => {
+		videoAspectRatioRef.current = videoAspectRatio;
+	}, [videoAspectRatio]);
 
 	useEffect(() => {
 		const people = Array.isArray(item?.People) ? item.People : [];
