@@ -166,8 +166,7 @@
 }
 
 .featuredInfoBox {
-	background: rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.55);
-	border-radius: 16px;
+	.glass-panel(16px);
 	padding: 24px 28px;
 	width: 100%;
 	box-sizing: border-box;
@@ -252,9 +251,9 @@
 	transform: translateY(-50%);
 	width: 60px;
 	height: 60px;
-	background: rgba(0, 0, 0, 0.6);
-	border: none;
+	.glass-button();
 	border-radius: 50%;
+	box-sizing: border-box;
 	cursor: pointer;
 	z-index: 10;
 	transition: background 0.3s ease, transform 0.3s ease;

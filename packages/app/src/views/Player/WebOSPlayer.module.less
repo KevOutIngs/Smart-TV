@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 /* Player Container */
 .container {
 	position: fixed;
@@ -593,14 +595,13 @@
 }
 
 .modalContent {
-	background: rgba(30, 30, 30, 0.98);
-	border-radius: 16px;
+	.glass-panel(16px);
 	padding: 50px;
 	max-width: 900px;
 	width: 90%;
 	max-height: 80%;
 	overflow-y: auto;
-	border: 2px solid rgba(255, 255, 255, 0.15);
+	border-width: 2px;
 	box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8);
 	animation: slideUp 0.3s ease;
 	scrollbar-width: none;

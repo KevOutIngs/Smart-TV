@@ -84,23 +84,17 @@ const Browse = ({
 		return item?._serverUrl || serverUrl;
 	}, [serverUrl]);
 
+	// Only the parts a theme owns belong here. Painting a surface color or clearing
+	// the filter would flatten the frosted treatment the stylesheet applies.
 	const uiPanelStyle = useMemo(() => {
 		return {
-			background: toCssColor(activeTheme.colors.surface),
-			backdropFilter: 'none',
-			WebkitBackdropFilter: 'none',
-			border: 'var(--theme-card-border)',
 			boxShadow: 'var(--theme-focus-glow)'
 		};
-	}, [activeTheme]);
+	}, []);
 
 	const uiButtonStyle = useMemo(() => {
 		return {
-			background: toCssColor(activeTheme.colors.buttonNormal),
 			color: toCssColor(activeTheme.colors.onButtonNormal),
-			backdropFilter: 'none',
-			WebkitBackdropFilter: 'none',
-			border: 'var(--theme-chip-border)',
 			borderRadius: 'var(--theme-chip-radius)'
 		};
 	}, [activeTheme]);

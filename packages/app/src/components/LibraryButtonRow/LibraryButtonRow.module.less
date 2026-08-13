@@ -1,3 +1,5 @@
+@import '../../styles/mixins.less';
+
 .row {
 	margin-bottom: 30px;
 	overflow: visible;
@@ -59,11 +61,10 @@
 	height: 180px;
 	box-sizing: border-box;
 	padding: 24px 16px;
-	border-radius: 12px;
 	cursor: pointer;
 	outline: none;
-	background: var(--theme-surface, #1a1a1a);
-	border: 3px solid transparent;
+	.glass-panel(12px);
+	border-width: 3px;
 	transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 
 	display: -webkit-flex;
