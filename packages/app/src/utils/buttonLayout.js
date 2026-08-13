@@ -31,7 +31,6 @@ export const DETAIL_BUTTONS = [
 	{id: 'watched', label: 'Mark Watched'},
 	{id: 'favorite', label: 'Favorite'},
 	{id: 'goToSeries', label: 'Series'},
-	{id: 'mediaInfo', label: 'Media Info'},
 	{id: 'playlist', label: 'Add to Playlist'},
 	{id: 'collection', label: 'Add to Collection'},
 	{id: 'deleteFiles', label: 'Delete'},

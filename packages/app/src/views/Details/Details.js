@@ -130,7 +130,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		clearSeerrActionError();
 	}, [seerrActionError, clearSeerrActionError, showToast]);
 
-	const modals = useDetailsModals({backHandlerRef, itemId, onArtworkClosed: refreshItem, seerrBackRef});
+	const modals = useDetailsModals({backHandlerRef, onArtworkClosed: refreshItem, seerrBackRef});
 	const {activeModal, openModal, closeModal, advancedResumeRef} = modals;
 
 	const trailer = useDetailsTrailer({
@@ -724,7 +724,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				activeModal={activeModal}
 				onCloseModal={closeModal}
 				item={item}
-				mediaSource={mediaSource}
 				audioStreams={audioStreams}
 				subtitleStreams={subtitleStreams}
 				selectedVersionIndex={selectedVersionIndex}
@@ -738,8 +737,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				isSearchingRemoteSubtitles={isSearchingRemoteSubtitles}
 				remoteSubtitleResults={remoteSubtitleResults}
 				onSelectRemoteSubtitle={handleSelectRemoteSubtitle}
-				showMediaInfo={modals.showMediaInfo}
-				onCloseMediaInfo={modals.handleCloseMediaInfo}
 			/>
 			{trailerLayer}
 			<DetailDialogs
@@ -825,7 +822,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 					handleOpenVersionModal={modals.handleOpenVersionModal}
 					handleOpenAudioModal={modals.handleOpenAudioModal}
 					handleOpenSubtitleModal={modals.handleOpenSubtitleModal}
-					handleOpenMediaInfo={modals.handleOpenMediaInfo}
 					handleOpenPlaylistModal={modals.handleOpenPlaylistModal}
 					handleOpenCollectionModal={canAddToCollection ? modals.handleOpenCollectionModal : null}
 					handleOpenIdentifyModal={canIdentify ? modals.handleOpenIdentifyModal : null}
@@ -998,7 +994,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			onToggleWatched={handleToggleWatched}
 			onToggleFavorite={handleToggleFavorite}
 			onGoToSeries={handleGoToSeries}
-			onOpenMediaInfo={modals.handleOpenMediaInfo}
 			onOpenPlaylistModal={modals.handleOpenPlaylistModal}
 			onOpenCollectionModal={modals.handleOpenCollectionModal}
 			onOpenDeleteDialog={modals.handleOpenDeleteDialog}

@@ -44,7 +44,6 @@ const DetailActionButtons = ({
 	onToggleWatched,
 	onToggleFavorite,
 	onGoToSeries,
-	onOpenMediaInfo,
 	onOpenPlaylistModal,
 	onOpenCollectionModal,
 	onOpenDeleteDialog,
@@ -168,16 +167,6 @@ const DetailActionButtons = ({
 					</svg>
 				</div>
 				<span className={css.btnLabel}>{$L('Series')}</span>
-			</SpottableDiv>
-		)},
-		{id: 'mediaInfo', when: supportsMediaSourceSelection, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={onOpenMediaInfo}>
-				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.mediaInfo}/>
-					</svg>
-				</div>
-				<span className={css.btnLabel}>{$L('Media Info')}</span>
 			</SpottableDiv>
 		)},
 		{id: 'playlist', when: true, render: () => (

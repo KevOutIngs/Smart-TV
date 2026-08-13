@@ -7,13 +7,12 @@ import {SpottableButton, SpottableDiv} from './detailsSpottables';
 
 import css from './Details.module.less';
 
-// The pickers behind the Version, Audio and Subtitle buttons, plus the read only stream
-// dump behind Media Info. Only one is ever raised at a time, so they share activeModal.
+// The pickers behind the Version, Audio and Subtitle buttons. Only one is ever raised at a
+// time, so they share activeModal.
 const DetailTrackModals = ({
 	activeModal,
 	onCloseModal,
 	item,
-	mediaSource,
 	audioStreams,
 	subtitleStreams,
 	selectedVersionIndex,
@@ -26,9 +25,7 @@ const DetailTrackModals = ({
 	onOpenRemoteSubtitleSearch,
 	isSearchingRemoteSubtitles,
 	remoteSubtitleResults,
-	onSelectRemoteSubtitle,
-	showMediaInfo,
-	onCloseMediaInfo
+	onSelectRemoteSubtitle
 }) => {
 	const stopPropagation = useCallback((e) => e.stopPropagation(), []);
 
@@ -171,56 +168,6 @@ const DetailTrackModals = ({
 						</div>
 						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
-				</div>
-			)}
-
-			{showMediaInfo && mediaSource && (
-				<div className={css.modalOverlay} onClick={onCloseMediaInfo}>
-					<div className={css.mediaInfoMenu} onClick={stopPropagation}>
-						<h3 className={css.modalTitle}>{$L('Media Info')}</h3>
-						<div className={css.mediaInfoContent}>
-							{(mediaSource.MediaStreams || []).length === 0 && <p className={css.mediaInfoRow}>{$L('No media info available')}</p>}
-							{(mediaSource.MediaStreams || []).map((stream, i) => (
-								<div key={i} className={css.mediaInfoStream}>
-									<div className={css.mediaInfoStreamHeader}>
-										{stream.Type}{stream.Language ? ` (${stream.Language})` : ''}
-									</div>
-									{stream.DisplayTitle && <div className={css.mediaInfoRow}>{stream.DisplayTitle}</div>}
-									{stream.Type === 'Video' && (
-										<div className={css.mediaInfoRow}>
-											{[
-												stream.Width && stream.Height ? `${stream.Width}×${stream.Height}` : null,
-												stream.Codec?.toUpperCase(),
-												stream.BitRate ? `${Math.round(stream.BitRate / 1000000)} Mbps` : null,
-												stream.VideoRange,
-												stream.VideoRangeType && stream.VideoRangeType !== 'SDR' ? stream.VideoRangeType : null
-											].filter(Boolean).join(' · ')}
-										</div>
-									)}
-									{stream.Type === 'Audio' && (
-										<div className={css.mediaInfoRow}>
-											{[
-												stream.Codec?.toUpperCase(),
-												stream.Channels ? `${stream.Channels} ch` : null,
-												stream.SampleRate ? `${stream.SampleRate} Hz` : null,
-												stream.BitRate ? `${Math.round(stream.BitRate / 1000)} kbps` : null
-											].filter(Boolean).join(' · ')}
-										</div>
-									)}
-									{stream.Type === 'Subtitle' && (
-										<div className={css.mediaInfoRow}>
-											{[stream.Codec?.toUpperCase(), stream.IsExternal ? $L('External') : $L('Embedded')].filter(Boolean).join(' · ')}
-										</div>
-									)}
-								</div>
-							))}
-						</div>
-						<div className={css.mediaInfoClose}>
-							<SpottableDiv className={css.mediaInfoCloseBtn} onClick={onCloseMediaInfo} spotlightId="media-info-close">
-								{$L('Close')}
-							</SpottableDiv>
-						</div>
-					</div>
 				</div>
 			)}
 		</>

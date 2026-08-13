@@ -4,9 +4,8 @@ import Spotlight from '@enact/spotlight';
 // Every overlay the detail screen can raise, and the BACK handling that closes them in the
 // right order. The track pickers share one activeModal slot because only one of them is ever
 // up at a time, while the dialogs that own their own component get a flag each.
-const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed, seerrBackRef}) => {
+const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef}) => {
 	const [activeModal, setActiveModal] = useState(null);
-	const [showMediaInfo, setShowMediaInfo] = useState(false);
 	const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 	const [showCollectionModal, setShowCollectionModal] = useState(false);
 	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -18,9 +17,6 @@ const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed, seerrBackRef
 	// Which button opened the advanced menu, so the chosen quality resumes or starts over
 	// the same way a plain press of that button would have.
 	const advancedResumeRef = useRef(false);
-
-	// Streams belong to the item they were read from, so the panel can't outlive it.
-	useEffect(() => setShowMediaInfo(false), [itemId]);
 
 	const openModal = useCallback((modal) => {
 	  lastFocusedElementRef.current = document.activeElement;
@@ -63,9 +59,6 @@ const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed, seerrBackRef
 
 	const handleAdvancedPlay = useCallback(() => openAdvancedPlayback(false), [openAdvancedPlayback]);
 	const handleAdvancedResume = useCallback(() => openAdvancedPlayback(true), [openAdvancedPlayback]);
-
-	const handleCloseMediaInfo = useCallback(() => setShowMediaInfo(false), []);
-	const handleOpenMediaInfo = useCallback(() => setShowMediaInfo(true), []);
 
 	const handleOpenPlaylistModal = useCallback(() => {
 		setShowPlaylistModal(true);
@@ -130,12 +123,11 @@ const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed, seerrBackRef
 			if (showPlaylistModal) { handleClosePlaylistModal(); return true; }
 			if (showCollectionModal) { handleCloseCollectionModal(); return true; }
 			if (activeModal) { closeModal(); return true; }
-			if (showMediaInfo) { setShowMediaInfo(false); return true; }
 			return false;
 		};
 		backHandlerRef.current = handler;
 		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
-	}, [backHandlerRef, seerrBackRef, activeModal, showMediaInfo, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
+	}, [backHandlerRef, seerrBackRef, activeModal, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
 
 	return {
 		activeModal,
@@ -143,9 +135,6 @@ const useDetailsModals = ({backHandlerRef, itemId, onArtworkClosed, seerrBackRef
 		closeModal,
 		advancedResumeRef,
 		artworkModalBackRef,
-		showMediaInfo,
-		handleOpenMediaInfo,
-		handleCloseMediaInfo,
 		showPlaylistModal,
 		handleOpenPlaylistModal,
 		handleClosePlaylistModal,
