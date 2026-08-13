@@ -5,13 +5,6 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 export const SpottableButton = Spottable('button');
 export const SpottableDiv = Spottable('div');
 
-export const ModalContainer = SpotlightContainerDecorator({
-	enterTo: 'default-element',
-	defaultElement: '[data-selected="true"]',
-	straightOnly: false,
-	preserveId: true
-}, 'div');
-
 export const NextEpisodeContainer = SpotlightContainerDecorator({
 	enterTo: 'default-element',
 	defaultElement: '[data-spot-default="true"]',

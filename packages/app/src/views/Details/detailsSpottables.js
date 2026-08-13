@@ -4,12 +4,5 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 export const SpottableDiv = Spottable('div');
 export const SpottableButton = Spottable('button');
 
-export const ModalContainer = SpotlightContainerDecorator({
-	enterTo: 'default-element',
-	defaultElement: '[data-selected="true"]',
-	straightOnly: false,
-	preserveId: true
-}, 'div');
-
 export const HorizontalContainer = SpotlightContainerDecorator({restrict: 'self-first'}, 'div');
 export const RowContainer = SpotlightContainerDecorator({enterTo: 'last-focused'}, 'div');

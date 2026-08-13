@@ -9,8 +9,9 @@ import SubtitleOffsetOverlay from './SubtitleOffsetOverlay';
 import SubtitleSettingsOverlay from './SubtitleSettingsOverlay';
 import {isHdrVideoStream} from '../../utils/videoRange';
 import {getPlatform} from '../../platform';
+import {ModalContainer} from '../../utils/spotlightContainers';
 import {
-	SpottableButton, SpottableDiv, ModalContainer,
+	SpottableButton, SpottableDiv,
 	formatTime, getQualityPresets,
 	IconPlay, IconPause, IconRewind, IconForward, IconSubtitle, IconSubtitleOff, IconAudio,
 	IconChapters, IconPrevious, IconNext, IconQuality, IconInfo, IconCast, IconZoom,

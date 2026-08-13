@@ -2,7 +2,8 @@ import {useCallback} from 'react';
 import $L from '@enact/i18n/$L';
 
 import {TRANSCODE_QUALITIES} from './detailsMedia';
-import {ModalContainer, SpottableButton, SpottableDiv} from './detailsSpottables';
+import {ModalContainer} from '../../utils/spotlightContainers';
+import {SpottableButton, SpottableDiv} from './detailsSpottables';
 
 import css from './Details.module.less';
 
