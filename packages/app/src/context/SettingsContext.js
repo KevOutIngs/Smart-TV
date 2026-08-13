@@ -26,7 +26,7 @@ const SERVER_TO_LOCAL = {
 	mediaBarTrailerPreview: 'featuredTrailerPreview',
 	mediaBarAutoAdvance: 'autoAdvance',
 	mediaBarIntervalMs: 'autoAdvanceInterval',
-	mediaBarSourceType: 'featuredContentType',
+	mediaBarContentType: 'featuredContentType',
 	mediaBarTrailerAudio: 'featuredTrailerMuted',
 	mediaBarExcludedGenres: 'excludedGenres',
 	enableMultiServerLibraries: 'unifiedLibraryMode',
@@ -85,6 +85,13 @@ const normalizeGuid = (id) => {
 };
 const normalizeGuidArray = (arr) => Array.isArray(arr) ? arr.map(normalizeGuid) : arr;
 
+// This app says tv where the other clients say tvshows. Inverting the one map keeps the
+// two directions from drifting apart.
+const CONTENT_TYPE_TO_SERVER = {both: 'both', movies: 'movies', tv: 'tvshows'};
+const CONTENT_TYPE_FROM_SERVER = Object.fromEntries(
+	Object.entries(CONTENT_TYPE_TO_SERVER).map(([local, server]) => [server, local])
+);
+
 // Above this an auto advance interval has to be milliseconds, because the slider
 // that sets it only reaches 20 seconds.
 const MIN_INTERVAL_MS = 100;
@@ -106,6 +113,16 @@ const VALUE_CONVERSIONS = {
 	},
 	mediaBarCollectionIds: {
 		fromServer: normalizeGuidArray
+	},
+	// The item types and the source shared one server key until recently, so a stored
+	// profile can hold either setting's value under either name. Mapping through the sets
+	// each one actually offers drops whatever landed in the wrong place.
+	featuredContentType: {
+		toServer: v => CONTENT_TYPE_TO_SERVER[v],
+		fromServer: v => CONTENT_TYPE_FROM_SERVER[v]
+	},
+	mediaBarSourceType: {
+		fromServer: v => (v === 'library' || v === 'collection' ? v : undefined)
 	},
 	// The clock is a toggle here and a three way choice on the other clients. Anything that
 	// isn't "never" shows a clock, so the toggle reads as on.
@@ -644,7 +661,9 @@ export function SettingsProvider({children}) {
 					saveToStorage('settings', updated);
 					return updated;
 				});
-				return 'empty';
+				// A viewer who has never synced has no envelope of their own, and they are
+				// exactly who the admin defaults are there to seed.
+				if (!adminDefaults) return 'empty';
 			}
 
 			const resolved = resolveFromEnvelope(serverData, adminDefaults);
