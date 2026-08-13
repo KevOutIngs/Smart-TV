@@ -586,7 +586,7 @@ export const SETTINGS_SCHEMA = [
 				description: () => $L('Advanced playback options'),
 				rows: [
 					{kind: KIND.SLIDER, key: 'videoStartDelay', label: () => $L('Video Start Delay'), min: 0, max: 5, step: 0.5, format: (v) => (v === 0 ? $L('Off') : `${Number(v).toFixed(1)}s`), icon: 'scheduler'},
-					{kind: KIND.TOGGLE, key: 'liveTvDirect', label: () => $L('Live TV Direct'), desc: () => $L('Open the first available live channel directly from library selection'), icon: 'liveplay'}
+					{kind: KIND.TOGGLE, key: 'liveTvSkipGuide', label: () => $L('Skip TV Guide'), desc: () => $L('Open the first available live channel directly from library selection'), icon: 'liveplay'}
 				]
 			}
 		]

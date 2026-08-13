@@ -1,12 +1,18 @@
 @import '../../styles/variables.less';
+@import '../../styles/mixins.less';
+
+// Moonfin-core's recordings screen, scaled by 1.5 the same way the guide is.
 
 .page {
-	width: 100%;
-	height: 100vh;
-	background: @background-primary;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: #000;
 	display: flex;
 	flex-direction: column;
-	padding-top: 80px;
+	overflow: hidden;
 }
 
 .loadingContainer {
@@ -14,7 +20,7 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	height: 100%;
+	flex: 1;
 
 	p {
 		margin-top: 24px;
@@ -26,256 +32,276 @@
 .header {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	padding: 24px 48px;
-	background: @background-secondary;
-	border-bottom: 1px solid @border-color;
+	flex-shrink: 0;
+	padding: 30px 36px 18px;
 }
 
 .title {
-	font-size: 36px;
+	font-size: 39px;
 	font-weight: 600;
+	color: #fff;
 }
 
-.tabs {
+.pills {
 	display: flex;
+	align-items: center;
+	margin-left: auto;
+	.flex-row-gap(12px);
 
-	> * + * {
-		margin-left: 16px;
+	// The back arrow sits further out than the gap between the tab pills.
+	> .backPill {
+		margin-left: 18px;
 	}
 }
 
-.tab {
-	padding: 12px 24px;
-	font-size: 18px;
-	background: @background-tertiary;
-	border: 2px solid transparent;
-	border-radius: 8px;
-	color: @text-primary;
+.pill {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 10px 21px;
+	border: none;
+	border-radius: 30px;
+	background: rgba(255, 255, 255, 0.1);
+	color: rgba(255, 255, 255, 0.8);
+	font-size: 20px;
 	cursor: pointer;
-	transition: all 0.2s;
+	transition: background 0.15s ease, color 0.15s ease;
+	outline: none;
 
-	&:hover,
+	svg {
+		width: 27px;
+		height: 27px;
+		fill: currentColor;
+	}
+
+	&.selected {
+		background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.7);
+		color: #fff;
+	}
+
 	&:focus {
-		background: var(--theme-accent, #00a4dc);
-		outline: none;
-	}
-
-	&.active {
-		background: var(--theme-accent, #00a4dc);
-		border-color: var(--theme-accent, #00a4dc);
+		background: @accent-color;
+		color: #fff;
 	}
 }
 
-.content {
+
+.body {
 	flex: 1;
-	overflow: auto;
-	padding: 32px 48px;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-bottom: 36px;
 }
 
-.grid {
-	display: flex;
-	flex-wrap: wrap;
+.row {
+	margin-top: 18px;
+}
 
-	> * {
-		margin-right: 24px;
-		margin-bottom: 24px;
-	}
+.rowTitle {
+	margin: 0 0 12px 90px;
+	font-size: 27px;
+	font-weight: 600;
+	color: #fff;
+}
+
+.rail {
+	display: flex;
+	align-items: flex-start;
+	height: 240px;
+	padding: 9px 90px 0;
+	box-sizing: border-box;
+	overflow-x: auto;
+	overflow-y: hidden;
+	.flex-row-gap(18px);
 }
 
 .card {
-	width: 250px;
-	background: @background-secondary;
-	border-radius: 12px;
-	overflow: hidden;
+	width: 300px;
+	flex-shrink: 0;
+	// Core dims resting cards to 75% and brings the focused one to full strength.
+	opacity: 0.75;
 	cursor: pointer;
-	transition: all 0.2s;
-	border: 2px solid transparent;
+	transition: opacity 0.15s ease, transform 0.15s ease;
+	outline: none;
 
-	&:hover,
 	&:focus {
-		border-color: var(--theme-accent, #00a4dc);
-		outline: none;
-		transform: scale(1.02);
+		opacity: 1;
+		transform: scale(1.08);
+		position: relative;
+		z-index: 2;
+	}
+}
+
+.cardThumb {
+	width: 300px;
+	height: 168px;
+	border: 3px solid transparent;
+	border-radius: 6px;
+	box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.06);
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	.card:focus & {
+		border-color: #fff;
 	}
 }
 
 .cardImage {
 	width: 100%;
-	height: 140px;
+	height: 100%;
 	object-fit: cover;
 }
 
-.cardPlaceholder {
-	width: 100%;
-	height: 140px;
-	background: @background-tertiary;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 48px;
+.placeholderIcon {
+	width: 72px;
+	height: 72px;
+	fill: rgba(255, 255, 255, 0.2);
 }
 
-.cardInfo {
-	padding: 16px;
+.seriesIcon {
+	fill: rgba(255, 255, 255, 0.15);
+
+	.card:focus & {
+		fill: rgba(255, 255, 255, 0.4);
+	}
 }
 
 .cardTitle {
-	font-size: 18px;
+	margin-top: 8px;
+	font-size: 20px;
 	font-weight: 500;
+	color: #fff;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
 .cardSubtitle {
-	font-size: 15px;
-	color: @text-secondary;
-	margin-top: 4px;
+	margin-top: 2px;
+	font-size: 16px;
+	color: rgba(255, 255, 255, 0.5);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.cardMeta {
-	font-size: 14px;
-	color: @text-muted;
-	margin-top: 8px;
-}
-
-.cardSchedule {
-	font-size: 13px;
-	color: var(--theme-accent, #00a4dc);
-	margin-top: 6px;
-}
-
 .empty {
-	width: 100%;
+	padding: 120px 0;
 	text-align: center;
-	padding: 80px 0;
-	font-size: 24px;
-	color: @text-muted;
+	font-size: 21px;
+	color: rgba(255, 255, 255, 0.5);
 }
 
-.popup {
+.dialogScrim {
 	position: fixed;
 	top: 0;
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(var(--theme-background-rgb, 16, 16, 16), 0.9);
+	background: rgba(0, 0, 0, 0.54);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	z-index: 50;
 }
 
-.popupContent {
-	width: 600px;
-	max-width: 90%;
+.dialog {
+	width: 840px;
+	max-width: 80%;
 	max-height: 80%;
-	background: @background-secondary;
-	border-radius: 16px;
+	background: #1a1a1a;
+	border-radius: 42px;
+	padding: 36px;
+	display: flex;
+	flex-direction: column;
 	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	box-shadow: 0 12px 48px rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.6);
+	box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
 }
 
-.popupHeader {
-	padding: 24px 32px;
-	background: @background-tertiary;
-	border-bottom: 1px solid @border-color;
+// Core's cancel confirmations use this slightly blue surface.
+.confirmDialog {
+	width: 700px;
+	background: #1a1a2e;
 }
 
-.popupTitle {
-	font-size: 28px;
-	font-weight: 600;
+.dialogTitle {
+	flex-shrink: 0;
+	margin-bottom: 18px;
+	font-size: 36px;
+	color: #fff;
 }
 
-.popupSubtitle {
+.dialogBody {
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.dialogSubtitle {
+	font-size: 21px;
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.dialogText {
+	font-size: 21px;
+	color: rgba(255, 255, 255, 0.8);
+}
+
+.dialogOverview {
+	margin-top: 12px;
 	font-size: 20px;
-	color: @text-secondary;
-	margin-top: 8px;
+	line-height: 1.5;
+	color: rgba(255, 255, 255, 0.6);
 }
 
-.popupBody {
-	flex: 1;
-	padding: 24px 32px;
-	overflow: auto;
-}
-
-.popupOverview {
+.dialogMeta {
+	margin-top: 12px;
 	font-size: 18px;
-	line-height: 1.6;
-	color: @text-secondary;
-	margin-bottom: 24px;
+	color: rgba(255, 255, 255, 0.5);
 }
 
-.popupMeta {
+.dialogActions {
 	display: flex;
-	flex-direction: column;
-	font-size: 16px;
-
-	> * + * {
-		margin-top: 8px;
-	}
-	color: @text-muted;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	flex-shrink: 0;
+	margin-top: 24px;
 }
 
-.popupActions {
-	display: flex;
-	padding: 24px 32px;
-
-	> * + * {
-		margin-left: 16px;
-	}
-	background: @background-tertiary;
-	border-top: 1px solid @border-color;
-}
-
-.popupBtn {
-	padding: 16px 32px;
-	font-size: 18px;
-	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.15);
-	border: 2px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
-	border-radius: 8px;
-	color: @text-primary;
+.dialogBtn {
+	margin-left: 12px;
+	margin-top: 12px;
+	padding: 15px 18px;
+	border: none;
+	border-radius: 30px;
+	background: transparent;
+	color: @accent-color;
+	font-size: 21px;
+	font-weight: 500;
 	cursor: pointer;
-	transition: all 0.2s;
+	outline: none;
+	transition: background 0.15s ease;
 
-	&:hover,
 	&:focus {
-		background: var(--theme-accent, #00a4dc);
-		border-color: var(--theme-accent, #00a4dc);
-		outline: none;
+		background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.25);
 	}
 
 	&.danger {
-		background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.15);
-		border: 2px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
+		color: #f44336;
 
-		&:hover,
 		&:focus {
-			background: @accent-secondary;
-			border-color: @accent-secondary;
-		}
-	}
-
-	&:last-child:not(.danger) {
-		background: @background-secondary;
-		border-color: @border-color;
-
-		&:hover,
-		&:focus {
-			background: @background-tertiary;
+			background: rgba(244, 67, 54, 0.25);
 		}
 	}
 }
 
 :global(html[data-theme-id='neon_pulse']) {
 	.title,
-	.popupTitle,
+	.dialogTitle,
 	.cardTitle {
 		color: var(--theme-accent, #ff2e92);
 		text-shadow: var(--theme-text-glow, 0 0 8px rgba(255, 46, 146, 0.35));
@@ -285,12 +311,11 @@
 	}
 
 	.cardSubtitle,
-	.cardMeta,
-	.popupSubtitle {
+	.dialogSubtitle {
 		color: var(--theme-on-surface, #00e5ff);
 	}
 
-	.card:focus {
+	.card:focus .cardThumb {
 		border-color: var(--theme-accent, #ff2e92);
 		box-shadow: 0 0 10px rgba(var(--theme-accent-rgb, 255, 46, 146), 0.3);
 	}

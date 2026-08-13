@@ -93,6 +93,10 @@ export const getApiKey = () => accessToken;
 export const getDeviceInfo = () => ({appName: APP_NAME, appVersion: APP_VERSION, deviceName: DEVICE_NAME, deviceId});
 export const buildEmbyAuthHeader = (token) => buildAuthHeader('emby', token);
 
+// Past roughly this much of a query string, servers and the proxies in front of them start
+// refusing the URL outright, so a long list of ids travels in a body instead.
+const CHANNEL_IDS_URL_LIMIT = 1800;
+
 const DEFAULT_TIMEOUT_MS = 15000;
 const PLAYBACK_TIMEOUT_MS = 120000;
 export const HOME_ROW_ITEM_FIELDS = 'PrimaryImageAspectRatio,Overview,Genres,GenreItems,ProductionYear,RunTimeTicks,CommunityRating,CriticRating,ProviderIds,ImageTags,BackdropImageTags,ParentBackdropImageTags,ParentBackdropItemId,ParentThumbItemId,SeriesPrimaryImageTag,SeriesName,ParentIndexNumber,IndexNumber,UserData,AlbumArtist,AlbumId,AlbumPrimaryImageTag';
@@ -518,21 +522,53 @@ export const api = {
 	getThemeSongs: (itemId, inheritFromParent = true) =>
 		request(`/Items/${itemId}/ThemeSongs?UserId=${currentUser}&InheritFromParent=${inheritFromParent}`),
 
-	getLiveTvChannels: (startIndex = 0, limit = 50) =>
-		request(`/LiveTv/Channels?UserId=${currentUser}&EnableFavoriteSorting=true&StartIndex=${startIndex}&Limit=${limit}`),
+	// Without a limit this returns the full lineup, which the guide sorts and
+	// filters client side the way moonfin-core does.
+	getLiveTvChannels: (startIndex = 0, limit) =>
+		request(`/LiveTv/Channels?UserId=${currentUser}&EnableFavoriteSorting=true&Fields=ImageTags,UserData&EnableTotalRecordCount=false&StartIndex=${startIndex}${limit ? `&Limit=${limit}` : ''}`),
 
 	getLiveTvPrograms: (channelIds, startDate, endDate) => {
-		const channelParam = Array.isArray(channelIds) ? channelIds.join(',') : channelIds;
-		const start = startDate instanceof Date ? startDate.toISOString() : startDate;
-		const end = endDate instanceof Date ? endDate.toISOString() : endDate;
-		return request(`/LiveTv/Programs?UserId=${currentUser}&ChannelIds=${channelParam}&MinStartDate=${start}&MaxEndDate=${end}&EnableTotalRecordCount=false`);
+		const ids = Array.isArray(channelIds) ? channelIds : [channelIds];
+		const joined = ids.join(',');
+		// A program already under way when the guide opens starts before the window, so ask
+		// for everything overlapping it rather than only what fits inside it. User data
+		// stays out of the response because nothing in the guide reads it per program.
+		const params = {
+			UserId: currentUser,
+			MinEndDate: startDate instanceof Date ? startDate.toISOString() : startDate,
+			MaxStartDate: endDate instanceof Date ? endDate.toISOString() : endDate,
+			Fields: 'Overview',
+			EnableImages: false,
+			EnableUserData: false,
+			EnableTotalRecordCount: false
+		};
+
+		// A batch of channel ids runs past what some servers accept in a URL, and they
+		// answer with an error rather than a shorter guide, so those travel in a body.
+		if (joined.length > CHANNEL_IDS_URL_LIMIT) {
+			return request('/LiveTv/Programs', {
+				method: 'POST',
+				body: {...params, ChannelIds: ids}
+			});
+		}
+		return request(`/LiveTv/Programs?${buildQueryString(params)}&ChannelIds=${joined}`);
 	},
 
 	getLiveTvProgram: (programId) =>
 		request(`/LiveTv/Programs/${programId}?UserId=${currentUser}`),
 
-	getLiveTvRecordings: () =>
-		request(`/LiveTv/Recordings?UserId=${currentUser}`),
+	// The recordings screen asks for one category per call, mirroring moonfin-core's
+	// categorized rails. Without options this stays the plain full listing.
+	getLiveTvRecordings: (options = {}) => {
+		const params = [`UserId=${currentUser}`];
+		if (options.limit) params.push(`Limit=${options.limit}`);
+		if (options.isSeries) params.push('IsSeries=true');
+		if (options.isMovie) params.push('IsMovie=true');
+		if (options.isSports) params.push('IsSports=true');
+		if (options.isKids) params.push('IsKids=true');
+		params.push('Fields=ImageTags,Overview', 'EnableImages=true');
+		return request(`/LiveTv/Recordings?${params.join('&')}`);
+	},
 
 	getLiveTvTimers: () =>
 		request(`/LiveTv/Timers`),

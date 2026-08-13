@@ -180,7 +180,7 @@ export const defaultSettings = {
 	syncplayAutoOpen: false,
 	showSyncPlayButton: true,
 	videoStartDelay: 0,
-	liveTvDirect: false,
+	liveTvSkipGuide: false,
 	stereoUpmixEnabled: false,
 	passthroughEnabled: true,
 	ac3Passthrough: true,

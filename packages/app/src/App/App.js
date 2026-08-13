@@ -620,7 +620,7 @@ const AppContent = (props) => {
 
 	const handleSelectLibrary = useCallback(async (library) => {
 		if (library.CollectionType === 'livetv') {
-			if (settings.liveTvDirect) {
+			if (settings.liveTvSkipGuide) {
 				let channels = null;
 				try {
 					channels = await api.getLiveTvChannels(0, 1);
@@ -650,7 +650,7 @@ const AppContent = (props) => {
 		setGenreFilter(null);
 		setStudioFilter(null);
 		navigateTo(PANELS.LIBRARY);
-	}, [api, navigateTo, settings.liveTvDirect]);
+	}, [api, navigateTo, settings.liveTvSkipGuide]);
 
 	const handleSelectStudio = useCallback((studioName) => {
 		if (!studioName) return;
@@ -723,6 +723,18 @@ const AppContent = (props) => {
 		handleBack();
 		window.dispatchEvent(new CustomEvent('moonfin:browseRefresh'));
 	}, [handleBack]);
+
+	// The guide button on the live TV OSD always lands on the guide, not wherever
+	// playback was launched from. When the player was opened from the guide its
+	// history entry is dropped so back doesn't bounce through the guide twice.
+	const handlePlayerGuide = useCallback(() => {
+		setIsPlayerPaused(false);
+		setPlayingItem(null);
+		setPlaybackOptions(null);
+		setIsResume(false);
+		setPanelHistory(prev => (prev[prev.length - 1] === PANELS.LIVETV ? prev.slice(0, -1) : prev));
+		setPanelIndex(PANELS.LIVETV);
+	}, []);
 
 	const handleOpenSearch = useCallback(() => {
 		navigateTo(PANELS.SEARCH);
@@ -1017,6 +1029,8 @@ const AppContent = (props) => {
 		panelIndex !== PANELS.PLAYER &&
 		panelIndex !== PANELS.GAME_PLAYER &&
 		panelIndex !== PANELS.LIBRARY &&
+		panelIndex !== PANELS.LIVETV &&
+		panelIndex !== PANELS.RECORDINGS &&
 		panelIndex !== PANELS.ADD_SERVER &&
 		panelIndex !== PANELS.ADD_USER &&
 		panelIndex !== PANELS.GENRES &&
@@ -1130,6 +1144,7 @@ const AppContent = (props) => {
 								videoQueue={playbackOptions?.videoQueue}
 								onEnded={handlePlayerEnd}
 								onBack={handlePlayerEnd}
+								onGuide={handlePlayerGuide}
 								onPlayNext={handlePlayNext}
 								onSelectPerson={handleSelectPersonFromPlayer}
 								onPausedChange={setIsPlayerPaused}
@@ -1188,7 +1203,7 @@ const AppContent = (props) => {
 					</Panel>
 					<Panel>
 						{panelIndex === PANELS.RECORDINGS && (
-							<Recordings onPlayRecording={handlePlayRecording} backHandlerRef={backHandlerRef} />
+							<Recordings onPlayRecording={handlePlayRecording} onBack={handleBack} backHandlerRef={backHandlerRef} />
 						)}
 					</Panel>
 					<Panel>

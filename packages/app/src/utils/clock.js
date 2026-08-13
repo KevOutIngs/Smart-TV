@@ -3,6 +3,10 @@
 // Only displayed times use this. Anything the server sees keeps the real clock.
 export const shiftedNow = (offsetHours) => new Date(Date.now() + ((offsetHours || 0) * 3600000));
 
+// Short day label such as Mon, Jan 5, for headings that sit above a set of times.
+export const formatDayLabel = (date) =>
+	date.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'});
+
 export const formatClockTime = (date, clockDisplay) => {
 	const hours = date.getHours();
 	const minutes = String(date.getMinutes()).padStart(2, '0');

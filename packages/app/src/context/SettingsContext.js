@@ -42,7 +42,6 @@ const SERVER_TO_LOCAL = {
 	mdblistShowRatingNames: 'showRatingLabels',
 	mdblistShowRatingBadges: 'showRatingBadges',
 	languageOverride: 'uiLanguage',
-	liveTvDirectPlayEnabled: 'liveTvDirect',
 	syncPlayEnabled: 'syncplayEnabled',
 	syncPlayAutoOpen: 'syncplayAutoOpen',
 	clockBehavior: 'showClock',
@@ -195,7 +194,7 @@ export const SYNCABLE_KEYS = [
 	'useDetailedSubHeadings', 'showMediaDetailsOnLibraryPage', 'hideBackdropsInLibraries',
 	'syncplayEnabled', 'syncplayAutoOpen',
 	'showSyncPlayButton',
-	'videoStartDelay', 'liveTvDirect', 'cinemaModeEnabled',
+	'videoStartDelay', 'cinemaModeEnabled',
 	'diagnosticLoggingEnabled',
 	'uiLanguage',
 	'blockedRatings',
@@ -465,6 +464,14 @@ export function SettingsProvider({children}) {
 					stored.mdblistRatingSources = stored.mdblistRatingSources.map(
 						(s) => (s === 'popcorn' || s === 'rtAudience' ? 'tomatoes_audience' : s)
 					);
+					migrated = true;
+				}
+				if ('liveTvDirect' in stored) {
+					// This key spent time synced to the other clients' live tv direct play
+					// toggle, a playback setting, so a stored true usually arrived from
+					// there rather than anyone asking to skip the guide. The shortcut
+					// restarts from off under its own key, liveTvSkipGuide.
+					delete stored.liveTvDirect;
 					migrated = true;
 				}
 				const merged = {...defaultSettings, ...stored};

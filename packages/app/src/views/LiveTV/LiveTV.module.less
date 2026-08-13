@@ -1,15 +1,25 @@
 @import '../../styles/variables.less';
+@import '../../styles/mixins.less';
 
-@channel-column-width: 200px;
-@row-height: 80px;
+// Every dimension here is one of moonfin-core's scaled by 1.5, because a TV renders
+// core's Flutter logical pixels at roughly that size against this app's 1920 wide
+// design space (Apple TV pins 1324 logical, common Android TV panels sit near 1280).
+@channel-column-width: 240px;
+@row-height: 126px;
+// The chip border color moonfin-core draws both guide dividers with.
+@guide-divider: rgba(142, 200, 240, 0.33);
 
 .page {
-	width: 100%;
-	height: 100vh;
-	background: @background-primary;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: #000;
 	display: flex;
 	flex-direction: column;
-	padding-top: 80px;
+	padding: 30px 24px 24px;
+	overflow: hidden;
 }
 
 .loadingContainer {
@@ -17,7 +27,7 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	height: 100%;
+	flex: 1;
 
 	p {
 		margin-top: 24px;
@@ -26,253 +36,461 @@
 	}
 }
 
-.guideContainer {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-}
-
-.guideHeader {
+.toolbar {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	padding: 24px 48px;
-	background: @background-secondary;
-	border-bottom: 1px solid @border-color;
+	flex-shrink: 0;
+	padding: 12px 24px 0;
 }
 
-.guideTitle {
-	font-size: 36px;
-	font-weight: 600;
-}
-
-.guideControls {
+.pill {
 	display: flex;
 	align-items: center;
-
-	> * + * {
-		margin-left: 16px;
-	}
-}
-
-.guideBtn {
-	padding: 12px 24px;
-	font-size: 18px;
-	background: @background-tertiary;
-	border: 2px solid transparent;
-	border-radius: 8px;
-	color: @text-primary;
-	cursor: pointer;
-	transition: all 0.2s;
-
-	&:hover,
-	&:focus {
-		background: var(--accent-color, #00a4dc);
-		outline: none;
-	}
-
-	&.active {
-		background: var(--accent-color, #00a4dc);
-		border-color: var(--accent-color, #00a4dc);
-	}
-}
-
-.recordingsBtn {
-	background: @accent-secondary;
-}
-
-.guideDate {
-	font-size: 20px;
-	color: @text-secondary;
-	padding: 0 24px;
-}
-
-.guideGridContainer {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-}
-
-.timeHeader {
-	display: flex;
-	background: @background-secondary;
-	border-bottom: 1px solid @border-color;
-	flex-shrink: 0;
-}
-
-.channelColumnSpacer {
-	width: @channel-column-width;
-	flex-shrink: 0;
-	background: @background-secondary;
-	border-right: 1px solid @border-color;
-}
-
-.timeSlots {
-	display: flex;
-	overflow: hidden;
-}
-
-.timeSlot {
-	flex-shrink: 0;
-	padding: 12px 8px;
-	font-size: 16px;
-	color: @text-secondary;
-	border-right: 1px solid @border-color;
-	text-align: center;
-}
-
-.guideContent {
-	flex: 1;
-	overflow: auto;
-	position: relative;
-}
-
-.channelRow {
-	display: flex;
-	height: @row-height;
-	border-bottom: 1px solid @border-color;
-
-	&:last-child {
-		border-bottom: none;
-	}
-}
-
-.channelInfo {
-	width: @channel-column-width;
-	flex-shrink: 0;
-	display: flex;
-	flex-direction: column;
 	justify-content: center;
-	padding: 8px 16px;
-	background: @background-secondary;
-	border-right: 1px solid @border-color;
-	position: -webkit-sticky;
-	position: sticky;
-	left: 0;
-	z-index: 10;
-	box-shadow: 2px 0 8px rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.3);
+	flex-shrink: 0;
+	padding: 10px 21px;
+	border: none;
+	border-radius: 30px;
+	background: rgba(255, 255, 255, 0.1);
+	color: rgba(255, 255, 255, 0.8);
+	font-size: 20px;
 	cursor: pointer;
-	transition: background 0.15s ease;
+	transition: background 0.15s ease, color 0.15s ease;
 	outline: none;
 
-	&:hover {
-		background: var(--theme-surface-variant, #252525);
+	svg {
+		width: 27px;
+		height: 27px;
+		fill: currentColor;
 	}
 
 	&:focus {
 		background: @accent-color;
-		color: @text-primary;
-		box-shadow: 2px 0 8px rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.3);
-		z-index: 11;
+		color: #fff;
 	}
 }
 
-.channelNumber {
-	font-size: 14px;
-	color: @text-muted;
+.pillText {
+	margin-left: 9px;
+
+	&:first-child {
+		margin-left: 0;
+	}
 }
 
-.channelName {
-	font-size: 18px;
-	font-weight: 500;
+.pillWithLabel svg {
+	width: 24px;
+	height: 24px;
+}
+
+.gapXs {
+	margin-left: 6px;
+}
+
+.gapSm {
+	margin-left: 12px;
+}
+
+.toolbarLabel {
+	flex: 1;
+	min-width: 0;
+	margin-left: 18px;
+	font-size: 21px;
+	color: rgba(255, 255, 255, 0.8);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.channelLogo {
-	max-width: 60px;
-	max-height: 30px;
-	margin-top: 4px;
+.filterRail {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	padding: 9px 24px;
+	overflow: hidden;
+	.flex-row-gap(12px);
 }
 
-.programsContainer {
-	position: relative;
-	height: 100%;
-}
+.filterChip {
+	flex-shrink: 0;
+	padding: 10px 24px;
+	border: 3px solid rgba(255, 255, 255, 0.12);
+	border-radius: 20px;
+	background: rgba(26, 26, 26, 0.55);
+	color: rgba(255, 255, 255, 0.85);
+	font-size: 21px;
+	font-weight: 500;
+	letter-spacing: 0.15px;
+	cursor: pointer;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+	outline: none;
 
-.currentTimeIndicator {
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	width: 3px;
-	background: var(--accent-color, #00a4dc);
-	z-index: 3;
-	pointer-events: none;
-
-	&::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: -5px;
-		width: 13px;
-		height: 13px;
-		background: var(--accent-color, #00a4dc);
-		border-radius: 50%;
+	&:focus {
+		border-color: @accent-color;
 	}
+
+	&.selected {
+		background: @accent-color;
+		border-color: transparent;
+		color: #10242e;
+		font-weight: 600;
+	}
+}
+
+.hero {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	height: 186px;
+	margin-top: 12px;
+	padding: 24px 30px;
+	background: rgba(26, 26, 26, 0.45);
+	border-radius: 24px;
+	box-sizing: border-box;
+	overflow: hidden;
+}
+
+.heroInfo {
+	flex: 1;
+	min-width: 0;
+}
+
+.heroTitle {
+	font-size: 33px;
+	color: #fff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.heroMeta {
+	margin-top: 9px;
+	font-size: 21px;
+	color: rgba(255, 255, 255, 0.7);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.heroSynopsis {
+	margin-top: 12px;
+	font-size: 18px;
+	line-height: 1.35;
+	color: rgba(255, 255, 255, 0.6);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.heroChannel {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	flex-shrink: 0;
+	margin-left: 30px;
+	max-width: 300px;
+}
+
+.heroChannelLogo {
+	width: 69px;
+	height: 69px;
+	object-fit: contain;
+	border-radius: 12px;
+}
+
+.heroChannelFallback {
+	width: 69px;
+	height: 69px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	svg {
+		width: 30px;
+		height: 30px;
+		fill: rgba(255, 255, 255, 0.4);
+	}
+}
+
+.heroChannelName {
+	margin-top: 15px;
+	max-width: 100%;
+	font-size: 21px;
+	font-weight: 500;
+	color: #fff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.heroChannelNumber {
+	margin-top: 3px;
+	font-size: 18px;
+	font-weight: 500;
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.guideSection {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	margin-top: 12px;
+	min-height: 0;
+}
+
+.timelineTitle {
+	flex-shrink: 0;
+	padding: 0 12px 3px;
+	font-size: 18px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.timeRuler {
+	display: flex;
+	flex-shrink: 0;
+	height: 60px;
+	margin-top: 3px;
+}
+
+.rulerSpacer {
+	width: @channel-column-width;
+	flex-shrink: 0;
+}
+
+.timeSlot {
+	width: 270px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	padding-left: 12px;
+	box-sizing: border-box;
+	font-size: 18px;
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.rulerDivider {
+	height: 1px;
+	flex-shrink: 0;
+	background: @guide-divider;
+}
+
+.gridWrap {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.gridBody {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	position: relative;
+	// Scroll anchoring fights the virtualization spacers. When the top spacer grows
+	// the browser re-anchors to it and throws scrollTop deep into empty space, which
+	// reads as the whole guide vanishing after scrolling far enough.
+	overflow-anchor: none;
+}
+
+.guideRow {
+	display: flex;
+	height: @row-height;
+	box-sizing: border-box;
+}
+
+.channelCellWrap {
+	width: @channel-column-width;
+	flex-shrink: 0;
+	padding: 9px;
+	box-sizing: border-box;
+	border-right: 1px solid @guide-divider;
+}
+
+.channelCell {
+	height: 100%;
+	display: flex;
+	align-items: center;
+	padding: 9px 12px;
+	border: 2px solid transparent;
+	border-radius: 15px;
+	box-sizing: border-box;
+	cursor: pointer;
+	transition: background 0.15s ease, border-color 0.15s ease;
+	outline: none;
+
+	&:focus {
+		background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.16);
+		border-color: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.7);
+	}
+}
+
+.channelLogo {
+	width: 45px;
+	height: 45px;
+	object-fit: contain;
+	border-radius: 9px;
+	flex-shrink: 0;
+}
+
+.channelLogoFallback {
+	width: 45px;
+	height: 45px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+
+	svg {
+		width: 24px;
+		height: 24px;
+		fill: rgba(255, 255, 255, 0.4);
+	}
+}
+
+.channelText {
+	flex: 1;
+	min-width: 0;
+	margin-left: 15px;
+}
+
+.channelNumberChip {
+	display: inline-block;
+	margin-bottom: 4px;
+	padding: 2px 10px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.12);
+	font-size: 14px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.85);
+
+	.channelCell:focus & {
+		background: @accent-color;
+		color: #062430;
+	}
+}
+
+.channelName {
+	font-size: 21px;
+	font-weight: 500;
+	color: #fff;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+
+	.channelCell:focus & {
+		font-weight: 600;
+	}
+}
+
+.programsArea {
+	position: relative;
+	flex-shrink: 0;
+	height: 100%;
 }
 
 .programCell {
 	position: absolute;
-	top: 4px;
-	bottom: 4px;
-	background: rgba(var(--theme-surface-variant-rgb, 37, 37, 37), 0.8);
-	border-radius: 6px;
-	padding: 8px 12px;
+	top: 3px;
+	bottom: 3px;
+	display: flex;
+	align-items: center;
+	border: 3px solid transparent;
+	border-radius: 9px;
+	box-sizing: border-box;
 	overflow: hidden;
 	cursor: pointer;
-	transition: all 0.2s;
-	border: 2px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
+	outline: none;
 
-	&:hover {
-		background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.14);
-		border-color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.35);
-	}
-
-	&:focus {
-		background: rgba(var(--theme-surface-rgb, 26, 26, 26), 0.95);
-		border-color: var(--accent-color, #00a4dc);
-		border-width: 3px;
-		outline: none;
-		z-index: 10;
-		box-shadow: 0 0 12px var(--accent-color, #00a4dc);
-	}
-
-	&.current {
-		background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.25);
-		border-color: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.6);
-
-		&:focus {
-			background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.35);
-			border-color: var(--accent-color, #00a4dc);
-			border-width: 3px;
-			box-shadow: 0 0 16px var(--accent-color, #00a4dc);
-		}
+	&.focused {
+		border-color: @accent-color;
 	}
 }
 
-.programTime {
-	font-size: 12px;
-	color: @text-muted;
-	margin-bottom: 2px;
+.genreBar {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 6px;
+}
+
+.programBody {
+	flex: 1;
+	min-width: 0;
+	padding: 9px 12px 9px 18px;
+}
+
+.programTitleRow {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.liveBadge {
+	flex-shrink: 0;
+	margin-right: 9px;
+	padding: 2px 8px;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 700;
+	color: #fff;
 }
 
 .programTitle {
-	font-size: 16px;
-	font-weight: 500;
+	font-size: 21px;
+	color: #fff;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.programEpisode {
-	font-size: 14px;
-	color: @text-secondary;
+.programTitleStrong {
+	font-weight: 600;
+}
+
+.timerDot {
+	flex-shrink: 0;
+	margin-left: 9px;
+	width: 14px;
+	height: 14px;
+	fill: #e0685c;
+}
+
+.programMeta {
+	margin-top: 4px;
+	font-size: 16px;
+	font-weight: 500;
+	letter-spacing: 0.75px;
+	color: rgba(255, 255, 255, 0.55);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.liveProgressTrack {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 4px;
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.liveProgressFill {
+	height: 100%;
+}
+
+.skeleton {
+	position: absolute;
+	left: 9px;
+	right: 9px;
+	top: 36px;
+	bottom: 36px;
+	border-radius: 9px;
+	background: rgba(255, 255, 255, 0.06);
 }
 
 .empty {
@@ -280,7 +498,7 @@
 	align-items: center;
 	justify-content: center;
 	height: 200px;
-	font-size: 24px;
+	font-size: 30px;
 	color: @text-muted;
 }
 
@@ -298,161 +516,136 @@
 	box-shadow: 0 8px 32px rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.5);
 }
 
-.programPopup {
+.dialogScrim {
 	position: fixed;
 	top: 0;
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(var(--theme-background-rgb, 16, 16, 16), 0.9);
+	background: rgba(0, 0, 0, 0.54);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	z-index: 50;
 }
 
-.popupContent {
-	width: 800px;
-	max-width: 90%;
+.dialog {
+	width: 960px;
+	max-width: 80%;
 	max-height: 80%;
-	background: @background-secondary;
-	border-radius: 16px;
+	background: #1a1a1a;
+	border-radius: 42px;
+	padding: 36px;
+	display: flex;
+	flex-direction: column;
 	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	box-shadow: 0 12px 48px rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.6);
+	box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
 }
 
-.popupHeader {
-	padding: 24px 32px;
-	background: @background-tertiary;
-	border-bottom: 1px solid @border-color;
-}
-
-.popupTitle {
-	font-size: 28px;
-	font-weight: 600;
-
-	span {
-		font-weight: 400;
-		color: @text-secondary;
-	}
-}
-
-.popupSubtitle {
-	font-size: 20px;
-	color: @text-secondary;
-	margin-top: 8px;
-}
-
-.popupTime {
-	font-size: 18px;
-	color: @text-muted;
-	margin-top: 12px;
-}
-
-.popupBody {
-	flex: 1;
-	padding: 24px 32px;
-	display: flex;
-	overflow: auto;
-
-	> * + * {
-		margin-left: 24px;
-	}
-}
-
-.popupImageContainer {
+.dialogTitle {
 	flex-shrink: 0;
-
-	img {
-		width: 200px;
-		border-radius: 8px;
-	}
-}
-
-.popupInfo {
-	flex: 1;
-}
-
-.popupOverview {
-	font-size: 18px;
-	line-height: 1.6;
-	color: @text-secondary;
 	margin-bottom: 24px;
+	font-size: 36px;
+	color: #fff;
 }
 
-.popupMetadata {
+.dialogBody {
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.dialogTime {
+	font-size: 21px;
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.dialogEpisode {
+	margin-top: 12px;
+	font-size: 21px;
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.dialogOverview {
+	margin-top: 18px;
+	font-size: 20px;
+	line-height: 1.5;
+	color: rgba(255, 255, 255, 0.6);
+}
+
+.chipRow {
 	display: flex;
-	flex-direction: column;
-
-	> * + * {
-		margin-top: 12px;
-	}
+	flex-wrap: wrap;
+	margin-top: 18px;
 }
 
-.metadataItem {
-	display: flex;
-
-	> * + * {
-		margin-left: 12px;
-	}
-}
-
-.metadataLabel {
-	font-size: 16px;
-	color: @text-muted;
-	min-width: 80px;
-}
-
-.metadataValue {
-	font-size: 16px;
-	color: @text-primary;
-}
-
-.popupActions {
-	display: flex;
-	padding: 24px 32px;
-	background: @background-tertiary;
-	border-top: 1px solid @border-color;
-
-	> * + * {
-		margin-left: 16px;
-	}
-}
-
-.popupBtn {
-	padding: 16px 32px;
+.genreChip {
+	margin: 0 12px 12px 0;
+	padding: 6px 15px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 12px;
 	font-size: 18px;
-	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.15);
-	border: 2px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
-	border-radius: 8px;
-	color: @text-primary;
-	cursor: pointer;
-	transition: all 0.2s;
+	color: rgba(255, 255, 255, 0.85);
+}
 
-	&:hover,
+.dialogActions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	flex-shrink: 0;
+	margin-top: 24px;
+}
+
+.dialogBtn {
+	margin-left: 12px;
+	margin-top: 12px;
+	padding: 15px 18px;
+	border: none;
+	border-radius: 30px;
+	background: transparent;
+	color: @accent-color;
+	font-size: 21px;
+	font-weight: 500;
+	cursor: pointer;
+	outline: none;
+	transition: background 0.15s ease;
+
 	&:focus {
-		background: var(--accent-color, #00a4dc);
-		border-color: var(--accent-color, #00a4dc);
-		outline: none;
+		background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.25);
 	}
 
 	&.danger {
-		&:hover,
+		color: #e0685c;
+
 		&:focus {
-			background: @accent-secondary;
-			border-color: @accent-secondary;
+			background: rgba(224, 104, 92, 0.25);
 		}
 	}
+}
 
-	&:last-child:not(.danger) {
-		background: @background-secondary;
-		border-color: @border-color;
+.optionRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 18px 24px;
+	border-radius: 12px;
+	font-size: 24px;
+	color: #fff;
+	cursor: pointer;
+	outline: none;
 
-		&:hover,
-		&:focus {
-			background: @background-tertiary;
-		}
+	&:focus {
+		background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.25);
+	}
+
+	&.selectedOption {
+		color: @accent-color;
+	}
+
+	svg {
+		width: 27px;
+		height: 27px;
+		fill: currentColor;
+		flex-shrink: 0;
+		margin-left: 18px;
 	}
 }

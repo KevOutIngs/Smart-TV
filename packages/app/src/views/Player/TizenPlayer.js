@@ -28,6 +28,7 @@ import {saveSubtitlePref} from '../../services/subtitlePrefs';
 import {resolveInitialSubtitle} from './initialSubtitle';
 import {api as jellyfinApi, createApiForServer, getServerUrl} from '../../services/jellyfinApi';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
+import useLiveProgram from './useLiveProgram';
 import useSleepTimer from './useSleepTimer';
 import AudioMode from './audio/AudioMode';
 import useAudioTransport from './audio/useAudioTransport';
@@ -70,7 +71,7 @@ const getRootFontSizePx = () => {
  * playback. AVPlay renders on a platform multimedia layer BEHIND the web engine;
  * the web layer must be transparent in the video area for the content to show through.
  */
-const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialSubtitleIndex, initialStartPositionTicks, initialQuality, forceTranscode, onEnded, onBack, onPlayNext, onSelectPerson, audioPlaylist, videoQueue, onPausedChange}) => {
+const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialSubtitleIndex, initialStartPositionTicks, initialQuality, forceTranscode, onEnded, onBack, onGuide, onPlayNext, onSelectPerson, audioPlaylist, videoQueue, onPausedChange}) => {
 	const {settings} = useSettings();
 	const {isInGroup, lastCommand} = useSyncPlay();
 	const syncPlayCommandRef = useRef(false);
@@ -120,6 +121,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [hasTriedTranscode, setHasTriedTranscode] = useState(false);
 	const [focusRow, setFocusRow] = useState('bottom');
 	const isLiveTV = item.Type === 'TvChannel';
+	const liveProgram = useLiveProgram(item, isLiveTV);
 	const [isAudioMode, setIsAudioMode] = useState(false);
 	const [audioTab, setAudioTab] = useState('queue');
 	const [isFavorite, setIsFavorite] = useState(false);
@@ -1390,7 +1392,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		// Don't auto-hide controls in audio mode
 		if (!isAudioMode && !isModalOpen) {
 			controlsTimeoutRef.current = setTimeout(() => {
-			  setControlsVisible(false);
+				// Paused playback keeps its controls, like the other clients. Resuming
+				// goes through showControls and re-arms the timer.
+				if (isPausedRef.current) return;
+				setControlsVisible(false);
 			}, CONTROLS_HIDE_DELAY);
 		}
 	}, [activeModal, isAudioMode]);
@@ -1541,14 +1546,23 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	// ==============================
 	// Control Actions (AVPlay-based)
 	// ==============================
-	const handleBack = useCallback(async () => {
+	const teardownPlayback = useCallback(async () => {
 		cancelNextEpisodeCountdown();
 		stopTimeUpdatePolling();
 		await playback.reportStop(positionRef.current);
 		cleanupAVPlay();
 		avplayReadyRef.current = false;
+	}, [cancelNextEpisodeCountdown, stopTimeUpdatePolling]);
+
+	const handleBack = useCallback(async () => {
+		await teardownPlayback();
 		onBack?.();
-	}, [onBack, cancelNextEpisodeCountdown, stopTimeUpdatePolling]);
+	}, [teardownPlayback, onBack]);
+
+	const handleOpenGuide = useCallback(async () => {
+		await teardownPlayback();
+		(onGuide || onBack)?.();
+	}, [teardownPlayback, onGuide, onBack]);
 
 	useEffect(() => {
 		handleBackRef.current = handleBack;
@@ -2067,6 +2081,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'zoom': handleToggleZoom(); break;
 			case 'sleep': openModal('sleep'); break;
 			case 'info': openModal('info'); break;
+			case 'guide': handleOpenGuide(); break;
 			case 'next': handlePlayNextNow(); break;
 			case 'nextTrack': handleNextTrack(); break;
 			case 'prevTrack': handlePrevTrack(); break;
@@ -2075,7 +2090,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'favorite': handleToggleFavorite(); break;
 			default: break;
 		}
-	}, [showControls, handlePlayPause, handleRewind, handleForward, openModal, handleOpenCast, handleToggleZoom, handlePlayNextNow, handleNextTrack, handlePrevTrack, handleToggleShuffle, handleToggleRepeat, handleToggleFavorite]);
+	}, [showControls, handlePlayPause, handleRewind, handleForward, openModal, handleOpenCast, handleToggleZoom, handleOpenGuide, handlePlayNextNow, handleNextTrack, handlePrevTrack, handleToggleShuffle, handleToggleRepeat, handleToggleFavorite]);
 
 	const handleControlButtonClick = useCallback((e) => {
 		const action = e.currentTarget.dataset.action;
@@ -2591,8 +2606,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				/>
 			)}
 
-			{/* Video Dimmer - not needed for audio */}
-			{!isAudioMode && <div className={`${css.videoDimmer} ${controlsVisible ? css.visible : ''}`} />}
 
 			{/* Buffering Indicator */}
 			{isBuffering && (
@@ -2644,6 +2657,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				activeModal={activeModal}
 				isAudioMode={isAudioMode}
 				isLiveTV={isLiveTV}
+				liveProgram={liveProgram}
 				focusRow={focusRow}
 				title={title}
 				subtitle={subtitle}

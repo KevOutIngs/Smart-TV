@@ -16,8 +16,9 @@ import {
 	formatTime, getQualityPresets,
 	IconPlay, IconPause, IconRewind, IconForward, IconSubtitle, IconSubtitleOff, IconAudio,
 	IconChapters, IconPrevious, IconNext, IconQuality, IconInfo, IconCast, IconZoom,
-	IconShuffle, IconRepeat, IconRepeatOne, IconSleep
+	IconShuffle, IconRepeat, IconRepeatOne, IconSleep, IconGuide
 } from './PlayerConstants';
+import {formatClockTime} from '../../utils/clock';
 import {SLEEP_TIMER_MINUTES} from './useSleepTimer';
 import {arrange, OSD_ORDER_KEY, OSD_HIDDEN_KEY} from '../../utils/buttonLayout';
 import {formatPlaybackTimeSlot, formatPlaybackTrailingTime} from '../../utils/playbackTimeLabels';
@@ -78,10 +79,12 @@ export const usePlayerButtons = ({
 			return [];
 		}
 		// Declaration order is where a button the user never placed ends up, so keep it stable.
+		// The live row's order comes from moonfin-core's live player.
 		if (isLiveTV) {
 			return arrange([
-				...((subtitleStreams.length > 0 || canDownloadRemoteSubtitles) ? [{id: 'subtitles', icon: (selectedSubtitleIndex >= 0 ? <IconSubtitle /> : <IconSubtitleOff />), label: $L('Subtitles'), action: 'subtitle'}] : []),
+				{id: 'guide', icon: <IconGuide />, label: $L('Guide'), action: 'guide'},
 				...(audioStreams.length > 1 ? [{id: 'audio', icon: <IconAudio />, label: $L('Audio'), action: 'audio'}] : []),
+				...((subtitleStreams.length > 0 || canDownloadRemoteSubtitles) ? [{id: 'subtitles', icon: (selectedSubtitleIndex >= 0 ? <IconSubtitle /> : <IconSubtitleOff />), label: $L('Subtitles'), action: 'subtitle'}] : []),
 				{id: 'quality', icon: <IconQuality />, label: $L('Playback Quality'), action: 'quality'},
 				{id: 'zoom', icon: <IconZoom />, label: $L('Zoom').concat(` (${zoomModeLabel})`), action: 'zoom', active: zoomModeKey !== 'fit'},
 				{id: 'sleep', icon: <IconSleep />, label: $L('Sleep Timer'), action: 'sleep', active: sleepMinutes != null},
@@ -170,6 +173,7 @@ const PlayerControls = ({
 	isAudioMode,	isLiveTV,	focusRow,
 	title,
 	subtitle,
+	liveProgram,
 	topButtons,
 	bottomButtons,
 	displayTime,
@@ -234,7 +238,7 @@ const PlayerControls = ({
 	const renderControlButton = useCallback((btn, row, defaultSpotlightId) => (
 		<div key={btn.id} className={css.controlBtnWrapper}>
 			<SpottableButton
-				className={`${css.controlBtn} ${btn.disabled ? css.controlBtnDisabled : ''} ${btn.active ? css.controlBtnActive : ''}`}
+				className={`${css.controlBtn} ${isLiveTV ? css.liveBtn : ''} ${btn.disabled ? css.controlBtnDisabled : ''} ${btn.active ? css.controlBtnActive : ''}`}
 				data-action={btn.action}
 				data-tooltip={btn.label}
 				onClick={btn.disabled ? undefined : handleControlButtonClick}
@@ -251,7 +255,7 @@ const PlayerControls = ({
 				<div className={css.focusTooltip}>{btn.label}</div>
 			)}
 		</div>
-	), [css.controlBtn, css.controlBtnActive, css.controlBtnDisabled, css.controlBtnWrapper, css.focusTooltip, focusRow, focusedTooltip, handleControlButtonClick, handleTooltipBlur, handleTooltipFocus]);
+	), [css.controlBtn, css.controlBtnActive, css.controlBtnDisabled, css.controlBtnWrapper, css.focusTooltip, css.liveBtn, isLiveTV, focusRow, focusedTooltip, handleControlButtonClick, handleTooltipBlur, handleTooltipFocus]);
 
 	const handleCastClick = useCallback((e) => {
 		const index = Number(e.currentTarget.dataset.index);
@@ -303,14 +307,56 @@ const PlayerControls = ({
 			<div className={`${css.playerControls} ${controlsVisible && !activeModal ? css.visible : ''} ${isAudioMode ? css.audioControls : ''}`}>
 				{!isAudioMode && (
 				<div className={css.controlsTop}>
-					<div className={css.mediaInfo}>
-						<h1 className={css.mediaTitle}>{title}</h1>
-						{subtitle && <p className={css.mediaSubtitle}>{subtitle}</p>}
-					</div>
+					{isLiveTV ? (
+						<div className={css.liveTopRow}>
+							{item?.ChannelNumber && <span className={css.channelBadge}>{item.ChannelNumber}</span>}
+							<div className={css.liveChannelInfo}>
+								<div className={css.liveChannelName}>{title}</div>
+								{liveProgram?.Name && <div className={css.liveProgramName}>{liveProgram.Name}</div>}
+							</div>
+						</div>
+					) : (
+						<div className={css.mediaInfo}>
+							{subtitle ? (
+								<>
+									<p className={css.mediaSecondary}>{title}</p>
+									<h1 className={css.mediaTitle}>{subtitle}</h1>
+								</>
+							) : (
+								<h1 className={css.mediaTitle}>{title}</h1>
+							)}
+						</div>
+					)}
 				</div>
 				)}
 
 				<div className={css.controlsBottom}>
+					{isLiveTV && (() => {
+						// The live timeline is the current program's span, not a seek bar.
+						// Without guide data it falls back to a clock and a LIVE tag.
+						const now = Date.now();
+						const start = liveProgram ? new Date(liveProgram.StartDate) : null;
+						const end = liveProgram ? new Date(liveProgram.EndDate) : null;
+						const progress = start && end
+							? Math.max(0, Math.min(1, (now - start.getTime()) / (end.getTime() - start.getTime())))
+							: 0;
+						return (
+							<div className={css.liveTimeline}>
+								{liveProgram?.EpisodeTitle && (
+									<div className={css.liveEpisodeTitle}>{liveProgram.EpisodeTitle}</div>
+								)}
+								<div className={css.liveProgressTrack}>
+									{liveProgram && (
+										<div className={css.liveProgressFill} style={{width: `${progress * 100}%`}} />
+									)}
+								</div>
+								<div className={css.liveTimeLabels}>
+									<span>{formatClockTime(start || new Date(), settings.clockDisplay)}</span>
+									<span>{end ? formatClockTime(end, settings.clockDisplay) : $L('LIVE')}</span>
+								</div>
+							</div>
+						);
+					})()}
 					{!isLiveTV && (
 					<div className={css.progressContainer}>
 						{hasText(aboveSlots) && renderTimeRow(aboveSlots, css.timeInfoTop, css.timeEnd)}
@@ -332,7 +378,6 @@ const PlayerControls = ({
 									mediaSourceId={mediaSourceId}
 									positionTicks={seekPosition}
 									visible
-									style={{left: `${clampedProgress}%`}}
 								/>
 							)}
 						</SpottableDiv>

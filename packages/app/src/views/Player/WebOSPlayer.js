@@ -34,6 +34,7 @@ import {saveSubtitlePref} from '../../services/subtitlePrefs';
 import serverLogger from '../../services/serverLogger';
 import {resolveInitialSubtitle} from './initialSubtitle';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
+import useLiveProgram from './useLiveProgram';
 import NextUpOverlay from './NextUpOverlay';
 import SkipSegmentOverlay from './SkipSegmentOverlay';
 import StillWatchingDialog from './StillWatchingDialog';
@@ -74,7 +75,7 @@ const getWebOSFullscreenRect = () => {
 	};
 };
 
-const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialSubtitleIndex, initialStartPositionTicks, initialQuality, forceTranscode, onEnded, onBack, onPlayNext, onSelectPerson, audioPlaylist, videoQueue, onPausedChange}) => {
+const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialSubtitleIndex, initialStartPositionTicks, initialQuality, forceTranscode, onEnded, onBack, onGuide, onPlayNext, onSelectPerson, audioPlaylist, videoQueue, onPausedChange}) => {
 	const {settings} = useSettings();
 	const {isInGroup, lastCommand} = useSyncPlay();
 	const syncPlayCommandRef = useRef(false);
@@ -92,6 +93,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [playMethod, setPlayMethod] = useState(null);
 	const [isHdrContent, setIsHdrContent] = useState(false);
 	const [isPaused, setIsPaused] = useState(false);
+	// Mirrors isPaused for the hide timer, which fires outside the render cycle.
+	const isPausedRef = useRef(false);
+	isPausedRef.current = isPaused;
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
 	const [audioStreams, setAudioStreams] = useState([]);
@@ -173,6 +177,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const transcodeRetryCountRef = useRef(0);
 	const forceHlsJsRef = useRef(false);
 	const isLiveTV = item.Type === 'TvChannel';
+	const liveProgram = useLiveProgram(item, isLiveTV);
 	const prevItemIdRef = useRef(null);
 	const hlsPlayerRef = useRef(null);
 	const pendingAudioRef = useRef(null);
@@ -1228,7 +1233,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		}
 		if (!isAudioMode && !isModalOpen) {
 			controlsTimeoutRef.current = setTimeout(() => {
-			  setControlsVisible(false);
+				// Paused playback keeps its controls, like the other clients. Resuming
+				// goes through showControls and re-arms the timer.
+				if (isPausedRef.current) return;
+				setControlsVisible(false);
 			}, CONTROLS_HIDE_DELAY);
 		}
 	}, [activeModal, isAudioMode]);
@@ -1601,7 +1609,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		};
 	}, [handleLoadedMetadata, handlePlay, handlePause, handleTimeUpdate, handleWaiting, handlePlaying, handleEnded, handleError]);
 
-	const handleBack = useCallback(async () => {
+	const teardownPlayback = useCallback(async () => {
 		cancelNextEpisodeCountdown();
 		const currentPos = videoRef.current
 			? Math.floor(videoRef.current.currentTime * 10000000)
@@ -1611,9 +1619,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		isCleaningUpRef.current = true;
 		destroyHlsPlayer();
 		await cleanupVideoElement(videoRef.current);
+	}, [cancelNextEpisodeCountdown]);
 
+	const handleBack = useCallback(async () => {
+		await teardownPlayback();
 		onBack?.();
-	}, [onBack, cancelNextEpisodeCountdown]);
+	}, [teardownPlayback, onBack]);
+
+	const handleOpenGuide = useCallback(async () => {
+		await teardownPlayback();
+		(onGuide || onBack)?.();
+	}, [teardownPlayback, onGuide, onBack]);
 
 	useEffect(() => {
 		handleBackRef.current = handleBack;
@@ -2086,6 +2102,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'zoom': handleToggleZoom(); break;
 			case 'sleep': openModal('sleep'); break;
 			case 'info': openModal('info'); break;
+			case 'guide': handleOpenGuide(); break;
 			case 'next': handlePlayNextNow(); break;
 			case 'nextTrack': handleNextTrack(); break;
 			case 'prevTrack': handlePrevTrack(); break;
@@ -2094,7 +2111,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			case 'favorite': handleToggleFavorite(); break;
 			default: break;
 		}
-	}, [showControls, handlePlayPause, handleRewind, handleForward, openModal, handleOpenCast, handleToggleZoom, handlePlayNextNow, handleNextTrack, handlePrevTrack, handleToggleShuffle, handleToggleRepeat, handleToggleFavorite]);
+	}, [showControls, handlePlayPause, handleRewind, handleForward, openModal, handleOpenCast, handleToggleZoom, handleOpenGuide, handlePlayNextNow, handleNextTrack, handlePrevTrack, handleToggleShuffle, handleToggleRepeat, handleToggleFavorite]);
 
 	const handleControlButtonClick = useCallback((e) => {
 		const action = e.currentTarget.dataset.action;
@@ -2504,8 +2521,6 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				</div>
 			)}
 
-			{/* Video Dimmer - not needed for audio */}
-			{!isLoading && !error && !isAudioMode && <div className={`${css.videoDimmer} ${controlsVisible ? css.visible : ''}`} />}
 
 			{/* Buffering Indicator */}
 			{!isLoading && isBuffering && (
@@ -2556,6 +2571,8 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				controlsVisible={controlsVisible}
 				activeModal={activeModal}
 				isAudioMode={isAudioMode}
+				isLiveTV={isLiveTV}
+				liveProgram={liveProgram}
 				focusRow={focusRow}
 				title={title}
 				subtitle={subtitle}
