@@ -300,32 +300,29 @@ const useBrowseData = ({
 				}
 
 				if (libs.length > 0) {
-					const visibleLibs = libs.filter(lib => !EXCLUDED_COLLECTION_TYPES.includes(lib.CollectionType?.toLowerCase()));
-					if (visibleLibs.length > 0) {
-						const libraryItems = visibleLibs.map(lib => ({
-							...lib,
-							Type: 'CollectionFolder',
-							isLibraryTile: true
-						}));
-						rowData.push({
-							id: 'library-tiles',
-							title: $L('My Media'),
-							items: libraryItems,
-							type: 'landscape',
-							isLibraryRow: true
-						});
-						// The same libraries drawn as icon buttons instead of artwork tiles.
-						// Like every other row here it is built either way and dropped
-						// later if the user has not enabled it.
-						rowData.push({
-							id: 'librarybuttons',
-							title: $L('Library Buttons'),
-							items: libraryItems,
-							type: 'square',
-							isLibraryRow: true,
-							isButtonRow: true
-						});
-					}
+					const libraryItems = libs.map(lib => ({
+						...lib,
+						Type: 'CollectionFolder',
+						isLibraryTile: true
+					}));
+					rowData.push({
+						id: 'library-tiles',
+						title: $L('My Media'),
+						items: libraryItems,
+						type: 'landscape',
+						isLibraryRow: true
+					});
+					// The same libraries drawn as icon buttons instead of artwork tiles.
+					// Like every other row here it is built either way and dropped
+					// later if the user has not enabled it.
+					rowData.push({
+						id: 'librarybuttons',
+						title: $L('Library Buttons'),
+						items: libraryItems,
+						type: 'square',
+						isLibraryRow: true,
+						isButtonRow: true
+					});
 
 					const liveTvLibrary = libs.find(lib => lib.CollectionType?.toLowerCase() === 'livetv');
 					if (liveTvLibrary) {
