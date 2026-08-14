@@ -13,6 +13,7 @@ import RatingsRow from '../../components/RatingsRow';
 import DetailsTabBar from '../../components/DetailsTabBar';
 import {getImageUrl, formatDuration} from '../../utils/helpers';
 import {castPhotoUrl} from './detailsMedia';
+import ExpandableOverview from './ExpandableOverview';
 import {KEYS} from '../../utils/keys';
 import {DETAIL_ICON_PATHS} from './detailIcons';
 import {arrange, seerrOnlyRow, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
@@ -58,7 +59,8 @@ const ModernDetailContent = (props) => {
 		backdropUrl, posterUrl, logoUrl, onLogoError,
 		year, runtime, endsAt, officialRating, seasonCount, genres, tagline,
 		hasPlaybackPosition, resumeTimeText,
-		seasons, episodes, similar, extras, cast, nextUp, collectionItems, albumTracks, artistAlbums, playlistItems, personMovies, personSeries, birthDate, birthPlace, episodeRatings,
+		seasons, episodes, similar, extras, cast, crew = [], nextUp, collectionItems, albumTracks, artistAlbums, playlistItems, personMovies, personSeries, birthDate, birthPlace, episodeRatings,
+		techBadges = [], techSize, overviewBackRef,
 		mediaSource, supportsMediaSourceSelection, hasMultipleVersions, hasMultipleAudio,
 		handlePlay, handleResume, handleShuffle, handleTrailer, handleToggleWatched, handleToggleFavorite, handleGoToSeries,
 		handleOpenVersionModal, handleOpenAudioModal, handleOpenSubtitleModal, handleOpenPlaylistModal, handleOpenCollectionModal, handleOpenDeleteDialog,
@@ -82,32 +84,11 @@ const ModernDetailContent = (props) => {
 		'--gradient-scale': gradientScale
 	};
 
+	const hasUpNext = Boolean(nextUp?.[0]);
+	const hasTech = Boolean(techSize) || techBadges.length > 0;
 	const hasTrailer = item.LocalTrailerCount > 0 || (item.RemoteTrailers?.length > 0) || isSeries;
 	const played = item.UserData?.Played;
 	const isFavorite = item.UserData?.IsFavorite;
-
-	const [canToggle, setCanToggle] = useState(false);
-	const [isExpanded, setIsExpanded] = useState(false);
-	const descriptionRef = useRef(null);
-
-	// Reset expanded state when navigating to a different item. Keyed on the id so an
-	// in-place update to the same item doesn't collapse the text.
-	useEffect(() => {
-		setIsExpanded(false);
-		setCanToggle(false);
-	}, [item?.Id]);
-
-	// Detect if description text overflows 4 lines
-	useEffect(() => {
-		const el = descriptionRef.current;
-		if (el && !isExpanded) {
-			setCanToggle(el.scrollHeight > el.clientHeight);
-		}
-	}, [item?.Overview, isExpanded]);
-
-	const handleToggleExpand = useCallback(() => {
-		setIsExpanded(prev => !prev);
-	}, []);
 
 	const scrollToRef = useRef(null);
 	const handleScrollTo = useCallback((fn) => {
@@ -211,33 +192,38 @@ const ModernDetailContent = (props) => {
 	}, [tmdbCompanies, item.Studios, effectiveServerUrl, serverToken]);
 
 	// Metadata pieces, joined by CSS separators rather than string concatenation.
+	// A piece carries its kind so the status can render as a coloured pill and
+	// the runtime can lead with a clock.
 	const metaPieces = useMemo(() => {
 		const pieces = [];
-		if (year) pieces.push(String(year));
-		if (officialRating) pieces.push(officialRating);
-		if (isSeries && seasonCount) pieces.push($L('{count} Seasons').replace('{count}', seasonCount));
-		if (isSeason && episodes.length) pieces.push($L('{count} Episodes').replace('{count}', episodes.length));
+		const addText = (text) => {
+			if (text) pieces.push({kind: 'text', text});
+		};
+		if (year) addText(String(year));
+		addText(officialRating);
+		if (isSeries && seasonCount) addText($L('{count} Seasons').replace('{count}', seasonCount));
+		if (isSeason && episodes.length) addText($L('{count} Episodes').replace('{count}', episodes.length));
 		if (isEpisode && item.ParentIndexNumber != null && item.IndexNumber != null) {
 			let label = `S${item.ParentIndexNumber}:E${item.IndexNumber}`;
 			// The value is a score out of 10, not a percentage.
 			const rating = episodeRatings?.[item.IndexNumber];
 			const showEpisodeRating = settings.tmdbEpisodeRatingsEnabled && isRatingSourceAllowed(settings.mdblistRatingSources, 'tmdb');
 			if (showEpisodeRating && rating) label += ` · ${rating}`;
-			pieces.push(label);
+			addText(label);
 		}
-		if (isSeries && item.Status === 'Continuing') pieces.push($L('Ongoing'));
-		if (isSeries && item.Status === 'Ended') pieces.push($L('Ended'));
-		if (runtime) pieces.push(runtime);
-		if (runtime && endsAt) pieces.push(endsAt);
-		if (genres.length) pieces.push(genres.slice(0, 3).join(', '));
+		if (isSeries && item.Status === 'Continuing') pieces.push({kind: 'status', text: $L('Continuing')});
+		if (isSeries && item.Status === 'Ended') pieces.push({kind: 'status', text: $L('Ended'), ended: true});
+		if (runtime) pieces.push({kind: 'runtime', text: runtime});
+		if (runtime && endsAt) addText(endsAt);
+		if (genres.length) addText(genres.slice(0, 3).join(' · '));
 		return pieces;
 	}, [year, officialRating, isSeries, seasonCount, isSeason, episodes.length, isEpisode, item.ParentIndexNumber, item.IndexNumber, item.Status, episodeRatings, settings.tmdbEpisodeRatingsEnabled, settings.mdblistRatingSources, runtime, endsAt, genres]);
 
 	const handleCastClick = useCallback((ev) => {
 		const personId = ev.currentTarget.dataset.personId;
-		const person = cast.find((c) => c.Id === personId);
+		const person = cast.find((c) => c.Id === personId) || crew.find((c) => c.Id === personId);
 		if (person) onSelectPerson?.(person);
-	}, [cast, onSelectPerson]);
+	}, [cast, crew, onSelectPerson]);
 
 	const handleEpisodeClick = useCallback((ev) => {
 		const episodeId = ev.currentTarget.dataset.episodeId;
@@ -262,7 +248,8 @@ const ModernDetailContent = (props) => {
 		if ((isAlbum || isPlaylist) && (albumTracks.length || playlistItems.length)) list.push({id: 'tracks', label: $L('Tracks')});
 		if (isMusicArtist && artistAlbums.length) list.push({id: 'albums', label: $L('Albums')});
 		if (isBoxSet && collectionItems.length) list.push({id: 'items', label: $L('Items')});
-		if (cast.length) list.push({id: 'cast', label: $L('Cast & Crew')});
+		if (cast.length) list.push({id: 'cast', label: $L('Cast')});
+		if (crew.length) list.push({id: 'crew', label: $L('Crew')});
 		if (item.Studios?.length) list.push({id: 'studios', label: $L('Studios')});
 		if (item.Chapters?.length) list.push({id: 'chapters', label: $L('Chapters')});
 		if (extras.length) list.push({id: 'extras', label: $L('Extras')});
@@ -270,7 +257,7 @@ const ModernDetailContent = (props) => {
 		if (similar.length) list.push({id: 'similar', label: $L('More Like This')});
 		if (seerr.isActive) list.push({id: 'seerr', label: seerr.displayName});
 		return list;
-	}, [isSeries, seasons.length, isSeason, isEpisode, episodes.length, isPerson, personMovies.length, personSeries.length, isAlbum, isPlaylist, albumTracks.length, playlistItems.length, isMusicArtist, artistAlbums.length, isBoxSet, collectionItems.length, cast.length, item.Studios, item.Chapters, extras.length, supportsMediaSourceSelection, mediaSource, similar.length, seerr.isActive, seerr.displayName]);
+	}, [isSeries, seasons.length, isSeason, isEpisode, episodes.length, isPerson, personMovies.length, personSeries.length, isAlbum, isPlaylist, albumTracks.length, playlistItems.length, isMusicArtist, artistAlbums.length, isBoxSet, collectionItems.length, cast.length, crew.length, item.Studios, item.Chapters, extras.length, supportsMediaSourceSelection, mediaSource, similar.length, seerr.isActive, seerr.displayName]);
 
 	const [activeTab, setActiveTab] = useState(null);
 	// Expanded Tabs on keeps the first tab open and lets focus follow selection.
@@ -348,7 +335,7 @@ const ModernDetailContent = (props) => {
 						<div className={css.episodeThumb}>
 							{thumb ? <img src={thumb} alt="" /> : <div className={css.chapterThumbPlaceholder} />}
 							{ep.UserData?.Played && <div className={css.episodeWatched}><Icon path={DETAIL_ICON_PATHS.watched} /></div>}
-							{progress > 0 && <div className={css.upNextProgress}><div style={{width: `${Math.min(progress, 100)}%`}} /></div>}
+							{progress > 0 && <div className={css.thumbProgress}><div style={{width: `${Math.min(progress, 100)}%`}} /></div>}
 						</div>
 						<div className={css.episodeBody}>
 							<span className={css.episodeName}>{label}</span>
@@ -361,9 +348,9 @@ const ModernDetailContent = (props) => {
 		</RowContainer>
 	);
 
-	const renderCastTab = () => (
+	const renderPeople = (people) => (
 		<RowContainer className={css.grid}>
-			{cast.map((person) => {
+			{people.map((person) => {
 				const photo = castPhotoUrl(person, effectiveServerUrl, 300);
 				return (
 					<SpottableDiv key={person.Id} className={css.castCard} data-person-id={person.Id} onClick={handleCastClick}>
@@ -515,7 +502,9 @@ const ModernDetailContent = (props) => {
 			case 'similar':
 				return renderGrid(similar, 'portrait');
 			case 'cast':
-				return renderCastTab();
+				return renderPeople(cast);
+			case 'crew':
+				return renderPeople(crew);
 			case 'chapters':
 				return renderChaptersTab();
 			case 'extras':
@@ -598,7 +587,7 @@ const ModernDetailContent = (props) => {
 		);
 
 		return (
-			<RowContainer className={css.actions} spotlightId="details-action-buttons" onFocus={handleActionsFocus} onKeyDown={handleActionsKeyDown}>
+			<RowContainer className={`${css.actions} ${hasTech ? css.actionsTight : ''}`} spotlightId="details-action-buttons" onFocus={handleActionsFocus} onKeyDown={handleActionsKeyDown}>
 				{!seerrOnly && hasPlaybackPosition && !isBook && (
 					<ActionButton primary path={DETAIL_ICON_PATHS.play} label={$L('Resume')} detail={resumeTimeText} onClick={handleResume} spotlightId="details-primary-btn" />
 				)}
@@ -616,39 +605,6 @@ const ModernDetailContent = (props) => {
 		);
 	};
 
-	const heroTitle = () => {
-		if (logoUrl && !isPerson) {
-			return <img className={css.logo} src={logoUrl} alt={item.Name} onError={onLogoError} />;
-		}
-		const titleText = isEpisode && item.SeriesName ? item.SeriesName : item.Name;
-		return <h1 className={css.title}>{titleText}</h1>;
-	};
-
-	const renderUpNext = () => {
-		const ep = nextUp?.[0];
-		if (!ep) return null;
-		const thumb = ep.ImageTags?.Primary ? getImageUrl(effectiveServerUrl, ep.Id, 'Primary', {maxWidth: 400, quality: 80}) : null;
-		const label = ep.ParentIndexNumber != null && ep.IndexNumber != null ? `S${ep.ParentIndexNumber}:E${ep.IndexNumber}` : '';
-		const progress = ep.UserData?.PlayedPercentage || 0;
-		return (
-			<RowContainer className={css.upNext}>
-				<div className={css.upNextLabel}>{$L('Next Up')}</div>
-				{/* eslint-disable-next-line react/jsx-no-bind */}
-				<SpottableDiv className={css.upNextCard} onClick={() => onSelectItem?.(ep)}>
-					<div className={css.upNextThumb}>
-						{thumb && <img src={thumb} alt="" />}
-						<div className={css.upNextPlay}><Icon path={DETAIL_ICON_PATHS.play} /></div>
-						{progress > 0 && <div className={css.upNextProgress}><div style={{width: `${Math.min(progress, 100)}%`}} /></div>}
-					</div>
-					<div className={css.upNextInfo}>
-						<span className={css.upNextTitle}>{label ? `${label} ${ep.Name}` : ep.Name}</span>
-						{ep.Overview && <span className={css.upNextOverview}>{ep.Overview}</span>}
-					</div>
-				</SpottableDiv>
-			</RowContainer>
-		);
-	};
-
 	const personBorn = () => {
 		if (!isPerson) return null;
 		const parts = [];
@@ -658,43 +614,103 @@ const ModernDetailContent = (props) => {
 		return <div className={css.personBorn}>{parts.join(' · ')}</div>;
 	};
 
+	// An episode leads with the series (logo or name), then spells out its own
+	// title underneath. Everything else puts its logo or name on the one line.
+	const heroTitle = () => {
+		if (isEpisode) {
+			return (
+				<>
+					{logoUrl
+						? <img className={`${css.logo} ${css.logoEpisode}`} src={logoUrl} alt={item.SeriesName} onError={onLogoError} />
+						: item.SeriesName && <div className={css.seriesLabel}>{item.SeriesName}</div>}
+					<h1 className={css.title}>{item.Name}</h1>
+				</>
+			);
+		}
+		if (logoUrl && !isPerson) {
+			return <img className={css.logo} src={logoUrl} alt={item.Name} onError={onLogoError} />;
+		}
+		return <h1 className={css.title}>{item.Name}</h1>;
+	};
+
+	// The title, the facts about it and its ratings. With a Next Up card on
+	// screen this is lifted out of the hero column so it keeps the full width.
+	const renderTitleBlock = () => (
+		<>
+			{isPerson && posterUrl && <img className={css.personAvatar} src={posterUrl} alt="" />}
+			{heroTitle()}
+			{personBorn()}
+			{(metaPieces.length > 0 || seerr.statusPills?.length > 0) && (
+				<div className={css.metaRow}>
+					{metaPieces.map((piece, i) => (
+						<span key={i} className={css.metaItem}>
+							{piece.kind === 'runtime' && <svg className={css.metaIcon} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d={DETAIL_ICON_PATHS.schedule} /></svg>}
+							{piece.kind === 'status'
+								? <span className={`${css.statusBadge} ${piece.ended ? css.statusEnded : ''}`}>{piece.text}</span>
+								: piece.text}
+						</span>
+					))}
+					<SeerrStatusBadge seerr={seerr} className={css.metaBadge} />
+				</div>
+			)}
+			{hasTech && (
+				<div className={css.techRow}>
+					{techSize && <span className={css.techSize}>{techSize}</span>}
+					{techBadges.map((badge, i) => <span key={i} className={css.techChip}>{badge.label}</span>)}
+				</div>
+			)}
+			{!isPerson && <RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />}
+		</>
+	);
+
+	const renderUpNext = () => {
+		const ep = nextUp?.[0];
+		if (!ep) return null;
+		const thumb = ep.ImageTags?.Primary ? getImageUrl(effectiveServerUrl, ep.Id, 'Primary', {maxWidth: 400, quality: 80}) : null;
+		const code = ep.ParentIndexNumber != null && ep.IndexNumber != null ? `S${ep.ParentIndexNumber}:E${ep.IndexNumber} - ` : '';
+		const progress = ep.UserData?.PlayedPercentage || 0;
+		const leftTicks = (ep.RunTimeTicks || 0) - (ep.UserData?.PlaybackPositionTicks || 0);
+		const remaining = leftTicks > 0 ? formatDuration(leftTicks) : null;
+		return (
+			<RowContainer className={css.upNext}>
+				{/* eslint-disable-next-line react/jsx-no-bind */}
+				<SpottableDiv className={css.upNextCard} onClick={() => onSelectItem?.(ep)}>
+					<div className={css.upNextLabel}>{`${$L('Next Up')} - ${code}${ep.Name}`}</div>
+					<div className={css.upNextBody}>
+						<div className={css.upNextText}>
+							{ep.Overview && <span className={css.upNextOverview}>{ep.Overview}</span>}
+							<div className={css.upNextFoot}>
+								{progress > 0 && <div className={css.upNextProgress}><div style={{width: `${Math.min(progress, 100)}%`}} /></div>}
+								{remaining && <span className={css.upNextRemaining}>{$L('{time} remaining').replace('{time}', remaining)}</span>}
+							</div>
+						</div>
+						<div className={css.upNextThumb}>
+							{thumb && <img src={thumb} alt="" />}
+							<div className={css.upNextPlay}><Icon path={DETAIL_ICON_PATHS.play} /></div>
+						</div>
+					</div>
+				</SpottableDiv>
+			</RowContainer>
+		);
+	};
+
 	return (
 		<>
 			<div className={`${css.backdrop} ${isPerson ? css.backdropPerson : ''}`} style={backdropStyle}>
 				{backdropUrl && !isPerson && <img className={css.backdropImage} src={backdropUrl} alt="" />}
 			</div>
 			<Scroller cbScrollTo={handleScrollTo} onScroll={handleScroll} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
-				<div className={css.content} ref={contentRef} onKeyDown={handleContentKeyDown}>
-					<div className={`${css.hero} ${nextUp?.[0] ? css.hasUpNext : ''}`}>
+				<div className={`${css.content} ${settings.navbarPosition === 'left' ? css.sidebarOffset : ''}`} ref={contentRef} onKeyDown={handleContentKeyDown}>
+					{hasUpNext && <div className={css.aboveHero}>{renderTitleBlock()}</div>}
+					<div className={`${css.hero} ${hasUpNext ? css.hasUpNext : ''}`}>
 						<div className={`${css.heroMain} ${isPerson ? css.heroPerson : ''}`}>
-							{isPerson && posterUrl && <img className={css.personAvatar} src={posterUrl} alt="" />}
-							{heroTitle()}
-							{isEpisode && <div className={css.episodeTitle}>{item.Name}</div>}
-							{personBorn()}
-							{metaPieces.length > 0 && (
-								<div className={css.metaRow}>
-									{metaPieces.map((piece, i) => <span key={i} className={css.metaItem}>{piece}</span>)}
-								</div>
-							)}
-							<SeerrStatusBadge seerr={seerr} />
-							{!isPerson && <RatingsRow item={item} serverUrl={effectiveServerUrl} pluginEnabled={isMdblistEnabled(settings)} />}
+							{!hasUpNext && renderTitleBlock()}
 							{tagline && <div className={css.tagline}>{tagline}</div>}
-							{item.Overview && (
-								<SpottableDiv
-									className={`${css.descriptionContainer} ${canToggle ? css.descriptionContainerSpottable : ''}`}
-									onClick={canToggle ? handleToggleExpand : null}
-									spotlightDisabled={!canToggle}
-								>
-									<p ref={descriptionRef} className={`${css.overview} ${!isExpanded ? css.overviewCollapsed : ''}`}>
-										{item.Overview}
-									</p>
-									{canToggle && <div className={css.readMoreBtn}>{isExpanded ? $L('Read Less') : $L('Read More')}</div>}
-								</SpottableDiv>
-							)}
+							<ExpandableOverview text={item.Overview} itemId={item.Id} className={css.descriptionSlot} backRef={overviewBackRef} />
+							{!isBoxSet && !isPerson && renderActionButtons()}
 						</div>
 						{renderUpNext()}
 					</div>
-					{!isBoxSet && !isPerson && renderActionButtons()}
 					<SeerrDownloadBars seerr={seerr} />
 					{tabs.length > 0 && (
 						<div className={css.tabsSection} onKeyDown={handleTabsKeyDown}>

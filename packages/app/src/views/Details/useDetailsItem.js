@@ -112,8 +112,10 @@ const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tag
 				setSelectedAudioIndex(0);
 				setSelectedSubtitleIndex(-1);
 			}
+			// Kept whole, because the screens split this into cast and crew and
+			// capping here would drop the crew off the end of a long list.
 			if (data.People?.length > 0) {
-				setCast(data.People.slice(0, 20));
+				setCast(data.People);
 			}
 
 			setIsLoading(false);

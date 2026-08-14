@@ -17,7 +17,7 @@ import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 
 import {isSeerrOnlyItem} from '../../utils/seerrTarget';
 import {buildSeerrDetailItem} from '../../utils/seerrDetailItem';
-import {COLLECTION_ITEM_TYPES, IDENTIFIABLE_TYPES, getMediaBadges, shuffleArray} from './detailsMedia';
+import {COLLECTION_ITEM_TYPES, IDENTIFIABLE_TYPES, getMediaBadges, shuffleArray, splitCastAndCrew} from './detailsMedia';
 import useDetailsItem from './useDetailsItem';
 import useDetailsModals from './useDetailsModals';
 import useDetailsTrailer from './useDetailsTrailer';
@@ -114,6 +114,11 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const item = seerrOnly ? seerrItem : data.item;
 	const isLoading = seerrOnly ? seerr.loading : libraryLoading;
 
+	const {cast: detailCast, crew: detailCrew} = useMemo(
+		() => splitCastAndCrew(seerrOnly ? item?.People || [] : cast),
+		[seerrOnly, item?.People, cast]
+	);
+
 	// The Seerr popups have to answer BACK before the screen's own overlays do, and the ref is
 	// how they reach the handler useDetailsModals owns.
 	const seerrBackRef = useRef(null);
@@ -130,7 +135,10 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		clearSeerrActionError();
 	}, [seerrActionError, clearSeerrActionError, showToast]);
 
-	const modals = useDetailsModals({backHandlerRef, onArtworkClosed: refreshItem, seerrBackRef});
+	// The expanded overview box collapses on BACK through the same chain the
+	// screen's overlays use.
+	const overviewBackRef = useRef(null);
+	const modals = useDetailsModals({backHandlerRef, onArtworkClosed: refreshItem, seerrBackRef, overviewBackRef});
 	const {activeModal, openModal, closeModal, advancedResumeRef} = modals;
 
 	const trailer = useDetailsTrailer({
@@ -676,10 +684,20 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const runtime = item.RunTimeTicks ? formatDuration(item.RunTimeTicks) : '';
 	const endsAt = formatPlaybackEndsAt(item.RunTimeTicks / 10000000, settings.clockDisplay, settings.timeOffsetHours);
 	const officialRating = item.OfficialRating || '';
-	const badges = getMediaBadges(item, selectedVersionIndex);
 	const seasonCount = item.ChildCount || seasons.length || 0;
+	const sidebarDocked = settings.navbarPosition === 'left';
 
 	const mediaSource = item.MediaSources?.[selectedVersionIndex] || item.MediaSources?.[0];
+	// Both halves of the technical row are gated here, so neither screen has to
+	// know the setting. A container is left without a size, since its own is the
+	// sum of its children.
+	const showTech = Boolean(settings.detailShowTechnicalDetails);
+	const techBadges = showTech ? getMediaBadges(item, selectedVersionIndex) : [];
+	let techSize = null;
+	if (showTech && mediaSource?.Size > 0 && item.Type !== 'Series' && item.Type !== 'Season') {
+		const mb = mediaSource.Size / (1024 * 1024);
+		techSize = mb > 999 ? `${(mb / 1024).toFixed(2)} GB` : `${Math.round(mb)} MB`;
+	}
 	const audioStreams = mediaSource?.MediaStreams?.filter(s => s.Type === 'Audio') || [];
 	const subtitleStreams = mediaSource?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
 	const supportsMediaSourceSelection = item.MediaType === 'Video' &&
@@ -695,8 +713,6 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	const hasPlaybackPosition = item.UserData?.PlaybackPositionTicks > 0;
 	const resumeTimeText = hasPlaybackPosition ? formatDuration(item.UserData.PlaybackPositionTicks) : '';
-
-	const detailCast = seerrOnly ? item.People || [] : cast;
 
 	const personMovies = isPerson ? similar.filter(i => i.Type === 'Movie') : [];
 	const personSeries = isPerson ? similar.filter(i => i.Type === 'Series') : [];
@@ -790,6 +806,9 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 					officialRating={officialRating}
 					seasonCount={seasonCount}
 					genres={genres}
+					techBadges={techBadges}
+					techSize={techSize}
+					overviewBackRef={overviewBackRef}
 					tagline={tagline}
 					hasPlaybackPosition={hasPlaybackPosition}
 					resumeTimeText={resumeTimeText}
@@ -798,6 +817,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 					similar={similar}
 					extras={extras}
 					cast={detailCast}
+					crew={detailCrew}
 					nextUp={nextUp}
 					collectionItems={collectionItems}
 					albumTracks={albumTracks}
@@ -840,7 +860,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	if (isPerson) {
 		return (
-			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} sidebarDocked={sidebarDocked}>
 				<PersonScreen
 					item={item}
 					serverUrl={effectiveServerUrl}
@@ -857,7 +877,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	if (isSeason) {
 		return (
-			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} sidebarDocked={sidebarDocked}>
 				<SeasonScreen
 					item={item}
 					serverUrl={effectiveServerUrl}
@@ -881,7 +901,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			? <div className={css.toast} onAnimationEnd={handleToastEnd}>{toastMessage}</div>
 			: null;
 		return (
-			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} footer={toast}>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} sidebarDocked={sidebarDocked} footer={toast}>
 				<PlaylistScreen
 					item={item}
 					serverUrl={effectiveServerUrl}
@@ -901,7 +921,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	if (isAlbum) {
 		return (
-			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} sidebarDocked={sidebarDocked}>
 				<AlbumScreen
 					item={item}
 					serverUrl={effectiveServerUrl}
@@ -924,7 +944,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	if (isMusicArtist) {
 		return (
-			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} sidebarDocked={sidebarDocked}>
 				<ArtistScreen
 					item={item}
 					serverUrl={effectiveServerUrl}
@@ -943,7 +963,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	if (isAudioTrack) {
 		return (
-			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo}>
+			<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} sidebarDocked={sidebarDocked}>
 				<AudioTrackScreen
 					item={item}
 					serverUrl={effectiveServerUrl}
@@ -1002,7 +1022,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	);
 
 	return (
-		<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} footer={overlays}>
+		<DetailScrollPage backdrop={backdrop} scrollerRef={pageScrollerRef} onScrollTo={handlePageScrollTo} sidebarDocked={sidebarDocked} footer={overlays}>
 			<ClassicDetailScreen
 				item={item}
 				serverUrl={effectiveServerUrl}
@@ -1019,7 +1039,10 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				endsAt={endsAt}
 				officialRating={officialRating}
 				seasonCount={seasonCount}
-				badges={badges}
+				genres={genres}
+				techBadges={techBadges}
+				techSize={techSize}
+				overviewBackRef={overviewBackRef}
 				tagline={tagline}
 				actionButtons={actionButtons}
 				seerr={seerr}
@@ -1033,6 +1056,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				collectionItems={collectionItems}
 				extras={extras}
 				cast={detailCast}
+				crew={detailCrew}
 				parentCollection={parentCollection}
 				parentCollectionName={parentCollectionName}
 				similar={similar}

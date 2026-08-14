@@ -82,52 +82,53 @@
 
 /* Content */
 .content {
-	padding: 140px 100px 80px;
+	padding: 116px 70px 58px;
 	min-height: 100vh;
+}
+
+/* A docked sidebar is drawn over the page, so the header starts clear of it. */
+.sidebarOffset {
+	padding-left: 174px;
 }
 
 /* ============================================
    Details Header (info + poster)
    ============================================ */
+/* The text sits on the poster's baseline rather than its top edge, so a short
+   title still ends level with the artwork. */
 .detailsHeader {
 	display: flex;
-	position: relative;
-	margin-bottom: 0;
-	align-items: flex-start;
-	min-height: 480px;
+	margin-bottom: 23px;
+	align-items: flex-end;
+
+	> * + * {
+		margin-left: 46px;
+	}
 }
 
 .infoSection {
 	flex: 1;
 	min-width: 0;
-	max-width: calc(100% - 380px);
 }
 
 /* Poster Section */
 .posterSection {
-	position: absolute;
-	right: -20px;
-	top: 0;
 	flex-shrink: 0;
-	width: 320px;
+	width: 239px;
 }
 
 .posterLandscape {
-	width: 520px;
+	width: 406px;
 
 	.poster {
-		width: 520px;
-		height: 293px;
+		width: 406px;
+		height: 229px;
 	}
 }
 
-.infoSectionWide {
-	max-width: calc(100% - 580px);
-}
-
 .poster {
-	width: 320px;
-	height: 480px;
+	width: 239px;
+	height: 360px;
 	border-radius: 12px;
 	overflow: hidden;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -188,7 +189,7 @@
 .episodeHeader {
 	display: flex;
 	align-items: center;
-	margin-bottom: 12px;
+	margin-bottom: 6px;
 
 	> * + * {
 		margin-left: 12px;
@@ -196,102 +197,99 @@
 }
 
 .seriesName {
-	font-size: 22px;
+	font-size: 23px;
 	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.7));
 	font-weight: 500;
 }
 
 .episodeNumber {
-	font-size: 17px;
-	color: var(--theme-text-muted, rgba(255, 255, 255, 0.5));
-	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.1);
-	padding: 2px 10px;
-	border-radius: 4px;
+	font-size: 16px;
+	font-weight: 600;
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.9);
+	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.15);
+	padding: 3px 12px;
+	border-radius: 17px;
 }
 
 /* ============================================
    Title Section
    ============================================ */
 .titleSection {
-	margin-bottom: 24px;
+	margin-bottom: 12px;
 }
 
 .logoImage {
-	max-width: 400px;
-	max-height: 120px;
+	max-width: 507px;
+	max-height: 116px;
 	object-fit: contain;
 	display: block;
+	margin-bottom: 17px;
 	filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.7));
 }
 
 .title {
-	font-size: 60px;
+	font-size: 46px;
 	font-weight: 700;
 	color: var(--theme-text-primary, #ffffff);
 	margin: 0;
-	line-height: 1.1;
+	line-height: 1.25;
 	text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 /* ============================================
    Info Row & Badges
    ============================================ */
+/* One dotted line of facts, with the stream chips and Seerr pills on their own
+   line beneath it. */
 .infoRow {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	margin-bottom: 16px;
-
-	> * + * {
-		margin-left: 16px;
-	}
+	margin-bottom: 12px;
 }
 
-/* Text items group (year, rating, runtime) with bullet separators */
 .infoTextItems {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
+	.flex-wrap-gap(6px; 0);
 
 	> .infoItem + .infoItem::before {
 		content: '\2022';
-		margin: 0 10px;
-		color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.35);
-		font-size: 12px;
+		margin: 0 7px;
+		color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.5);
+		font-size: 17px;
 	}
 }
 
 .infoItem {
-	font-size: 20px;
-	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.7));
+	font-size: 17px;
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.9);
 	display: flex;
 	align-items: center;
 	white-space: nowrap;
-	font-weight: 500;
+	font-weight: 700;
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.55);
 }
 
-/* Badges group */
 .infoBadges {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-
-	> * + * {
-		margin-left: 6px;
-	}
+	.flex-wrap-gap(6px; 9px);
+	margin-top: 9px;
 }
 
 /* Media Badges */
 .badge {
-	padding: 4px 12px;
-	border-radius: 4px;
-	font-size: 14px;
-	font-weight: 700;
-	letter-spacing: 0.5px;
-	text-transform: uppercase;
+	padding: 3px 9px;
+	border-radius: 6px;
+	font-size: 16px;
+	font-weight: 500;
 	display: inline-flex;
 	align-items: center;
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.55);
 }
 
+/* Stream facts read as outlined chips, so they sit quieter than the age
+   rating beside them. */
 .badge4k,
 .badgeHd,
 .badgeHdr,
@@ -299,46 +297,56 @@
 .badgeAtmos,
 .badgeDtsx,
 .badgeSurround,
-.badgeStereo,
 .badgeCodec,
 .badgeContainer,
-.badgeAudioCodec,
+.badgeAudioCodec {
+	padding: 4px 12px;
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	color: rgba(255, 255, 255, 0.8);
+	font-weight: 600;
+}
+
 .badgeRating {
-	background: var(--theme-badge-background, rgba(255, 255, 255, 0.7));
-	color: var(--theme-on-badge, #000);
+	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.15);
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.9);
 }
 
 .badgeContinuing {
-	background: rgba(8, 149, 98, 0.7);
+	background: #2e7d32;
 	color: #fff;
+	font-weight: 600;
 }
 
 .badgeEnded {
-	background: var(--theme-recording-active, rgba(198, 40, 40, 0.85));
+	background: #b71c1c;
 	color: #fff;
+	font-weight: 600;
 }
 
 /* ============================================
    Tagline & Overview
    ============================================ */
 .tagline {
-	font-size: 24px;
+	font-size: 20px;
 	font-style: italic;
-	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.6));
-	margin: 0 0 16px 0;
+	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.7));
+	margin: 9px 0 12px 0;
 	line-height: 1.4;
 }
 
 .overview {
-	font-size: 22px;
-	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.8));
-	line-height: 1.6;
-	margin: 0 0 32px 0;
-	max-height: 200px;
+	font-size: 20px;
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.8);
+	line-height: 1.4;
+	margin: 0;
 	overflow: hidden;
 	display: -webkit-box;
-	-webkit-line-clamp: 5;
+	-webkit-line-clamp: 4;
 	-webkit-box-orient: vertical;
+}
+
+.overviewSlot {
+	margin-top: 12px;
 }
 
 /* ============================================
@@ -353,7 +361,7 @@
 	flex-wrap: wrap;
 
 	> * {
-		margin: 0 12px;
+		margin: 9px 6px;
 	}
 }
 
@@ -363,10 +371,10 @@
 	align-items: center;
 	cursor: pointer;
 	outline: none;
-	width: 100px;
+	width: 157px;
 
 	> * + * {
-		margin-top: 10px;
+		margin-top: 12px;
 	}
 
 	.btnDetail {
@@ -414,9 +422,9 @@
 }
 
 .btnAction {
-	width: 80px;
-	height: 80px;
-	border-radius: 18px;
+	width: 84px;
+	height: 84px;
+	border-radius: 22px;
 	background: var(--theme-button-normal, rgba(255, 255, 255, 0.08));
 	border: 2px solid transparent;
 	display: flex;
@@ -426,14 +434,14 @@
 }
 
 .btnIcon {
-	width: 32px;
-	height: 32px;
+	width: 39px;
+	height: 39px;
 	color: var(--theme-on-button-normal, #ffffff);
 	fill: currentColor;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 32px;
+	font-size: 39px;
 }
 
 .favorited {
@@ -447,11 +455,11 @@
 }
 
 .btnLabel {
-	font-size: 15px;
+	font-size: 16px;
 	font-weight: 600;
 	color: var(--theme-text-primary, rgba(255, 255, 255, 0.8));
 	text-align: center;
-	max-width: 100px;
+	max-width: 157px;
 	line-height: 1.3;
 	overflow-wrap: break-word;
 	word-wrap: break-word;
@@ -547,10 +555,11 @@
 }
 
 .sectionTitle {
-	font-size: 28px;
-	font-weight: 600;
+	font-size: 32px;
+	font-weight: 700;
 	color: var(--theme-text-primary, #ffffff);
 	margin: 0;
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.55);
 }
 
 .sectionScroll {
@@ -596,9 +605,9 @@
 
 .seasonPosterWrapper {
 	position: relative;
-	width: 240px;
-	height: 360px;
-	border-radius: 8px;
+	width: 218px;
+	height: 326px;
+	border-radius: 12px;
 	overflow: hidden;
 	border: 3px solid transparent;
 	transition: border-color 0.2s, box-shadow 0.2s;
@@ -1161,7 +1170,7 @@
 	margin-right: -20px;
 
 	> * + * {
-		margin-left: 24px;
+		margin-left: 23px;
 	}
 	scrollbar-width: none;
 
@@ -1174,14 +1183,14 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	min-width: 160px;
-	max-width: 160px;
+	min-width: 145px;
+	max-width: 145px;
 	cursor: pointer;
 	outline: none;
 	transition: transform 0.2s;
 
 	&:focus {
-		transform: scale(1.08);
+		transform: scale(1.05);
 		z-index: 10;
 
 		.castImageWrapper {
@@ -1191,13 +1200,13 @@
 }
 
 .castImageWrapper {
-	width: 140px;
-	height: 140px;
+	width: 131px;
+	height: 131px;
 	border-radius: 50%;
 	overflow: hidden;
-	margin-bottom: 10px;
+	margin-bottom: 17px;
 	background: rgba(255, 255, 255, 0.05);
-	border: 3px solid transparent;
+	border: 2px solid transparent;
 	transition: border-color 0.2s;
 }
 
@@ -1221,7 +1230,7 @@
 
 .castName {
 	font-size: 17px;
-	font-weight: 500;
+	font-weight: 600;
 	color: var(--theme-text-primary, #ffffff);
 	text-align: center;
 	max-width: 100%;
@@ -1231,8 +1240,8 @@
 }
 
 .castRole {
-	font-size: 15px;
-	color: rgba(255, 255, 255, 0.5);
+	font-size: 16px;
+	color: rgba(255, 255, 255, 0.6);
 	text-align: center;
 	max-width: 100%;
 	overflow: hidden;
@@ -1291,6 +1300,16 @@
 		margin-bottom: 12px;
 	}
 
+	.overview {
+		max-height: 250px;
+		overflow-y: auto;
+		scrollbar-width: none;
+
+		&::-webkit-scrollbar {
+			display: none;
+		}
+	}
+}
 
 :global(html[data-theme-id='neon_pulse']) {
 	.backdropGradient {
@@ -1349,16 +1368,6 @@
 	.btnDetail,
 	.metaLabel {
 		color: var(--theme-on-surface, #00e5ff);
-	}
-}
-	.overview {
-		max-height: 250px;
-		overflow-y: auto;
-		scrollbar-width: none;
-
-		&::-webkit-scrollbar {
-			display: none;
-		}
 	}
 }
 

@@ -1,19 +1,24 @@
 import {memo} from 'react';
 
 import SeerrDownloadProgress from '../SeerrDownloadProgress';
-import {isStatusNoteworthy} from '../../utils/seerrBadges';
 import {MEDIA_STATUS} from '../../utils/seerrStatus';
 
 import css from './SeerrStatusBadge.module.less';
 
-// What Seerr has to say about a title. It stays quiet unless there is more to the story than
-// owning it, since a green Available on every item in the library is just noise.
-export const SeerrStatusBadge = memo(({seerr}) => {
+// What Seerr has to say about a title, one pill per quality track. It stays quiet unless
+// there is more to the story than owning it, since a green Available on every item in the
+// library is just noise.
+export const SeerrStatusBadge = memo(({seerr, className}) => {
 	if (!seerr.isActive) return null;
-	if (!isStatusNoteworthy(seerr.hdStatus, seerr.status4k, seerr.hdDeclined, seerr.fourKDeclined)) return null;
-	const {text, color} = seerr.statusBadge;
-	if (!text) return null;
-	return <span className={`${css.statusBadge} ${css[color] || css.gray}`}>{text}</span>;
+	const pills = seerr.statusPills;
+	if (!pills?.length) return null;
+	return (
+		<span className={`${css.pills} ${className || ''}`}>
+			{pills.map((pill) => (
+				<span key={pill.text} className={`${css.statusBadge} ${css[pill.color] || css.gray}`}>{pill.text}</span>
+			))}
+		</span>
+	);
 });
 
 // The bars only exist while something is genuinely downloading, so the whole block disappears

@@ -103,35 +103,50 @@
 }
 
 .content {
-	padding: 90px 80px 120px;
+	padding: 135px 58px 58px;
 	box-sizing: border-box;
 	color: #fff;
+}
+
+// A docked sidebar sits over the page, so the content starts clear of it.
+.sidebarOffset {
+	padding-left: 174px;
 }
 
 .hero {
 	display: flex;
 	flex-direction: row;
 	align-items: flex-start;
-	min-height: 56vh;
-	// The 60px gap lives on .hasUpNext .heroMain instead, because a `> * + *`
+	// The 35px gap lives on .hasUpNext .heroMain instead, because a `> * + *`
 	// rule here would beat .upNext's `margin-left: auto` and drag the card in
 	// off the right edge.
 }
 
+// Both widths are a share of the screen rather than of the padded content, so
+// the column lands in the same place whatever padding the page carries.
 .heroMain {
-	width: 85%;
-	min-width: 450px;
-	max-width: 1100px;
+	width: 85vw;
+	min-width: 652px;
+	max-width: 1595px;
 	display: flex;
 	flex-direction: column;
 }
 
 .hasUpNext .heroMain {
-	width: 50%;
-	min-width: 360px;
-	max-width: 680px;
+	width: 50vw;
+	min-width: 522px;
+	max-width: 986px;
 	// Stands in for .hero's gap, see above.
-	margin-right: 60px;
+	margin-right: 35px;
+}
+
+// With a Next Up card alongside, the title block moves out of the hero column
+// and spans the full width above both, so it isn't squeezed into half a screen.
+.aboveHero {
+	display: flex;
+	flex-direction: column;
+	padding-top: 3px;
+	margin-bottom: 14px;
 }
 
 .heroPerson {
@@ -147,36 +162,49 @@
 }
 
 .personBorn {
-	font-size: 24px;
-	opacity: 0.8;
+	font-size: 20px;
+	opacity: 0.7;
 }
 
 .logo {
-	max-width: 520px;
-	max-height: 200px;
+	max-width: 435px;
+	max-height: 109px;
 	object-fit: contain;
 	object-position: left center;
 	filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.7));
 }
 
+// The series logo gets more room than a title logo, because the episode name is
+// spelled out underneath it rather than being carried by the artwork.
+.logoEpisode {
+	max-width: 522px;
+	max-height: 131px;
+}
+
 .title {
-	font-size: 64px;
-	font-weight: 800;
-	line-height: 1.05;
+	font-size: 52px;
+	font-weight: 700;
+	line-height: 1.22;
 	margin: 0;
 }
 
-.episodeTitle {
-	font-size: 40px;
-	font-weight: 700;
+// The series name above an episode title, when there is no series logo to use.
+.seriesLabel {
+	font-size: 20px;
+	font-weight: 500;
+	letter-spacing: 1.74px;
+	opacity: 0.7;
 }
 
+// The muted color lives on the row so the dots and clock inherit it, while the
+// badges nested inside keep their own colors instead of being dimmed wholesale.
 .metaRow {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	font-size: 24px;
-	opacity: 0.85;
+	font-size: 20px;
+	color: rgba(255, 255, 255, 0.75);
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.75);
 }
 
 .metaItem {
@@ -187,55 +215,69 @@
 .metaItem:not(:first-child)::before {
 	content: '\00b7';
 	margin: 0 12px;
-	opacity: 0.6;
+}
+
+.metaIcon {
+	width: 20px;
+	height: 20px;
+	margin-right: 6px;
+}
+
+.statusBadge {
+	padding: 3px 12px;
+	border-radius: 12px;
+	font-size: 16px;
+	font-weight: 600;
+	color: #fff;
+	background: #2e7d32;
+}
+
+.statusEnded {
+	background: #b71c1c;
+}
+
+.techRow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	font-size: 20px;
+}
+
+.techSize {
+	font-weight: 700;
+	color: rgba(255, 255, 255, 0.75);
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.75);
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.55);
+}
+
+// Only when chips follow it, so a size with no codecs beside it reads clean.
+.techSize:not(:last-child)::after {
+	content: '\00b7';
+	margin: 0 12px;
+	color: rgba(255, 255, 255, 0.5);
+}
+
+.techChip {
+	padding: 4px 12px;
+	border: 1px solid rgba(255, 255, 255, 0.3);
+	border-radius: 6px;
+	font-size: 16px;
+	font-weight: 500;
+	color: rgba(255, 255, 255, 0.8);
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.55);
 }
 
 .tagline {
 	font-style: italic;
-	font-size: 26px;
-	opacity: 0.85;
+	font-size: 20px;
+	font-weight: 500;
+	opacity: 0.9;
 }
 
-.overview {
-	font-size: 26px;
-	line-height: 1.5;
-	max-width: 100%;
-	opacity: 0.92;
-	margin: 0;
-}
-
-.overviewCollapsed {
-	display: -webkit-box;
-	-webkit-line-clamp: 4;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
-}
-
-.descriptionContainer {
-	display: flex;
-	flex-direction: column;
-	padding: 24px;
-	.glass-panel(16px);
-	max-width: 900px;
-	box-sizing: border-box;
-	transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
-	outline: none;
-}
-
-.descriptionContainerSpottable {
-	cursor: pointer;
-}
-
-.descriptionContainerSpottable:focus {
-	border-color: rgba(255, 255, 255, 0.35);
-	transform: scale(1.01);
-}
-
-.readMoreBtn {
-	color: #ff5b5b;
-	font-weight: 600;
-	font-size: 22px;
-	align-self: flex-start;
+// The overview box itself lives in ExpandableOverview. This caps its width in
+// the hero, since the classic header constrains it by layout instead.
+.descriptionSlot {
+	max-width: 1160px;
 }
 
 .icon {
@@ -248,45 +290,50 @@
 	flex-direction: row;
 	align-items: center;
 	flex-wrap: nowrap;
-	margin-top: 28px;
 }
 
 .actionBtn {
 	display: inline-flex;
 	align-items: center;
-	height: 72px;
-	border-radius: 40px;
+	height: 75px;
+	border-radius: 38px;
 	box-sizing: border-box;
 	.glass-button();
+	border-width: 2px;
 	color: #fff;
 	cursor: pointer;
 	outline: none;
 	overflow: hidden;
-	transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .actionPrimary {
-	background-color: rgba(255, 255, 255, 0.22);
-	border-color: rgba(255, 255, 255, 0.5);
-	color: #fff;
+	height: 78px;
+	border-radius: 39px;
+	border: 4px solid transparent;
+	background-color: var(--theme-accent, #00a4dc);
+	color: var(--theme-on-accent, #ffffff);
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
 }
 
 .actionActive {
-	color: #ff5b5b;
+	color: #ff4757;
+	background-color: rgba(255, 71, 87, 0.18);
 }
 
 .actionIcon {
-	flex: 0 0 72px;
-	width: 72px;
-	height: 72px;
+	flex: 0 0 70px;
+	width: 70px;
+	height: 70px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .actionIcon .icon {
-	width: 34px;
-	height: 34px;
+	width: 35px;
+	height: 35px;
 }
 
 .actionText {
@@ -297,66 +344,163 @@
 	opacity: 0;
 	overflow: hidden;
 	white-space: nowrap;
-	transition: max-width 0.2s ease, opacity 0.2s ease, padding 0.2s ease;
+	transition: max-width 0.15s ease, opacity 0.15s ease, padding 0.15s ease;
 }
 
 .actionLabel {
-	font-size: 24px;
+	font-size: 19px;
 	font-weight: 700;
+	line-height: 1.1;
 }
 
 .actionDetail {
-	font-size: 18px;
-	font-weight: 600;
-	opacity: 0.7;
+	font-size: 17px;
+	font-weight: 700;
+	opacity: 0.8;
+	line-height: 1.1;
 }
 
 .actionBtn:focus {
-	background: #fff;
-	border-color: #fff;
-	color: #101114;
-	transform: scale(1.04);
+	padding-left: 9px;
+	background: var(--theme-button-focused, rgba(255, 255, 255, 0.95));
+	border: 4px solid var(--theme-focus-border-color, #ffffff);
+	color: var(--theme-on-button-focused, #101114);
 }
 
 .actionBtn:focus .actionText {
-	max-width: 360px;
+	max-width: 175px;
 	opacity: 1;
-	padding-right: 32px;
+	padding-left: 9px;
+	padding-right: 23px;
+}
+
+// The primary keeps a floor once it opens up, so a short label like Play still
+// reads as a pill rather than a lopsided blob. Its icon drops the wide slot the
+// circular buttons need and sits right against the label.
+.actionPrimary:focus {
+	min-width: 290px;
+	justify-content: center;
+	padding: 0 20px 0 15px;
+}
+
+.actionPrimary:focus .actionIcon {
+	flex: 0 0 35px;
+	width: 35px;
+	height: 35px;
+}
+
+.actionPrimary:focus .actionText {
+	max-width: none;
+	padding-left: 3px;
+	padding-right: 0;
 }
 
 .upNext {
-	width: 400px;
+	width: 594px;
 	flex-shrink: 0;
 	margin-left: auto;
 }
 
-.upNextLabel {
-	font-size: 22px;
-	font-weight: 700;
-	opacity: 0.8;
-	margin-bottom: 12px;
-}
-
+// The label rides inside the card rather than above it, so the whole thing
+// reads as one panel.
 .upNextCard {
 	display: flex;
 	flex-direction: column;
-	border-radius: 16px;
 	overflow: hidden;
-	background: rgba(255, 255, 255, 0.08);
+	// The mixin brings its own border, so widen it afterwards rather than before.
+	.glass-panel(17px);
+	border-width: 2px;
+	border-color: rgba(255, 255, 255, 0.12);
 	cursor: pointer;
 	outline: none;
-	transition: transform 0.15s ease, box-shadow 0.15s ease;
+	transition: border-color 0.15s ease;
 }
 
 .upNextCard:focus {
-	transform: scale(1.03);
-	box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.6);
+	border-color: var(--theme-focus-border-color, #ffffff);
+}
+
+.upNextLabel {
+	padding: 17px 23px 12px;
+	font-size: 17px;
+	font-weight: 700;
+	letter-spacing: 0.6px;
+	color: var(--theme-accent, #00a4dc);
+}
+
+.upNextBody {
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+}
+
+.upNextText {
+	flex: 1;
+	min-width: 0;
+	padding: 0 23px 20px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+.upNextOverview {
+	font-size: 17px;
+	opacity: 0.7;
+	line-height: 1.35;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.upNextFoot {
+	display: flex;
+	align-items: center;
+	margin-top: 17px;
+}
+
+.upNextProgress {
+	flex: 1;
+	height: 6px;
+	border-radius: 3px;
+	overflow: hidden;
+	background: rgba(255, 255, 255, 0.2);
+}
+
+.upNextProgress > div {
+	height: 100%;
+	background: var(--theme-accent, #00a4dc);
+}
+
+.upNextRemaining {
+	flex-shrink: 0;
+	// Auto keeps it hard right on an episode with no progress bar to sit beside.
+	margin-left: auto;
+	padding-left: 17px;
+	font-size: 16px;
+	opacity: 0.7;
+}
+
+// The bar drawn over an episode thumbnail, which sits on the artwork rather
+// than in a row of its own.
+.thumbProgress {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 5px;
+	background: rgba(255, 255, 255, 0.25);
+}
+
+.thumbProgress > div {
+	height: 100%;
+	background: #fff;
 }
 
 .upNextThumb {
 	position: relative;
-	// 400px wide (.upNext) at 16:9.
-	height: 225px;
+	flex: 0 0 218px;
+	width: 218px;
 	background: #1a1d22;
 }
 
@@ -375,59 +519,20 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	opacity: 0;
-	transition: opacity 0.15s ease;
 }
 
 .upNextPlay .icon {
-	width: 60px;
-	height: 60px;
-}
-
-.upNextCard:focus .upNextPlay {
-	opacity: 1;
-}
-
-.upNextProgress {
-	position: absolute;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	height: 5px;
-	background: rgba(255, 255, 255, 0.25);
-}
-
-.upNextProgress > div {
-	height: 100%;
-	background: #fff;
-}
-
-.upNextInfo {
-	padding: 14px 16px;
-	display: flex;
-	flex-direction: column;
-}
-
-.upNextTitle {
-	font-size: 22px;
-	font-weight: 600;
-}
-
-.upNextOverview {
-	font-size: 18px;
-	opacity: 0.7;
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
+	width: 58px;
+	height: 58px;
+	opacity: 0.95;
 }
 
 .tabsSection {
-	margin-top: 60px;
+	margin-top: 23px;
 }
 
 .tabContent {
-	margin-top: 36px;
+	margin-top: 12px;
 	min-height: 320px;
 }
 
@@ -571,10 +676,16 @@
 	text-align: center;
 }
 
+// Crew arrives with one job per line, so the breaks have to survive.
 .castRole {
 	font-size: 18px;
 	opacity: 0.65;
 	text-align: center;
+	white-space: pre-line;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
 
 .chapterCard {
@@ -755,10 +866,14 @@
 
 // Gap fallbacks, see styles/mixins.less. .title, .episodeOverview and
 // .detailStream declare their own margin further up, so these have to stay last.
-.heroMain             { .flex-col-gap(20px); }
-.descriptionContainer { .flex-col-gap(12px); }
-.actions              { .flex-row-gap(16px); }
-.upNextInfo           { .flex-col-gap(6px); }
+// These two set the `margin` shorthand, so they have to land before the column
+// rules below, which put the top margin back.
+.metaRow              { .flex-wrap-gap(9px; 0); }
+.techRow              { .flex-wrap-gap(9px; 12px); }
+
+.heroMain             { .flex-col-gap(9px); }
+.aboveHero            { .flex-col-gap(9px); }
+.actions              { .flex-row-gap(12px); }
 .episodeList          { .flex-col-gap(16px); }
 .episodeRow           { .flex-row-gap(24px); }
 .episodeBody          { .flex-col-gap(8px); }
@@ -770,3 +885,16 @@
 .detailsPanel         { .flex-col-gap(20px); }
 
 .grid                 { .flex-wrap-gap(30px); }
+
+// The hero column's own rhythm is 9px, so the pieces that sit wider than that
+// have to name themselves. Two classes deep to beat the `> * + *` rule above,
+// whichever order they end up in.
+.heroMain > .tagline { margin-top: 20px; }
+.heroMain > .descriptionSlot { margin-top: 12px; }
+.heroMain > .actions { margin-top: 35px; }
+.heroMain > .actionsTight { margin-top: 17px; }
+
+// The pills join the metadata wrap without a dot of their own, spaced like any
+// other neighbour.
+.metaRow > .metaBadge { margin-left: 12px; }
+.metaRow > .metaBadge:first-child { margin-left: 0; }

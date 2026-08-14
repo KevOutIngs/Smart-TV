@@ -202,6 +202,7 @@ export const SETTINGS_SCHEMA = [
 						fallback: (ctx) => (ctx.settings.detailScreenStyle === 'v1' ? $L('Medium') : '80%')
 					},
 					{kind: KIND.TOGGLE, key: 'detailExpandedTabs', label: () => $L('Expanded Tabs'), desc: () => $L('Keep detail tabs expanded and follow focus'), icon: 'appscontents', when: (ctx) => ctx.settings.detailScreenStyle !== 'v1'},
+					{kind: KIND.TOGGLE, key: 'detailShowTechnicalDetails', label: () => $L('Show Technical Details'), desc: () => $L('Show codec, resolution, and stream information in banner summary'), icon: 'info'},
 					{kind: KIND.NAV, id: 'detailButtons', label: () => $L('Details Buttons'), desc: () => $L('Enable/disable and reorder the action row buttons'), icon: 'arrowupdown', action: (ctx) => ctx.actions.openDetailButtons()}
 				]
 			},

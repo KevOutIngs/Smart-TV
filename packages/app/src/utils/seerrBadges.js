@@ -43,50 +43,41 @@ export const seasonMarkerStatus = (requestStatus) => {
 	}
 };
 
-// Declined beats everything, then availability, then the states on the way to it. Order
-// matters throughout: each check assumes the ones above it already said no.
-export const getStatusBadge = (hdStatus, status4k, hdDeclined, fourKDeclined) => {
-	if (hdDeclined && fourKDeclined) return {text: $L('DECLINED'), color: 'red'};
-	if (fourKDeclined && hdStatus === MEDIA_STATUS.AVAILABLE) return {text: $L('HD AVAILABLE • 4K DECLINED'), color: 'mixed'};
-	if (hdDeclined && status4k === MEDIA_STATUS.AVAILABLE) return {text: $L('HD DECLINED • 4K AVAILABLE'), color: 'mixed'};
-	if (fourKDeclined) return {text: $L('4K DECLINED'), color: 'red'};
-	if (hdDeclined) return {text: $L('HD DECLINED'), color: 'red'};
-
-	if (hdStatus === MEDIA_STATUS.AVAILABLE && status4k === MEDIA_STATUS.AVAILABLE) return {text: $L('HD + 4K AVAILABLE'), color: 'green'};
-
-	if (status4k === MEDIA_STATUS.AVAILABLE) return {text: $L('4K AVAILABLE'), color: 'green'};
-	if (hdStatus === MEDIA_STATUS.AVAILABLE) return {text: $L('HD AVAILABLE'), color: 'green'};
-
-	if (hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE && status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE) return {text: $L('PARTIALLY AVAILABLE'), color: 'purple'};
-	if (hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE && status4k === MEDIA_STATUS.PROCESSING) return {text: $L('HD PARTIAL • 4K PROCESSING'), color: 'mixed'};
-	if (hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE && status4k === MEDIA_STATUS.PENDING) return {text: $L('HD PARTIAL • 4K PENDING'), color: 'mixed'};
-	if (hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE) return {text: $L('HD PARTIALLY AVAILABLE'), color: 'purple'};
-	if (status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE && hdStatus === MEDIA_STATUS.PROCESSING) return {text: $L('HD PROCESSING • 4K PARTIAL'), color: 'mixed'};
-	if (status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE && hdStatus === MEDIA_STATUS.PENDING) return {text: $L('HD PENDING • 4K PARTIAL'), color: 'mixed'};
-	if (status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE) return {text: $L('4K PARTIALLY AVAILABLE'), color: 'purple'};
-
-	if (hdStatus === MEDIA_STATUS.PROCESSING && status4k === MEDIA_STATUS.PROCESSING) return {text: $L('PROCESSING'), color: 'indigo'};
-	if (hdStatus === MEDIA_STATUS.PROCESSING && status4k === MEDIA_STATUS.PENDING) return {text: $L('HD PROCESSING • 4K PENDING'), color: 'mixed'};
-	if (status4k === MEDIA_STATUS.PROCESSING && hdStatus === MEDIA_STATUS.PENDING) return {text: $L('HD PENDING • 4K PROCESSING'), color: 'mixed'};
-	if (status4k === MEDIA_STATUS.PROCESSING) return {text: $L('4K PROCESSING'), color: 'indigo'};
-	if (hdStatus === MEDIA_STATUS.PROCESSING) return {text: $L('HD PROCESSING'), color: 'indigo'};
-
-	if (hdStatus === MEDIA_STATUS.PENDING && status4k === MEDIA_STATUS.PENDING) return {text: $L('PENDING'), color: 'yellow'};
-	if (status4k === MEDIA_STATUS.PENDING) return {text: $L('4K PENDING'), color: 'yellow'};
-	if (hdStatus === MEDIA_STATUS.PENDING) return {text: $L('HD PENDING'), color: 'yellow'};
-
-	if (hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED) return {text: $L('BLACKLISTED'), color: 'red'};
-
-	return {text: $L('NOT REQUESTED'), color: 'gray'};
+const trackPill = (status, declined) => {
+	if (declined) return {label: $L('Declined'), color: 'red'};
+	switch (status) {
+		case MEDIA_STATUS.AVAILABLE: return {label: $L('Available'), color: 'green'};
+		case MEDIA_STATUS.PARTIALLY_AVAILABLE: return {label: $L('Partially Available'), color: 'green'};
+		case MEDIA_STATUS.PROCESSING: return {label: $L('Requested'), color: 'purple'};
+		case MEDIA_STATUS.PENDING: return {label: $L('Pending'), color: 'yellow'};
+		case MEDIA_STATUS.BLOCKLISTED: return {label: $L('Blacklisted'), color: 'red'};
+		case MEDIA_STATUS.DELETED: return {label: $L('Deleted'), color: 'red'};
+		default: return {label: $L('Not Requested'), color: 'gray'};
+	}
 };
 
-// On a title already in the library, "we have this in HD" only repeats what the screen it sits
-// on already says, so the badge earns its place only when it adds something: a request in
-// flight, a 4K track, a part-finished series, or anything that went wrong.
-export const isStatusNoteworthy = (hdStatus, status4k, hdDeclined, fourKDeclined) => {
-	if (hdDeclined || fourKDeclined) return true;
-	if (status4k > MEDIA_STATUS.UNKNOWN) return true;
-	return hdStatus > MEDIA_STATUS.UNKNOWN && hdStatus !== MEDIA_STATUS.AVAILABLE;
+const hasAnyState = (status, declined) => declined || (status != null && status > MEDIA_STATUS.UNKNOWN);
+
+// One pill per quality track rather than one combined badge. HD alone stays
+// unlabeled, but once the 4K track has anything to say both carry their name so
+// they read as "HD · Available" and "4K · Requested". On a title already in the
+// library, plain HD availability repeats what the screen it sits on already
+// says, so that pill stays silent, while 4K always speaks when it has state,
+// because owning the HD copy says nothing about the 4K one.
+export const getStatusPills = (hdStatus, status4k, hdDeclined, fourKDeclined) => {
+	const tracks = hasAnyState(status4k, fourKDeclined)
+		? [
+			{status: hdStatus, declined: hdDeclined, prefix: 'HD'},
+			{status: status4k, declined: fourKDeclined, prefix: '4K'}
+		]
+		: [{status: hdStatus, declined: hdDeclined, prefix: null}];
+	return tracks
+		.filter((t) => t.prefix === '4K' ||
+			(t.status !== MEDIA_STATUS.AVAILABLE && hasAnyState(t.status, t.declined)))
+		.map((t) => {
+			const {label, color} = trackPill(t.status, t.declined);
+			return {text: t.prefix ? `${t.prefix} · ${label}` : label, color};
+		});
 };
 
 // Anything past unknown is already requested, so it can't be requested again. Partially

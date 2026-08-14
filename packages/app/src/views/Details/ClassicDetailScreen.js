@@ -11,6 +11,7 @@ import {SeerrStatusBadge, SeerrDownloadBars, SeerrSeasonDot} from '../../compone
 import {SeerrChips, SeerrFacts, SeerrCollectionBanner, hasSeerrChips} from '../../components/seerr/SeerrSections';
 import {hasMediaFacts} from '../../utils/seerrMediaFacts';
 import {SpottableDiv, RowContainer} from './detailsSpottables';
+import ExpandableOverview from './ExpandableOverview';
 import {handleSectionKeyDown, handleScrollerFocus} from './detailsFocus';
 import {PosterBadges, WatchedCheckIcon, FavoriteHeartIcon} from './DetailBadges';
 import DetailMetadata from './DetailMetadata';
@@ -37,7 +38,10 @@ const ClassicDetailScreen = ({
 	endsAt,
 	officialRating,
 	seasonCount,
-	badges,
+	genres,
+	techBadges,
+	techSize,
+	overviewBackRef,
 	tagline,
 	actionButtons,
 	seerr,
@@ -63,7 +67,7 @@ const ClassicDetailScreen = ({
 }) => (
 	<>
 		<div className={css.detailsHeader}>
-			<div className={`${css.infoSection} ${isEpisode ? css.infoSectionWide : ''}`}>
+			<div className={css.infoSection}>
 				{isEpisode && (
 					<div className={css.episodeHeader}>
 						{item.SeriesName && <span className={css.seriesName}>{item.SeriesName}</span>}
@@ -89,35 +93,41 @@ const ClassicDetailScreen = ({
 				<div className={css.infoRow}>
 					<div className={css.infoTextItems}>
 						{year && <span className={css.infoItem}>{year}</span>}
+						{officialRating && (
+							<span className={css.infoItem}>
+								<span className={`${css.badge} ${css.badgeRating}`}>{officialRating}</span>
+							</span>
+						)}
+						{techSize && <span className={css.infoItem}>{techSize}</span>}
 						{runtime && !isSeries && <span className={css.infoItem}>{runtime}</span>}
-						{endsAt && !isSeries && <span className={css.infoItem}>{endsAt}</span>}
 						{isSeries && seasonCount > 0 && (
 							<span className={css.infoItem}>{seasonCount}&nbsp;{seasonCount !== 1 ? $L('Seasons') : $L('Season')}</span>
 						)}
+						{isSeries && (item.Status === 'Continuing' || item.Status === 'Ended') && (
+							<span className={css.infoItem}>
+								<span className={`${css.badge} ${item.Status === 'Continuing' ? css.badgeContinuing : css.badgeEnded}`}>
+									{item.Status === 'Continuing' ? $L('Continuing') : $L('Ended')}
+								</span>
+							</span>
+						)}
+						{endsAt && !isSeries && <span className={css.infoItem}>{endsAt}</span>}
+						{genres.length > 0 && <span className={css.infoItem}>{genres.slice(0, 3).join(' • ')}</span>}
 					</div>
-					{isSeries && (item.Status === 'Continuing' || item.Status === 'Ended') && (
-						<span className={`${css.badge} ${item.Status === 'Continuing' ? css.badgeContinuing : css.badgeEnded}`}>
-							{item.Status === 'Continuing' ? $L('Continuing') : $L('Ended')}
-						</span>
-					)}
-					{officialRating && (
-						<span className={`${css.badge} ${css.badgeRating}`}>{officialRating}</span>
-					)}
-					{badges.length > 0 && (
+					{(techBadges.length > 0 || seerr.statusPills?.length > 0) && (
 						<div className={css.infoBadges}>
-							{badges.map((badge, i) => (
+							{techBadges.map((badge, i) => (
 								<span key={i} className={`${css.badge} ${css[badge.type]}`}>{badge.label}</span>
 							))}
+							<SeerrStatusBadge seerr={seerr} />
 						</div>
 					)}
-					<SeerrStatusBadge seerr={seerr} />
 				</div>
 
 				<RatingsRow item={item} serverUrl={serverUrl} pluginEnabled={isMdblistEnabled(settings)} />
 
 				{tagline && <p className={css.tagline}>&ldquo;{tagline}&rdquo;</p>}
 
-				{item.Overview && <p className={css.overview}>{item.Overview}</p>}
+				<ExpandableOverview text={item.Overview} itemId={item.Id} className={css.overviewSlot} variant="classic" backRef={overviewBackRef} />
 			</div>
 
 			<div className={`${css.posterSection} ${isEpisode ? css.posterLandscape : ''}`}>
@@ -347,7 +357,7 @@ const ClassicDetailScreen = ({
 			{cast.length > 0 && (
 				<RowContainer className={css.section}>
 					<div className={css.sectionHeader}>
-						<h3 className={css.sectionTitle}>{$L('Cast & Crew')}</h3>
+						<h3 className={css.sectionTitle}>{$L('Cast')}</h3>
 					</div>
 					<div className={css.castScroller} onFocus={handleScrollerFocus}>
 						{cast.map(person => (

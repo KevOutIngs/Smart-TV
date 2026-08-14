@@ -114,38 +114,38 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 		<div className={css.ratingsRow}>
 			{communityRating && (
 				<div className={css.ratingItem}>
-					<span className={css.communityStar}>{"\u2605"}</span>
-					<div className={css.ratingInfo}>
+					<div className={css.ratingTop}>
+						<span className={css.communityStar}>{"\u2605"}</span>
 						<span className={css.ratingValue}>{communityRating}</span>
-						{showLabels && <span className={css.ratingName}>{$L('Community')}</span>}
 					</div>
+					{showLabels && <span className={css.ratingName}>{$L('Community')}</span>}
 				</div>
 			)}
 			{showCriticRating && (
 				<div className={css.ratingItem}>
-					<img
-						className={css.ratingIcon}
-						src={getRtFallbackIcon(item.CriticRating)}
-						alt={$L('Rotten Tomatoes')}
-					/>
-					<div className={css.ratingInfo}>
+					<div className={css.ratingTop}>
+						<img
+							className={css.ratingIcon}
+							src={getRtFallbackIcon(item.CriticRating)}
+							alt={$L('Rotten Tomatoes')}
+						/>
 						<span className={css.ratingValue}>{item.CriticRating}%</span>
-						{showLabels && <span className={css.ratingName}>{$L('Rotten Tomatoes')}</span>}
 					</div>
+					{showLabels && <span className={css.ratingName}>{$L('Rotten Tomatoes')}</span>}
 				</div>
 			)}
 			{displayRatings.map(r => (
 				<div key={r.source} className={css.ratingItem}>
-					<img
-						className={css.ratingIcon}
-						src={r.iconUrl}
-						alt={r.name}
-						title={r.name}
-					/>
-					<div className={css.ratingInfo}>
+					<div className={css.ratingTop}>
+						<img
+							className={css.ratingIcon}
+							src={r.iconUrl}
+							alt={r.name}
+							title={r.name}
+						/>
 						<span className={css.ratingValue}>{r.formatted}</span>
-						{showLabels && <span className={css.ratingName}>{r.name}</span>}
 					</div>
+					{showLabels && <span className={css.ratingName}>{r.name}</span>}
 				</div>
 			))}
 		</div>

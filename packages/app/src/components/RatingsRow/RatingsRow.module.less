@@ -1,11 +1,9 @@
+@import '../../styles/mixins.less';
+
 .ratingsRow {
 	display: flex;
 	flex-wrap: wrap;
-	margin: 10px 0 12px;
-
-	> * + * {
-		margin-left: 12px;
-	}
+	align-items: center;
 }
 
 .ratingsRow:empty {
@@ -14,68 +12,52 @@
 
 .ratingItem {
 	display: flex;
-	align-items: center;
-	background: rgba(255, 255, 255, 0.08);
-	background: rgba(var(--theme-on-surface-rgb), 0.08);
-	border-radius: 8px;
+	flex-direction: column;
+	align-items: flex-start;
+	background: rgba(0, 0, 0, 0.45);
+	background: rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.45);
+	border-radius: 6px;
 	padding: 6px 12px;
-	transition: background 0.2s;
-	margin-bottom: 8px;
+}
+
+.ratingTop {
+	display: flex;
+	align-items: center;
 }
 
 .ratingIcon {
-	height: 24px;
+	height: 26px;
 	width: auto;
 	object-fit: contain;
 	flex-shrink: 0;
-	margin-right: 8px;
-}
-
-.ratingInfo {
-	display: flex;
-	flex-direction: column;
+	margin-right: 7px;
 }
 
 .ratingValue {
-	font-size: 15px;
-	font-weight: 600;
+	font-size: 20px;
+	font-weight: 700;
 	color: #fff;
-	color: var(--theme-text-primary);
-	line-height: 1.2;
+	color: var(--theme-on-surface, #fff);
+	line-height: 1;
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.54);
 }
 
 .ratingName {
-	font-size: 11px;
-	color: rgba(255, 255, 255, 0.5);
-	color: var(--theme-text-muted);
-	line-height: 1.2;
-	margin-top: 1px;
+	font-size: 13px;
+	font-weight: 500;
+	color: #fff;
+	color: var(--theme-on-surface, #fff);
+	line-height: 1.1;
+	margin-top: 2px;
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.54);
 }
 
-/* TV-optimized spacing */
-@media (max-width: 1280px) {
-	.ratingsRow {
-		> * + * {
-			margin-left: 8px;
-		}
-	}
-
-	.ratingItem {
-		padding: 4px 8px;
-	}
-
-	.ratingIcon {
-		height: 20px;
-		margin-right: 6px;
-	}
-
-	.ratingValue {
-		font-size: 13px;
-	}
-
-	.ratingName {
-		font-size: 10px;
-	}
+.communityStar {
+	color: #ffc107;
+	font-size: 23px;
+	margin-right: 6px;
+	line-height: 1;
+	flex-shrink: 0;
 }
 
 /* Compact mode - inline icon + value for media bars */
@@ -112,15 +94,6 @@
 	line-height: 1;
 }
 
-.communityStar {
-	color: #ffd700;
-	color: var(--theme-accent-secondary);
-	font-size: 24px;
-	margin-right: 8px;
-	line-height: 1;
-	flex-shrink: 0;
-}
-
 .communityStarCompact {
 	color: #ffd700;
 	color: var(--theme-accent-secondary);
@@ -129,3 +102,5 @@
 	line-height: 1;
 	flex-shrink: 0;
 }
+
+.ratingsRow { .flex-wrap-gap(6px; 9px); }

@@ -7,7 +7,7 @@ import $L from '@enact/i18n/$L';
 
 import seerrApi, {canRequestMovies, canRequestTv, canRequest4kMovies, canRequest4kTv, hasAdvancedRequestPermission, canCreateIssues, canManageRequests} from '../../services/seerrApi';
 import {MEDIA_STATUS, REQUEST_STATUS} from '../../utils/seerrStatus';
-import {getStatusBadge, isSeasonRerequestable, isStatusBlocked, seasonMarkerStatus} from '../../utils/seerrBadges';
+import {getStatusPills, isSeasonRerequestable, isStatusBlocked, seasonMarkerStatus} from '../../utils/seerrBadges';
 
 const useSeerrRequests = ({
 	mediaId, mediaType, details, setDetails, setError, isAuthenticated,
@@ -152,8 +152,8 @@ const useSeerrRequests = ({
 		hasAdvancedRequestPermission(userPermissions),
 	[userPermissions]);
 
-	const statusBadge = useMemo(() =>
-		getStatusBadge(hdStatus, status4k, hdDeclined, fourKDeclined),
+	const statusPills = useMemo(() =>
+		getStatusPills(hdStatus, status4k, hdDeclined, fourKDeclined),
 	[hdStatus, status4k, hdDeclined, fourKDeclined]
 	);
 
@@ -327,7 +327,7 @@ const useSeerrRequests = ({
 		showQualityPopup,
 		showReportPopup,
 		showSeasonPopup,
-		statusBadge
+		statusPills
 	};
 };
 

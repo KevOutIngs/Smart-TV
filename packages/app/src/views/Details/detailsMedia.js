@@ -18,6 +18,50 @@ export const COLLECTION_ITEM_TYPES = ['Movie', 'Series', 'Season', 'Episode', 'V
 
 export const IDENTIFIABLE_TYPES = ['Movie', 'Series', 'Season', 'Episode', 'BoxSet', 'Person', 'MusicAlbum', 'MusicArtist', 'Book', 'Trailer', 'MusicVideo'];
 
+// A role written in block capitals reads as shouting next to the rest, and one
+// person can arrive with several jobs run together in a single field.
+const normalizeRoles = (role) => role
+	.split(/[;,]/)
+	.map((part) => part.trim())
+	.filter(Boolean)
+	.map((part) => (part.length > 1 && part === part.toUpperCase()
+		? part[0] + part.slice(1).toLowerCase()
+		: part));
+
+// The people on an item, split the way the detail screens present them: actors
+// in Cast, directors and writers merged into Crew. Somebody who both directed
+// and acted belongs with the crew, so their name is kept out of the cast.
+export const splitCastAndCrew = (people = [], limit = 20) => {
+	const directors = people.filter((p) => p.Type === 'Director');
+	const writers = people.filter((p) => p.Type === 'Writer');
+	const crewNames = new Set([...directors, ...writers].map((p) => p.Name));
+
+	const cast = people
+		.filter((p) => (p.Type === 'Actor' || p.Type === 'GuestStar') && !crewNames.has(p.Name))
+		.slice(0, limit);
+
+	const merged = new Map();
+	const addCrew = (person, fallbackRole) => {
+		const key = person.Id || person.Name;
+		if (!key) return;
+		const roles = normalizeRoles(person.Role?.trim() || fallbackRole);
+		const existing = merged.get(key);
+		if (existing) {
+			roles.forEach((r) => existing.roles.add(r));
+		} else {
+			merged.set(key, {person, roles: new Set(roles)});
+		}
+	};
+	directors.forEach((d) => addCrew(d, $L('Director')));
+	writers.forEach((w) => addCrew(w, $L('Writer')));
+
+	const crew = Array.from(merged.values())
+		.map(({person, roles}) => ({...person, Role: Array.from(roles).join('\n')}))
+		.slice(0, limit);
+
+	return {cast, crew};
+};
+
 export const shuffleArray = (arr) => {
 	const out = [...arr];
 	for (let i = out.length - 1; i > 0; i--) {

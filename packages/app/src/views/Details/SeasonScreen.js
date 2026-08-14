@@ -35,9 +35,18 @@ const SeasonScreen = ({
 			<div className={css.seasonDetailInfo}>
 				{item.SeriesName && <span className={css.seasonDetailSeries}>{item.SeriesName}</span>}
 				<h1 className={css.seasonDetailTitle}>{item.Name}</h1>
-				<span className={css.seasonDetailCount}>
-					{episodes.length} {episodes.length !== 1 ? $L('Episodes') : $L('Episode')}
-				</span>
+				<div className={css.infoTextItems}>
+					{item.ProductionYear && <span className={css.infoItem}>{item.ProductionYear}</span>}
+					{item.OfficialRating && (
+						<span className={css.infoItem}>
+							<span className={`${css.badge} ${css.badgeRating}`}>{item.OfficialRating}</span>
+						</span>
+					)}
+					<span className={css.infoItem}>
+						{episodes.length} {episodes.length !== 1 ? $L('Episodes') : $L('Episode')}
+					</span>
+					{item.Genres?.length > 0 && <span className={css.infoItem}>{item.Genres.slice(0, 3).join(' • ')}</span>}
+				</div>
 				<RatingsRow item={item} serverUrl={serverUrl} pluginEnabled={isMdblistEnabled(settings)} />
 			</div>
 		</div>

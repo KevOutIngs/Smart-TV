@@ -1,15 +1,20 @@
+.pills {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+
+	> * + * {
+		margin-left: 12px;
+	}
+}
+
 .statusBadge {
 	display: inline-block;
-	padding: 6px 12px;
-	border-radius: 6px;
-	font-size: 14px;
+	padding: 6px 15px;
+	border-radius: 9px;
+	font-size: 19px;
 	font-weight: 600;
-	text-transform: uppercase;
-	width: -webkit-fit-content;
-	width: fit-content;
-	// Both hosts stack their hero in a column, which would otherwise stretch the badge
-	// across the whole width.
-	align-self: flex-start;
+	white-space: nowrap;
 }
 
 .downloadRow {
@@ -59,41 +64,29 @@
 .green {
 	background: rgba(34, 197, 94, 0.2);
 	color: var(--theme-status-available, #22c55e);
-	border: 2px solid var(--theme-status-available, #22c55e);
+	border: 1px solid var(--theme-status-available, #22c55e);
 }
 
 .yellow {
 	background: rgba(234, 179, 8, 0.2);
 	color: var(--theme-status-pending, #eab308);
-	border: 2px solid var(--theme-status-pending, #eab308);
-}
-
-.indigo {
-	background: rgba(var(--theme-accent-rgb, 99, 102, 241), 0.2);
-	color: var(--theme-accent, #6366f1);
-	border: 2px solid var(--theme-accent, #6366f1);
+	border: 1px solid var(--theme-status-pending, #eab308);
 }
 
 .purple {
 	background: rgba(168, 85, 247, 0.2);
 	color: var(--theme-status-requested, #a855f7);
-	border: 2px solid var(--theme-status-requested, #a855f7);
+	border: 1px solid var(--theme-status-requested, #a855f7);
 }
 
 .red {
 	background: rgba(239, 68, 68, 0.2);
 	color: var(--theme-recording-active, #ef4444);
-	border: 2px solid var(--theme-recording-active, #ef4444);
+	border: 1px solid var(--theme-recording-active, #ef4444);
 }
 
 .gray {
 	background: rgba(var(--theme-on-surface-rgb, 107, 114, 128), 0.15);
 	color: var(--theme-text-secondary, #9ca3af);
-	border: 2px solid var(--theme-text-muted, #6b7280);
-}
-
-.mixed {
-	background: rgba(var(--theme-accent-rgb, 99, 102, 241), 0.15);
-	color: var(--theme-text-secondary, #d1d5db);
-	border: 2px solid var(--theme-accent, #6366f1);
+	border: 1px solid var(--theme-text-muted, #6b7280);
 }

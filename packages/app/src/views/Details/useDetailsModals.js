@@ -4,7 +4,7 @@ import Spotlight from '@enact/spotlight';
 // Every overlay the detail screen can raise, and the BACK handling that closes them in the
 // right order. The track pickers share one activeModal slot because only one of them is ever
 // up at a time, while the dialogs that own their own component get a flag each.
-const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef}) => {
+const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef, overviewBackRef}) => {
 	const [activeModal, setActiveModal] = useState(null);
 	const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 	const [showCollectionModal, setShowCollectionModal] = useState(false);
@@ -107,8 +107,8 @@ const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef}) => {
 	}, [onArtworkClosed]);
 
 	// BACK closes the innermost overlay. The artwork modal browses within itself, so it gets
-	// first refusal before the whole thing is dismissed. The Seerr popups run off their own
-	// state, so they answer through a ref rather than a flag of ours.
+	// first refusal before the whole thing is dismissed. The Seerr popups and the expanded
+	// overview run off their own state, so they answer through refs rather than flags of ours.
 	useEffect(() => {
 		if (!backHandlerRef) return;
 		const handler = () => {
@@ -123,11 +123,12 @@ const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef}) => {
 			if (showPlaylistModal) { handleClosePlaylistModal(); return true; }
 			if (showCollectionModal) { handleCloseCollectionModal(); return true; }
 			if (activeModal) { closeModal(); return true; }
+			if (overviewBackRef?.current?.()) return true;
 			return false;
 		};
 		backHandlerRef.current = handler;
 		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
-	}, [backHandlerRef, seerrBackRef, activeModal, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
+	}, [backHandlerRef, seerrBackRef, overviewBackRef, activeModal, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
 
 	return {
 		activeModal,

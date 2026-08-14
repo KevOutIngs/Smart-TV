@@ -5,70 +5,71 @@ jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
 import {MEDIA_STATUS, REQUEST_STATUS} from './seerrStatus';
 import {
 	formatCurrency, formatDate, formatRuntime, getSeasonStatusColor,
-	getSeasonStatusLabel, getStatusBadge, isSeasonRerequestable, isStatusBlocked
+	getSeasonStatusLabel, getStatusPills, isSeasonRerequestable, isStatusBlocked
 } from './seerrBadges';
 
-const badge = (hd, fourK, hdDeclined = false, fourKDeclined = false) =>
-	getStatusBadge(hd, fourK, hdDeclined, fourKDeclined);
+const pills = (hd, fourK, hdDeclined = false, fourKDeclined = false) =>
+	getStatusPills(hd, fourK, hdDeclined, fourKDeclined);
 
-describe('getStatusBadge', () => {
-	test('a title nobody has asked for says so', () => {
-		expect(badge(MEDIA_STATUS.UNKNOWN, MEDIA_STATUS.UNKNOWN)).toEqual({text: 'NOT REQUESTED', color: 'gray'});
+describe('getStatusPills', () => {
+	test('a title with no state shows nothing', () => {
+		expect(pills(MEDIA_STATUS.UNKNOWN, MEDIA_STATUS.UNKNOWN)).toEqual([]);
 	});
 
-	test('declined on both counts reads as one refusal, not two', () => {
-		expect(badge(MEDIA_STATUS.PENDING, MEDIA_STATUS.PENDING, true, true)).toEqual({text: 'DECLINED', color: 'red'});
+	test('plain HD availability stays silent, since the library screen already shows the title', () => {
+		expect(pills(MEDIA_STATUS.AVAILABLE, MEDIA_STATUS.UNKNOWN)).toEqual([]);
 	});
 
-	test('declined outranks whatever the other quality is doing', () => {
-		expect(badge(MEDIA_STATUS.AVAILABLE, MEDIA_STATUS.PENDING, false, true))
-			.toEqual({text: 'HD AVAILABLE • 4K DECLINED', color: 'mixed'});
-		expect(badge(MEDIA_STATUS.PENDING, MEDIA_STATUS.AVAILABLE, true, false))
-			.toEqual({text: 'HD DECLINED • 4K AVAILABLE', color: 'mixed'});
+	test('an HD track on its own goes without a prefix', () => {
+		expect(pills(MEDIA_STATUS.PARTIALLY_AVAILABLE, MEDIA_STATUS.UNKNOWN))
+			.toEqual([{text: 'Partially Available', color: 'green'}]);
+		expect(pills(MEDIA_STATUS.PENDING, MEDIA_STATUS.UNKNOWN))
+			.toEqual([{text: 'Pending', color: 'yellow'}]);
+		expect(pills(MEDIA_STATUS.PROCESSING, MEDIA_STATUS.UNKNOWN))
+			.toEqual([{text: 'Requested', color: 'purple'}]);
 	});
 
-	test('both available collapses to one badge', () => {
-		expect(badge(MEDIA_STATUS.AVAILABLE, MEDIA_STATUS.AVAILABLE)).toEqual({text: 'HD + 4K AVAILABLE', color: 'green'});
+	test('once 4K has state both tracks carry their name', () => {
+		expect(pills(MEDIA_STATUS.PENDING, MEDIA_STATUS.PROCESSING)).toEqual([
+			{text: 'HD · Pending', color: 'yellow'},
+			{text: '4K · Requested', color: 'purple'}
+		]);
 	});
 
-	test('one available names which one', () => {
-		expect(badge(MEDIA_STATUS.AVAILABLE, MEDIA_STATUS.UNKNOWN)).toEqual({text: 'HD AVAILABLE', color: 'green'});
-		expect(badge(MEDIA_STATUS.UNKNOWN, MEDIA_STATUS.AVAILABLE)).toEqual({text: '4K AVAILABLE', color: 'green'});
+	test('HD availability drops out of a pair while 4K still speaks', () => {
+		expect(pills(MEDIA_STATUS.AVAILABLE, MEDIA_STATUS.PROCESSING))
+			.toEqual([{text: '4K · Requested', color: 'purple'}]);
 	});
 
-	test('a mixed pair names both sides', () => {
-		expect(badge(MEDIA_STATUS.PARTIALLY_AVAILABLE, MEDIA_STATUS.PROCESSING))
-			.toEqual({text: 'HD PARTIAL • 4K PROCESSING', color: 'mixed'});
-		expect(badge(MEDIA_STATUS.PENDING, MEDIA_STATUS.PROCESSING))
-			.toEqual({text: 'HD PENDING • 4K PROCESSING', color: 'mixed'});
+	test('a declined 4K request labels both tracks', () => {
+		expect(pills(MEDIA_STATUS.PENDING, MEDIA_STATUS.UNKNOWN, false, true)).toEqual([
+			{text: 'HD · Pending', color: 'yellow'},
+			{text: '4K · Declined', color: 'red'}
+		]);
 	});
 
-	test('a matching pair collapses rather than naming both', () => {
-		expect(badge(MEDIA_STATUS.PARTIALLY_AVAILABLE, MEDIA_STATUS.PARTIALLY_AVAILABLE)).toEqual({text: 'PARTIALLY AVAILABLE', color: 'purple'});
-		expect(badge(MEDIA_STATUS.PROCESSING, MEDIA_STATUS.PROCESSING)).toEqual({text: 'PROCESSING', color: 'indigo'});
-		expect(badge(MEDIA_STATUS.PENDING, MEDIA_STATUS.PENDING)).toEqual({text: 'PENDING', color: 'yellow'});
+	test('declined reads per track', () => {
+		expect(pills(MEDIA_STATUS.UNKNOWN, MEDIA_STATUS.UNKNOWN, true, false))
+			.toEqual([{text: 'Declined', color: 'red'}]);
 	});
 
-	test('further along wins when the two disagree', () => {
-		expect(badge(MEDIA_STATUS.PARTIALLY_AVAILABLE, MEDIA_STATUS.UNKNOWN).text).toBe('HD PARTIALLY AVAILABLE');
-		expect(badge(MEDIA_STATUS.PROCESSING, MEDIA_STATUS.UNKNOWN).text).toBe('HD PROCESSING');
-		expect(badge(MEDIA_STATUS.PENDING, MEDIA_STATUS.UNKNOWN).text).toBe('HD PENDING');
+	test('blacklisted and deleted read as errors', () => {
+		expect(pills(MEDIA_STATUS.BLOCKLISTED, MEDIA_STATUS.UNKNOWN))
+			.toEqual([{text: 'Blacklisted', color: 'red'}]);
+		expect(pills(MEDIA_STATUS.DELETED, MEDIA_STATUS.UNKNOWN))
+			.toEqual([{text: 'Deleted', color: 'red'}]);
 	});
 
-	test('blacklisted shows only once nothing else applies', () => {
-		expect(badge(MEDIA_STATUS.BLOCKLISTED, MEDIA_STATUS.UNKNOWN)).toEqual({text: 'BLACKLISTED', color: 'red'});
-		expect(badge(MEDIA_STATUS.BLOCKLISTED, MEDIA_STATUS.AVAILABLE).text).toBe('4K AVAILABLE');
-	});
-
-	// Whatever the pairing, the viewer gets a badge rather than a blank space.
-	test('every pairing of the media states produces a badge', () => {
+	// Whatever the pairing, nothing renders without a color class to draw it with.
+	test('every pairing of the media states yields well formed pills', () => {
 		const all = Object.values(MEDIA_STATUS);
 		all.forEach((hd) => {
 			all.forEach((fourK) => {
-				const result = badge(hd, fourK);
-				expect(typeof result.text).toBe('string');
-				expect(result.text.length).toBeGreaterThan(0);
-				expect(result.color).toBeTruthy();
+				pills(hd, fourK).forEach((pill) => {
+					expect(typeof pill.text).toBe('string');
+					expect(pill.text.length).toBeGreaterThan(0);
+					expect(pill.color).toBeTruthy();
+				});
 			});
 		});
 	});
