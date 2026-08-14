@@ -14,7 +14,8 @@ export const nextInQueue = (videoQueue, item) => {
 // lookup just means no intros, since one must never keep the film from playing.
 export const fetchPrerolls = async (api, item, settings) => {
 	if (!settings?.cinemaModeEnabled) return [];
-	if (item?.Type !== 'Movie') return [];
+	const episodesToo = settings?.cinemaModeEpisodesEnabled === true;
+	if (item?.Type !== 'Movie' && !(episodesToo && item?.Type === 'Episode')) return [];
 	try {
 		const result = await api.getIntros(item.Id);
 		return (result?.Items || [])

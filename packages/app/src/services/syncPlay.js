@@ -497,4 +497,4 @@ export const clearSyncReference = () => {
 	syncReference = null;
 };
 
-export const getExpectedPositionTicks = () => expectedPositionTicks(syncReference, serverNow());
+export const getExpectedPositionTicks = (extraOffsetMs = 0) => expectedPositionTicks(syncReference, serverNow(), extraOffsetMs);

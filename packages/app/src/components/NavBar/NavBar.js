@@ -89,7 +89,11 @@ const NavBar = ({
 	}, []);
 
 	return (
-		<NavContainer className={css.topNav} onKeyDown={handleNavKeyDown} spotlightId="navbar">
+		<NavContainer
+			className={settings.navbarAlwaysExpanded ? `${css.topNav} ${css.alwaysExpanded}` : css.topNav}
+			onKeyDown={handleNavKeyDown}
+			spotlightId="navbar"
+		>
 			<div className={css.navLeft}>
 				<NavUserButton onClick={onUserMenu} />
 			</div>

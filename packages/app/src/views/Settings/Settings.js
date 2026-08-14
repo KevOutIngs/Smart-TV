@@ -3,19 +3,25 @@ import $L from '@enact/i18n/$L';
 import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import {useAuth} from '../../context/AuthContext';
-import {useSettings} from '../../context/SettingsContext';
+import {useSettings, defaultSettings, profileToLocal, localToProfile} from '../../context/SettingsContext';
+import {getMoonfinResolvedProfile, deleteMoonfinProfile, saveMoonfinProfile} from '../../services/seerrApi';
+import {homeRowsFromProfile} from '../../utils/homeLayout';
 import {useSeerr} from '../../context/SeerrContext';
 import {useDeviceInfo} from '../../hooks/useDeviceInfo';
 import {isBackKey} from '../../utils/keys';
 import {isWebOS} from '../../platform';
 import ClearDataDialog from '../../components/ClearDataDialog';
 import {clearAllStorage} from '../../services/storage';
-import {detectCustomSource, validateCustomRow} from '../../utils/externalHomeRows';
+import {clearImageCache} from '../../services/imageProxy';
+import {clearProxiedImageCache} from '../../hooks/useProxiedImage';
+import {detectCustomSource, validateCustomRow, buildManualCustomSource, sourceKeyForRow} from '../../utils/externalHomeRows';
+import {fetchCustomRow} from '../../services/externalRowsApi';
+import {checkForUpdatesDetailed} from '../../services/versionChecker';
+import QrLinkView from './QrLinkView';
 import {formatPlaybackTimeSlot} from '../../utils/playbackTimeLabels';
-import {getHomeRowsStyleOptions, getLabel} from './settingsOptions';
+import {getHomeRowsStyleOptions, getImageTypeOptions, getLabel} from './settingsOptions';
 import {SCHEMA_BY_KEY, SETTINGS_SCHEMA, resolve, spotlightIdOf} from './settingsSchema';
 import {MIN_QUERY_LENGTH, buildSettingsIndex, matchSettings} from './settingsSearch';
-import {CATEGORY_ICONS} from './settingsIcons';
 import {PLUGIN_SECTION_RENDER_STEP} from './homeSectionsModel';
 import useSeerrAccount from './useSeerrAccount';
 import useThemeStore from './useThemeStore';
@@ -29,7 +35,7 @@ import {CategoriesView, CategoryView, SubcategoryView, OptionsView} from './Brow
 import {ThemesView, ThemeStoreView} from './ThemeViews';
 import {SeerrHomeRowsView, ImdbListsView} from './HomeRowToggleViews';
 import {ExternalTmdbListsView, ExternalCalendarsView, ExternalCustomRowsView} from './ExternalRowViews';
-import {RatingSourcesView, ExcludedGenresView, PinCodeView} from './PickerViews';
+import {RatingSourcesView, ExcludedGenresView, PinCodeView, BlockedRatingsView, RowImageTypesView} from './PickerViews';
 import HomeRowsView from './HomeRowsView';
 import ButtonLayoutView from './ButtonLayoutView';
 import DiagnosticsView from './DiagnosticsView';
@@ -42,9 +48,17 @@ import css from './Settings.module.less';
 
 const SpottableButton = Spottable('button');
 
+// The four settings profiles the Moonbase plugin stores, in server order.
+const PROFILE_CHIPS = [
+	{profile: 'global', label: () => $L('Global')},
+	{profile: 'desktop', label: () => $L('Desktop')},
+	{profile: 'mobile', label: () => $L('Mobile')},
+	{profile: 'tv', label: () => $L('TV')}
+];
+
 
 const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
-	const { api, serverUrl, accessToken, hasMultipleServers, logoutAll } = useAuth();
+	const { api, serverUrl, accessToken, hasMultipleServers, logoutAll, activeServerInfo } = useAuth();
 	const { settings, updateSetting, updateSettings, resetSettings, availableThemes, activeThemeId, selectThemeById, saveStoreTheme, deleteStoreTheme } = useSettings();
 	const { capabilities } = useDeviceInfo();
 	const seerr = useSeerr();
@@ -63,7 +77,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		id: category.id,
 		label: resolve(category.label),
 		description: resolve(category.description),
-		Icon: CATEGORY_ICONS[category.icon]
+		icon: category.icon
 	}));
 
 	const [searchQuery, setSearchQuery] = useState('');
@@ -96,12 +110,34 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 
 	const [serverVersion, setServerVersion] = useState(null);
 	const [clearDataDialogOpen, setClearDataDialogOpen] = useState(false);
+	const [imageCacheCleared, setImageCacheCleared] = useState(false);
+	// Null until the first open fetches what ratings the libraries actually hold.
+	const [availableRatings, setAvailableRatings] = useState(null);
+	const [customRowsRefreshing, setCustomRowsRefreshing] = useState(false);
+	const [customRowsRefreshMessage, setCustomRowsRefreshMessage] = useState('');
+	const [updateCheckState, setUpdateCheckState] = useState('idle');
+	const [updateCheckMessage, setUpdateCheckMessage] = useState('');
+	// This device edits the tv profile, so that is the one preselected.
+	const [selectedSyncProfile, setSelectedSyncProfile] = useState('tv');
+	const [profileSyncBusy, setProfileSyncBusy] = useState(false);
+	const [profileSyncMessage, setProfileSyncMessage] = useState('');
+	// Reset asks for a second press instead of raising a dialog.
+	const [profileResetArmed, setProfileResetArmed] = useState(false);
 	const [tempRatingSources, setTempRatingSources] = useState([]);
 	const [tempExcludedGenresText, setTempExcludedGenresText] = useState('');
 	const [customRowUrl, setCustomRowUrl] = useState('');
 	const [customRowName, setCustomRowName] = useState('');
 	const [customRowError, setCustomRowError] = useState('');
 	const [customRowSaving, setCustomRowSaving] = useState(false);
+	// The builder adds by pasted URL or by picking a source and typing its ids.
+	const [customRowMode, setCustomRowMode] = useState('url');
+	const [customRowSourceKey, setCustomRowSourceKey] = useState('tmdb_list');
+	const [customRowParamA, setCustomRowParamA] = useState('');
+	const [customRowParamB, setCustomRowParamB] = useState('');
+	const [customRowSortBy, setCustomRowSortBy] = useState('none');
+	const [customRowSortOrder, setCustomRowSortOrder] = useState('desc');
+	const [customRowShowUserRatings, setCustomRowShowUserRatings] = useState(true);
+	const [editingCustomRowId, setEditingCustomRowId] = useState(null);
 	const [tempPinCode, setTempPinCode] = useState('0000');
 	const [pinCodeError, setPinCodeError] = useState('');
 
@@ -146,6 +182,12 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 				Spotlight.focus('libraries-view');
 			} else if (cv.view === 'ratingSources') {
 				Spotlight.focus('rating-sources-view');
+			} else if (cv.view === 'blockedRatings') {
+				Spotlight.focus('blocked-ratings-view');
+			} else if (cv.view === 'qrLink') {
+				Spotlight.focus('qr-link-close');
+			} else if (cv.view === 'rowImageTypes') {
+				Spotlight.focus('row-image-types-view');
 			} else if (cv.view === 'excludedGenres') {
 				Spotlight.focus('excluded-genres-input');
 			} else if (cv.view === 'pinCode') {
@@ -242,11 +284,192 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 				popView();
 				return;
 			}
+			if (settingKey === 'autoLoginBehavior' && value === 'currentUser') {
+				// Pin the account that is signed in right now, so launches keep
+				// coming back to it even after switching users.
+				updateSetting('autoLoginServerId', activeServerInfo?.serverId || '');
+				updateSetting('autoLoginUserId', activeServerInfo?.userId || '');
+			}
 			updateSetting(settingKey, value);
 			popView();
 		},
-		[updateSetting, popView, selectThemeById]
+		[updateSetting, popView, selectThemeById, activeServerInfo]
 	);
+
+	const openQrLink = useCallback((label, url, returnFocusTo) => {
+		pushView({view: 'qrLink', label, url, returnFocusTo});
+	}, [pushView]);
+
+	const checkForUpdatesNow = useCallback(async () => {
+		if (updateCheckState === 'checking') return;
+		setUpdateCheckState('checking');
+		const result = await checkForUpdatesDetailed();
+		if (result.status === 'update') {
+			setUpdateCheckMessage($L('Version {version} is available').replace('{version}', result.latestVersion));
+		} else if (result.status === 'current') {
+			setUpdateCheckMessage($L('You are on the latest version'));
+		} else {
+			setUpdateCheckMessage($L('Could not reach the update server'));
+		}
+		setUpdateCheckState('done');
+	}, [updateCheckState]);
+
+	const renderCheckForUpdates = () => (
+		<div className={css.actionBarInline}>
+			<SpottableButton
+				className={css.actionButton}
+				onClick={checkForUpdatesNow}
+				spotlightId='check-for-updates'
+			>
+				{updateCheckState === 'checking' ? $L('Checking...') : (updateCheckMessage || $L('Check for Updates'))}
+			</SpottableButton>
+		</div>
+	);
+
+	const selectSyncProfile = useCallback((profile) => {
+		setSelectedSyncProfile(profile);
+		setProfileSyncMessage('');
+		setProfileResetArmed(false);
+	}, []);
+
+	const handleProfileChipClick = useCallback((e) => {
+		const profile = e.currentTarget?.getAttribute('data-profile');
+		if (profile) selectSyncProfile(profile);
+	}, [selectSyncProfile]);
+
+	const loadSyncProfile = useCallback(async () => {
+		if (profileSyncBusy) return;
+		setProfileSyncBusy(true);
+		setProfileSyncMessage('');
+		setProfileResetArmed(false);
+		try {
+			const resolved = await getMoonfinResolvedProfile(selectedSyncProfile, serverUrl, accessToken);
+			if (!resolved) {
+				setProfileSyncMessage($L('No stored settings for this profile'));
+			} else {
+				const local = profileToLocal(resolved);
+				const homeRows = homeRowsFromProfile(resolved);
+				if (homeRows !== undefined) local.homeRows = homeRows;
+				updateSettings(local);
+				setProfileSyncMessage($L('Profile loaded'));
+			}
+		} catch (e) {
+			void e;
+			setProfileSyncMessage($L('Could not reach the server'));
+		}
+		setProfileSyncBusy(false);
+	}, [profileSyncBusy, selectedSyncProfile, serverUrl, accessToken, updateSettings]);
+
+	const pushSyncProfile = useCallback(async () => {
+		if (profileSyncBusy) return;
+		setProfileSyncBusy(true);
+		setProfileSyncMessage('');
+		setProfileResetArmed(false);
+		try {
+			await saveMoonfinProfile(selectedSyncProfile, localToProfile(settings), serverUrl, accessToken);
+			setProfileSyncMessage($L('Settings synced to profile'));
+		} catch (e) {
+			void e;
+			setProfileSyncMessage($L('Could not reach the server'));
+		}
+		setProfileSyncBusy(false);
+	}, [profileSyncBusy, selectedSyncProfile, settings, serverUrl, accessToken]);
+
+	const resetSyncProfile = useCallback(async () => {
+		if (profileSyncBusy) return;
+		if (!profileResetArmed) {
+			setProfileResetArmed(true);
+			setProfileSyncMessage(selectedSyncProfile === 'global'
+				? $L('Press again to erase every stored profile on the server')
+				: $L('Press again to reset this profile to global'));
+			return;
+		}
+		setProfileSyncBusy(true);
+		setProfileSyncMessage('');
+		setProfileResetArmed(false);
+		try {
+			await deleteMoonfinProfile(selectedSyncProfile, serverUrl, accessToken);
+			setProfileSyncMessage($L('Profile reset'));
+		} catch (e) {
+			void e;
+			setProfileSyncMessage($L('Could not reach the server'));
+		}
+		setProfileSyncBusy(false);
+	}, [profileSyncBusy, profileResetArmed, selectedSyncProfile, serverUrl, accessToken]);
+
+	const renderProfileSync = () => (
+		<div className={css.profileSyncBlock}>
+			<div className={css.actionBarInline}>
+				{PROFILE_CHIPS.map(({profile, label}) => (
+					<SpottableButton
+						key={profile}
+						className={`${css.actionButton} ${selectedSyncProfile === profile ? css.actionButtonActive : ''}`}
+						data-profile={profile}
+						onClick={handleProfileChipClick}
+						spotlightId={`profile-chip-${profile}`}
+					>
+						{label()}
+					</SpottableButton>
+				))}
+			</div>
+			<div className={css.actionBarInline}>
+				<SpottableButton className={css.actionButton} onClick={loadSyncProfile} spotlightId='profile-load'>
+					{$L('Load Profile')}
+				</SpottableButton>
+				<SpottableButton className={css.actionButton} onClick={pushSyncProfile} spotlightId='profile-push'>
+					{$L('Sync to Profile')}
+				</SpottableButton>
+				<SpottableButton
+					className={`${css.actionButton} ${css.dangerButton}`}
+					onClick={resetSyncProfile}
+					spotlightId='profile-reset'
+				>
+					{$L('Reset Profile')}
+				</SpottableButton>
+			</div>
+			{(profileSyncBusy || profileSyncMessage) && (
+				<div className={css.viewDescription}>
+					{profileSyncBusy ? $L('Working...') : profileSyncMessage}
+				</div>
+			)}
+		</div>
+	);
+
+	const openRowImageTypes = useCallback(() => {
+		pushView({view: 'rowImageTypes', returnFocusTo: 'setting-rowImageTypes'});
+	}, [pushView]);
+
+	// Cycles Default and the four image types for one home row.
+	const cycleRowImageType = useCallback((rowId) => {
+		const overrides = settings.homeRowImageTypes || {};
+		const order = [undefined, ...getImageTypeOptions().map((option) => option.value)];
+		const next = order[(order.indexOf(overrides[rowId]) + 1) % order.length];
+		const updated = {...overrides};
+		if (next === undefined) delete updated[rowId];
+		else updated[rowId] = next;
+		updateSetting('homeRowImageTypes', updated);
+	}, [settings.homeRowImageTypes, updateSetting]);
+
+	const openParentalControls = useCallback(() => {
+		pushView({view: 'blockedRatings', returnFocusTo: 'setting-parentalControls'});
+		if (availableRatings === null) {
+			api.getRatingFilters()
+				.then((result) => {
+					const ratings = (result?.OfficialRatings || [])
+						.map((rating) => String(rating).trim().toUpperCase())
+						.filter(Boolean);
+					setAvailableRatings([...new Set(ratings)]);
+				})
+				.catch(() => setAvailableRatings([]));
+		}
+	}, [pushView, api, availableRatings]);
+
+	const toggleBlockedRating = useCallback((rating) => {
+		const current = Array.isArray(settings.blockedRatings) ? settings.blockedRatings : [];
+		updateSetting('blockedRatings', current.includes(rating)
+			? current.filter((value) => value !== rating)
+			: [...current, rating]);
+	}, [settings.blockedRatings, updateSetting]);
 
 	const openRatingSources = useCallback(() => {
 		setTempRatingSources(Array.isArray(settings.mdblistRatingSources) ? [...settings.mdblistRatingSources] : []);
@@ -260,6 +483,23 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			}
 			return [...prev, sourceValue];
 		});
+	}, []);
+
+	// The stored list is ordered, and the ratings row draws sources in that order.
+	const moveRatingSource = useCallback((sourceValue, delta) => {
+		setTempRatingSources((prev) => {
+			const from = prev.indexOf(sourceValue);
+			const to = from + delta;
+			if (from < 0 || to < 0 || to >= prev.length) return prev;
+			const next = [...prev];
+			next.splice(from, 1);
+			next.splice(to, 0, sourceValue);
+			return next;
+		});
+	}, []);
+
+	const resetRatingSources = useCallback(() => {
+		setTempRatingSources([...defaultSettings.mdblistRatingSources]);
 	}, []);
 
 	const saveRatingSources = useCallback(() => {
@@ -321,6 +561,20 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	const openExternalCustomRows = useCallback(() => {
 		pushView({view: 'externalCustomRows', returnFocusTo: 'setting-externalCustomRows'});
 	}, [pushView]);
+
+	// Lets a row on one screen open a screen that lives elsewhere in the schema, the
+	// way Progress Bar Time is reached from Video Playback Preferences.
+	const openScreen = useCallback((categoryId, subcategoryId, returnFocusTo) => {
+		const sub = SCHEMA_BY_KEY[`${categoryId}.${subcategoryId}`];
+		if (!sub) return;
+		pushView({
+			view: 'subcategory',
+			categoryId,
+			subcategoryId,
+			label: resolve(sub.label, {seerrLabel}),
+			returnFocusTo
+		});
+	}, [pushView, seerrLabel]);
 
 	const {
 		moonfinStatus, moonfinConnecting, seerrAuthType, seerrUsername, onSeerrUsernameChange,
@@ -432,24 +686,85 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		</div>
 	);
 
+	const handleClearImageCache = useCallback(() => {
+		clearImageCache();
+		clearProxiedImageCache();
+		setImageCacheCleared(true);
+	}, []);
+
+	const renderImageCacheActions = () => (
+		<div className={css.actionBarInline}>
+			<SpottableButton
+				className={css.actionButton}
+				onClick={handleClearImageCache}
+				spotlightId='clear-image-cache'
+			>
+				{imageCacheCleared ? $L('Image Cache Cleared') : $L('Clear Image Cache')}
+			</SpottableButton>
+		</div>
+	);
 
 
+
+
+	const refreshAllCustomRows = useCallback(async () => {
+		const enabledRows = (settings.customHomeRows || []).filter((row) => row.enabled);
+		if (enabledRows.length === 0 || customRowsRefreshing) return;
+		setCustomRowsRefreshing(true);
+		setCustomRowsRefreshMessage('');
+		let refreshed = 0;
+		await Promise.all(enabledRows.map(async (row) => {
+			try {
+				// forceRefresh also asks the plugin to rebuild its own cache.
+				await fetchCustomRow(row, {forceRefresh: true});
+				refreshed += 1;
+			} catch (e) {
+				void e;
+			}
+		}));
+		setCustomRowsRefreshing(false);
+		setCustomRowsRefreshMessage(
+			$L('{done} of {total} lists refreshed')
+				.replace('{done}', String(refreshed))
+				.replace('{total}', String(enabledRows.length))
+		);
+	}, [settings.customHomeRows, customRowsRefreshing]);
+
+	const resetCustomRowForm = useCallback(() => {
+		setCustomRowUrl('');
+		setCustomRowName('');
+		setCustomRowParamA('');
+		setCustomRowParamB('');
+		setCustomRowSortBy('none');
+		setCustomRowSortOrder('desc');
+		setCustomRowShowUserRatings(true);
+		setEditingCustomRowId(null);
+		setCustomRowError('');
+	}, []);
 
 	const addCustomRow = useCallback(async () => {
 		setCustomRowError('');
-		const detected = detectCustomSource(customRowUrl);
+		const detected = customRowMode === 'url'
+			? detectCustomSource(customRowUrl)
+			: buildManualCustomSource(customRowSourceKey, customRowParamA, customRowParamB);
 		if (detected.error) {
 			setCustomRowError(detected.error);
 			return;
 		}
+		const existing = editingCustomRowId
+			? (settings.customHomeRows || []).find((r) => r.id === editingCustomRowId)
+			: null;
 		const row = {
-			id: `custom_${Date.now()}`,
+			id: editingCustomRowId || `custom_${Date.now()}`,
 			name: customRowName.trim() || detected.params.id || detected.params.listname || detected.params.user || $L('Custom List'),
 			source: detected.source,
 			type: detected.type,
 			params: detected.params,
-			enabled: true
+			enabled: existing ? existing.enabled : true,
+			sortBy: customRowSortBy,
+			sortOrder: customRowSortOrder
 		};
+		if (detected.source === 'letterboxd') row.showUserRatings = customRowShowUserRatings;
 		setCustomRowSaving(true);
 		const result = await validateCustomRow(row);
 		setCustomRowSaving(false);
@@ -457,10 +772,42 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			setCustomRowError(result.error);
 			return;
 		}
-		updateSetting('customHomeRows', [...(settings.customHomeRows || []), row]);
-		setCustomRowUrl('');
-		setCustomRowName('');
-	}, [customRowUrl, customRowName, settings.customHomeRows, updateSetting]);
+		const rows = settings.customHomeRows || [];
+		updateSetting('customHomeRows', existing
+			? rows.map((r) => (r.id === row.id ? row : r))
+			: [...rows, row]);
+		resetCustomRowForm();
+	}, [customRowMode, customRowUrl, customRowSourceKey, customRowParamA, customRowParamB,
+		customRowName, customRowSortBy, customRowSortOrder, customRowShowUserRatings,
+		editingCustomRowId, settings.customHomeRows, updateSetting, resetCustomRowForm]);
+
+	// Loads a stored row into the manual form so its ids and sorting can change
+	// without removing and re-adding it.
+	const editCustomRow = useCallback((id) => {
+		const row = (settings.customHomeRows || []).find((r) => r.id === id);
+		if (!row) return;
+		setCustomRowMode('manual');
+		setCustomRowSourceKey(sourceKeyForRow(row));
+		const params = row.params || {};
+		setCustomRowParamA(params.id || params.username || params.user || '');
+		setCustomRowParamB(params.listname || '');
+		setCustomRowName(row.name || '');
+		setCustomRowSortBy(row.sortBy || 'none');
+		setCustomRowSortOrder(row.sortOrder || 'desc');
+		setCustomRowShowUserRatings(row.showUserRatings !== false);
+		setEditingCustomRowId(id);
+		setCustomRowError('');
+	}, [settings.customHomeRows]);
+
+	// The title sort reads naturally A to Z, everything else biggest first.
+	const changeCustomRowSortBy = useCallback((value) => {
+		setCustomRowSortBy(value);
+		setCustomRowSortOrder(value === 'title' ? 'asc' : 'desc');
+	}, []);
+
+	const toggleCustomRowUserRatings = useCallback(() => {
+		setCustomRowShowUserRatings((prev) => !prev);
+	}, []);
 
 	const deleteCustomRow = useCallback((id) => {
 		updateSetting('customHomeRows', (settings.customHomeRows || []).filter((r) => r.id !== id));
@@ -499,7 +846,10 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			openDiagnostics,
 			openPinCode,
 			openLibraries,
+			openParentalControls,
+			openQrLink,
 			openRatingSources,
+			openRowImageTypes,
 			openExcludedGenres,
 			openMediaBarLibraries,
 			openMediaBarCollections,
@@ -508,20 +858,37 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			openExternalCalendars,
 			openExternalCustomRows,
 			openSeerrHomeRows,
+			openScreen,
 			handleMoonfinToggle
 		}
 	}), [
 		settings, capabilities, seerr, seerrLabel, isSeerr, serverUrl,
 		serverVersion, availableThemes, activeThemeId, openThemes, openThemeStore, openHomeRows,
 		openDetailButtons, openOsdButtons, openDiagnostics,
-		openPinCode, openLibraries, openRatingSources, openExcludedGenres, openMediaBarLibraries,
+		openPinCode, openLibraries, openParentalControls, openQrLink, openRatingSources, openRowImageTypes, openExcludedGenres, openMediaBarLibraries,
 		openMediaBarCollections, openImdbLists, openExternalTmdbLists, openExternalCalendars,
-		openExternalCustomRows, openSeerrHomeRows, handleMoonfinToggle
+		openExternalCustomRows, openSeerrHomeRows, openScreen, handleMoonfinToggle
 	]);
 
 	const openCategory = useCallback((id) => {
+		// A category holding a single screen opens it directly, the way the other
+		// clients treat Account & Security and About as one page each.
+		const category = SETTINGS_SCHEMA.find((c) => c.id === id);
+		const visible = (category?.subcategories || [])
+			.filter((sub) => sub.menu !== false && (!sub.when || sub.when(settingsCtx)));
+		if (visible.length === 1) {
+			pushView({
+				view: 'subcategory',
+				categoryId: id,
+				subcategoryId: visible[0].id,
+				label: resolve(visible[0].label, settingsCtx),
+				returnFocusTo: `cat-${id}`
+			});
+			return;
+		}
 		pushView({view: 'category', id, returnFocusTo: `cat-${id}`});
-	}, [pushView]);
+	}, [pushView, settingsCtx]);
+
 
 	const openSubcategory = useCallback((sub) => {
 		pushView({
@@ -590,6 +957,9 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			/>
 		),
 		aboutDataActions: renderAboutDataActions,
+		imageCacheActions: renderImageCacheActions,
+		checkForUpdates: renderCheckForUpdates,
+		profileSync: renderProfileSync,
 		playbackTimePreview: renderPlaybackTimePreview
 	};
 
@@ -640,11 +1010,13 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		const category = SETTINGS_SCHEMA.find((c) => c.id === catId);
 		if (!category) return [];
 		return category.subcategories
-			.filter((sub) => !sub.when || sub.when(settingsCtx))
+			.filter((sub) => sub.menu !== false && (!sub.when || sub.when(settingsCtx)))
 			.map((sub) => ({
 				id: sub.id,
 				label: resolve(sub.label, settingsCtx),
-				description: resolve(sub.description, settingsCtx)
+				description: resolve(sub.description, settingsCtx),
+				section: resolve(sub.section, settingsCtx),
+				icon: sub.icon
 			}));
 	};
 
@@ -809,10 +1181,30 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 					name={customRowName}
 					error={customRowError}
 					saving={customRowSaving}
+					refreshing={customRowsRefreshing}
+					refreshMessage={customRowsRefreshMessage}
+					mode={customRowMode}
+					sourceKey={customRowSourceKey}
+					paramA={customRowParamA}
+					paramB={customRowParamB}
+					sortBy={customRowSortBy}
+					sortOrder={customRowSortOrder}
+					showUserRatings={customRowShowUserRatings}
+					editingId={editingCustomRowId}
+					onRefreshAll={refreshAllCustomRows}
 					onUrlChange={changeCustomRowUrl}
 					onNameChange={setCustomRowName}
+					onModeChange={setCustomRowMode}
+					onSourceKeyChange={setCustomRowSourceKey}
+					onParamAChange={setCustomRowParamA}
+					onParamBChange={setCustomRowParamB}
+					onSortByChange={changeCustomRowSortBy}
+					onSortOrderChange={setCustomRowSortOrder}
+					onToggleUserRatings={toggleCustomRowUserRatings}
 					onToggleRow={toggleCustomRow}
 					onDeleteRow={deleteCustomRow}
+					onEditRow={editCustomRow}
+					onCancelEdit={resetCustomRowForm}
 					onAddRow={addCustomRow}
 				/>
 			)}
@@ -820,8 +1212,29 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 				<RatingSourcesView
 					selected={tempRatingSources}
 					onToggleSource={toggleRatingSource}
+					onMoveSource={moveRatingSource}
+					onReset={resetRatingSources}
 					onCancel={popView}
 					onSave={saveRatingSources}
+				/>
+			)}
+			{viewName === 'rowImageTypes' && (
+				<RowImageTypesView
+					rows={(settings.homeRows || []).filter((row) => row.enabled && row.id !== 'librarybuttons')}
+					overrides={settings.homeRowImageTypes || {}}
+					globalLabel={getLabel(getImageTypeOptions(), settings.homeRowsImageType, $L('Poster'))}
+					onCycleRow={cycleRowImageType}
+				/>
+			)}
+			{viewName === 'qrLink' && (
+				<QrLinkView title={currentView.label} url={currentView.url} onClose={popView} />
+			)}
+			{viewName === 'blockedRatings' && (
+				<BlockedRatingsView
+					ratings={[...new Set([...(availableRatings || []), ...(settings.blockedRatings || [])])].sort()}
+					blocked={settings.blockedRatings || []}
+					loading={availableRatings === null}
+					onToggleRating={toggleBlockedRating}
 				/>
 			)}
 			{viewName === 'excludedGenres' && (

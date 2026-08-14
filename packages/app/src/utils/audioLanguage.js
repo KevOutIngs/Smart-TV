@@ -1,22 +1,20 @@
+// Two letter codes and the older bibliographic three letter codes both appear in
+// real files, so everything funnels down to the terminological three letter code
+// the settings store.
 const LANGUAGE_ALIASES = {
-	en: 'eng',
-	eng: 'eng',
-	es: 'spa',
-	spa: 'spa',
-	fr: 'fra',
-	fra: 'fra',
-	de: 'deu',
-	deu: 'deu',
-	it: 'ita',
-	ita: 'ita',
-	pt: 'por',
-	por: 'por',
-	ja: 'jpn',
-	jpn: 'jpn',
-	ko: 'kor',
-	kor: 'kor',
-	zh: 'zho',
-	zho: 'zho'
+	af: 'afr', ar: 'ara', be: 'bel', bg: 'bul', bn: 'ben', ca: 'cat', cs: 'ces',
+	cy: 'cym', da: 'dan', de: 'deu', el: 'ell', en: 'eng', eo: 'epo', es: 'spa',
+	et: 'est', fa: 'fas', fi: 'fin', fr: 'fra', gl: 'glg', he: 'heb', hi: 'hin',
+	hr: 'hrv', hu: 'hun', id: 'ind', it: 'ita', ja: 'jpn', kk: 'kaz', kn: 'kan',
+	ko: 'kor', lt: 'lit', lv: 'lav', mk: 'mkd', ml: 'mal', mn: 'mon', nb: 'nob',
+	nl: 'nld', no: 'nor', pa: 'pan', pl: 'pol', pt: 'por', ro: 'ron', ru: 'rus',
+	si: 'sin', sk: 'slk', sl: 'slv', sq: 'sqi', sr: 'srp', sv: 'swe', sw: 'swa',
+	ta: 'tam', te: 'tel', th: 'tha', tl: 'tgl', tr: 'tur', ug: 'uig', uk: 'ukr',
+	vi: 'vie', zh: 'zho',
+	alb: 'sqi', arm: 'hye', baq: 'eus', bur: 'mya', chi: 'zho', cze: 'ces',
+	dut: 'nld', fre: 'fra', geo: 'kat', ger: 'deu', gre: 'ell', ice: 'isl',
+	mac: 'mkd', may: 'msa', mao: 'mri', per: 'fas', rum: 'ron', slo: 'slk',
+	tib: 'bod', wel: 'cym'
 };
 
 export const normalizeLanguageCode = (value) => {
@@ -25,10 +23,4 @@ export const normalizeLanguageCode = (value) => {
 	if (!normalized || normalized === 'unknown' || normalized === 'und') return '';
 	const primary = normalized.split(/[-_]/)[0];
 	return LANGUAGE_ALIASES[primary] || primary;
-};
-
-export const findPreferredAudioStream = (audioStreams, preferredLanguage) => {
-	const preferred = normalizeLanguageCode(preferredLanguage);
-	if (!preferred || !Array.isArray(audioStreams) || audioStreams.length === 0) return null;
-	return audioStreams.find((stream) => normalizeLanguageCode(stream.language) === preferred) || null;
 };

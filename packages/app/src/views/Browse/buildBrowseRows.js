@@ -157,6 +157,23 @@ const orderRows = (rows, rowOrderMap) => {
 		.map((entry) => entry.row);
 };
 
+// Parental controls. Items carrying a blocked rating drop out of every row, and
+// unrated items pass through the way the other clients let them.
+const filterBlockedRatings = (rows, blockedRatings) => {
+	if (!Array.isArray(blockedRatings) || blockedRatings.length === 0) return rows;
+	const blocked = new Set(blockedRatings.map((rating) => String(rating).trim().toUpperCase()));
+	return rows
+		.map((row) => {
+			if (!Array.isArray(row.items)) return row;
+			const items = row.items.filter((item) => {
+				const rating = typeof item.OfficialRating === 'string' ? item.OfficialRating.trim().toUpperCase() : '';
+				return !rating || !blocked.has(rating);
+			});
+			return items.length === row.items.length ? row : {...row, items};
+		})
+		.filter((row) => !Array.isArray(row.items) || row.items.length > 0);
+};
+
 export const buildBrowseRows = ({allRowData, seerrRows, externalRows, homeRowsConfig, pluginSectionsConfig, settings}) => {
 	const enabledRowIdsSet = buildEnabledIds(homeRowsConfig);
 	const enabledPluginIds = pluginSectionsConfig.filter((section) => section.enabled).map((section) => section.id);
@@ -204,7 +221,10 @@ export const buildBrowseRows = ({allRowData, seerrRows, externalRows, homeRowsCo
 		return title && title !== row.title ? {...row, title} : row;
 	});
 
-	return orderRows([...result, ...seerrRows, ...externalRows], rowOrderMap);
+	return orderRows(
+		filterBlockedRatings([...result, ...seerrRows, ...externalRows], settings.blockedRatings),
+		rowOrderMap
+	);
 };
 
 // Rebuilding produces a new array every time, which would reload every card on screen. Only

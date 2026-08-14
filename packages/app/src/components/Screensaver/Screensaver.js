@@ -74,7 +74,9 @@ const startBounce = (ref, animRef, width, height) => {
 	};
 };
 
-const Screensaver = ({visible, mode = 'library', dimmingLevel = 50, showClock = true, clockDisplay = '24-hour', timeOffsetHours = 0, maxRating = null, onDismiss, serverUrl}) => {
+const Screensaver = ({visible, mode = 'library', dimmingLevel = 50, clockMode = 'staticCorner', clockDisplay = '24-hour', timeOffsetHours = 0, maxRating = null, onDismiss, serverUrl}) => {
+	const showClock = clockMode !== 'off';
+	const clockBounces = clockMode === 'bouncing';
 	const [rendered, setRendered] = useState(false);
 	const [showOverlay, setShowOverlay] = useState(false);
 	const [clockText, setClockText] = useState(() => formatClockTime(shiftedNow(timeOffsetHours), clockDisplay));
@@ -202,9 +204,9 @@ const Screensaver = ({visible, mode = 'library', dimmingLevel = 50, showClock = 
 	}, [visible, mode, rendered]);
 
 	useEffect(() => {
-		if (!visible || mode !== 'logo' || !showClock || !clockRef.current) return;
+		if (!visible || !clockBounces || !clockRef.current) return;
 		return startBounce(clockRef, clockAnimRef, CLOCK_WIDTH, CLOCK_HEIGHT);
-	}, [visible, mode, showClock, rendered]);
+	}, [visible, clockBounces, rendered]);
 
 	const handleInteraction = useCallback((e) => {
 		e.preventDefault();
@@ -280,8 +282,8 @@ const Screensaver = ({visible, mode = 'library', dimmingLevel = 50, showClock = 
 
 			{showClock && (
 				<div
-					ref={mode === 'logo' ? clockRef : null}
-					className={mode === 'logo' ? css.clock : css.clockFixed}
+					ref={clockBounces ? clockRef : null}
+					className={clockBounces ? css.clock : css.clockFixed}
 					style={{opacity: clockAlpha}}
 				>
 					{clockText}

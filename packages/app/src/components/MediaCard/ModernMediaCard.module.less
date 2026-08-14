@@ -39,6 +39,17 @@
 	box-sizing: border-box;
 }
 
+// OLED mode darkens the chrome, so artwork is lifted to match. The values are
+// written out rather than read from a variable, because the build inlines
+// custom property fallbacks for the older sets.
+:global([data-oled='subtle']) .image {
+	filter: saturate(1.1) contrast(1.03);
+}
+
+:global([data-oled='vivid']) .image {
+	filter: saturate(1.25) contrast(1.08);
+}
+
 .card:focus .image {
 	border-color: var(--theme-focus-border-color, #ffffff);
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);

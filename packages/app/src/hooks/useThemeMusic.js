@@ -102,7 +102,9 @@ export const useThemeMusic = () => {
 			const url = buildAudioUrl(song.Id);
 
 			const audio = new window.Audio();
-			audio.loop = true;
+			// A profile synced from another client can hold null here, which keeps
+			// the looping the track always did.
+			audio.loop = settings.themeMusicLoop !== false;
 			audio.volume = 0;
 			audioRef.current = audio;
 
@@ -124,7 +126,7 @@ export const useThemeMusic = () => {
 				currentItemIdRef.current = null;
 			}
 		}
-	}, [settings.themeMusicEnabled, stopImmediate, fadeIn]);
+	}, [settings.themeMusicEnabled, settings.themeMusicLoop, stopImmediate, fadeIn]);
 
 	const playThemeMusicDelayed = useCallback((itemId) => {
 		if (!settings.themeMusicEnabled || !settings.themeMusicOnHomeRows) return;

@@ -45,7 +45,7 @@ describe('localToProfile', () => {
 	test('says nothing about settings this app has no screen for', () => {
 		const profile = localToProfile(defaultSettings);
 
-		for (const key of ['showCastButton', 'themeMusicLoop', 'classicHomeRowsPadding',
+		for (const key of ['showCastButton', 'classicHomeRowsPadding',
 			'modernHomeRowsPadding', 'detailShowTechnicalDetails', 'recommendationSystemSource',
 			'recommendationsApplyParentalRatingCap']) {
 			expect(profile).not.toHaveProperty(key);

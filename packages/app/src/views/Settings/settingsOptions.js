@@ -25,16 +25,19 @@ export const getContentTypeOptions = () => [
 export const getFeaturedBarStyleOptions = () => [
 	{ value: 'moonfin', label: $L('Moonfin') },
 	{ value: 'makd', label: $L('MakD') },
+	{ value: 'bookshelf', label: $L('Bookshelf') },
 	{ value: 'gallery', label: $L('Gallery') },
 	{ value: 'banner', label: $L('Banner') },
-	{ value: 'bookshelf', label: $L('Bookshelf') },
 	{ value: 'off', label: $L('Off') }
 ];
 
 export const getFeaturedItemCountOptions = () => [
 	{ value: 5, label: $L('5 items') },
 	{ value: 10, label: $L('10 items') },
-	{ value: 15, label: $L('15 items') }
+	{ value: 15, label: $L('15 items') },
+	{ value: 20, label: $L('20 items') },
+	{ value: 25, label: $L('25 items') },
+	{ value: 30, label: $L('30 items') }
 ];
 
 export const getBlurOptions = () => [
@@ -125,8 +128,8 @@ export const getUiScaleOptions = () => [
 ];
 
 export const getScreensaverModeOptions = () => [
-	{ value: 'library', label: $L('Library Backdrops') },
-	{ value: 'logo', label: $L('Moonfin Logo') }
+	{ value: 'library', label: $L('Library Art') },
+	{ value: 'logo', label: $L('Logo') }
 ];
 
 export const getScreensaverTimeoutOptions = () => [
@@ -262,7 +265,151 @@ export const getAudioLanguageOptions = () => [
 	{ value: 'por', label: $L('Portuguese') },
 	{ value: 'jpn', label: $L('Japanese') },
 	{ value: 'kor', label: $L('Korean') },
-	{ value: 'zho', label: $L('Chinese') }
+	{ value: 'zho', label: $L('Chinese') },
+	{ value: 'afr', label: $L('Afrikaans') },
+	{ value: 'ara', label: $L('Arabic') },
+	{ value: 'bel', label: $L('Belarusian') },
+	{ value: 'ben', label: $L('Bengali') },
+	{ value: 'bul', label: $L('Bulgarian') },
+	{ value: 'cat', label: $L('Catalan') },
+	{ value: 'ces', label: $L('Czech') },
+	{ value: 'cym', label: $L('Welsh') },
+	{ value: 'dan', label: $L('Danish') },
+	{ value: 'ell', label: $L('Greek') },
+	{ value: 'est', label: $L('Estonian') },
+	{ value: 'fas', label: $L('Persian') },
+	{ value: 'fin', label: $L('Finnish') },
+	{ value: 'glg', label: $L('Galician') },
+	{ value: 'heb', label: $L('Hebrew') },
+	{ value: 'hin', label: $L('Hindi') },
+	{ value: 'hrv', label: $L('Croatian') },
+	{ value: 'hun', label: $L('Hungarian') },
+	{ value: 'ind', label: $L('Indonesian') },
+	{ value: 'kan', label: $L('Kannada') },
+	{ value: 'kaz', label: $L('Kazakh') },
+	{ value: 'lav', label: $L('Latvian') },
+	{ value: 'lit', label: $L('Lithuanian') },
+	{ value: 'mal', label: $L('Malayalam') },
+	{ value: 'mkd', label: $L('Macedonian') },
+	{ value: 'mon', label: $L('Mongolian') },
+	{ value: 'nld', label: $L('Dutch') },
+	{ value: 'nob', label: $L('Norwegian') },
+	{ value: 'pan', label: $L('Punjabi') },
+	{ value: 'pol', label: $L('Polish') },
+	{ value: 'ron', label: $L('Romanian') },
+	{ value: 'rus', label: $L('Russian') },
+	{ value: 'sin', label: $L('Sinhala') },
+	{ value: 'slk', label: $L('Slovak') },
+	{ value: 'slv', label: $L('Slovenian') },
+	{ value: 'sqi', label: $L('Albanian') },
+	{ value: 'srp', label: $L('Serbian') },
+	{ value: 'swa', label: $L('Swahili') },
+	{ value: 'swe', label: $L('Swedish') },
+	{ value: 'tam', label: $L('Tamil') },
+	{ value: 'tel', label: $L('Telugu') },
+	{ value: 'tgl', label: $L('Tagalog') },
+	{ value: 'tha', label: $L('Thai') },
+	{ value: 'tur', label: $L('Turkish') },
+	{ value: 'uig', label: $L('Uyghur') },
+	{ value: 'ukr', label: $L('Ukrainian') },
+	{ value: 'vie', label: $L('Vietnamese') }
+];
+
+export const getSubtitleLanguageOptions = () => [
+	{ value: '', label: $L('None') },
+	...getAudioLanguageOptions().slice(1)
+];
+
+// The stored values predate this row and are what the player already acts on, so the
+// labels borrow the other clients' wording while the values stay untouched. The
+// default value asks the server which track its own subtitle preferences flag.
+export const getSubtitleModeOptions = () => [
+	{ value: 'default', label: $L('Flagged') },
+	{ value: 'always', label: $L('Always') },
+	{ value: 'foreign', label: $L('Foreign') },
+	{ value: 'forced', label: $L('Forced') },
+	{ value: 'none', label: $L('None') }
+];
+
+export const getSortOrderOptions = () => [
+	{ value: 'auto', label: $L('Auto') },
+	{ value: 'Ascending', label: $L('Ascending') },
+	{ value: 'Descending', label: $L('Descending') }
+];
+
+export const getScreensaverClockOptions = () => [
+	{ value: 'off', label: $L('Off') },
+	{ value: 'staticCorner', label: $L('Static') },
+	{ value: 'bouncing', label: $L('Bouncing') }
+];
+
+export const getOledModeOptions = () => [
+	{ value: 'off', label: $L('Off') },
+	{ value: 'subtle', label: $L('Subtle') },
+	{ value: 'vivid', label: $L('Vivid') }
+];
+
+export const getAutoLoginOptions = () => [
+	{ value: 'disabled', label: $L('Disabled') },
+	{ value: 'lastUser', label: $L('Last User') },
+	{ value: 'currentUser', label: $L('Current User') }
+];
+
+export const getResumeRewindOptions = () => [
+	{ value: '0', label: $L('Disabled') },
+	{ value: '5', label: $L('5 seconds') },
+	{ value: '10', label: $L('10 seconds') },
+	{ value: '15', label: $L('15 seconds') },
+	{ value: '30', label: $L('30 seconds') }
+];
+
+export const getSkipLengthOptions = () => [
+	{ value: 1000, label: $L('1 second') },
+	{ value: 3000, label: $L('3 seconds') },
+	{ value: 5000, label: $L('5 seconds') },
+	{ value: 10000, label: $L('10 seconds') },
+	{ value: 15000, label: $L('15 seconds') },
+	{ value: 30000, label: $L('30 seconds') },
+	{ value: 45000, label: $L('45 seconds') },
+	{ value: 60000, label: $L('60 seconds') }
+];
+
+export const getMaxResolutionOptions = () => [
+	{ value: 'auto', label: $L('Auto') },
+	{ value: 'res480p', label: $L('480p') },
+	{ value: 'res720p', label: $L('720p') },
+	{ value: 'res1080p', label: $L('1080p') },
+	{ value: 'res2160p', label: $L('2160p (4K)') }
+];
+
+export const getZoomModeOptions = () => [
+	{ value: 'fit', label: $L('Fit') },
+	{ value: 'autoCrop', label: $L('Auto Crop') },
+	{ value: 'stretch', label: $L('Stretch') }
+];
+
+export const getMediaSegmentAutoHideOptions = () => [
+	{ value: 's5', label: $L('5 seconds') },
+	{ value: 's10', label: $L('10 seconds') },
+	{ value: 'off', label: $L('Off') }
+];
+
+export const getPassthroughModeOptions = () => [
+	{ value: 'auto', label: $L('Auto (match detected device support)') },
+	{ value: 'manual', label: $L('Manual (choose formats below)') },
+	{ value: 'disabled', label: $L('Disabled (always decode on this device)') }
+];
+
+export const getMaxAudioChannelsOptions = () => [
+	{ value: 0, label: $L('Auto Detect (Hardware Default)') },
+	{ value: 1, label: $L('Mono') },
+	{ value: 2, label: $L('Stereo') },
+	{ value: 3, label: $L('3.0') },
+	{ value: 4, label: $L('4.0') },
+	{ value: 5, label: $L('5.0') },
+	{ value: 6, label: $L('5.1') },
+	{ value: 7, label: $L('6.1') },
+	{ value: 8, label: $L('7.1') }
 ];
 
 export const getRatingSourceOptions = () => [

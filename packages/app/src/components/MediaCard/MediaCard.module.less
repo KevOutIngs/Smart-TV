@@ -90,6 +90,17 @@
 	box-sizing: border-box; // Ensure padding and border are included in the elements total width and height
 }
 
+// OLED mode darkens the chrome, so artwork is lifted to match. The values are
+// written out rather than read from a variable, because the build inlines
+// custom property fallbacks for the older sets.
+:global([data-oled='subtle']) .image {
+	filter: saturate(1.1) contrast(1.03);
+}
+
+:global([data-oled='vivid']) .image {
+	filter: saturate(1.25) contrast(1.08);
+}
+
 .placeholder {
 	width: 100%;
 	display: flex;

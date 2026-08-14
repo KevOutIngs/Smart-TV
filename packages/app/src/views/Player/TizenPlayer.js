@@ -16,14 +16,15 @@ import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as syncPlayService from '../../services/syncPlay';
 import {KEYS, isBackKey} from '../../utils/keys';
 import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
-import {driftAction, driftMs, needsSeek, DRIFT_CHECK_MS, SPEED_DURATION_MS} from '../../utils/syncDrift';
+import {driftAction, driftMs, needsSeek, correctionOptions, DRIFT_CHECK_MS} from '../../utils/syncDrift';
 import {createReadyGate} from '../../utils/syncReady';
 import {getImageUrl} from '../../utils/helpers';
 import {initPgsCanvasRenderer, disposePgsRenderer, clearPgsCanvas} from '../../utils/pgsRenderer';
 import {supportsAssRenderer, initAssCanvasRenderer, disposeAssRenderer, setAssTime} from '../../utils/assRenderer';
 import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml, resolveSubtitleStyleSettings} from '../../utils/subtitleConstants';
 import {isHdrOutput} from '../../utils/videoRange';
-import {findPreferredAudioStream} from '../../utils/audioLanguage';
+import {selectPreferredAudioStream} from '../../utils/audioTrackSelection';
+import {applyResumeRewind, skipBackSeconds, skipForwardSeconds, zoomInternalFromSetting, zoomSettingFromInternal} from '../../utils/playbackTuning';
 import {saveSubtitlePref} from '../../services/subtitlePrefs';
 import {resolveInitialSubtitle} from './initialSubtitle';
 import {api as jellyfinApi, createApiForServer, getServerUrl} from '../../services/jellyfinApi';
@@ -75,7 +76,7 @@ const getRootFontSizePx = () => {
  * the web layer must be transparent in the video area for the content to show through.
  */
 const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialSubtitleIndex, initialStartPositionTicks, initialQuality, forceTranscode, onEnded, onBack, onGuide, onPlayNext, onSelectPerson, audioPlaylist, videoQueue, onPausedChange}) => {
-	const {settings} = useSettings();
+	const {settings, updateSetting} = useSettings();
 	const {isInGroup, lastCommand} = useSyncPlay();
 	const syncPlayCommandRef = useRef(false);
 	const lastProcessedCommandRef = useRef(null);
@@ -128,11 +129,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [isAudioMode, setIsAudioMode] = useState(false);
 	const [audioTab, setAudioTab] = useState('queue');
 	const [isFavorite, setIsFavorite] = useState(false);
-	const [zoomMode, setZoomMode] = useState('fit');
+	const [zoomMode, setZoomMode] = useState(() => zoomInternalFromSetting(settings.playerZoomMode));
 	const [videoAspectRatio, setVideoAspectRatio] = useState(null);
 	const [castMembers, setCastMembers] = useState([]);
 	const [isLoadingCastMembers, setIsLoadingCastMembers] = useState(false);
-	const zoomModeRef = useRef('fit');
+	const zoomModeRef = useRef(zoomInternalFromSetting(settings.playerZoomMode));
 	const videoAspectRatioRef = useRef(null);
 
 	const lyrics = useLyrics(item, isAudioMode, currentTime);
@@ -940,7 +941,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 			try {
 				const savedPosition = isLiveTV ? 0 : (item.UserData?.PlaybackPositionTicks || 0);
-				const startPosition = initialStartPositionTicks != null ? initialStartPositionTicks : ((!isLiveTV && resume !== false) ? savedPosition : 0);
+				const startPosition = applyResumeRewind(
+					initialStartPositionTicks != null ? initialStartPositionTicks : ((!isLiveTV && resume !== false) ? savedPosition : 0),
+					settings
+				);
 				const effectiveBitrate = selectedQuality || settings.maxBitrate || undefined;
 				const playbackInfoOptions = {
 					startPositionTicks: startPosition,
@@ -983,10 +987,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					}).catch(() => {});
 				}
 
-				// Handle initial audio selection. A local language override wins,
+				// Handle initial audio selection. The local track preferences win,
 				// otherwise honor the Jellyfin user's preferred audio language via the
 				// server computed defaultAudioStreamIndex, then the file default.
-				const preferredAudio = findPreferredAudioStream(result.audioStreams, settings.audioLanguage);
+				const preferredAudio = selectPreferredAudioStream(result.audioStreams, settings);
 				const serverAudio = result.audioStreams?.find(s => s.index === result.defaultAudioStreamIndex);
 				const fileDefaultAudio = result.audioStreams?.find(s => s.isDefault);
 				const autoAudio = preferredAudio || serverAudio || fileDefaultAudio;
@@ -1170,7 +1174,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					setSubtitleTrackEvents(null);
 				};
 
-				const initialSubtitleChoice = await resolveInitialSubtitle(result, item, initialSubtitleIndex, settings);
+				const startingAudio = initialAudioIndex != null
+					? result.audioStreams?.find(s => s.index === initialAudioIndex)
+					: autoAudio;
+				const initialSubtitleChoice = await resolveInitialSubtitle(result, item, initialSubtitleIndex, settings, startingAudio);
 				if (initialSubtitleChoice === null) turnSubtitlesOff();
 				else selectInitialSubtitle(initialSubtitleChoice);
 
@@ -1652,29 +1659,30 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 	const handleRewind = useCallback(() => {
 		if (!avplayReadyRef.current) return;
+		const step = skipBackSeconds(settings);
 		if (isInGroup && !syncPlayCommandRef.current) {
-			const newTicks = Math.max(0, positionRef.current - settings.seekStep * 10000000);
+			const newTicks = Math.max(0, positionRef.current - step * 10000000);
 			syncPlayService.sendSeekRequest(newTicks);
 			return;
 		}
 		const ms = avplayGetCurrentTime();
-		const newMs = Math.max(0, ms - settings.seekStep * 1000);
+		const newMs = Math.max(0, ms - step * 1000);
 		avplaySeek(newMs).catch(e => console.warn('[Player] Seek failed:', e));
-	}, [settings.seekStep, isInGroup]);
+	}, [settings, isInGroup]);
 
 	const handleForward = useCallback(() => {
 		if (!avplayReadyRef.current) return;
+		const step = skipForwardSeconds(settings);
 		if (isInGroup && !syncPlayCommandRef.current) {
-			const newTicks = Math.min(runTimeRef.current, positionRef.current + settings.seekStep * 10000000);
+			const newTicks = Math.min(runTimeRef.current, positionRef.current + step * 10000000);
 			syncPlayService.sendSeekRequest(newTicks);
 			return;
 		}
 		const ms = avplayGetCurrentTime();
 		const durationMs = avplayGetDuration();
-		const step = settings.skipForwardLength || settings.seekStep;
 		const newMs = Math.min(durationMs, ms + step * 1000);
 		avplaySeek(newMs).catch(e => console.warn('[Player] Seek failed:', e));
-	}, [settings.skipForwardLength, settings.seekStep, isInGroup]);
+	}, [settings, isInGroup]);
 
 	// Modal handlers
 	const openModal = useCallback((modal) => {
@@ -2070,10 +2078,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		setZoomMode((prev) => {
 			const next = prev === 'fit' ? 'fill' : (prev === 'fill' ? 'stretch' : 'fit');
 			zoomModeRef.current = next;
+			updateSetting('playerZoomMode', zoomSettingFromInternal(next));
 			window.requestAnimationFrame(() => applyDisplayWindow());
 			return next;
 		});
-	}, [applyDisplayWindow]);
+	}, [applyDisplayWindow, updateSetting]);
 
 	const handleOpenCast = useCallback(async () => {
 		openModal('cast');
@@ -2296,14 +2305,15 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	// Commands alone cant hold this in step, because the decoder loses a little
 	// wall clock time on every rebuffer and nothing measured it afterwards.
 	useEffect(() => {
-		if (!isInGroup || isPaused) return undefined;
+		const correction = correctionOptions(settings);
+		if (!isInGroup || isPaused || !correction.enabled) return undefined;
 
 		let restoreTimer = null;
 		const restoreRate = () => avplaySetSpeed(1);
 		const interval = setInterval(() => {
 			if (syncPlayCommandRef.current || avplayGetState() !== 'PLAYING') return;
-			const expected = syncPlayService.getExpectedPositionTicks();
-			const action = driftAction(driftMs(positionRef.current, expected));
+			const expected = syncPlayService.getExpectedPositionTicks(correction.extraOffsetMs);
+			const action = driftAction(driftMs(positionRef.current, expected), correction);
 
 			if (action.type === 'seek') {
 				syncPlayCommandRef.current = true;
@@ -2315,7 +2325,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				restoreTimer = setTimeout(() => {
 					restoreTimer = null;
 					restoreRate();
-				}, SPEED_DURATION_MS);
+				}, correction.speedDurationMs);
 			}
 		}, DRIFT_CHECK_MS);
 
@@ -2324,7 +2334,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			if (restoreTimer) clearTimeout(restoreTimer);
 			restoreRate();
 		};
-	}, [isInGroup, isPaused]);
+	}, [isInGroup, isPaused, settings]);
 
 	// The server marks every member as buffering after a group seek or a change
 	// of item and waits for each one to report Ready, so a set that never

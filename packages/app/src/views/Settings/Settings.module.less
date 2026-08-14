@@ -563,3 +563,25 @@ background: var(--theme-focus-border-color, #00a4dc);
 }
 
 .themeCardList { .flex-col-gap(4px); }
+
+// The QR link screen. White padding around the code is part of what makes
+// a phone camera read it.
+.qrContainer {
+	display: flex;
+	justify-content: center;
+	margin: 20px 0;
+}
+
+.qrCanvas {
+	background: #ffffff;
+	border-radius: 8px;
+}
+
+.profileSyncBlock {
+	.flex-col-gap(10px);
+}
+
+.actionButtonActive {
+	background: var(--theme-focus-border-color, #00a4dc);
+	color: #fff;
+}

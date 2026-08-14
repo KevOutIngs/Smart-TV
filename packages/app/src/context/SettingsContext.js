@@ -3,6 +3,7 @@ import {getFromStorage, saveToStorage} from '../services/storage';
 import {getMoonfinSettings, getMoonfinThemes, saveMoonfinProfile, moonfinPing} from '../services/seerrApi';
 import {parseThemeSpec} from '../theme/themeSpec';
 import {getAvailableThemeList, getAvailableThemes, isBuiltInThemeId, registerStoreTheme, removeStoreTheme, replaceCustomThemes, resolveThemeById} from '../theme/themeRegistry';
+import {applyOledMode} from '../utils/oledMode';
 import {
 	DEFAULT_HOME_ROWS,
 	SERVER_TO_TV_ROW,
@@ -48,7 +49,11 @@ const SERVER_TO_LOCAL = {
 	enableFolderView: 'folderViewMode',
 	homeRowInfoOverlay: 'homeRowOverlay',
 	autoplayNextEpisode: 'autoPlay',
-	mediaSegmentCountdown: 'nextUpCountdownStyle'
+	mediaSegmentCountdown: 'nextUpCountdownStyle',
+	defaultAudioLanguage: 'audioLanguage',
+	defaultSubtitleLanguage: 'subtitleLanguage',
+	unpauseRewindDuration: 'unpauseRewind',
+	confirmExit: 'exitConfirmation'
 };
 const LOCAL_TO_SERVER = Object.fromEntries(
 	Object.entries(SERVER_TO_LOCAL).map(([s, l]) => [l, s])
@@ -148,6 +153,21 @@ const VALUE_CONVERSIONS = {
 		toServer: secondsToMs,
 		fromServer: msToSeconds
 	},
+	// The label both sides show for an empty preference is Auto, but the other
+	// clients store the word while this app stores an empty string.
+	audioLanguage: {
+		toServer: v => (v === '' ? 'auto' : v),
+		fromServer: v => (v === 'auto' ? '' : v)
+	},
+	// This app predates the foreign mode and calls the flagged one default.
+	subtitleMode: {
+		toServer: v => (v === 'default' ? 'flagged' : v),
+		fromServer: v => (v === 'flagged' ? 'default' : v)
+	},
+	unpauseRewind: {
+		toServer: secondsToMs,
+		fromServer: msToSeconds
+	},
 	autoAdvanceInterval: {
 		toServer: secondsToMs,
 		// A small number is the seconds an older build pushed before this was
@@ -179,7 +199,7 @@ export const SYNCABLE_KEYS = [
 	'excludedGenres',
 	'autoAdvance', 'autoAdvanceInterval',
 	'displayFavoritesRows', 'displayCollectionsRows', 'displayGenresRows', 'displayPlaylistsRows',
-	'favoritesRowSortBy', 'collectionsRowSortBy', 'genresRowSortBy', 'genresRowItemFilter',
+	'favoritesRowSortBy', 'collectionsRowSortBy', 'genresRowSortBy', 'genresRowItemFilter', 'collectionsRowShowEpisodes',
 	'stillWatchingBehavior', 'watchedIndicatorBehavior',
 	// Core stores these as enums and syncs them by name, which is the same string this
 	// client stores, so they need no conversion on the way to the server.
@@ -194,7 +214,17 @@ export const SYNCABLE_KEYS = [
 	'useDetailedSubHeadings', 'showMediaDetailsOnLibraryPage', 'hideBackdropsInLibraries',
 	'syncplayEnabled', 'syncplayAutoOpen',
 	'showSyncPlayButton',
-	'videoStartDelay', 'cinemaModeEnabled',
+	'syncPlayAdvancedCorrectionEnabled', 'syncPlayEnableSyncCorrection',
+	'syncPlayUseSpeedToSync', 'syncPlayUseSkipToSync',
+	'syncPlayMinDelaySpeedToSync', 'syncPlayMaxDelaySpeedToSync',
+	'syncPlaySpeedToSyncDuration', 'syncPlayMinDelaySkipToSync', 'syncPlayExtraTimeOffset',
+	'videoStartDelay', 'cinemaModeEnabled', 'cinemaModeEpisodesEnabled',
+	'audioLanguage', 'fallbackAudioLanguage', 'preferDefaultAudioTrack', 'preferAudioDescription',
+	'subtitleLanguage', 'fallbackSubtitleLanguage', 'preferSdhSubtitles', 'subtitleMode',
+	'assDirectPlay',
+	'resumeSubtractDuration', 'unpauseRewind', 'skipBackLength', 'skipForwardLength',
+	'maxVideoResolution', 'playerZoomMode', 'mediaSegmentAutoHide',
+	'exitConfirmation',
 	'diagnosticLoggingEnabled',
 	'uiLanguage',
 	'blockedRatings',
@@ -202,10 +232,11 @@ export const SYNCABLE_KEYS = [
 	'radarrCalendarShowCinema', 'radarrCalendarShowDigital', 'radarrCalendarShowPhysical',
 	'radarrCalendarShowDate', 'sonarrCalendarShowDate', 'sonarrCalendarShowEpisodeInfo',
 	'showSeerrButton',
-	'screensaverMode',
+	'screensaverMode', 'screensaverClockMode',
+	'navbarAlwaysExpanded', 'oledMode', 'themeMusicLoop',
 	// Settings this app has no screen for. They ride along so a value set on another client
 	// survives the profile the TV writes back.
-	'showCastButton', 'themeMusicLoop',
+	'showCastButton',
 	'classicHomeRowsPadding', 'modernHomeRowsPadding',
 	'detailShowTechnicalDetails',
 	'recommendationSystemSource', 'recommendationsApplyParentalRatingCap',
@@ -466,6 +497,36 @@ export function SettingsProvider({children}) {
 					);
 					migrated = true;
 				}
+				if (!stored.screensaverClockMode && 'screensaverShowClock' in stored) {
+					// The clock toggle became a mode picker. The logo screensaver always
+					// bounced its clock, so that stays what those users see.
+					stored.screensaverClockMode = stored.screensaverShowClock === false
+						? 'off'
+						: (stored.screensaverMode === 'logo' ? 'bouncing' : 'staticCorner');
+					migrated = true;
+				}
+				if (!stored.autoLoginBehavior && 'autoLogin' in stored) {
+					stored.autoLoginBehavior = stored.autoLogin === false ? 'disabled' : 'lastUser';
+					migrated = true;
+				}
+				if (typeof stored.skipForwardLength === 'number' && stored.skipForwardLength > 0 && stored.skipForwardLength < 1000) {
+					// Stored as seconds before the skip lengths took the other clients'
+					// millisecond values.
+					stored.skipForwardLength = stored.skipForwardLength * 1000;
+					migrated = true;
+				}
+				if (!stored.audioPassthroughMode) {
+					// The master toggle and the per codec switches predate the mode
+					// picker, so their stored state keeps its old meaning.
+					if (stored.passthroughEnabled === false) {
+						stored.audioPassthroughMode = 'disabled';
+						migrated = true;
+					} else if (['ac3Passthrough', 'eac3Passthrough', 'dtsPassthrough', 'dtshdPassthrough', 'truehdPassthrough']
+						.some((key) => stored[key] === false)) {
+						stored.audioPassthroughMode = 'manual';
+						migrated = true;
+					}
+				}
 				if ('liveTvDirect' in stored) {
 					// This key spent time synced to the other clients' live tv direct play
 					// toggle, a playback setting, so a stored true usually arrived from
@@ -548,7 +609,10 @@ export function SettingsProvider({children}) {
 		}
 		return isBuiltInThemeId(settings.visualTheme) ? settings.visualTheme : 'moonfin';
 	}, [settings.customThemeId, settings.visualTheme, themeCatalogVersion]); // eslint-disable-line react-hooks/exhaustive-deps
-	const activeTheme = useMemo(() => resolveThemeById(activeThemeId), [activeThemeId, themeCatalogVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+	const activeTheme = useMemo(
+		() => applyOledMode(resolveThemeById(activeThemeId), settings.oledMode),
+		[activeThemeId, settings.oledMode, themeCatalogVersion] // eslint-disable-line react-hooks/exhaustive-deps
+	);
 
 	const updateSetting = useCallback((key, value) => {
 		if (key === 'uiLanguage') persistBootLocale(value);

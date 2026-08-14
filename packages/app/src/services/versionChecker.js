@@ -191,6 +191,25 @@ export const formatReleaseNotes = (notes) => {
 	return formatted;
 };
 
+// The settings row wants an answer either way, unlike the launch check below
+// that stays quiet when a version was dismissed or nothing is new.
+export const checkForUpdatesDetailed = async () => {
+	const currentVersion = getCurrentVersion();
+	try {
+		const releaseInfo = await fetchLatestRelease();
+		await markChecked();
+		if (!releaseInfo || !releaseInfo.tag_name) return {status: 'error', currentVersion};
+		const latestVersion = releaseInfo.tag_name.replace(/^v/, '');
+		if (compareVersions(currentVersion, latestVersion) < 0) {
+			return {status: 'update', currentVersion, latestVersion};
+		}
+		return {status: 'current', currentVersion, latestVersion};
+	} catch (e) {
+		void e;
+		return {status: 'error', currentVersion};
+	}
+};
+
 /**
  * Check for updates
  * @param {boolean} forceCheck - Skip cooldown check

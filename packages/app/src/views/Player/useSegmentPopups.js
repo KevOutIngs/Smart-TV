@@ -36,6 +36,8 @@ const useSegmentPopups = ({
 	const consecutiveRef = useRef(0);
 
 	const dismissedSegmentsRef = useRef(new Set());
+	// When the current skip prompt first appeared, for the auto hide timer.
+	const promptShownAtRef = useRef(null);
 	// Mirrored so the skip handler can stay stable, because the players keep
 	// checkSegments in a dependency array and it must not change every second.
 	const skipSegmentRef = useRef(null);
@@ -202,14 +204,26 @@ const useSegmentPopups = ({
 				if (autoSkip) {
 					handleSkipSegment(active);
 				} else {
-					skipPromptVisible = true;
-					const total = Math.max(1, (active.end - active.start) / 10000000);
-					const remaining = Math.max(0, Math.round((active.end - ticks) / 10000000));
-					setSkipSegment((prev) => (
-						prev && prev.type === active.type && prev.remainingSeconds === remaining
-							? prev
-							: {type: active.type, start: active.start, end: active.end, remainingSeconds: remaining, progress: remaining / total}
-					));
+					// The prompt stops covering the picture after a while when asked to,
+					// and seeking back before the segment offers it again.
+					const autoHideSeconds = settings.mediaSegmentAutoHide === 's10' ? 10
+						: settings.mediaSegmentAutoHide === 'off' ? 0 : 5;
+					if (promptShownAtRef.current?.start !== active.start) {
+						promptShownAtRef.current = {start: active.start, at: Date.now()};
+					}
+					if (autoHideSeconds > 0 && Date.now() - promptShownAtRef.current.at > autoHideSeconds * 1000) {
+						dismissedSegmentsRef.current.add(active.start);
+						setSkipSegment((prev) => (prev ? null : prev));
+					} else {
+						skipPromptVisible = true;
+						const total = Math.max(1, (active.end - active.start) / 10000000);
+						const remaining = Math.max(0, Math.round((active.end - ticks) / 10000000));
+						setSkipSegment((prev) => (
+							prev && prev.type === active.type && prev.remainingSeconds === remaining
+								? prev
+								: {type: active.type, start: active.start, end: active.end, remainingSeconds: remaining, progress: remaining / total}
+						));
+					}
 				}
 			} else if (!active) {
 				setSkipSegment((prev) => (prev ? null : prev));
@@ -244,7 +258,7 @@ const useSegmentPopups = ({
 				setShowNextEpisode(true);
 			}
 		}
-	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.replaceSkipOutroWithNextUp, nextEpisode, currentIsPreroll, runTimeRef, handlePlayNextEpisode, handleSkipSegment]);
+	}, [mediaSegments, settings.introAction, settings.nextUpBehavior, settings.outroAction, settings.replaceSkipOutroWithNextUp, settings.mediaSegmentAutoHide, nextEpisode, currentIsPreroll, runTimeRef, handlePlayNextEpisode, handleSkipSegment]);
 
 	// --- Clearing the way for a popup ---
 

@@ -10,6 +10,12 @@ export const getSortOrderFromSortBy = (sortBy) => {
 	return 'Descending';
 };
 
+// A stored direction wins, and auto keeps the derived one above.
+export const resolveSortOrder = (sortBy, storedOrder) => {
+	if (storedOrder === 'Ascending' || storedOrder === 'Descending') return storedOrder;
+	return getSortOrderFromSortBy(sortBy);
+};
+
 export const getGenresIncludeTypes = (filter) => {
 	if (filter === 'Movie') return 'Movie';
 	if (filter === 'Series') return 'Series';

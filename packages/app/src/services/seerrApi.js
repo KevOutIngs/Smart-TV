@@ -389,6 +389,74 @@ export const getMoonfinThemes = async (serverUrl, token) => {
 	}
 };
 
+// One flattened profile: the device override merged over global and the
+// admin defaults, which is what Load Profile applies locally.
+export const getMoonfinResolvedProfile = async (profileName, serverUrl, token) => {
+	const sUrl = serverUrl || jellyfinServerUrl;
+	const sToken = token || jellyfinAccessToken;
+	if (!sUrl || !sToken) {
+		throw new Error('Server URL and token required');
+	}
+
+	const url = `${sUrl}/Moonfin/Settings/Resolved/${profileName}`;
+	const result = await fetchRequest({
+		url,
+		method: 'GET',
+		headers: {
+			'Accept': 'application/json',
+			'Authorization': `MediaBrowser Token="${sToken}"`
+		},
+		timeout: 15000
+	});
+
+	if (!result.success) throw new Error(result.error || 'Network error');
+	if (result.status === 404) return null;
+	if (result.status >= 400) {
+		const error = new Error(`Moonfin resolved profile fetch failed: ${result.status}`);
+		error.status = result.status;
+		throw error;
+	}
+
+	try {
+		return JSON.parse(result.body);
+	} catch (e) {
+		throw new Error('Invalid response from Moonfin Settings');
+	}
+};
+
+// Resetting the global profile clears the whole stored settings file, while a
+// device profile reset just drops that one override. The server refuses a
+// profile delete on global, hence the split.
+export const deleteMoonfinProfile = async (profileName, serverUrl, token) => {
+	const sUrl = serverUrl || jellyfinServerUrl;
+	const sToken = token || jellyfinAccessToken;
+	if (!sUrl || !sToken) {
+		throw new Error('Server URL and token required');
+	}
+
+	const url = profileName === 'global'
+		? `${sUrl}/Moonfin/Settings`
+		: `${sUrl}/Moonfin/Settings/Profile/${profileName}`;
+	const result = await fetchRequest({
+		url,
+		method: 'DELETE',
+		headers: {
+			'Accept': 'application/json',
+			'Authorization': `MediaBrowser Token="${sToken}"`
+		},
+		timeout: 15000
+	});
+
+	if (!result.success) throw new Error(result.error || 'Network error');
+	if (result.status >= 400) {
+		const error = new Error(`Moonfin profile reset failed: ${result.status}`);
+		error.status = result.status;
+		throw error;
+	}
+
+	return true;
+};
+
 export const saveMoonfinProfile = async (profileName, profile, serverUrl, token) => {
 	const sUrl = serverUrl || jellyfinServerUrl;
 	const sToken = token || jellyfinAccessToken;
@@ -992,6 +1060,8 @@ export default {
 	getMoonfinConfig,
 	getMoonfinSettings,
 	getMoonfinThemes,
+	getMoonfinResolvedProfile,
+	deleteMoonfinProfile,
 	saveMoonfinProfile,
 	subscribeMoonfinSettingsStream,
 	getUser,

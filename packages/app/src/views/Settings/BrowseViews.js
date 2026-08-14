@@ -1,4 +1,5 @@
 /* eslint-disable react/jsx-no-bind */
+import {Fragment} from 'react';
 import $L from '@enact/i18n/$L';
 
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
@@ -71,9 +72,7 @@ export const CategoriesView = ({
 					onClick={() => onOpenCategory(cat.id)}
 					spotlightId={`cat-${cat.id}`}
 				>
-					<div className={css.listItemIcon}>
-						<cat.Icon />
-					</div>
+					{renderSettingsIcon(cat.icon)}
 					<div className={css.listItemBody}>
 						<div className={css.listItemHeading}>{cat.label}</div>
 						<div className={css.listItemCaption}>{cat.description}</div>
@@ -87,19 +86,24 @@ export const CategoriesView = ({
 export const CategoryView = ({title, subcategories, onOpenSubcategory}) => (
 	<SettingsView spotlightId='category-view'>
 		<SectionTitle>{title}</SectionTitle>
-		{subcategories.map((sub) => (
-			<SpottableDiv
-				key={sub.id}
-				className={css.listItem}
-				onClick={() => onOpenSubcategory(sub)}
-				spotlightId={`subcat-${sub.id}`}
-			>
-				<div className={css.listItemBody}>
-					<div className={css.listItemHeading}>{sub.label}</div>
-					{sub.description && <div className={css.listItemCaption}>{sub.description}</div>}
-				</div>
-				<div className={css.listItemTrailing}>{renderChevron()}</div>
-			</SpottableDiv>
+		{subcategories.map((sub, index) => (
+			<Fragment key={sub.id}>
+				{sub.section && sub.section !== subcategories[index - 1]?.section && (
+					<SectionTitle>{sub.section}</SectionTitle>
+				)}
+				<SpottableDiv
+					className={css.listItem}
+					onClick={() => onOpenSubcategory(sub)}
+					spotlightId={`subcat-${sub.id}`}
+				>
+					{renderSettingsIcon(sub.icon)}
+					<div className={css.listItemBody}>
+						<div className={css.listItemHeading}>{sub.label}</div>
+						{sub.description && <div className={css.listItemCaption}>{sub.description}</div>}
+					</div>
+					<div className={css.listItemTrailing}>{renderChevron()}</div>
+				</SpottableDiv>
+			</Fragment>
 		))}
 	</SettingsView>
 );

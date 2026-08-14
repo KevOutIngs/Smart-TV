@@ -142,11 +142,13 @@ const Browse = ({
 		imdbMostPopularMoviesEnabled: settings.imdbMostPopularMoviesEnabled,
 		imdbMostPopularTvShowsEnabled: settings.imdbMostPopularTvShowsEnabled,
 		imdbLowestRatedMoviesEnabled: settings.imdbLowestRatedMoviesEnabled,
-		imdbTopEnglishMoviesEnabled: settings.imdbTopEnglishMoviesEnabled
+		imdbTopEnglishMoviesEnabled: settings.imdbTopEnglishMoviesEnabled,
+		blockedRatings: settings.blockedRatings
 	}), [settings.mergeContinueWatchingNextUp, settings.hiddenContinueWatchingItems, settings.hiddenNextUpSeries,
 		settings.displayFavoritesRows, settings.displayCollectionsRows, settings.displayGenresRows, settings.displayPlaylistsRows,
 		settings.imdbTop250MoviesEnabled, settings.imdbTop250TvShowsEnabled, settings.imdbMostPopularMoviesEnabled,
-		settings.imdbMostPopularTvShowsEnabled, settings.imdbLowestRatedMoviesEnabled, settings.imdbTopEnglishMoviesEnabled]);
+		settings.imdbMostPopularTvShowsEnabled, settings.imdbLowestRatedMoviesEnabled, settings.imdbTopEnglishMoviesEnabled,
+		settings.blockedRatings]);
 
 	const filteredRows = useMemo(() => {
 		const result = buildBrowseRows({
@@ -546,6 +548,14 @@ const Browse = ({
 						if (row.isSeerrRow || row.isOnlineRecoRow) selectHandler = handleSelectSeerrItem;
 						else if (row.isExternalRow) selectHandler = handleSelectExternalItem;
 						else if (row.isGenreRow) selectHandler = handleSelectGenreItem;
+						// Per library rows share one override under the id that gates them.
+						// Overrides are a classic rows feature, the modern layout keeps its
+						// own arrangement untouched.
+						const imageTypeKey = row.isLatestRow ? 'latest-media'
+							: row.isRecentlyReleasedRow ? 'recently-released' : row.id;
+						const rowImageOverride = settings.homeRowsStyle === 'v1'
+							? (settings.homeRowImageTypes || {})[imageTypeKey]
+							: undefined;
 						return (
 							<RowComponent
 								key={row.id}
@@ -554,7 +564,7 @@ const Browse = ({
 								items={row.items}
 								serverUrl={serverUrl}
 								cardType={row.type}
-								rowImageType={settings.homeRowsImageType}
+								rowImageType={rowImageOverride || settings.homeRowsImageType}
 								onSelectItem={selectHandler}
 								onFocus={handleRowFocus}
 								onFocusItem={handleFocusItem}

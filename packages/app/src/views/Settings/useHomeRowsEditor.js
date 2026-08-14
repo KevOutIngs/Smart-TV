@@ -12,7 +12,7 @@ import {
 	isHomeRowVisibleByGates,
 	mergeDiscoveredPluginSections
 } from './homeSectionsModel';
-import {getGenresIncludeTypes, getSortOrderFromSortBy} from '../../utils/homeRowSorting';
+import {getGenresIncludeTypes, resolveSortOrder} from '../../utils/homeRowSorting';
 
 // The home screen row order, edited against a scratch copy and written back on save. The
 // IMDb rows are stored twice, as a row and as their own setting, so both are updated.
@@ -23,9 +23,9 @@ const useHomeRowsEditor = ({api, settings, updateSetting, updateSettings, pushVi
 
 	const refreshBuiltInCollectionGenreSections = useCallback(async () => {
 		const collectionsSortBy = settings.collectionsRowSortBy || 'SortName';
-		const collectionsSortOrder = getSortOrderFromSortBy(collectionsSortBy);
+		const collectionsSortOrder = resolveSortOrder(collectionsSortBy, settings.collectionsRowSortOrder);
 		const genresSortBy = settings.genresRowSortBy || 'SortName';
-		const genresSortOrder = getSortOrderFromSortBy(genresSortBy);
+		const genresSortOrder = resolveSortOrder(genresSortBy, settings.genresRowSortOrder);
 		const genresIncludeTypes = getGenresIncludeTypes(settings.genresRowItemFilter);
 
 		const [collectionsResult, genresResult] = await Promise.all([
@@ -44,10 +44,12 @@ const useHomeRowsEditor = ({api, settings, updateSetting, updateSettings, pushVi
 	}, [
 		api,
 		settings.collectionsRowSortBy,
+		settings.collectionsRowSortOrder,
 		settings.displayCollectionsRows,
 		settings.displayGenresRows,
 		settings.genresRowItemFilter,
-		settings.genresRowSortBy
+		settings.genresRowSortBy,
+		settings.genresRowSortOrder
 	]);
 
 	const toggleHomeRowEnabled = useCallback((sectionId) => {

@@ -21,12 +21,32 @@ export const FAST_RATE = 1.05;
 // these sets far more than the drift did.
 export const SEEK_TOLERANCE_MS = 250;
 
+const numberOr = (value, fallback) => (typeof value === 'number' && isFinite(value) ? value : fallback);
+
+// The correction thresholds the user tuned in settings, with the constants above
+// as the fallback for anything unset. Sync correction only runs at all when both
+// the advanced gate and the correction toggle are on, matching the other clients.
+export const correctionOptions = (settings = {}) => {
+	const advanced = settings.syncPlayAdvancedCorrectionEnabled !== false;
+	const correction = settings.syncPlayEnableSyncCorrection !== false;
+	return {
+		enabled: advanced && correction,
+		useSkip: settings.syncPlayUseSkipToSync !== false,
+		useSpeed: settings.syncPlayUseSpeedToSync !== false,
+		skipThresholdMs: numberOr(settings.syncPlayMinDelaySkipToSync, SKIP_THRESHOLD_MS),
+		speedMinMs: numberOr(settings.syncPlayMinDelaySpeedToSync, SPEED_MIN_MS),
+		speedMaxMs: numberOr(settings.syncPlayMaxDelaySpeedToSync, SPEED_MAX_MS),
+		speedDurationMs: numberOr(settings.syncPlaySpeedToSyncDuration, SPEED_DURATION_MS),
+		extraOffsetMs: numberOr(settings.syncPlayExtraTimeOffset, 0)
+	};
+};
+
 // Where the group should be now, given the position and server time it was last
 // known to be at.
-export const expectedPositionTicks = (reference, serverNowMs) => {
+export const expectedPositionTicks = (reference, serverNowMs, extraOffsetMs = 0) => {
 	if (!reference) return null;
 	const elapsed = Math.max(0, serverNowMs - reference.serverTimeMs);
-	return reference.positionTicks + elapsed * TICKS_PER_MS;
+	return reference.positionTicks + (elapsed + extraOffsetMs) * TICKS_PER_MS;
 };
 
 // Positive means this player is ahead of the group.
@@ -35,11 +55,19 @@ export const driftMs = (currentTicks, expectedTicks) => {
 	return Math.round((currentTicks - expectedTicks) / TICKS_PER_MS);
 };
 
-export const driftAction = (drift, {useSkip = true, useSpeed = true} = {}) => {
-	if (drift == null) return {type: 'none'};
+export const driftAction = (drift, options = {}) => {
+	const {
+		enabled = true,
+		useSkip = true,
+		useSpeed = true,
+		skipThresholdMs = SKIP_THRESHOLD_MS,
+		speedMinMs = SPEED_MIN_MS,
+		speedMaxMs = SPEED_MAX_MS
+	} = options;
+	if (!enabled || drift == null) return {type: 'none'};
 	const size = Math.abs(drift);
-	if (useSkip && size > SKIP_THRESHOLD_MS) return {type: 'seek'};
-	if (useSpeed && size > SPEED_MIN_MS && size < SPEED_MAX_MS) {
+	if (useSkip && size > skipThresholdMs) return {type: 'seek'};
+	if (useSpeed && size > speedMinMs && size < speedMaxMs) {
 		return {type: 'rate', rate: drift > 0 ? SLOW_RATE : FAST_RATE};
 	}
 	return {type: 'none'};

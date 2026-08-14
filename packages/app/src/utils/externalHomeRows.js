@@ -136,6 +136,38 @@ export const fetchCustomHomeRow = async (row, options = {}) => {
 	});
 };
 
+// The manual builder picks a source instead of pasting a URL. Each key maps to
+// the same source and type shapes detectCustomSource produces.
+export const buildManualCustomSource = (sourceKey, paramA, paramB) => {
+	const a = String(paramA || '').trim();
+	const b = String(paramB || '').trim();
+	if (sourceKey === 'tmdb_list') {
+		if (!/^\d+$/.test(a)) return {error: $L('Enter a numeric TMDB list ID.')};
+		return {source: 'tmdb', type: 'user_list', params: {id: a}};
+	}
+	if (sourceKey === 'tmdb_collection') {
+		if (!/^\d+$/.test(a)) return {error: $L('Enter a numeric TMDB collection ID.')};
+		return {source: 'tmdb', type: 'movie_collection', params: {id: a}};
+	}
+	if (sourceKey === 'mdblist') {
+		if (!a || !b) return {error: $L('Enter the MDBList username and list name.')};
+		return {source: 'mdblist', type: 'list_url', params: {username: a, listname: b}};
+	}
+	if (sourceKey === 'letterboxd') {
+		if (!a) return {error: $L('Enter a Letterboxd username.')};
+		return {source: 'letterboxd', type: 'user_diary', params: {user: a.toLowerCase()}};
+	}
+	return {error: $L('Pick a source.')};
+};
+
+// Which builder source key a stored row belongs to, for the edit flow.
+export const sourceKeyForRow = (row) => {
+	if (row?.source === 'tmdb') return row.type === 'movie_collection' ? 'tmdb_collection' : 'tmdb_list';
+	if (row?.source === 'mdblist') return 'mdblist';
+	if (row?.source === 'letterboxd') return 'letterboxd';
+	return 'tmdb_list';
+};
+
 // Detects the source, type and params from a pasted list URL so the user can
 // add a custom row by URL instead of picking source and type manually.
 export const detectCustomSource = (url) => {

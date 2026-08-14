@@ -15,6 +15,7 @@ import {seerrDetailStub} from '../utils/seerrTarget';
 import serverLogger from '../services/serverLogger';
 import {isBackKey, KEYS} from '../utils/keys';
 import {applyPerfTier} from '../utils/perfTier';
+import {OLED_TUNING} from '../utils/oledMode';
 import {isTizen, isWebOS} from '../platform';
 import {initVideo, cleanupVideoElement, setupVisibilityHandler, setupPlatformLifecycle} from '../services/video';
 import {SettingsProvider} from '../context/SettingsContext';
@@ -313,6 +314,14 @@ const AppContent = (props) => {
 	useEffect(() => {
 		applyPerfTier(settings.performanceMode === 'auto' ? null : settings.performanceMode);
 	}, [settings.performanceMode]);
+
+	// The surfaces are crushed on the theme itself, so all this has to do is tell
+	// the stylesheet which artwork boost to draw with.
+	useEffect(() => {
+		const root = document.documentElement;
+		if (OLED_TUNING[settings.oledMode]) root.setAttribute('data-oled', settings.oledMode);
+		else root.removeAttribute('data-oled');
+	}, [settings.oledMode]);
 
 	useEffect(() => {
 		const root = document.documentElement;
@@ -1389,7 +1398,7 @@ const AppContent = (props) => {
 				visible={showScreensaver}
 				mode={settings.screensaverMode || 'library'}
 				dimmingLevel={settings.screensaverDimmingLevel}
-				showClock={settings.screensaverShowClock}
+				clockMode={settings.screensaverClockMode}
 				clockDisplay={settings.clockDisplay}
 				timeOffsetHours={settings.timeOffsetHours}
 				maxRating={settings.screensaverAgeFilter ? settings.screensaverMaxRating : null}

@@ -79,30 +79,46 @@ export const AuthProvider = ({children}) => {
 				await initStorage();
 				await jellyfinApi.initDeviceId();
 
-				const {active} = await loadServers();
+				const {allServers, active} = await loadServers();
 
 				const storedSettings = await getFromStorage('settings');
-				const autoLogin = storedSettings?.autoLogin !== false && storedSettings?.alwaysAuthenticate !== true;
+				// Three behaviors, the way the other clients do it: disabled, the last
+				// used account, or one pinned account. Settings saved before the picker
+				// only had the on off toggle.
+				const behavior = storedSettings?.autoLoginBehavior ||
+					(storedSettings?.autoLogin === false ? 'disabled' : 'lastUser');
+				const autoLogin = behavior !== 'disabled' && storedSettings?.alwaysAuthenticate !== true;
 
-				if (active) {
-					setLastServerUrl(active.url);
-					setLastServerName(active.name);
+				let restoreTarget = active;
+				if (behavior === 'currentUser' && storedSettings?.autoLoginUserId) {
+					const pinned = allServers.find((s) =>
+						s.serverId === storedSettings.autoLoginServerId &&
+						s.userId === storedSettings.autoLoginUserId);
+					if (pinned) restoreTarget = pinned;
+				}
+
+				if (restoreTarget) {
+					setLastServerUrl(restoreTarget.url);
+					setLastServerName(restoreTarget.name);
 
 					if (autoLogin) {
-						jellyfinApi.setServer(active.url);
-						jellyfinApi.setServerType(active.serverType || 'jellyfin');
-						jellyfinApi.setAuth(active.userId, active.accessToken);
-						setServerUrl(active.url);
-						setServerName(active.name);
-						setAccessToken(active.accessToken);
-						setServerType(active.serverType || 'jellyfin');
+						if (restoreTarget !== active) {
+							await multiServerManager.setActiveServer(restoreTarget.serverId, restoreTarget.userId);
+						}
+						jellyfinApi.setServer(restoreTarget.url);
+						jellyfinApi.setServerType(restoreTarget.serverType || 'jellyfin');
+						jellyfinApi.setAuth(restoreTarget.userId, restoreTarget.accessToken);
+						setServerUrl(restoreTarget.url);
+						setServerName(restoreTarget.name);
+						setAccessToken(restoreTarget.accessToken);
+						setServerType(restoreTarget.serverType || 'jellyfin');
 
 						try {
 							const userInfo = await jellyfinApi.api.getUserConfiguration();
 							setUser(userInfo);
 							setIsAuthenticated(true);
-							if (userInfo.PrimaryImageTag && active.serverId) {
-								multiServerManager.updateServer(active.serverId, null, active.userId, {
+							if (userInfo.PrimaryImageTag && restoreTarget.serverId) {
+								multiServerManager.updateServer(restoreTarget.serverId, null, restoreTarget.userId, {
 									primaryImageTag: userInfo.PrimaryImageTag
 								});
 							}

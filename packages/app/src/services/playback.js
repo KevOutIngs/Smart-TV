@@ -3,6 +3,7 @@ import {getDeviceProfile, getDeviceCapabilities} from './deviceProfile';
 import {getPlayMethod, getMimeType, isAudioStreamPlayable} from './video';
 import {getFromStorage} from './storage';
 import {TEXT_SUBTITLE_CODECS, isAssSubtitleCodec, isPgsSubtitleCodec, isBurnInSubtitleCodec} from '../utils/subtitleCodecs';
+import {applyProfileTuning} from '../utils/deviceProfileTuning';
 import {findNextInSeason, findNextSeason, firstPlayableEpisode} from '../utils/nextEpisode';
 
 export const PlayMethod = {
@@ -47,20 +48,42 @@ const DEFAULT_PASSTHROUGH_SETTINGS = {
 	forceTruehdPassthrough: false
 };
 
-const getPlaybackAudioSettings = async (options = {}) => {
+// Which of the three passthrough modes applies. Settings saved before the mode
+// picker existed keep their old meaning: a disabled master toggle reads as
+// disabled, an individually turned off codec reads as manual.
+const resolvePassthroughMode = (stored) => {
+	const mode = stored.audioPassthroughMode;
+	if (mode === 'auto' || mode === 'manual' || mode === 'disabled') return mode;
+	if (stored.passthroughEnabled === false) return 'disabled';
+	const codecKeys = ['ac3Passthrough', 'eac3Passthrough', 'dtsPassthrough', 'dtshdPassthrough', 'truehdPassthrough'];
+	if (codecKeys.some((key) => stored[key] === false)) return 'manual';
+	return 'auto';
+};
+
+const getPlaybackAudioSettings = async (options = {}, preloadedSettings = null) => {
 	if (options.passthroughSettings) {
 		return {...DEFAULT_PASSTHROUGH_SETTINGS, ...options.passthroughSettings};
 	}
 
-	const stored = (await getFromStorage('settings')) || {};
+	const stored = preloadedSettings || (await getFromStorage('settings')) || {};
+	const mode = resolvePassthroughMode(stored);
+	// Downmixing decodes everything to two channels, so nothing may bitstream.
+	const off = mode === 'disabled' || stored.downmixToStereo === true;
+	// Auto claims every codec and lets the detected device capabilities decide,
+	// manual honors the per codec toggles the way this app always has.
+	const claim = (optionValue, storedValue, fallback) => {
+		if (off) return false;
+		if (mode === 'auto') return true;
+		return optionValue ?? storedValue ?? fallback;
+	};
 	return {
-		passthroughEnabled: options.passthroughEnabled ?? stored.passthroughEnabled ?? DEFAULT_PASSTHROUGH_SETTINGS.passthroughEnabled,
-		ac3Passthrough: options.ac3Passthrough ?? stored.ac3Passthrough ?? DEFAULT_PASSTHROUGH_SETTINGS.ac3Passthrough,
-		eac3Passthrough: options.eac3Passthrough ?? stored.eac3Passthrough ?? DEFAULT_PASSTHROUGH_SETTINGS.eac3Passthrough,
-		dtsPassthrough: options.dtsPassthrough ?? stored.dtsPassthrough ?? DEFAULT_PASSTHROUGH_SETTINGS.dtsPassthrough,
-		dtshdPassthrough: options.dtshdPassthrough ?? stored.dtshdPassthrough ?? DEFAULT_PASSTHROUGH_SETTINGS.dtshdPassthrough,
-		truehdPassthrough: options.truehdPassthrough ?? stored.truehdPassthrough ?? DEFAULT_PASSTHROUGH_SETTINGS.truehdPassthrough,
-		forceTruehdPassthrough: options.forceTruehdPassthrough ?? stored.forceTruehdPassthrough ?? DEFAULT_PASSTHROUGH_SETTINGS.forceTruehdPassthrough
+		passthroughEnabled: !off,
+		ac3Passthrough: claim(options.ac3Passthrough, stored.ac3Passthrough, DEFAULT_PASSTHROUGH_SETTINGS.ac3Passthrough),
+		eac3Passthrough: claim(options.eac3Passthrough, stored.eac3Passthrough, DEFAULT_PASSTHROUGH_SETTINGS.eac3Passthrough),
+		dtsPassthrough: claim(options.dtsPassthrough, stored.dtsPassthrough, DEFAULT_PASSTHROUGH_SETTINGS.dtsPassthrough),
+		dtshdPassthrough: claim(options.dtshdPassthrough, stored.dtshdPassthrough, DEFAULT_PASSTHROUGH_SETTINGS.dtshdPassthrough),
+		truehdPassthrough: claim(options.truehdPassthrough, stored.truehdPassthrough, DEFAULT_PASSTHROUGH_SETTINGS.truehdPassthrough),
+		forceTruehdPassthrough: off ? false : (options.forceTruehdPassthrough ?? stored.forceTruehdPassthrough ?? DEFAULT_PASSTHROUGH_SETTINGS.forceTruehdPassthrough)
 	};
 };
 
@@ -285,11 +308,12 @@ const extractAudioStreams = (mediaSource) => {
 			bitRate: s.BitRate,
 			sampleRate: s.SampleRate,
 			isDefault: s.IsDefault,
-			isForced: s.IsForced
+			isForced: s.IsForced,
+			isAudioDescription: s.IsAudioDescription
 		}));
 };
 
-const extractSubtitleStreams = (mediaSource, itemId = null, creds = null) => {
+const extractSubtitleStreams = (mediaSource, itemId = null, creds = null, assBurnsIn = false) => {
 	if (!mediaSource.MediaStreams) return [];
 	const serverUrl = creds?.serverUrl || jellyfinApi.getServerUrl();
 	const apiKey = creds?.accessToken || jellyfinApi.getApiKey();
@@ -318,9 +342,11 @@ const extractSubtitleStreams = (mediaSource, itemId = null, creds = null) => {
 				isDefault: s.IsDefault,
 				isHearingImpaired: s.IsHearingImpaired,
 				isTextBased,
-				isAss: isAssSubtitleCodec(codec),
+				// With direct play turned off the server burns ASS in, so the client
+				// renderer must stay out of the way.
+				isAss: !assBurnsIn && isAssSubtitleCodec(codec),
 				isImageBased,
-				isBurnIn: isBurnInSubtitleCodec(codec),
+				isBurnIn: isBurnInSubtitleCodec(codec) || (assBurnsIn && isAssSubtitleCodec(codec)),
 				// Only bitmap tracks left in the container are AVPlay's to select. The profile
 				// asks the server to extract text, so it arrives over the API and renders on
 				// the web layer even though it also sits in the container.
@@ -352,9 +378,11 @@ const getAutoMaxBitrate = (capabilities) => {
 
 export const getPlaybackInfo = async (itemId, options = {}) => {
 	const serverType = options.serverType || options.item?._serverType || jellyfinApi.getServerType();
-	const passthroughSettings = await getPlaybackAudioSettings(options);
+	const storedSettings = (await getFromStorage('settings')) || {};
+	const passthroughSettings = await getPlaybackAudioSettings(options, storedSettings);
 	const profileOptions = {...options, passthroughSettings};
-	const deviceProfile = options.deviceProfile || await getDeviceProfile(serverType, profileOptions);
+	const deviceProfile = options.deviceProfile ||
+		applyProfileTuning(await getDeviceProfile(serverType, profileOptions), storedSettings);
 	const capabilities = await getDeviceCapabilities(profileOptions);
 
 	// Cross-server: use item's server if available
@@ -442,7 +470,7 @@ export const getPlaybackInfo = async (itemId, options = {}) => {
 			: (mediaSource.SupportsDirectPlay ? PlayMethod.DirectPlay : PlayMethod.DirectStream);
 		const url = buildPlaybackUrl(itemId, mediaSource, playbackInfo.PlaySessionId, playMethod, creds, false, options);
 		const audioStreams = extractAudioStreams(mediaSource);
-		const subtitleStreams = extractSubtitleStreams(mediaSource, itemId, creds);
+		const subtitleStreams = extractSubtitleStreams(mediaSource, itemId, creds, storedSettings.assDirectPlay === false);
 
 		currentSession = {
 			itemId,
@@ -655,7 +683,7 @@ export const getPlaybackInfo = async (itemId, options = {}) => {
 	const url = buildPlaybackUrl(itemId, mediaSource, playbackInfo.PlaySessionId, playMethod, creds, isAudio, options);
 
 	const audioStreams = extractAudioStreams(mediaSource);
-	const subtitleStreams = extractSubtitleStreams(mediaSource, itemId, creds);
+	const subtitleStreams = extractSubtitleStreams(mediaSource, itemId, creds, storedSettings.assDirectPlay === false);
 	const chapters = extractChapters(mediaSource);
 
 	const audioOnlyRemux = playMethod === PlayMethod.Transcode && isAudioOnlyRemuxTranscode(mediaSource);

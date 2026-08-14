@@ -6,7 +6,7 @@ import $L from '@enact/i18n/$L';
 import {HOME_ROW_ITEM_FIELDS} from '../../services/jellyfinApi';
 import {loadSinceYouWatchedRows, loadRewatchItems} from '../../services/homeRecommendations';
 import {FAVORITE_ROW_CONFIGS, getItemGenreNames, parsePluginSpec, stableIndex} from './browseFilters';
-import {getGenresIncludeTypes, getSortOrderFromSortBy} from '../../utils/homeRowSorting';
+import {getGenresIncludeTypes, resolveSortOrder} from '../../utils/homeRowSorting';
 
 // The sort settings and enabled flags every loader reads, worked out once rather than by each
 // of them. Everything here is a plain function of the settings and the row list.
@@ -26,16 +26,16 @@ export const buildLoaderContext = ({api, settings, homeRowsConfig, eligibleLibra
 		seerrEnabled,
 		seerrAuthenticated,
 		favoriteSortBy,
-		favoriteSortOrder: getSortOrderFromSortBy(favoriteSortBy),
+		favoriteSortOrder: resolveSortOrder(favoriteSortBy, settings.favoritesRowSortOrder),
 		collectionsSortBy,
-		collectionsSortOrder: getSortOrderFromSortBy(collectionsSortBy),
+		collectionsSortOrder: resolveSortOrder(collectionsSortBy, settings.collectionsRowSortOrder),
 		genresSortBy,
-		genresSortOrder: getSortOrderFromSortBy(genresSortBy),
+		genresSortOrder: resolveSortOrder(genresSortBy, settings.genresRowSortOrder),
 		genresIncludeTypes: getGenresIncludeTypes(settings.genresRowItemFilter),
 		playlistsSortBy,
-		playlistsSortOrder: getSortOrderFromSortBy(playlistsSortBy),
+		playlistsSortOrder: resolveSortOrder(playlistsSortBy, settings.playlistsRowSortOrder),
 		audioRowsSortBy,
-		audioRowsSortOrder: getSortOrderFromSortBy(audioRowsSortBy),
+		audioRowsSortOrder: resolveSortOrder(audioRowsSortBy, settings.audioRowsSortOrder),
 		audioArtistsEnabled: rowEnabled('audioartists'),
 		audioAlbumsEnabled: rowEnabled('audioalbums'),
 		audioPlaylistsEnabled: rowEnabled('audioplaylists'),
@@ -49,6 +49,30 @@ export const buildLoaderContext = ({api, settings, homeRowsConfig, eligibleLibra
 			.filter((idx) => idx >= 1)
 			.sort((a, b) => a - b)
 	};
+};
+
+// Replaces each series with its episodes for the collection rows that asked for
+// it, keeping movies and anything else where they were.
+const expandSeriesToEpisodes = async (api, items, limit) => {
+	const expanded = await Promise.all(items.map(async (item) => {
+		if (item?.Type !== 'Series') return [item];
+		try {
+			const result = await api.getItems({
+				ParentId: item.Id,
+				IncludeItemTypes: 'Episode',
+				Recursive: true,
+				SortBy: 'ParentIndexNumber,IndexNumber',
+				SortOrder: 'Ascending',
+				Limit: limit,
+				Fields: HOME_ROW_ITEM_FIELDS
+			});
+			const episodes = result?.Items || [];
+			return episodes.length ? episodes : [item];
+		} catch (_error) {
+			return [item];
+		}
+	}));
+	return [].concat(...expanded).slice(0, limit);
 };
 
 const loadLatestAndRecentlyReleased = async (ctx) => {
@@ -431,6 +455,9 @@ const loadPluginsAndRecos = async (ctx) => {
 					}
 					const result = await api.getCollectionItems(collectionId, limit);
 					items = result?.Items || [];
+					if (settings.collectionsRowShowEpisodes) {
+						items = await expandSeriesToEpisodes(api, items, limit);
+					}
 					break;
 				}
 				case 'genre': {

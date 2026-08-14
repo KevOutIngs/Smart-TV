@@ -1,0 +1,70 @@
+// Applies the user's transcoding limits on top of the platform device profile.
+// The platform files describe what the hardware can do, and these conditions
+// describe what the user is willing to let it do, so the server transcodes
+// anything past them instead of direct playing it.
+
+const RESOLUTIONS = {
+	res480p: {width: 720, height: 480},
+	res720p: {width: 1280, height: 720},
+	res1080p: {width: 1920, height: 1080},
+	res2160p: {width: 3840, height: 2160}
+};
+
+const resolutionConditions = ({width, height}) => ([
+	{Condition: 'LessThanEqual', Property: 'Width', Value: String(width), IsRequired: false},
+	{Condition: 'LessThanEqual', Property: 'Height', Value: String(height), IsRequired: false}
+]);
+
+export const applyProfileTuning = (profile, settings = {}) => {
+	if (!profile) return profile;
+
+	const resolution = RESOLUTIONS[settings.maxVideoResolution];
+	const channelCap = settings.downmixToStereo === true
+		? 2
+		: (typeof settings.maxAudioChannels === 'number' && settings.maxAudioChannels > 0
+			? settings.maxAudioChannels
+			: null);
+	const dropAss = settings.assDirectPlay === false;
+
+	if (!resolution && !channelCap && !dropAss) return profile;
+
+	const tuned = {...profile};
+
+	if (resolution) {
+		tuned.CodecProfiles = (tuned.CodecProfiles || []).map((codecProfile) => {
+			if (codecProfile.Type !== 'Video') return codecProfile;
+			return {
+				...codecProfile,
+				Conditions: [...(codecProfile.Conditions || []), ...resolutionConditions(resolution)]
+			};
+		});
+		// A codec without its own profile still has to obey the cap.
+		tuned.CodecProfiles = [
+			...tuned.CodecProfiles,
+			{Type: 'Video', Conditions: resolutionConditions(resolution)}
+		];
+	}
+
+	if (channelCap) {
+		const capCondition = {
+			Condition: 'LessThanEqual', Property: 'AudioChannels', Value: String(channelCap), IsRequired: false
+		};
+		tuned.CodecProfiles = [
+			...(tuned.CodecProfiles || []),
+			{Type: 'VideoAudio', Conditions: [capCondition]},
+			{Type: 'Audio', Conditions: [capCondition]}
+		];
+		tuned.TranscodingProfiles = (tuned.TranscodingProfiles || []).map((transcodingProfile) => {
+			const existing = parseInt(transcodingProfile.MaxAudioChannels, 10);
+			const capped = isNaN(existing) ? channelCap : Math.min(existing, channelCap);
+			return {...transcodingProfile, MaxAudioChannels: String(capped)};
+		});
+	}
+
+	if (dropAss) {
+		tuned.SubtitleProfiles = (tuned.SubtitleProfiles || [])
+			.filter((subtitleProfile) => subtitleProfile.Format !== 'ass' && subtitleProfile.Format !== 'ssa');
+	}
+
+	return tuned;
+};

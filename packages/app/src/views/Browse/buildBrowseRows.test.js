@@ -182,3 +182,44 @@ describe('favourite rows', () => {
 		expect(FAVORITE_ROW_CONFIGS.map((config) => config.id)).toEqual(FAVORITE_ROW_IDS);
 	});
 });
+
+describe('blocked ratings', () => {
+	const rowsWithRatings = () => [
+		row('collections', [
+			item('1', {OfficialRating: 'R'}),
+			item('2', {OfficialRating: 'PG'}),
+			item('3')
+		])
+	];
+	const config = [{id: 'collections', enabled: true, order: 0}];
+
+	test('items carrying a blocked rating drop out and unrated ones stay', () => {
+		const rows = build({
+			allRowData: rowsWithRatings(),
+			homeRowsConfig: config,
+			settings: settings({blockedRatings: ['R']})
+		});
+
+		expect(rows[0].items.map((i) => i.Id)).toEqual(['2', '3']);
+	});
+
+	test('a rating matches whatever case and spacing it was stored with', () => {
+		const rows = build({
+			allRowData: [row('collections', [item('1', {OfficialRating: ' r '})])],
+			homeRowsConfig: config,
+			settings: settings({blockedRatings: ['R']})
+		});
+
+		expect(rows).toEqual([]);
+	});
+
+	test('an empty block list leaves every row alone', () => {
+		const rows = build({
+			allRowData: rowsWithRatings(),
+			homeRowsConfig: config,
+			settings: settings({blockedRatings: []})
+		});
+
+		expect(rows[0].items).toHaveLength(3);
+	});
+});
