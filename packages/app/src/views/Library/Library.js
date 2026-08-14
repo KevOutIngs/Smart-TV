@@ -18,7 +18,7 @@ import {useStorage} from '../../hooks/useStorage';
 import {KEYS} from '../../utils/keys';
 import useSortSettingsPanels from '../../hooks/useSortSettingsPanels';
 import useStartLetter from '../../hooks/useStartLetter';
-import {GRID_DIRECTIONS, IMAGE_SIZES, IMAGE_TYPES, LETTERS, capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, stopPropagation} from '../../utils/gridChrome';
+import {GRID_DIRECTIONS, IMAGE_SIZES, IMAGE_TYPES, LETTERS, capitalize, createGridKeyDown, createToolbarKeyDown, cycleValue, focusOverhang, horizontalCellPad, stopPropagation} from '../../utils/gridChrome';
 
 import css from './Library.module.less';
 
@@ -59,27 +59,10 @@ const MUSIC_CONTENT_TYPES = [
 
 const FOLDER_DETAIL_TYPES = ['Series', 'BoxSet', 'Playlist', 'MusicAlbum', 'MusicArtist'];
 
-// How far a focused card grows, matched in the stylesheet.
-const FOCUS_SCALE = 1.05;
-// Half the gap between two cards, and the least a cell can be padded by.
-const MIN_CELL_GAP = 9;
 // The inset the stylesheet keeps either side of the grid, both sides added up.
 const GRID_INSET = 174;
-
-// The grid stretches every cell to fill its row, so a card ends up wider than
-// the size it asked for and grows further than that again when focused. Working
-// the columns out the way the grid does gives the width the padding has to
-// cover, and a wider pad can drop a column, so it settles rather than guesses.
-const horizontalCellPad = (cardWidth, gridWidth) => {
-	let pad = Math.max(MIN_CELL_GAP, Math.ceil(cardWidth * (FOCUS_SCALE - 1) / 2));
-	for (let i = 0; i < 3; i++) {
-		const columns = Math.max(1, Math.floor(gridWidth / (cardWidth + pad * 2)));
-		const needed = Math.ceil((gridWidth / columns - pad * 2) * (FOCUS_SCALE - 1) / 2);
-		if (needed <= pad) break;
-		pad = needed;
-	}
-	return pad;
-};
+// The least room a row leaves between two cards.
+const MIN_ROW_GAP = 6;
 
 const PLAYED_FILTERS = [
 	{key: 'all', label: $L('All')},
@@ -614,11 +597,8 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			: ({small: 116, medium: 145, large: 174, extraLarge: 203}[imageSize] || 145);
 	const cardHeight = posterHeight + textHeight;
 
-	// A focused card grows about its centre and paints past the artwork, and the
-	// grid clips at its own edge. Every cell carries that growth as padding, so
-	// the card grows into room it already had rather than over the edge.
 	const cellPadX = horizontalCellPad(cardWidth, window.innerWidth - GRID_INSET);
-	const cellPadY = Math.max(6, Math.ceil(cardHeight * (FOCUS_SCALE - 1) / 2));
+	const cellPadY = Math.max(MIN_ROW_GAP, focusOverhang(cardHeight));
 	const cellPadding = `${cellPadY}px ${cellPadX}px`;
 	const gridItemSize = {minWidth: cardWidth + cellPadX * 2, minHeight: cardHeight + cellPadY * 2};
 

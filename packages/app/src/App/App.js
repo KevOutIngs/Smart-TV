@@ -63,6 +63,7 @@ const SeerrBrowse = lazy(() => import('../views/SeerrBrowse'));
 const SeerrPerson = lazy(() => import('../views/SeerrPerson'));
 const SeerrCollection = lazy(() => import('../views/SeerrCollection'));
 const Games = lazy(() => import('../views/Games'));
+const GameSystem = lazy(() => import('../views/GameSystem'));
 const GameDetails = lazy(() => import('../views/GameDetails'));
 const GamePlayer = lazy(() => import('../views/GamePlayer'));
 
@@ -119,7 +120,8 @@ const PANELS = {
 	GAMES: 19,
 	GAME_DETAILS: 20,
 	GAME_PLAYER: 21,
-	SEERR_COLLECTION: 22
+	SEERR_COLLECTION: 22,
+	GAME_SYSTEM: 23
 };
 
 const AppContent = (props) => {
@@ -141,6 +143,7 @@ const AppContent = (props) => {
 	const [selectedItem, setSelectedItem] = useState(null);
 	const [selectedLibrary, setSelectedLibrary] = useState(null);
 	const [selectedGameLibrary, setSelectedGameLibrary] = useState(null);
+	const [selectedGameSystem, setSelectedGameSystem] = useState(null);
 	const [selectedGame, setSelectedGame] = useState(null);
 	const [gameStartFresh, setGameStartFresh] = useState(false);
 	const [selectedPerson, setSelectedPerson] = useState(null);
@@ -660,6 +663,12 @@ const AppContent = (props) => {
 		navigateTo(PANELS.LIBRARY);
 	}, [navigateTo]);
 
+	const handleSelectGameSystem = useCallback((gameLibrary, system) => {
+		setSelectedGameLibrary(gameLibrary);
+		setSelectedGameSystem(system);
+		navigateTo(PANELS.GAME_SYSTEM);
+	}, [navigateTo]);
+
 	const handleSelectGame = useCallback((gameLibrary, game) => {
 		setSelectedGameLibrary(gameLibrary);
 		setSelectedGame(game);
@@ -1028,6 +1037,8 @@ const AppContent = (props) => {
 	const showNavBar = panelIndex !== PANELS.LOGIN &&
 		panelIndex !== PANELS.PLAYER &&
 		panelIndex !== PANELS.GAME_PLAYER &&
+		panelIndex !== PANELS.GAMES &&
+		panelIndex !== PANELS.GAME_SYSTEM &&
 		panelIndex !== PANELS.LIBRARY &&
 		panelIndex !== PANELS.LIVETV &&
 		panelIndex !== PANELS.RECORDINGS &&
@@ -1251,7 +1262,7 @@ const AppContent = (props) => {
 						{panelIndex === PANELS.GAMES && (
 							<Games
 								library={selectedGameLibrary}
-								onSelectGame={handleSelectGame}
+								onSelectSystem={handleSelectGameSystem}
 								onHome={handleHome}
 								backHandlerRef={backHandlerRef}
 							/>
@@ -1280,13 +1291,24 @@ const AppContent = (props) => {
 							/>
 						)}
 					</Panel>
-					{/* Keep this last. Panels renders only children[panelIndex], so every
-					    Panel's position here has to match its PANELS value. */}
+					{/* Panels renders only children[panelIndex], so every Panel's position
+					    here has to match its PANELS value and a new one goes on the end. */}
 					<Panel>
 						{panelIndex === PANELS.SEERR_COLLECTION && (
 							<SeerrCollection
 								collectionId={seerrCollection?.collectionId}
 								onSelectItem={handleSelectSeerrItem}
+								backHandlerRef={backHandlerRef}
+							/>
+						)}
+					</Panel>
+					<Panel>
+						{panelIndex === PANELS.GAME_SYSTEM && (
+							<GameSystem
+								library={selectedGameLibrary}
+								system={selectedGameSystem}
+								onSelectGame={handleSelectGame}
+								onBack={handleBack}
 								backHandlerRef={backHandlerRef}
 							/>
 						)}

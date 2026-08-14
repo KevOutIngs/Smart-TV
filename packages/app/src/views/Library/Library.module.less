@@ -59,45 +59,11 @@
 }
 
 .searchIcon {
-	position: absolute;
-	left: 20px;
-	top: 50%;
-	margin-top: -14px;
-	width: 28px;
-	height: 28px;
-	fill: var(--theme-on-surface, #ffffff);
-	z-index: 1;
+	.search-glyph();
 }
 
 .searchField {
-	display: -webkit-flex;
-	display: flex;
-	-webkit-align-items: center;
-	align-items: center;
-	box-sizing: border-box;
-	width: 100%;
-	height: 66px;
-	padding: 0 20px 0 58px;
-	border: 3px solid transparent;
-	border-radius: 35px;
-	background: rgba(var(--theme-surface-rgb, 30, 30, 40), 0.72);
-	color: var(--theme-on-surface, #ffffff);
-	font-size: 25px;
-	cursor: pointer;
-
-	&:focus,
-	&[data-focused] {
-		outline: none;
-		border-color: var(--theme-focus-border-color, #ffffff);
-	}
-
-	input::-webkit-input-placeholder {
-		color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.62);
-	}
-
-	input::placeholder {
-		color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.62);
-	}
+	.search-field();
 }
 
 .libraryTitle {
@@ -266,41 +232,16 @@
 	padding: 12px 87px 14px;
 }
 
-/* Unfocused these are bare dimmed glyphs, and focus inverts the whole button to
-   a filled square with a dark icon. */
 .toolbarBtn {
-	background: none;
-	border: 3px solid transparent;
-	border-radius: 9px;
-	width: 44px;
-	height: 44px;
-	min-width: 44px;
-	box-sizing: border-box;
-	display: -webkit-flex;
-	display: flex;
-	-webkit-align-items: center;
-	align-items: center;
-	-webkit-justify-content: center;
-	justify-content: center;
-	cursor: pointer;
-	transition: background-color 0.15s ease, border-color 0.15s ease;
+	.toolbar-button();
 
 	& ~ & {
 		margin-left: 3px;
 	}
-
-	&:focus {
-		outline: none;
-		background: var(--theme-on-surface, #ffffff);
-		border-color: var(--theme-focus-border-color, #ffffff);
-	}
 }
 
 .toolbarIcon {
-	width: 29px;
-	height: 29px;
-	fill: rgba(255, 255, 255, 0.5);
-	fill: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.5);
+	.toolbar-icon();
 }
 
 .toolbarBtn:focus .toolbarIcon {

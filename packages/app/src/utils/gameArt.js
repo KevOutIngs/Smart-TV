@@ -16,6 +16,9 @@ export const gameDisplayTitle = (title, fileName) => {
 	return cleaned || thumbName(fileName);
 };
 
+// A cover the server has no art for leaves the seeded colour behind it showing.
+export const hideBrokenArt = (ev) => { ev.target.style.visibility = 'hidden'; };
+
 // Stable, pleasant fallback color for poster placeholders when no thumbnail resolves.
 export const gameFallbackColor = (seed) => {
 	let hash = 0;

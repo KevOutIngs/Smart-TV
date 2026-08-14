@@ -62,6 +62,85 @@
 	}
 }
 
+// The round-cornered square a library screen puts its home, sort and back
+// glyphs in. Unfocused it is bare, and focus inverts the whole button. The
+// icon rules are separate because only the screen knows both class names for
+// the focused pair.
+.toolbar-button() {
+	background: none;
+	border: 3px solid transparent;
+	border-radius: 9px;
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
+	box-sizing: border-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-align-items: center;
+	align-items: center;
+	-webkit-justify-content: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+
+	&:focus {
+		outline: none;
+		background: var(--theme-on-surface, #ffffff);
+		border-color: var(--theme-focus-border-color, #ffffff);
+	}
+}
+
+.toolbar-icon() {
+	width: 29px;
+	height: 29px;
+	fill: rgba(255, 255, 255, 0.5);
+	fill: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.5);
+}
+
+// The search box in a library header. The glyph is positioned by the wrapper
+// rather than sitting inside the field, since the field is an input.
+.search-field() {
+	display: -webkit-flex;
+	display: flex;
+	-webkit-align-items: center;
+	align-items: center;
+	box-sizing: border-box;
+	width: 100%;
+	height: 66px;
+	padding: 0 20px 0 58px;
+	border: 3px solid transparent;
+	border-radius: 35px;
+	background: rgba(var(--theme-surface-rgb, 30, 30, 40), 0.72);
+	color: var(--theme-on-surface, #ffffff);
+	font-size: 25px;
+	cursor: pointer;
+
+	&:focus,
+	&[data-focused] {
+		outline: none;
+		border-color: var(--theme-focus-border-color, #ffffff);
+	}
+
+	input::-webkit-input-placeholder {
+		color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.62);
+	}
+
+	input::placeholder {
+		color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.62);
+	}
+}
+
+.search-glyph() {
+	position: absolute;
+	left: 20px;
+	top: 50%;
+	margin-top: -14px;
+	width: 28px;
+	height: 28px;
+	fill: var(--theme-on-surface, #ffffff);
+	z-index: 1;
+}
+
 .theme-chip() {
 	border-radius: var(--theme-chip-radius, 8px);
 	border: var(--theme-chip-border, 1px solid transparent);

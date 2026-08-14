@@ -1,52 +1,62 @@
+@import '../../styles/mixins.less';
+
 .root {
 	position: fixed;
 	top: 0;
 	right: 0;
 	bottom: 0;
 	left: 0;
-	padding: 24px 0 0 48px;
+	padding: 29px 0 0;
 	box-sizing: border-box;
 }
 
+.header {
+	display: -webkit-flex;
+	display: flex;
+	-webkit-align-items: center;
+	align-items: center;
+	padding: 0 70px 12px;
+}
+
+.backBtn {
+	.toolbar-button();
+}
+
+.backIcon {
+	.toolbar-icon();
+}
+
+.backBtn:focus .backIcon {
+	fill: var(--theme-background, #101010);
+}
+
 .heading {
-	font-size: 42px;
-	font-weight: 600;
-	margin: 0 0 12px;
+	font-size: 32px;
+	font-weight: 400;
+	margin: 0 0 0 20px;
 	color: var(--theme-on-background, #fff);
 }
 
 .scroller {
-	height: calc(100% - 72px);
+	height: calc(100% - 85px);
 }
 
-.section {
-	margin-bottom: 28px;
+/* Tiles are laid out by hand rather than with a gap, which needs newer Chrome
+   than the oldest sets run. The cell carries the spacing between tiles and the
+   room a focused one grows into. Four to a row is what the width works out to,
+   and font-size zero drops the whitespace between the inline blocks. */
+.grid {
+	padding: 0 57px 33px;
+	font-size: 0;
 }
 
-// gap needs newer Chrome, so spacing comes from a sibling margin for Tizen 5 / webOS 5.
-.sectionHeader {
-	display: flex;
-	align-items: baseline;
-	margin: 0 48px 8px 12px;
-}
-
-.sectionHeader > * + * {
-	margin-left: 16px;
-}
-
-.sectionTitle {
-	font-size: 28px;
-	font-weight: 500;
-	color: var(--theme-on-background, #fff);
-}
-
-.sectionCount {
-	font-size: 20px;
-	color: var(--theme-on-surface-variant, #8b95a3);
-}
-
-.row {
-	white-space: nowrap;
+.cell {
+	display: inline-block;
+	vertical-align: top;
+	width: 25%;
+	height: 209px;
+	box-sizing: border-box;
+	padding: 13px;
 }
 
 .center {
