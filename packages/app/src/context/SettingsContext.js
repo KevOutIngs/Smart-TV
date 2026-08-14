@@ -145,10 +145,6 @@ const VALUE_CONVERSIONS = {
 		toServer: v => (v === 'local' ? undefined : v === 'on'),
 		fromServer: v => (v ? 'on' : 'off')
 	},
-	homeRowOverlay: {
-		toServer: v => v === 'on',
-		fromServer: v => (v ? 'on' : 'off')
-	},
 	nextUpTimeout: {
 		toServer: secondsToMs,
 		fromServer: msToSeconds
@@ -199,6 +195,7 @@ export const SYNCABLE_KEYS = [
 	'excludedGenres',
 	'autoAdvance', 'autoAdvanceInterval',
 	'displayFavoritesRows', 'displayCollectionsRows', 'displayGenresRows', 'displayPlaylistsRows',
+	'displayAudioRows', 'displayRewatchRow', 'playlistsRowShowEpisodes',
 	'favoritesRowSortBy', 'collectionsRowSortBy', 'genresRowSortBy', 'genresRowItemFilter', 'collectionsRowShowEpisodes',
 	'stillWatchingBehavior', 'watchedIndicatorBehavior',
 	// Core stores these as enums and syncs them by name, which is the same string this
@@ -442,6 +439,11 @@ export function SettingsProvider({children}) {
 						stored.detailScreenStyle = normalizedDetailStyle;
 						migrated = true;
 					}
+				}
+				if (typeof stored.homeRowOverlay === 'string') {
+					// Was an on and off picker stored as strings before it became a switch.
+					stored.homeRowOverlay = stored.homeRowOverlay === 'on';
+					migrated = true;
 				}
 				if (!Array.isArray(stored.pluginSections)) {
 					stored.pluginSections = [];

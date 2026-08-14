@@ -13,11 +13,16 @@ export const FAVORITE_ROW_IDS = [
 	'favoriteSongs'
 ];
 
+const AUDIO_ROW_IDS = ['audioartists', 'audioalbums', 'audioplaylists', 'resumeaudio'];
+
 export const isRowEnabledBySetting = (rowId, settings) => {
 	if (FAVORITE_ROW_IDS.includes(rowId)) return settings.displayFavoritesRows;
+	if (AUDIO_ROW_IDS.includes(rowId)) return settings.displayAudioRows;
 	if (rowId === 'collections') return settings.displayCollectionsRows;
 	if (rowId === 'genres') return settings.displayGenresRows;
 	if (rowId === 'playlists') return settings.displayPlaylistsRows;
+	if (rowId === 'studios') return settings.displayStudiosRows;
+	if (rowId === 'rewatch') return settings.displayRewatchRow !== false;
 	if (rowId === 'imdb-top250-movies') return settings.imdbTop250MoviesEnabled;
 	if (rowId === 'imdb-top250-tv') return settings.imdbTop250TvShowsEnabled;
 	if (rowId === 'imdb-popular-movies') return settings.imdbMostPopularMoviesEnabled;

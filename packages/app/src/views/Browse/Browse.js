@@ -101,7 +101,12 @@ const Browse = ({
 
 	const useModernRows = settings.homeRowsStyle !== 'v1';
 	const RowComponent = useModernRows ? ModernMediaRow : ClassicMediaRow;
-	const showTopInfoArea = !useModernRows;
+	const showTopInfoArea = !useModernRows && settings.homeRowOverlay !== false;
+	// The other clients size these sliders in their own units, so the stored value
+	// lands here as the space below each row. Full screen rows pace themselves.
+	const rowSpacing = settings.fullScreenRows ? null : useModernRows
+		? Math.max(0, Math.min(Math.max((settings.modernHomeRowsPadding ?? 460) - 400, -40), 200) - 34)
+		: Math.max(0, settings.classicHomeRowsPadding ?? 30);
 
 	const homeRowsConfig = useMemo(() => {
 		return [...(settings.homeRows || [])].sort((a, b) => a.order - b.order);
@@ -137,6 +142,9 @@ const Browse = ({
 		displayCollectionsRows: settings.displayCollectionsRows,
 		displayGenresRows: settings.displayGenresRows,
 		displayPlaylistsRows: settings.displayPlaylistsRows,
+		displayAudioRows: settings.displayAudioRows,
+		displayStudiosRows: settings.displayStudiosRows,
+		displayRewatchRow: settings.displayRewatchRow,
 		imdbTop250MoviesEnabled: settings.imdbTop250MoviesEnabled,
 		imdbTop250TvShowsEnabled: settings.imdbTop250TvShowsEnabled,
 		imdbMostPopularMoviesEnabled: settings.imdbMostPopularMoviesEnabled,
@@ -146,6 +154,7 @@ const Browse = ({
 		blockedRatings: settings.blockedRatings
 	}), [settings.mergeContinueWatchingNextUp, settings.hiddenContinueWatchingItems, settings.hiddenNextUpSeries,
 		settings.displayFavoritesRows, settings.displayCollectionsRows, settings.displayGenresRows, settings.displayPlaylistsRows,
+		settings.displayAudioRows, settings.displayStudiosRows, settings.displayRewatchRow,
 		settings.imdbTop250MoviesEnabled, settings.imdbTop250TvShowsEnabled, settings.imdbMostPopularMoviesEnabled,
 		settings.imdbMostPopularTvShowsEnabled, settings.imdbLowestRatedMoviesEnabled, settings.imdbTopEnglishMoviesEnabled,
 		settings.blockedRatings]);
@@ -572,7 +581,8 @@ const Browse = ({
 								onNavigateUp={handleNavigateUp}
 								onNavigateDown={handleNavigateDown}
 								showServerBadge={unifiedMode}
-								showOverview={settings.homeRowOverlay === 'on'}
+								rowSpacing={rowSpacing}
+								subtitle={row.subtitle}
 								registerRowRef={registerRowRef}
 							/>
 						);

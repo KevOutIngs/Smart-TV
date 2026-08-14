@@ -177,7 +177,8 @@ export const getImageTypeOptions = () => [
 	{ value: 'poster', label: $L('Poster') },
 	{ value: 'backdrop', label: $L('Backdrop') },
 	{ value: 'logo', label: $L('Logo') },
-	{ value: 'thumb', label: $L('Thumb') }
+	{ value: 'thumb', label: $L('Thumb') },
+	{ value: 'banner', label: $L('Banner') }
 ];
 
 export const getHomeRowsStyleOptions = () => [
@@ -239,11 +240,6 @@ export const getFolderViewModeOptions = () => [
 	{ value: 'local', label: $L('Per Library') },
 	{ value: 'on', label: $L('Always On') },
 	{ value: 'off', label: $L('Always Off') }
-];
-
-export const getHomeRowOverlayOptions = () => [
-	{ value: 'off', label: $L('Off') },
-	{ value: 'on', label: $L('On') }
 ];
 
 export const getNextUpMaxDaysOptions = () => [

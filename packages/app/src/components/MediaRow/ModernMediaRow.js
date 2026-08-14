@@ -24,6 +24,8 @@ const ModernMediaRow = ({
 	onNavigateUp,
 	onNavigateDown,
 	showServerBadge = false,
+	subtitle,
+	rowSpacing,
 	className,
 	registerRowRef
 }) => {
@@ -149,6 +151,7 @@ const ModernMediaRow = ({
 		settings.fullScreenRows === true ? css.fullScreenRows : '',
 		typeof document !== 'undefined' && document.documentElement.classList.contains('legacy') ? css.platformLegacy : ''
 	].filter(Boolean).join(' ');
+	const rowStyle = typeof rowSpacing === 'number' ? {marginBottom: rowSpacing + 'px'} : undefined;
 
 	return (
 		<RowContainer
@@ -158,8 +161,10 @@ const ModernMediaRow = ({
 			data-row-index={rowIndex}
 			onKeyDown={handleKeyDown}
 			onBlur={handleBlur}
+			style={rowStyle}
 		>
 			<h2 className={css.title}>{title}</h2>
+			{subtitle && <div className={css.subtitle}>{subtitle}</div>}
 			<div className={css.scroller} ref={scrollerRef} onFocus={handleFocus}>
 				<div className={css.items}>
 					{items.map((item, index) => {
@@ -195,6 +200,8 @@ const areRowPropsEqual = (prev, next) => {
 	if (prev.serverUrl !== next.serverUrl) return false;
 	if (prev.rowIndex !== next.rowIndex) return false;
 	if (prev.showServerBadge !== next.showServerBadge) return false;
+	if (prev.subtitle !== next.subtitle) return false;
+	if (prev.rowSpacing !== next.rowSpacing) return false;
 	if (prev.className !== next.className) return false;
 	if (prev.items === next.items) return true;
 	if (prev.items?.length !== next.items?.length) return false;

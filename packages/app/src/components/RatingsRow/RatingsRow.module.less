@@ -20,13 +20,18 @@
 	padding: 6px 12px;
 }
 
+.ratingItemPlain {
+	background: transparent;
+	padding: 0;
+}
+
 .ratingTop {
 	display: flex;
 	align-items: center;
 }
 
 .ratingIcon {
-	height: 26px;
+	height: 32px;
 	width: auto;
 	object-fit: contain;
 	flex-shrink: 0;
@@ -34,7 +39,7 @@
 }
 
 .ratingValue {
-	font-size: 20px;
+	font-size: 24px;
 	font-weight: 700;
 	color: #fff;
 	color: var(--theme-on-surface, #fff);
@@ -43,7 +48,7 @@
 }
 
 .ratingName {
-	font-size: 13px;
+	font-size: 16px;
 	font-weight: 500;
 	color: #fff;
 	color: var(--theme-on-surface, #fff);
@@ -54,7 +59,7 @@
 
 .communityStar {
 	color: #ffc107;
-	font-size: 23px;
+	font-size: 28px;
 	margin-right: 6px;
 	line-height: 1;
 	flex-shrink: 0;
@@ -65,20 +70,43 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	margin: 8px 0 4px;
+	margin: 8px -7px -4px;
 
-	> * + * {
-		margin-left: 14px;
+	> * {
+		margin: 0 7px 8px;
 	}
 }
 
 .ratingCompact {
 	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.ratingCompactBadge {
+	background: rgba(0, 0, 0, 0.45);
+	background: rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.45);
+	border-radius: 6px;
+	padding: 4px 10px;
+}
+
+.ratingTopCompact {
+	display: flex;
 	align-items: center;
 }
 
+.ratingNameCompact {
+	font-size: 15px;
+	font-weight: 500;
+	color: #fff;
+	color: var(--theme-on-surface, #fff);
+	line-height: 1.1;
+	margin-top: 2px;
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.54);
+}
+
 .ratingIconCompact {
-	height: 26px;
+	height: 28px;
 	width: auto;
 	object-fit: contain;
 	flex-shrink: 0;
@@ -86,7 +114,7 @@
 }
 
 .ratingValueCompact {
-	font-size: 22px;
+	font-size: 24px;
 	font-weight: 600;
 	color: rgba(255, 255, 255, 0.9);
 	color: var(--theme-text-primary);

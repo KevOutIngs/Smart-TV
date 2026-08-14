@@ -45,8 +45,7 @@ describe('localToProfile', () => {
 	test('says nothing about settings this app has no screen for', () => {
 		const profile = localToProfile(defaultSettings);
 
-		for (const key of ['showCastButton', 'classicHomeRowsPadding',
-			'modernHomeRowsPadding', 'detailShowTechnicalDetails', 'recommendationSystemSource',
+		for (const key of ['showCastButton', 'detailShowTechnicalDetails', 'recommendationSystemSource',
 			'recommendationsApplyParentalRatingCap']) {
 			expect(profile).not.toHaveProperty(key);
 		}
@@ -60,6 +59,13 @@ describe('localToProfile', () => {
 
 		expect(profile.showCastButton).toBe(false);
 		expect(profile.classicHomeRowsPadding).toBe(12);
+	});
+
+	test('pushes the row padding sliders with their defaults', () => {
+		const profile = localToProfile(defaultSettings);
+
+		expect(profile.classicHomeRowsPadding).toBe(30);
+		expect(profile.modernHomeRowsPadding).toBe(460);
 	});
 
 	test('keeps the local only home row list out of the profile', () => {

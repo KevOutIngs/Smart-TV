@@ -223,3 +223,53 @@ describe('blocked ratings', () => {
 		expect(rows[0].items).toHaveLength(3);
 	});
 });
+
+describe('row group toggles', () => {
+	test('audio, studios, and rewatch rows answer to their display settings', () => {
+		const data = [
+			row('audioalbums', [item('1')]),
+			row('studios', [item('2')]),
+			row('rewatch', [item('3')])
+		];
+		const config = [
+			{id: 'audioalbums', enabled: true, order: 0},
+			{id: 'studios', enabled: true, order: 1},
+			{id: 'rewatch', enabled: true, order: 2}
+		];
+
+		const off = build({allRowData: data, homeRowsConfig: config,
+			settings: settings({displayAudioRows: false, displayStudiosRows: false, displayRewatchRow: false})});
+		expect(off).toEqual([]);
+
+		const on = build({allRowData: data, homeRowsConfig: config,
+			settings: settings({displayAudioRows: true, displayStudiosRows: true, displayRewatchRow: true})});
+		expect(on.map((r) => r.id)).toEqual(['audioalbums', 'studios', 'rewatch']);
+	});
+});
+
+describe('row subtitles', () => {
+	test('external rows carry the source label the other clients print', () => {
+		const rows = build({
+			externalRows: [
+				{id: 'imdb-top250-movies', title: 'IMDb Top 250 Movies', items: [item('1')]},
+				{id: 'tmdb_popular_movies', title: 'Popular Movies', items: [item('2')]},
+				{id: 'radarr_calendar', title: 'Radarr Upcoming', items: [item('3')]}
+			],
+			settings: settings({imdbTop250MoviesEnabled: true})
+		});
+
+		const byId = Object.fromEntries(rows.map((r) => [r.id, r.subtitle]));
+		expect(byId['imdb-top250-movies']).toBe('IMDb List');
+		expect(byId['tmdb_popular_movies']).toBe('TMDB Lists');
+		expect(byId['radarr_calendar']).toBe('Radarr and Sonarr Calendars');
+	});
+
+	test('library rows stay without one', () => {
+		const rows = build({
+			allRowData: [row('collections', [item('1')])],
+			homeRowsConfig: [{id: 'collections', enabled: true, order: 0}]
+		});
+
+		expect(rows[0].subtitle).toBeUndefined();
+	});
+});

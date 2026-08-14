@@ -9,7 +9,7 @@ import css from './MediaCard.module.less';
 const SpottableDiv = Spottable('div');
 
 const POSTER_SIZE_MULTIPLIERS = {small: 0.8, default: 1, large: 1.2, xlarge: 1.4};
-const BASE_SIZES = {portrait: [240, 360], landscape: [384, 216], square: [240, 240]};
+const BASE_SIZES = {portrait: [240, 360], landscape: [384, 216], square: [240, 240], banner: [1168, 216]};
 
 const toAbsoluteImageUrl = (url, serverUrl) => {
 	if (!url || typeof url !== 'string') return null;
@@ -46,6 +46,17 @@ const requestedArtwork = (item, imageType, serverUrl) => {
 			return getImageUrl(serverUrl, item.Id, 'Backdrop', {maxWidth: 400, quality: 80});
 		}
 	}
+	if (imageType === 'banner') {
+		if (item.ImageTags?.Banner) {
+			return getImageUrl(serverUrl, item.Id, 'Banner', {maxWidth: 1200, quality: 80});
+		}
+		if (item.ImageTags?.Thumb) {
+			return getImageUrl(serverUrl, item.Id, 'Thumb', {maxWidth: 1200, quality: 80});
+		}
+		if (item.BackdropImageTags?.length > 0) {
+			return getImageUrl(serverUrl, item.Id, 'Backdrop', {maxWidth: 1200, quality: 80});
+		}
+	}
 	if (imageType === 'logo') {
 		if (item.ImageTags?.Logo) {
 			return getImageUrl(serverUrl, item.Id, 'Logo', {maxWidth: 400, quality: 80});
@@ -57,7 +68,7 @@ const requestedArtwork = (item, imageType, serverUrl) => {
 	return null;
 };
 
-const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'poster', onSelect, onFocusItem, showServerBadge = false, showOverview = false, eagerLoad = false, seerrSeasonStatus, spotlightId, onSpotlightLeft, onSpotlightRight}) => {
+const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'poster', onSelect, onFocusItem, showServerBadge = false, eagerLoad = false, seerrSeasonStatus, spotlightId, onSpotlightLeft, onSpotlightRight}) => {
 	const {settings} = useSettings();
 	const focusTimeoutRef = useRef(null);
 
@@ -78,11 +89,12 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 	const imageType = rowImageType || 'poster';
 	const artworkItem = (item.Type === 'Genre' && item._representative) || item;
 	const rowArtwork = requestedArtwork(artworkItem, imageType, itemServerUrl);
-	const isLandscape = cardType === 'landscape' || (cardType === 'portrait' && Boolean(rowArtwork));
+	const isBanner = imageType === 'banner' && cardType !== 'square' && cardType !== 'circle';
+	const isLandscape = !isBanner && (cardType === 'landscape' || (cardType === 'portrait' && Boolean(rowArtwork)));
 	// Artists read as circles in the music library. It rides on the square path
 	// since the art is the same 1:1 either way, only the radius differs.
 	const isCircle = cardType === 'circle';
-	const isSquare = isCircle || cardType === 'square' || (cardType === 'portrait' && !isLandscape && (item.Type === 'MusicAlbum' || item.Type === 'MusicArtist' || item.Type === 'Audio'));
+	const isSquare = !isBanner && (isCircle || cardType === 'square' || (cardType === 'portrait' && !isLandscape && (item.Type === 'MusicAlbum' || item.Type === 'MusicArtist' || item.Type === 'Audio')));
 
 	const imageUrl = useMemo(() => {
 		const providerIds = item.ProviderIds || {};
@@ -180,6 +192,8 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 	const progress = item.UserData?.PlayedPercentage || 0;
 	const watchedBehavior = settings.watchedIndicatorBehavior || 'always';
 	const showIndicators = watchedBehavior === 'always' || watchedBehavior === 'hideCount' || (watchedBehavior === 'episodesOnly' && item.Type === 'Episode');
+	const unplayedCount = item.UserData?.UnplayedItemCount;
+	const showUnplayedCount = showIndicators && watchedBehavior !== 'hideCount' && !item.UserData?.Played && unplayedCount > 0;
 
 	const displayTitle = useMemo(() => {
 		if (item.Type === 'Episode') {
@@ -190,7 +204,7 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 
 	const episodeInfo = useMemo(() => {
 		if (item.Type === 'Episode' && item.ParentIndexNumber !== undefined) {
-			return `S${item.ParentIndexNumber} E${item.IndexNumber} - ${item.Name}`;
+			return `S${item.ParentIndexNumber}:E${item.IndexNumber} - ${item.Name}`;
 		}
 		return null;
 	}, [item.Type, item.ParentIndexNumber, item.IndexNumber, item.Name]);
@@ -205,18 +219,18 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 		return null;
 	}, [item.Type, item.AlbumArtist, item.AlbumArtists, item.Artists]);
 
-	const cardClass = `${css.card} ${isLandscape ? css.landscape : isSquare ? css.square : css.portrait}${isCircle ? ' ' + css.circle : ''}${settings.cardFocusZoom ? '' : ' ' + css.noZoom}`;
+	const cardClass = `${css.card} ${isBanner ? css.banner : isLandscape ? css.landscape : isSquare ? css.square : css.portrait}${isCircle ? ' ' + css.circle : ''}${settings.cardFocusZoom ? '' : ' ' + css.noZoom}`;
 
 	const sizeMultiplier = POSTER_SIZE_MULTIPLIERS[settings.homeRowsPosterSize] || 1;
-	const shapeKey = isLandscape ? 'landscape' : isSquare ? 'square' : 'portrait';
+	const shapeKey = isBanner ? 'banner' : isLandscape ? 'landscape' : isSquare ? 'square' : 'portrait';
 	const [baseW, baseH] = BASE_SIZES[shapeKey];
 	const cardWidth = Math.round(baseW * sizeMultiplier);
 	const cardHeight = Math.round(baseH * sizeMultiplier);
 	const sizeStyle = sizeMultiplier !== 1 ? {width: cardWidth + 'px'} : undefined;
 	const imgSizeStyle = sizeMultiplier !== 1 ? {height: cardHeight + 'px'} : undefined;
-	// A logo has to sit inside the card whole. Everything else takes the cover the
-	// stylesheet already applies, so it stays out of the inline style.
-	const imgStyle = imageType === 'logo'
+	// Logos and studio art have to sit inside the card whole. Everything else takes
+	// the cover the stylesheet already applies, so it stays out of the inline style.
+	const imgStyle = imageType === 'logo' || item.Type === 'Studio' || item.Type === 'Network'
 		? {...imgSizeStyle, objectFit: 'contain'}
 		: imgSizeStyle;
 
@@ -242,7 +256,9 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 						)}
 					</>
 				) : (
-					<div className={css.placeholder} style={imgSizeStyle}>{item.Name?.[0]}</div>
+					<div className={css.placeholder} style={imgSizeStyle}>
+						<div className={css.placeholderTitle}>{item.Name}</div>
+					</div>
 				)}
 
 				{showIndicators && progress > 0 && (
@@ -266,16 +282,25 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 						<svg viewBox="0 0 24 24"><path fill="white" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
 					</div>
 				)}
+
+				{showUnplayedCount && (
+					<div className={css.unplayedCount}>{unplayedCount}</div>
+				)}
+
+				{item.UserData?.IsFavorite && (
+					<div className={css.favoriteBadge}>
+						<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+					</div>
+				)}
 			</div>
 
 			<div className={css.info}>
-				{episodeInfo ? (
+				{isBanner ? (
+					<div className={css.title}>{[displayTitle, episodeInfo || musicInfo || item.Subtitle].filter(Boolean).join('  \u2022  ')}</div>
+				) : episodeInfo ? (
 					<>
 						<div className={css.seriesName}>{displayTitle}</div>
 						<div className={css.episodeInfo}>{episodeInfo}</div>
-						{showOverview && item.Overview && (
-							<div className={css.overview}>{item.Overview}</div>
-						)}
 					</>
 				) : musicInfo ? (
 					<>

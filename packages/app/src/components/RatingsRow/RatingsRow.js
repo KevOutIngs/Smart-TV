@@ -8,7 +8,8 @@ import css from './RatingsRow.module.less';
 const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) => {
 	const {settings} = useSettings();
 	const showLabels = settings.showRatingLabels !== false;
-	const showRatingBadges = settings.showRatingBadges !== false;
+	// Badges only choose the chip chrome around each rating. Off means plain, not hidden.
+	const showBadges = settings.showRatingBadges !== false;
 	const enabledSources = settings.mdblistRatingSources;
 	const [allRatings, setAllRatings] = useState([]);
 	const mountedRef = useRef(true);
@@ -67,8 +68,6 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 			.sort((a, b) => enabledSources.indexOf(getSelectionSource(a.source)) - enabledSources.indexOf(getSelectionSource(b.source)));
 	}, [allRatings, enabledSources]);
 
-	if (!showRatingBadges) return null;
-
 	const communityRating = isRatingSourceEnabled(settings, 'stars') && item && item.CommunityRating ? item.CommunityRating.toFixed(1) : null;
 	// The server's own critic rating stands in until plugin ratings actually
 	// arrive, so it stays visible when there's no API key or nothing came back.
@@ -77,43 +76,54 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 	if (!hasContent) return null;
 
 	if (compact) {
+		const compactClass = `${css.ratingCompact}${showBadges ? ' ' + css.ratingCompactBadge : ''}`;
 		return (
 			<div className={css.ratingsRowCompact}>
 				{communityRating && (
-					<span className={css.ratingCompact}>
-						<span className={css.communityStarCompact}>{"\u2605"}</span>
-						<span className={css.ratingValueCompact}>{communityRating}</span>
+					<span className={compactClass}>
+						<span className={css.ratingTopCompact}>
+							<span className={css.communityStarCompact}>{"\u2605"}</span>
+							<span className={css.ratingValueCompact}>{communityRating}</span>
+						</span>
+						{showLabels && <span className={css.ratingNameCompact}>{$L('Community')}</span>}
 					</span>
 				)}
 				{showCriticRating && (
-					<span className={css.ratingCompact}>
-						<img
-							className={css.ratingIconCompact}
-							src={getRtFallbackIcon(item.CriticRating)}
-							alt={$L('Rotten Tomatoes')}
-						/>
-						<span className={css.ratingValueCompact}>{item.CriticRating}%</span>
+					<span className={compactClass}>
+						<span className={css.ratingTopCompact}>
+							<img
+								className={css.ratingIconCompact}
+								src={getRtFallbackIcon(item.CriticRating)}
+								alt={$L('Rotten Tomatoes')}
+							/>
+							<span className={css.ratingValueCompact}>{item.CriticRating}%</span>
+						</span>
+						{showLabels && <span className={css.ratingNameCompact}>{$L('Rotten Tomatoes')}</span>}
 					</span>
 				)}
 				{displayRatings.map(r => (
-					<span key={r.source} className={css.ratingCompact}>
-						<img
-							className={css.ratingIconCompact}
-							src={r.iconUrl}
-							alt={r.name}
-							title={r.name}
-						/>
-						<span className={css.ratingValueCompact}>{r.formatted}</span>
+					<span key={r.source} className={compactClass}>
+						<span className={css.ratingTopCompact}>
+							<img
+								className={css.ratingIconCompact}
+								src={r.iconUrl}
+								alt={r.name}
+								title={r.name}
+							/>
+							<span className={css.ratingValueCompact}>{r.formatted}</span>
+						</span>
+						{showLabels && <span className={css.ratingNameCompact}>{r.name}</span>}
 					</span>
 				))}
 			</div>
 		);
 	}
 
+	const itemClass = `${css.ratingItem}${showBadges ? '' : ' ' + css.ratingItemPlain}`;
 	return (
 		<div className={css.ratingsRow}>
 			{communityRating && (
-				<div className={css.ratingItem}>
+				<div className={itemClass}>
 					<div className={css.ratingTop}>
 						<span className={css.communityStar}>{"\u2605"}</span>
 						<span className={css.ratingValue}>{communityRating}</span>
@@ -122,7 +132,7 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 				</div>
 			)}
 			{showCriticRating && (
-				<div className={css.ratingItem}>
+				<div className={itemClass}>
 					<div className={css.ratingTop}>
 						<img
 							className={css.ratingIcon}
@@ -135,7 +145,7 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 				</div>
 			)}
 			{displayRatings.map(r => (
-				<div key={r.source} className={css.ratingItem}>
+				<div key={r.source} className={itemClass}>
 					<div className={css.ratingTop}>
 						<img
 							className={css.ratingIcon}

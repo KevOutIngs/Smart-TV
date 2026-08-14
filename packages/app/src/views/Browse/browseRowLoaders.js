@@ -36,12 +36,13 @@ export const buildLoaderContext = ({api, settings, homeRowsConfig, eligibleLibra
 		playlistsSortOrder: resolveSortOrder(playlistsSortBy, settings.playlistsRowSortOrder),
 		audioRowsSortBy,
 		audioRowsSortOrder: resolveSortOrder(audioRowsSortBy, settings.audioRowsSortOrder),
-		audioArtistsEnabled: rowEnabled('audioartists'),
-		audioAlbumsEnabled: rowEnabled('audioalbums'),
-		audioPlaylistsEnabled: rowEnabled('audioplaylists'),
-		resumeAudioEnabled: rowEnabled('resumeaudio'),
+		audioArtistsEnabled: settings.displayAudioRows && rowEnabled('audioartists'),
+		audioAlbumsEnabled: settings.displayAudioRows && rowEnabled('audioalbums'),
+		audioPlaylistsEnabled: settings.displayAudioRows && rowEnabled('audioplaylists'),
+		resumeAudioEnabled: settings.displayAudioRows && rowEnabled('resumeaudio'),
 		recordingsEnabled: rowEnabled('activerecordings'),
-		rewatchEnabled: rowEnabled('rewatch'),
+		rewatchEnabled: settings.displayRewatchRow !== false && rowEnabled('rewatch'),
+		studiosEnabled: settings.displayStudiosRows && rowEnabled('studios'),
 		enabledPluginSections: (settings.pluginSections || []).filter((section) => section.enabled),
 		sinceYouWatchedIndexes: homeRowsConfig
 			.filter((row) => row.enabled && row.id.startsWith('sinceyouwatched'))
@@ -145,6 +146,25 @@ const loadCollections = async (ctx) => {
 		}
 	} catch (e) {
 		console.warn('[Browse] Failed to load collections:', e);
+	}
+};
+
+const loadStudios = async (ctx) => {
+	const {api, appendRows, studiosEnabled, settings} = ctx;
+	if (!studiosEnabled) return;
+	const sortBy = settings.studiosRowSortBy || 'SortName';
+	try {
+		const result = await api.getStudios(20, sortBy, resolveSortOrder(sortBy, settings.studiosRowSortOrder)).catch(() => null);
+		if (result?.Items?.length > 0) {
+			appendRows([{
+				id: 'studios',
+				title: $L('Studios'),
+				items: result.Items,
+				type: 'landscape'
+			}]);
+		}
+	} catch (e) {
+		console.warn('[Browse] Failed to load studios:', e);
 	}
 };
 
@@ -303,10 +323,13 @@ const loadPlaylistsAndMusic = async (ctx) => {
 
 		const rows = [];
 		if (playlistsResult?.Items?.length > 0) {
+			const playlistItems = settings.playlistsRowShowEpisodes
+				? await expandSeriesToEpisodes(api, playlistsResult.Items, 20)
+				: playlistsResult.Items;
 			rows.push({
 				id: 'playlists',
 				title: $L('Playlists'),
-				items: playlistsResult.Items,
+				items: playlistItems,
 				type: 'square'
 			});
 		}
@@ -566,6 +589,7 @@ const loadPluginsAndRecos = async (ctx) => {
 export const BROWSE_ROW_LOADERS = [
 	loadLatestAndRecentlyReleased,
 	loadCollections,
+	loadStudios,
 	loadFavorites,
 	loadGenres,
 	loadPlaylistsAndMusic,

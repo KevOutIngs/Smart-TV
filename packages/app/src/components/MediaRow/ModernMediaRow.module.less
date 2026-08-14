@@ -13,8 +13,8 @@
 }
 
 .fullScreenRows {
-	margin-top: 300px;
-	padding-top: 200px;
+	min-height: calc(~"100vh - 190px");
+	box-sizing: border-box;
 }
 
 .title {
@@ -23,6 +23,12 @@
 	margin: 6px 0 1px 0;
 	color: var(--theme-text-primary, #ffffff);
 	text-shadow: var(--theme-text-glow);
+}
+
+.subtitle {
+	font-size: 18px;
+	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.5));
+	margin: 2px 0 0 0;
 }
 
 .scroller {
@@ -58,10 +64,6 @@
 	}
 }
 
-.platformWebos .items > * + * {
-	margin-left: 26px;
-}
-
 .platformWebos .title {
 	font-size: 29px;
 }
@@ -76,10 +78,6 @@
 
 .platformTizen .items {
 	padding-bottom: 20px;
-}
-
-.platformTizen .items > * + * {
-	margin-left: 20px;
 }
 
 .platformLegacy {

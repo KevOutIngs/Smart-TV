@@ -12,7 +12,7 @@ import {isRowEnabledBySetting} from '../../utils/homeRowGates';
 // is named in the language being read now.
 const ROW_TITLES = {
 	resume: () => $L('Continue Watching'),
-	'continue-nextup': () => $L('Continue Watching'),
+	'continue-nextup': () => $L('Continue Watching & Next Up'),
 	nextup: () => $L('Next Up'),
 	'library-tiles': () => $L('My Media'),
 	librarybuttons: () => $L('Library Buttons'),
@@ -116,7 +116,16 @@ const mergeContinueAndNextUp = (allRowData, hiddenCWMap, hiddenNUMap) => {
 	});
 
 	if (combinedItems.length === 0) return null;
-	return {id: 'continue-nextup', title: $L('Continue Watching'), items: combinedItems, type: 'landscape'};
+	return {id: 'continue-nextup', title: $L('Continue Watching & Next Up'), items: combinedItems, type: 'landscape'};
+};
+
+// The source label the other clients print under external row titles.
+const rowSubtitleFor = (row) => {
+	if (row.subtitle) return row.subtitle;
+	if (row.id?.startsWith('imdb-')) return $L('IMDb List');
+	if (row.id?.startsWith('tmdb_')) return $L('TMDB Lists');
+	if (row.id === 'radarr_calendar' || row.id === 'sonarr_calendar' || row.id === 'merged_calendar') return $L('Radarr and Sonarr Calendars');
+	return undefined;
 };
 
 // Anything without a place in the stored order goes after the rows that have one, keeping
@@ -221,8 +230,13 @@ export const buildBrowseRows = ({allRowData, seerrRows, externalRows, homeRowsCo
 		return title && title !== row.title ? {...row, title} : row;
 	});
 
+	const withSubtitles = (row) => {
+		const subtitle = rowSubtitleFor(row);
+		return subtitle && subtitle !== row.subtitle ? {...row, subtitle} : row;
+	};
+
 	return orderRows(
-		filterBlockedRatings([...result, ...seerrRows, ...externalRows], settings.blockedRatings),
+		filterBlockedRatings([...result, ...seerrRows, ...externalRows].map(withSubtitles), settings.blockedRatings),
 		rowOrderMap
 	);
 };

@@ -16,7 +16,6 @@ import {
 	getFeaturedItemCountOptions,
 	getFolderViewModeOptions,
 	getGenresRowItemFilterOptions,
-	getHomeRowOverlayOptions,
 	getHomeRowSortOptions,
 	getHomeRowsStyleOptions,
 	getImageTypeOptions,
@@ -99,6 +98,7 @@ export const spotlightIdOf = (row) => {
 const seconds = (v) => `${v}s`;
 const percent = (v) => `${v}%`;
 const hourOffset = (v) => (v > 0 ? `+${v}h` : `${v}h`);
+const pixels = (v) => `${v}px`;
 const milliseconds = (v) => `${v} ms`;
 
 const hasHomeRow = (test) => (ctx) =>
@@ -106,6 +106,7 @@ const hasHomeRow = (test) => (ctx) =>
 
 const whenSinceYouWatched = hasHomeRow((row) => row.id.startsWith('sinceyouwatched'));
 const whenRewatch = hasHomeRow((row) => row.id === 'rewatch');
+const whenRewatchEnabled = (ctx) => whenRewatch(ctx) && ctx.settings.displayRewatchRow !== false;
 const whenPlugin = (ctx) => ctx.settings.useMoonfinPlugin;
 const whenHdrSubtitles = (ctx) => ctx.settings.subtitleHdrSeparate;
 const whenSeerr = (ctx) => ctx.seerr.isEnabled;
@@ -304,8 +305,10 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'nextUpMaxDays', label: () => $L('Max Days in Next Up'), options: getNextUpMaxDaysOptions, fallback: () => $L('365 days'), desc: () => $L('How long a show stays in Next Up after you last watched it'), icon: 'calendarbusy'},
 					{kind: KIND.TOGGLE, key: 'useSeriesThumbnails', label: () => $L('Display Series Thumbnails'), desc: () => $L('For TV series, use the main series artwork instead of the episode thumbnail'), icon: 'aspectratio'},
 					{kind: KIND.TOGGLE, key: 'fullScreenRows', label: () => $L('Expanded Home Rows'), desc: () => $L('Limit home rows to 1 row per screen'), icon: 'aspectratio'},
-					{kind: KIND.OPTION, key: 'homeRowOverlay', label: () => $L('Home Row Info Overlay'), options: getHomeRowOverlayOptions, fallback: () => $L('Off'), icon: 'info'},
+					{kind: KIND.TOGGLE, key: 'homeRowOverlay', label: () => $L('Home Row Info Overlay'), desc: () => $L('Show title and metadata for the focused item above classic rows'), icon: 'info', when: (ctx) => ctx.settings.homeRowsStyle === 'v1'},
 					{kind: KIND.OPTION, key: 'homeRowsPosterSize', label: () => $L('Home Row Card Display Size'), options: getPosterSizeOptions, fallback: () => $L('Default'), icon: 'photo_size_select_large'},
+					{kind: KIND.SLIDER, key: 'classicHomeRowsPadding', label: () => $L('Home Row Padding'), desc: () => $L('Vertical space between rows'), min: 10, max: 130, step: 20, format: pixels, icon: 'unfold_more', when: (ctx) => ctx.settings.homeRowsStyle === 'v1' && !ctx.settings.fullScreenRows && !ctx.settings.homeRowOverlay},
+					{kind: KIND.SLIDER, key: 'modernHomeRowsPadding', label: () => $L('Home Row Padding'), desc: () => $L('Vertical space between rows'), min: 360, max: 560, step: 20, format: pixels, icon: 'unfold_more', when: (ctx) => ctx.settings.homeRowsStyle !== 'v1' && !ctx.settings.fullScreenRows},
 					{kind: KIND.SECTION, id: 'homeRowSections', label: () => $L('Home Row Sections')},
 					{kind: KIND.NAV, id: 'homeRows', label: () => $L('Home Sections'), desc: () => $L('Reorder and toggle both library and external-based home rows'), icon: 'list', action: (ctx) => ctx.actions.openHomeRows()},
 					{kind: KIND.NAV, id: 'homeRowToggles', label: () => $L('Home Row Toggles'), desc: () => $L('Enable or disable library-based home row categories'), icon: 'tune', action: (ctx) => ctx.actions.openScreen('personalization', 'homeRowToggles', 'setting-homeRowToggles')},
@@ -322,8 +325,9 @@ export const SETTINGS_SCHEMA = [
 				description: () => $L('Enable or disable library-based home row categories'),
 				rows: [
 					{kind: KIND.SECTION, id: 'audio', label: () => $L('Audio')},
-					{kind: KIND.OPTION, key: 'audioRowsSortBy', label: () => $L('Audio Rows Sorting'), options: getHomeRowSortOptions, fallback: () => $L('Name'), icon: 'sort'},
-					{kind: KIND.OPTION, key: 'audioRowsSortOrder', label: () => $L('Audio Rows Sort Order'), options: getSortOrderOptions, fallback: () => $L('Auto'), icon: 'arrowupdown'},
+					{kind: KIND.TOGGLE, key: 'displayAudioRows', label: () => $L('Display Audio Rows'), desc: () => $L('Show artist, album, and music playlist rows in Home Sections.'), icon: 'music'},
+					{kind: KIND.OPTION, key: 'audioRowsSortBy', label: () => $L('Audio Rows Sorting'), options: getHomeRowSortOptions, fallback: () => $L('Name'), icon: 'sort', when: (ctx) => ctx.settings.displayAudioRows},
+					{kind: KIND.OPTION, key: 'audioRowsSortOrder', label: () => $L('Audio Rows Sort Order'), options: getSortOrderOptions, fallback: () => $L('Auto'), icon: 'arrowupdown', when: (ctx) => ctx.settings.displayAudioRows},
 					{kind: KIND.SECTION, id: 'collections', label: () => $L('Collections')},
 					{kind: KIND.TOGGLE, key: 'displayCollectionsRows', label: () => $L('Display Collections Rows'), desc: () => $L('Show Collections rows in Home Sections.'), icon: 'photo_library'},
 					{kind: KIND.OPTION, key: 'collectionsRowSortBy', label: () => $L('Collections Row Sorting'), options: getHomeRowSortOptions, fallback: () => $L('Name'), icon: 'sort', when: (ctx) => ctx.settings.displayCollectionsRows},
@@ -342,11 +346,17 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.TOGGLE, key: 'displayPlaylistsRows', label: () => $L('Display Playlist Rows'), desc: () => $L('Show Playlist rows in Home Sections.'), icon: 'playlist_play'},
 					{kind: KIND.OPTION, key: 'playlistsRowSortBy', label: () => $L('Playlist Row Sorting'), options: getHomeRowSortOptions, fallback: () => $L('Name'), icon: 'sort', when: (ctx) => ctx.settings.displayPlaylistsRows},
 					{kind: KIND.OPTION, key: 'playlistsRowSortOrder', label: () => $L('Playlist Row Sort Order'), options: getSortOrderOptions, fallback: () => $L('Auto'), icon: 'arrowupdown', when: (ctx) => ctx.settings.displayPlaylistsRows},
+					{kind: KIND.TOGGLE, key: 'playlistsRowShowEpisodes', label: () => $L('Show Individual Episodes'), desc: () => $L('Expand series inside playlist rows into their episodes'), icon: 'video_library', when: (ctx) => ctx.settings.displayPlaylistsRows},
+					{kind: KIND.SECTION, id: 'studios', label: () => $L('Studios')},
+					{kind: KIND.TOGGLE, key: 'displayStudiosRows', label: () => $L('Display Studios Rows'), desc: () => $L('Show a Studios row in Home Sections.'), icon: 'domain'},
+					{kind: KIND.OPTION, key: 'studiosRowSortBy', label: () => $L('Studios Row Sorting'), options: getHomeRowSortOptions, fallback: () => $L('Name'), icon: 'sort', when: (ctx) => ctx.settings.displayStudiosRows},
+					{kind: KIND.OPTION, key: 'studiosRowSortOrder', label: () => $L('Studios Row Sort Order'), options: getSortOrderOptions, fallback: () => $L('Auto'), icon: 'arrowupdown', when: (ctx) => ctx.settings.displayStudiosRows},
 					{kind: KIND.SECTION, id: 'rewatch', label: () => $L('Rewatch'), when: whenRewatch},
-					{kind: KIND.OPTION, key: 'rewatchSortBy', label: () => $L('Sort By'), desc: () => $L('Choose sorting method for completed items'), options: getRewatchSortOptions, fallback: () => $L('Recently Watched'), icon: 'sort', when: whenRewatch},
-					{kind: KIND.TOGGLE, key: 'rewatchIncludeMovies', label: () => $L('Include Movies'), desc: () => $L('Show watched movies in the rewatch row'), icon: 'movies', when: whenRewatch},
-					{kind: KIND.TOGGLE, key: 'rewatchIncludeShows', label: () => $L('Include Shows'), desc: () => $L('Show watched TV shows in the rewatch row'), icon: 'tv', when: whenRewatch},
-					{kind: KIND.TOGGLE, key: 'rewatchIncludeCollections', label: () => $L('Include Collections'), desc: () => $L('Show watched collections in the rewatch row'), icon: 'photo_library', when: whenRewatch},
+					{kind: KIND.TOGGLE, key: 'displayRewatchRow', label: () => $L('Display Rewatch Row'), desc: () => $L('Show Rewatch row in Home Sections'), icon: 'replay', when: whenRewatch},
+					{kind: KIND.OPTION, key: 'rewatchSortBy', label: () => $L('Sort By'), desc: () => $L('Choose sorting method for completed items'), options: getRewatchSortOptions, fallback: () => $L('Recently Watched'), icon: 'sort', when: whenRewatchEnabled},
+					{kind: KIND.TOGGLE, key: 'rewatchIncludeMovies', label: () => $L('Include Movies'), desc: () => $L('Show watched movies in the rewatch row'), icon: 'movies', when: whenRewatchEnabled},
+					{kind: KIND.TOGGLE, key: 'rewatchIncludeShows', label: () => $L('Include Shows'), desc: () => $L('Show watched TV shows in the rewatch row'), icon: 'tv', when: whenRewatchEnabled},
+					{kind: KIND.TOGGLE, key: 'rewatchIncludeCollections', label: () => $L('Include Collections'), desc: () => $L('Show watched collections in the rewatch row'), icon: 'photo_library', when: whenRewatchEnabled},
 					{kind: KIND.SECTION, id: 'sinceYouWatched', label: () => $L('Since You Watched'), when: whenSinceYouWatched},
 					{kind: KIND.OPTION, key: 'sinceYouWatchedSource', label: () => $L('Source'), options: getSinceYouWatchedSourceOptions, fallback: () => $L('Local'), icon: 'folder_code', when: whenSinceYouWatched},
 					{kind: KIND.OPTION, key: 'sinceYouWatchedSourceType', label: () => $L('Source Type'), options: getSinceYouWatchedSourceTypeOptions, fallback: () => $L('Movies'), icon: 'merge_type', when: whenSinceYouWatched},

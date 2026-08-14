@@ -79,7 +79,8 @@ export const DEFAULT_HOME_ROWS = [
 	// Both ids match the plugin's own section types, so neither needs an entry
 	// in the mapping tables below.
 	{id: 'seerr_watchlist', name: 'Your Watchlist', enabled: false, order: 60},
-	{id: 'librarybuttons', name: 'Library Buttons', enabled: false, order: 61}
+	{id: 'librarybuttons', name: 'Library Buttons', enabled: false, order: 61},
+	{id: 'studios', name: 'Studios', enabled: false, order: 62}
 ];
 
 export const TV_TO_SERVER_ROW = {

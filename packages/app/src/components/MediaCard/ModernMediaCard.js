@@ -45,25 +45,25 @@ const getGenreNames = (item) => {
 const getMetadataLine = (item) => {
 	if (!item) return '';
 	const parts = [];
-	if (item.UserRating) parts.push(item.UserRating);
 	if (item.ProductionYear) parts.push(String(item.ProductionYear));
-	const genres = getGenreNames(item).slice(0, 3);
+	const genres = getGenreNames(item).slice(0, 2);
 	if (genres.length) parts.push(genres.join(' • '));
 	const runtime = formatRuntime(item.RunTimeTicks);
 	if (runtime) parts.push(runtime);
 	return parts.join(' • ');
 };
 
-const getEpisodeLabel = (item) => {
-	if (!item || item.Type !== 'Episode') return '';
-	if (!Number.isFinite(item.ParentIndexNumber) || !Number.isFinite(item.IndexNumber)) return '';
-	const epInfo = `S${item.ParentIndexNumber} E${item.IndexNumber}`;
-	// Only append the episode title when the series name occupies the main title;
-	// without a SeriesName the title falls back to item.Name and would be duplicated here.
-	const epName = item.SeriesName ? item.Name : '';
-	return [epInfo, epName]
-		.filter((s) => s != null && s !== '')
-		.join(' — ');
+// Short form rests under the title, the full form takes over while focused. The
+// episode title only joins in when the series name occupies the main title, since
+// without a SeriesName the title already is item.Name and would repeat here.
+const getEpisodeLabels = (item) => {
+	if (!item || item.Type !== 'Episode') return null;
+	if (!Number.isFinite(item.ParentIndexNumber) || !Number.isFinite(item.IndexNumber)) return null;
+	const short = `S${item.ParentIndexNumber}:E${item.IndexNumber}`;
+	return {
+		short,
+		full: item.SeriesName ? `${short} - ${item.Name}` : short
+	};
 };
 
 const ModernMediaCard = ({
@@ -114,14 +114,13 @@ const ModernMediaCard = ({
 		}
 
 		if (item.Type === 'Episode') {
-			// Both of these only appear once the series really holds the image, so an
-			// episode can follow them without guessing at what its series has.
-			const seriesId = item.SeriesPrimaryImageTag ? item.SeriesId : item.ParentPrimaryImageItemId;
-			const seriesPoster = seriesId
-				? getImageUrl(itemServerUrl, seriesId, 'Primary', {maxHeight: 360, quality: 80})
-				: item.ImageTags?.Primary
-					? getImageUrl(itemServerUrl, item.Id, 'Primary', {maxHeight: 360, quality: 80})
-					: null;
+			// An episode at rest wears its series poster. The image tag only names the
+			// exact version when the server sent one, so a missing tag still asks the
+			// series itself rather than letting a cropped episode still stand in.
+			const seriesPosterId = (item.SeriesPrimaryImageTag && item.SeriesId) || item.ParentPrimaryImageItemId || item.SeriesId;
+			const seriesPoster = seriesPosterId
+				? getImageUrl(itemServerUrl, seriesPosterId, 'Primary', {maxHeight: 360, quality: 80})
+				: null;
 			const seriesThumb = item.ParentThumbItemId
 				? getImageUrl(itemServerUrl, item.ParentThumbItemId, 'Thumb', {maxWidth: 600, quality: 80})
 				: null;
@@ -240,6 +239,8 @@ const ModernMediaCard = ({
 	const progress = item?.UserData?.PlayedPercentage || 0;
 	const watchedBehavior = settings.watchedIndicatorBehavior || 'always';
 	const showIndicators = watchedBehavior === 'always' || watchedBehavior === 'hideCount' || (watchedBehavior === 'episodesOnly' && item?.Type === 'Episode');
+	const unplayedCount = item?.UserData?.UnplayedItemCount;
+	const showUnplayedCount = showIndicators && watchedBehavior !== 'hideCount' && !item?.UserData?.Played && unplayedCount > 0;
 
 	const displayTitle = useMemo(() => {
 		if (!item) return '';
@@ -248,7 +249,7 @@ const ModernMediaCard = ({
 	}, [item]);
 
 	const metadata = useMemo(() => getMetadataLine(item), [item]);
-	const episodeLabel = useMemo(() => getEpisodeLabel(item), [item]);
+	const episodeLabels = useMemo(() => getEpisodeLabels(item), [item]);
 	const shouldShowOverview = useMemo(() => ['Movie', 'Series', 'Episode'].includes(item?.Type), [item?.Type]);
 	const overviewText = useMemo(() => {
 		if (!shouldShowOverview) return '';
@@ -340,16 +341,40 @@ const ModernMediaCard = ({
 				{item?._seerr && [2, 3, 4, 5].includes(item?.mediaInfo?.status) && (
 					<div className={`${css.seerrBadge} ${css[`seerr${item.mediaInfo.status}`]}`} />
 				)}
+
+				{showIndicators && item?.UserData?.Played && (
+					<div className={css.watchedBadge}>
+						<svg viewBox="0 0 24 24"><path fill="white" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+					</div>
+				)}
+
+				{showUnplayedCount && (
+					<div className={css.unplayedCount}>{unplayedCount}</div>
+				)}
+
+				{item?.UserData?.IsFavorite && (
+					<div className={css.favoriteBadge}>
+						<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+					</div>
+				)}
 			</div>
 
 			<div className={css.title}>{displayTitle}</div>
-			{(episodeLabel || item?.Subtitle) && (
-				<div className={css.secondaryTitle}>{episodeLabel || item.Subtitle}</div>
-			)}
+			{isFocused ? (
+				episodeLabels ? (
+					<>
+						<div className={css.secondaryTitle}>{episodeLabels.full}</div>
+						{metadata && <div className={css.secondaryTitle}>{metadata}</div>}
+					</>
+				) : (metadata || item?.Subtitle) ? (
+					<div className={css.secondaryTitle}>{metadata || item.Subtitle}</div>
+				) : null
+			) : (episodeLabels || item?.Subtitle) ? (
+				<div className={css.secondaryTitle}>{episodeLabels ? episodeLabels.short : item.Subtitle}</div>
+			) : null}
 
 			{isFocused && canRenderExpanded && (
-				<div className={css.extendedSection}>
-					{metadata && <div className={css.meta}>{metadata}</div>}
+				<div className={css.extendedSection} style={{width: `${expandedWidth}px`}}>
 					<RatingsRow
 						item={item}
 						serverUrl={itemServerUrl}

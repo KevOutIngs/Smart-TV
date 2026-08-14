@@ -31,7 +31,8 @@ const MediaRow = ({
 	onNavigateUp,
 	onNavigateDown,
 	showServerBadge = false,
-	showOverview = false,
+	subtitle,
+	rowSpacing,
 	className,
 	registerRowRef,
 	onSeeAll,
@@ -123,8 +124,12 @@ const MediaRow = ({
 	const rowClassName = [
 		css.row,
 		className || '',
-		settings.fullScreenRows === true ? css.fullScreenRows : ''
+		settings.fullScreenRows === true ? css.fullScreenRows : '',
+		settings.fullScreenRows === true && settings.homeRowOverlay !== false ? css.withOverlay : ''
 	].filter(Boolean).join(' ');
+	// The padding slider owns the space below each row. Custom properties do not
+	// survive the build for the older sets, so it arrives as an inline style.
+	const rowStyle = typeof rowSpacing === 'number' ? {marginBottom: rowSpacing + 'px'} : undefined;
 
 	return (
 		<RowContainer
@@ -133,8 +138,10 @@ const MediaRow = ({
 			spotlightId={`row-${rowIndex}`}
 			data-row-index={rowIndex}
 			onKeyDown={handleKeyDown}
+			style={rowStyle}
 		>
 			<h2 className={css.title}>{title}</h2>
+			{subtitle && <div className={css.subtitle}>{subtitle}</div>}
 			<div className={css.scroller} ref={scrollerRef} onFocus={handleFocus}>
 				<div className={css.items}>
 						{onSeeAll && (
@@ -163,7 +170,6 @@ const MediaRow = ({
 									onSelect={handleSelect}
 									onFocusItem={onFocusItem}
 									showServerBadge={showServerBadge}
-									showOverview={showOverview}
 									eagerLoad={rowIndex === 0}
 									spotlightId={spotlightId}
 									onSpotlightLeft={isFirst && !onSeeAll ? handleWrapLeft : null}
@@ -185,6 +191,8 @@ const areRowPropsEqual = (prev, next) => {
 	if (prev.serverUrl !== next.serverUrl) return false;
 	if (prev.rowIndex !== next.rowIndex) return false;
 	if (prev.showServerBadge !== next.showServerBadge) return false;
+	if (prev.subtitle !== next.subtitle) return false;
+	if (prev.rowSpacing !== next.rowSpacing) return false;
 	if (prev.className !== next.className) return false;
 	if (prev.seeAllLabel !== next.seeAllLabel) return false;
 	// Compare presence, not identity: an inline arrow from a caller would defeat
