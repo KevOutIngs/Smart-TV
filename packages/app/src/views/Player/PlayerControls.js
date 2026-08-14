@@ -10,7 +10,7 @@ import SubtitleSettingsOverlay from './SubtitleSettingsOverlay';
 import {isHdrVideoStream} from '../../utils/videoRange';
 import {getPlatform} from '../../platform';
 import {ModalContainer} from '../../utils/spotlightContainers';
-import {numberedTrackName, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
+import {numberedTrackName, sortSubtitleStreams, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
 import {
 	SpottableButton, SpottableDiv,
 	formatTime, getQualityPresets,
@@ -424,7 +424,7 @@ const PlayerControls = ({
 										data-selected={stream.index === selectedAudioIndex ? 'true' : undefined}
 										onClick={handleSelectAudio}
 									>
-										<span className={css.trackName}>{numberedTrackName(i + 1, stream.displayTitle)}</span>
+										<span className={css.trackName}>{numberedTrackName(i + 1, stream.displayTitle, $L('Audio'))}</span>
 										{detail && <span className={css.trackInfo}>{detail}</span>}
 									</SpottableButton>
 								);
@@ -449,7 +449,7 @@ const PlayerControls = ({
 							>
 								<span className={css.trackName}>{$L('Off')}</span>
 							</SpottableButton>
-							{subtitleStreams.map((stream, i) => (
+							{sortSubtitleStreams(subtitleStreams).map((stream, i) => (
 								<SpottableButton
 									key={stream.index}
 									className={`${css.trackItem} ${stream.index === selectedSubtitleIndex ? css.selected : ''}`}
@@ -458,8 +458,8 @@ const PlayerControls = ({
 									onClick={handleSelectSubtitle}
 									onKeyDown={handleSubtitleKeyDown}
 								>
-									<span className={css.trackName}>{numberedTrackName(i + 1, stream.displayTitle)}</span>
-									<span className={css.trackInfo}>{subtitleTrackDetail({codec: stream.codec, isExternal: stream.isExternal, deliveryMethod: stream.deliveryMethod, isForced: stream.isForced})}</span>
+									<span className={css.trackName}>{numberedTrackName(i + 1, stream.displayTitle, $L('Subtitle'))}</span>
+									<span className={css.trackInfo}>{subtitleTrackDetail({name: stream.displayTitle, codec: stream.codec, language: stream.language, isExternal: stream.isExternal, deliveryMethod: stream.deliveryMethod, isForced: stream.isForced, isHearingImpaired: stream.isHearingImpaired})}</span>
 								</SpottableButton>
 							))}
 						</div>

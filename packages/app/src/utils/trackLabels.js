@@ -4,27 +4,58 @@ import $L from '@enact/i18n/$L';
 // Portuguese, so number every row and say what the track is and where it comes from.
 // That is what tells them apart and shows which ones have already been tried.
 
-export const numberedTrackName = (position, title) =>
-	`${position} - ${title || `${$L('Track')} ${position}`}`;
+export const numberedTrackName = (position, title, typeLabel) =>
+	`${position} - ${title || `${typeLabel || $L('Track')} ${position}`}`;
 
-export const subtitleTrackDetail = ({codec, isExternal, deliveryMethod, isForced}) => {
-	const parts = [codec ? codec.toUpperCase() : $L('Unknown')];
+const isExternalSubtitle = (stream) =>
+	stream.isExternal === true ||
+	(stream.deliveryMethod || '').trim().toLowerCase() === 'external';
+
+// Internal tracks list first and external ones last, the order the other clients
+// use. Only rows that select by stream index can be reordered, so this takes the
+// player's mapped streams rather than raw server ones.
+export const sortSubtitleStreams = (streams) => [
+	...streams.filter((stream) => !isExternalSubtitle(stream)),
+	...streams.filter(isExternalSubtitle)
+];
+
+// Servers and release groups spell hearing impaired several ways, and the word
+// boundaries keep cc from matching inside an ordinary word.
+const SDH_WORDS = /\b(sdh|cc|hoh|hearing[\s-]*impaired|closed[\s-]*captions?)\b/;
+
+// Each part is dropped when the name already says it, so a track that announces
+// itself is not announced twice. The name is built from server wording, so the
+// checks read English while the parts themselves stay translated. The language
+// code always shows, because the name spells the language out and only the code
+// tells regional variants like pt-BR and pt-PT apart.
+export const subtitleTrackDetail = ({name, codec, language, isExternal, deliveryMethod, isForced, isHearingImpaired}) => {
+	const named = (name || '').toLowerCase();
+	const parts = [];
+	if (!codec) {
+		parts.push($L('Unknown'));
+	} else if (!named.includes(codec.toLowerCase())) {
+		parts.push(codec.toUpperCase());
+	}
 	if (isExternal) {
-		parts.push($L('External'));
+		if (!named.includes('external')) parts.push($L('External'));
 	} else if ((deliveryMethod || '').toLowerCase() === 'embed') {
-		parts.push($L('Embedded'));
+		if (!named.includes('embed')) parts.push($L('Embedded'));
 	} else {
 		parts.push($L('Internal'));
 	}
-	if (isForced) parts.push($L('Forced'));
+	if (language && language !== 'Unknown') parts.push(language.toUpperCase());
+	if (isHearingImpaired && !SDH_WORDS.test(named)) parts.push($L('SDH'));
+	if (isForced && !named.includes('forced')) parts.push($L('Forced'));
 	return parts.join(' · ');
 };
 
-// A track with no title already shows its language as the name, so the language only
-// earns a place here alongside one.
+// A track whose name fell back to its language already shows it, so the language
+// only earns a place here when the name says something else. The player mapping
+// backfills a missing language with Unknown, which reads as noise rather than
+// information.
 export const audioTrackDetail = ({language, displayTitle, codec, channels}) => {
 	const parts = [];
-	if (language && displayTitle) parts.push(language);
+	if (language && language !== 'Unknown' && displayTitle && displayTitle !== language) parts.push(language);
 	if (codec) parts.push(codec.toUpperCase());
 	if (channels) parts.push(`${channels}ch`);
 	return parts.join(' · ');

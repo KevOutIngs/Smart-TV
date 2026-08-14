@@ -97,7 +97,7 @@ const DetailTrackModals = ({
 										data-selected={i === selectedAudioIndex ? 'true' : undefined}
 										onClick={onSelectAudio}
 									>
-										<span className={css.trackName}>{numberedTrackName(i + 1, stream.DisplayTitle || stream.Language)}</span>
+										<span className={css.trackName}>{numberedTrackName(i + 1, stream.DisplayTitle || stream.Title || stream.Language, $L('Audio'))}</span>
 										{detail && <span className={css.trackInfo}>{detail}</span>}
 									</SpottableButton>
 								);
@@ -128,8 +128,8 @@ const DetailTrackModals = ({
 									data-selected={i === selectedSubtitleIndex ? 'true' : undefined}
 									onClick={onSelectSubtitle}
 								>
-									<span className={css.trackName}>{numberedTrackName(i + 1, stream.DisplayTitle || stream.Language)}</span>
-									<span className={css.trackInfo}>{subtitleTrackDetail({codec: stream.Codec, isExternal: stream.IsExternal, deliveryMethod: stream.DeliveryMethod, isForced: stream.IsForced})}</span>
+									<span className={css.trackName}>{numberedTrackName(i + 1, stream.DisplayTitle || stream.Title || stream.Language, $L('Subtitle'))}</span>
+									<span className={css.trackInfo}>{subtitleTrackDetail({name: stream.DisplayTitle || stream.Title || stream.Language, codec: stream.Codec, language: stream.Language, isExternal: stream.IsExternal, deliveryMethod: stream.DeliveryMethod, isForced: stream.IsForced, isHearingImpaired: stream.IsHearingImpaired})}</span>
 								</SpottableButton>
 							))}
 						</div>
