@@ -216,12 +216,12 @@ const Favorites = ({onSelectItem, onSelectPerson, onHome, backHandlerRef}) => {
 
 	const isWideImage = imageType === 'thumbnail';
 	const posterHeight = isWideImage
-		? ({small: 120, medium: 160, large: 210}[imageSize] || 160)
-		: ({small: 200, medium: 270, large: 350}[imageSize] || 270);
+		? ({small: 120, medium: 160, large: 210, extraLarge: 260}[imageSize] || 160)
+		: ({small: 200, medium: 270, large: 350, extraLarge: 440}[imageSize] || 270);
 
 	const gridItemSize = isWideImage
-		? ({small: {minWidth: 220, minHeight: 170}, medium: {minWidth: 280, minHeight: 220}, large: {minWidth: 360, minHeight: 280}}[imageSize] || {minWidth: 280, minHeight: 220})
-		: ({small: {minWidth: 130, minHeight: 270}, medium: {minWidth: 170, minHeight: 340}, large: {minWidth: 220, minHeight: 430}}[imageSize] || {minWidth: 170, minHeight: 340});
+		? ({small: {minWidth: 220, minHeight: 170}, medium: {minWidth: 280, minHeight: 220}, large: {minWidth: 360, minHeight: 280}, extraLarge: {minWidth: 440, minHeight: 340}}[imageSize] || {minWidth: 280, minHeight: 220})
+		: ({small: {minWidth: 130, minHeight: 270}, medium: {minWidth: 170, minHeight: 340}, large: {minWidth: 220, minHeight: 430}, extraLarge: {minWidth: 270, minHeight: 530}}[imageSize] || {minWidth: 170, minHeight: 340});
 
 	const renderItem = useCallback(({index, ...rest}) => {
 		const isNearEnd = index >= items.length - 50;

@@ -23,7 +23,7 @@ export const filterByStartLetter = (items, startLetter) => {
 };
 
 // What the image and layout rows on the settings panel step through.
-export const IMAGE_SIZES = ['small', 'medium', 'large'];
+export const IMAGE_SIZES = ['small', 'medium', 'large', 'extraLarge'];
 export const IMAGE_TYPES = ['poster', 'thumbnail'];
 export const GRID_DIRECTIONS = ['vertical', 'horizontal'];
 
