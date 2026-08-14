@@ -13,6 +13,7 @@
     "bgColor": "#000b25",
     "iconColor": "#000b25",
     "disableBackHistoryAPI": true,
+    "enablePigScreenSaver": false,
     "requiredPermissions": [
         "time.query",
         "activity.operation",
