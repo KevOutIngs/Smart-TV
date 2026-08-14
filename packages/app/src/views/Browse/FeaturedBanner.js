@@ -215,6 +215,8 @@ const FeaturedBanner = memo(({
 
 				<div className={css.trailerContainer} ref={trailerContainerRef} />
 
+				<div className={css.featuredGradient} />
+
 				{featuredItems.length > 1 && (
 					<>
 						{settings.navbarPosition !== 'left' && (
@@ -241,11 +243,13 @@ const FeaturedBanner = memo(({
 				)}
 
 				<div className={css.featuredLogoContainer}>
-					{currentFeatured.LogoUrl && (
+					{currentFeatured.LogoUrl ? (
 						<img
 							src={currentFeatured.LogoUrl}
 							alt={`${currentFeatured.Name} logo`}
 						/>
+					) : (
+						<h1 className={css.featuredTitle}>{currentFeatured.Name}</h1>
 					)}
 				</div>
 
@@ -256,7 +260,7 @@ const FeaturedBanner = memo(({
 								<span className={css.metaItem}>{currentFeatured.ProductionYear}</span>
 							)}
 							{currentFeatured.OfficialRating && (
-								<span className={css.metaItem}>{currentFeatured.OfficialRating}</span>
+								<span className={css.metaItem}><span className={css.metaBadge}>{currentFeatured.OfficialRating}</span></span>
 							)}
 							{(() => {
 								if (!currentFeatured.RunTimeTicks || currentFeatured.Type === 'Series') return null;
@@ -267,10 +271,12 @@ const FeaturedBanner = memo(({
 								<span key={i} className={css.metaItem}>{g}</span>
 							))}
 						</div>
-						<RatingsRow item={currentFeatured} serverUrl={getItemServerUrl(currentFeatured)} compact pluginEnabled={isMdblistEnabled(settings)} />
-						<p className={css.featuredOverview}>
-							{currentFeatured.Overview || $L('No description available.')}
-						</p>
+						<div className={css.featuredDetails}>
+							<RatingsRow item={currentFeatured} serverUrl={getItemServerUrl(currentFeatured)} compact pluginEnabled={isMdblistEnabled(settings)} />
+							<p className={css.featuredOverview}>
+								{currentFeatured.Overview || $L('No description available.')}
+							</p>
+						</div>
 					</div>
 
 				</div>

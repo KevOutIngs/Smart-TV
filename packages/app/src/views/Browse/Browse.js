@@ -461,9 +461,12 @@ const Browse = ({
 					) : settings.featuredBarStyle === 'makd' ? (
 						<MakdBanner
 							isVisible={browseMode === 'featured'}
+							browseVisible={isVisible}
 							featuredItems={featuredItems}
 							serverUrl={serverUrl}
+							api={api}
 							settings={settings}
+							settingsLoaded={settingsLoaded}
 							getItemServerUrl={getItemServerUrl}
 							onSelectItem={handleSelectItem}
 							onNavigateDown={handleNavigateDownFromFeatured}

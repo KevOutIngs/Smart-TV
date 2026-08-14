@@ -154,6 +154,7 @@ const AppContent = (props) => {
 	const [playbackOptions, setPlaybackOptions] = useState(null);
 	const [isResume, setIsResume] = useState(false);
 	const [isPlayerPaused, setIsPlayerPaused] = useState(false);
+	const [trailerPreviewActive, setTrailerPreviewActive] = useState(false);
 	const [panelHistory, setPanelHistory] = useState([]);
 	const [seerrBrowse, setSeerrBrowse] = useState(null);
 	const [seerrPerson, setSeerrPerson] = useState(null);
@@ -190,6 +191,8 @@ const AppContent = (props) => {
 		(panelIndex !== PANELS.PLAYER || isPlayerPaused) &&
 		// Emulator input bypasses Spotlight (paused during gameplay), so inactivity never resets.
 		panelIndex !== PANELS.GAME_PLAYER &&
+		// A media bar trailer plays without any key presses to reset the timer.
+		!trailerPreviewActive &&
 		!showExitDialog &&
 		!showShuffleOverlay &&
 		!showSettingsPanel &&
@@ -202,6 +205,12 @@ const AppContent = (props) => {
 	useEffect(() => {
 		window.dispatchEvent(new CustomEvent('moonfin:screensaver', {detail: {active: showScreensaver}}));
 	}, [showScreensaver]);
+
+	useEffect(() => {
+		const handleTrailerPreview = (e) => setTrailerPreviewActive(!!e.detail?.active);
+		window.addEventListener('moonfin:trailerPreview', handleTrailerPreview);
+		return () => window.removeEventListener('moonfin:trailerPreview', handleTrailerPreview);
+	}, []);
 
 	// The logging switches used to reach the logger only from the settings toggle, so
 	// turning one on and restarting the TV left it doing nothing until Settings was opened

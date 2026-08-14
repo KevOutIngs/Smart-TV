@@ -4,6 +4,8 @@ const REQUEST_TIMEOUT_MS = 5000;
 const DEBUG_STORAGE_KEY = 'moonfin:debugYoutubeTrailer';
 
 const YOUTUBE_REFERER = 'https://www.youtube.com/';
+// What counts as a good enough resolution to stop hunting for a better stream.
+const HIGH_QUALITY_FLOOR = 720;
 const FIREFOX_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0';
 
 const PIPED_BASES = [
@@ -172,10 +174,10 @@ function streamScore (stream, preferHighQuality) {
 	return score;
 }
 
-function pickBestUrl (streams, preferHighQuality) {
+function pickBestStream (streams, preferHighQuality) {
 	if (!Array.isArray(streams) || streams.length === 0) return null;
 
-	let bestUrl = null;
+	let best = null;
 	let bestScore = -1e9;
 
 	for (let i = 0; i < streams.length; i++) {
@@ -186,20 +188,25 @@ function pickBestUrl (streams, preferHighQuality) {
 		const score = streamScore(stream, preferHighQuality);
 		if (score > bestScore) {
 			bestScore = score;
-			bestUrl = url;
+			best = {url: url, quality: qualityFromStream(stream)};
 		}
 	}
 
-	if (bestUrl) return bestUrl;
+	if (best) return best;
 
 	for (let i = 0; i < streams.length; i++) {
-		if (streams[i] && streams[i].url) return streams[i].url;
+		if (streams[i] && streams[i].url) return {url: streams[i].url, quality: qualityFromStream(streams[i])};
 	}
 
 	return null;
 }
 
-function extractInnertubeStreamUrl (playerResponse, preferHighQuality) {
+function pickBestUrl (streams, preferHighQuality) {
+	const best = pickBestStream(streams, preferHighQuality);
+	return best ? best.url : null;
+}
+
+function extractInnertubeStream (playerResponse, preferHighQuality) {
 	if (!playerResponse) return null;
 
 	const playability = playerResponse.playabilityStatus;
@@ -209,8 +216,9 @@ function extractInnertubeStreamUrl (playerResponse, preferHighQuality) {
 	const streamingData = playerResponse.streamingData;
 	if (!streamingData) return null;
 
-	if (streamingData.hlsManifestUrl) return streamingData.hlsManifestUrl;
-	if (streamingData.dashManifestUrl) return streamingData.dashManifestUrl;
+	// A manifest carries every variant, so nothing else beats it on quality.
+	if (streamingData.hlsManifestUrl) return {url: streamingData.hlsManifestUrl, quality: HIGH_QUALITY_FLOOR};
+	if (streamingData.dashManifestUrl) return {url: streamingData.dashManifestUrl, quality: HIGH_QUALITY_FLOOR};
 
 	const formats = Array.isArray(streamingData.formats) ? streamingData.formats : [];
 	const muxedFormats = formats.filter(function (stream) {
@@ -218,7 +226,7 @@ function extractInnertubeStreamUrl (playerResponse, preferHighQuality) {
 	});
 
 	if (muxedFormats.length > 0) {
-		return pickBestUrl(muxedFormats, preferHighQuality);
+		return pickBestStream(muxedFormats, preferHighQuality);
 	}
 
 	return null;
@@ -248,7 +256,12 @@ function buildInnertubePayload (videoId, client) {
 	return payload;
 }
 
+// The first client to answer usually only carries a 360p muxed format, so in
+// high quality mode the search keeps going until a client offers 720p or
+// better, keeping the best answer so far as the fallback.
 async function tryInnertube (videoId, preferHighQuality) {
+	let best = null;
+
 	// Browser environments cannot set User-Agent/Origin/Referer headers.
 	// Use a CORS-simple request (text/plain) to avoid preflight rejection.
 	for (let i = 0; i < INNERTUBE_CLIENTS.length; i++) {
@@ -273,11 +286,21 @@ async function tryInnertube (videoId, preferHighQuality) {
 
 		debugLog('innertube status', client.name, data.playabilityStatus?.status, data.playabilityStatus?.reason || '');
 
-		const streamUrl = extractInnertubeStreamUrl(data, preferHighQuality);
-		if (streamUrl) {
-			debugLog('innertube resolved stream', client.name);
-			return streamUrl;
+		const stream = extractInnertubeStream(data, preferHighQuality);
+		if (!stream) continue;
+
+		debugLog('innertube resolved stream', client.name, stream.quality + 'p');
+		if (!preferHighQuality || stream.quality >= HIGH_QUALITY_FLOOR) {
+			return stream.url;
 		}
+		if (!best || stream.quality > best.quality) {
+			best = stream;
+		}
+	}
+
+	if (best) {
+		debugLog('innertube settled for', best.quality + 'p');
+		return best.url;
 	}
 
 	debugLog('innertube exhausted without stream');

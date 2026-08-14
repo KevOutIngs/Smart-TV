@@ -4,7 +4,7 @@ import {stopPlaybackForTrailer} from '../../utils/trailerPlayback';
 import {createApiForServer, getApiKey, getServerUrl as getDefaultServerUrl} from '../../services/jellyfinApi';
 import css from './Browse.module.less';
 
-const TRAILER_REVEAL_MS = 4000;
+const TRAILER_REVEAL_MS = 3000;
 // the preview plays into a plain HTML5 video element which cant decode a server
 // transcode on Tizen, so direct play the original trailer file instead
 const LOCAL_TRAILER_STREAM_PARAMS = {
@@ -150,13 +150,15 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 		const isStale = () => trailerStateRef.current !== 'resolving' || trailerVideoIdRef.current !== requestId;
 
 		// a local trailer plays as a direct url, a youtube id resolves to a
-		// stream first. Youtube is tried when a local trailer cant be decoded
+		// stream first. Youtube is tried when a local trailer cant be decoded.
+		// The bar fills the screen, so ask for the best stream rather than the
+		// balanced pick a small preview would take
 		const resolveStream = async (attempt) => {
 			if (attempt.url) return {streamUrl: attempt.url, segments: [], startTime: 0};
 			try {
 				const results = await Promise.all([
 					fetchSponsorSegments(attempt.id).catch(() => []),
-					fetchVideoStreamUrl(attempt.id, false)
+					fetchVideoStreamUrl(attempt.id, true)
 				]);
 				return {streamUrl: results[1], segments: results[0], startTime: getTrailerStartTime(results[0])};
 			} catch (e) {
@@ -320,6 +322,16 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 		window.addEventListener('moonfin:screensaver', handleScreensaver);
 		return () => window.removeEventListener('moonfin:screensaver', handleScreensaver);
 	}, []);
+
+	// A playing trailer is the screen doing something, but it takes no key
+	// presses, so the inactivity timer would sit there counting down and cut it
+	// off. Announce it so the screensaver holds off until it ends.
+	useEffect(() => {
+		window.dispatchEvent(new CustomEvent('moonfin:trailerPreview', {detail: {active: trailerActive}}));
+		return () => {
+			window.dispatchEvent(new CustomEvent('moonfin:trailerPreview', {detail: {active: false}}));
+		};
+	}, [trailerActive]);
 
 	useEffect(() => {
 		const handleVisibility = () => {

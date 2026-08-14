@@ -6,6 +6,7 @@ import $L from '@enact/i18n/$L';
 import {getImageUrl, getBackdropId, formatDuration} from '../../utils/helpers';
 import RatingsRow from '../../components/RatingsRow';
 import {KEYS} from '../../utils/keys';
+import useTrailerPreview from './useTrailerPreview';
 import css from './Browse.module.less';
 
 const FEATURED_GENRES_LIMIT = 3;
@@ -16,9 +17,12 @@ const SpottableButton = Spottable('button');
 
 const MakdBanner = memo(({
 	isVisible,
+	browseVisible = true,
 	featuredItems,
 	serverUrl,
+	api,
 	settings,
+	settingsLoaded,
 	getItemServerUrl,
 	onSelectItem,
 	onNavigateDown,
@@ -32,6 +36,22 @@ const MakdBanner = memo(({
 	const carouselIntervalRef = useRef(null);
 
 	const currentFeatured = featuredItems[currentIndex];
+
+	// A trailer outlives the carousel interval, so finishing one moves the slide
+	// on itself rather than waiting out another full turn on a still backdrop.
+	const handleTrailerEnded = useCallback(() => {
+		if (featuredItems.length > 1) setCurrentIndex((prev) => (prev + 1) % featuredItems.length);
+	}, [featuredItems.length]);
+
+	const {trailerActive, trailerContainerRef} = useTrailerPreview({
+		currentItem: currentFeatured,
+		isVisible: isVisible && browseVisible,
+		enabled: settingsLoaded && settings.featuredTrailerPreview,
+		preferMuted: settings.featuredTrailerMuted,
+		api,
+		getItemServerUrl,
+		onEnded: handleTrailerEnded
+	});
 
 	useEffect(() => {
 		if (featuredItems[currentIndex]) {
@@ -76,15 +96,15 @@ const MakdBanner = memo(({
 		}
 
 		const carouselSpeed = settings.carouselSpeed || 8000;
-		if (!isVisible || featuredItems.length <= 1 || !featuredFocused || carouselSpeed === 0) return;
+		if (!isVisible || featuredItems.length <= 1 || !featuredFocused || carouselSpeed === 0 || trailerActive) return;
 
 		carouselIntervalRef.current = setInterval(() => {
 			setCurrentIndex((prev) => (prev + 1) % featuredItems.length);
 		}, carouselSpeed);
-	}, [isVisible, featuredItems.length, featuredFocused, settings.carouselSpeed]);
+	}, [isVisible, featuredItems.length, featuredFocused, settings.carouselSpeed, trailerActive]);
 
 	useEffect(() => {
-		if (!isVisible || featuredItems.length <= 1 || !featuredFocused || settings.carouselSpeed === 0) return;
+		if (!isVisible || featuredItems.length <= 1 || !featuredFocused || settings.carouselSpeed === 0 || trailerActive) return;
 		startCarouselTimer();
 		return () => {
 			if (carouselIntervalRef.current) {
@@ -92,7 +112,7 @@ const MakdBanner = memo(({
 				carouselIntervalRef.current = null;
 			}
 		};
-	}, [isVisible, featuredItems.length, featuredFocused, settings.carouselSpeed, startCarouselTimer]);
+	}, [isVisible, featuredItems.length, featuredFocused, settings.carouselSpeed, trailerActive, startCarouselTimer]);
 
 	useEffect(() => {
 		return () => {
@@ -171,7 +191,7 @@ const MakdBanner = memo(({
 	return (
 		<div className={css.makdBanner}>
 			<SpottableDiv
-				className={css.makdInner}
+				className={`${css.makdInner} ${trailerActive ? css.makdTrailerActive : ''}`}
 				spotlightId='featured-banner'
 				onClick={handleFeaturedClick}
 				onKeyDown={handleFeaturedKeyDown}
@@ -184,6 +204,7 @@ const MakdBanner = memo(({
 						alt=''
 					/>
 				</div>
+				<div className={css.trailerContainer} ref={trailerContainerRef} />
 				<div className={css.makdGradient} />
 
 				{featuredItems.length > 1 && (
