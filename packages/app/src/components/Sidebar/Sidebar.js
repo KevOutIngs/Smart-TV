@@ -110,41 +110,44 @@ const Sidebar = ({
 			</div>
 
 			<div className={css.navSection}>
-				<SidebarItem Icon={HomeIcon} slot={1} label={$L('Home')} onClick={onHome} spotlightId="navbar-home" className={spotlightDefaultClass} />
-				<SidebarItem Icon={SearchIcon} slot={2} label={$L('Search')} onClick={onSearch} />
+				<div className={css.navItems}>
+					<SidebarItem Icon={HomeIcon} slot={1} label={$L('Home')} onClick={onHome} spotlightId="navbar-home" className={spotlightDefaultClass} />
+					<SidebarItem Icon={SearchIcon} slot={2} label={$L('Search')} onClick={onSearch} />
 
-				{showShuffle && (
-					<SidebarItem Icon={ShuffleIcon} slot={3} label={$L('Shuffle')} onClick={onShuffle} />
-				)}
+					{showShuffle && (
+						<SidebarItem Icon={ShuffleIcon} slot={3} label={$L('Shuffle')} onClick={onShuffle} />
+					)}
 
-				{showGenres && (
-					<SidebarItem Icon={GenresIcon} slot={4} label={$L('Genres')} onClick={onGenres} />
-				)}
+					{showGenres && (
+						<SidebarItem Icon={GenresIcon} slot={4} label={$L('Genres')} onClick={onGenres} />
+					)}
 
-				{showFavorites && (
-					<SidebarItem Icon={FavoritesIcon} slot={5} label={$L('Favorites')} onClick={onFavorites} />
-				)}
+					{showFavorites && (
+						<SidebarItem Icon={FavoritesIcon} slot={5} label={$L('Favorites')} onClick={onFavorites} />
+					)}
 
-				{showSeerr && (
-					<SidebarItem Icon={SeerrIcon} slot={6} label={displayName} onClick={onDiscover} />
-				)}
+					{showSeerr && (
+						<SidebarItem Icon={SeerrIcon} slot={6} label={displayName} onClick={onDiscover} />
+					)}
 
-				{showSyncPlay && (
-					<SidebarItem Icon={SyncPlayIcon} slot={7} label={$L('SyncPlay')} onClick={onSyncPlay} active={isInGroup} />
-				)}
+					{showSyncPlay && (
+						<SidebarItem Icon={SyncPlayIcon} slot={7} label={$L('SyncPlay')} onClick={onSyncPlay} active={isInGroup} />
+					)}
 
-				{showLibraries && (
-					<SidebarLibraries
-						libraries={libraries}
-						expanded={librariesExpanded}
-						onToggle={toggleLibraries}
-						onSelectLibrary={onSelectLibrary}
-					/>
-				)}
+					{showLibraries && (
+						<SidebarLibraries
+							libraries={libraries}
+							expanded={librariesExpanded}
+							onToggle={toggleLibraries}
+							onSelectLibrary={onSelectLibrary}
+						/>
+					)}
+
+					<SidebarItem Icon={SettingsIcon} slot={9} label={$L('Settings')} onClick={onSettings} spotlightId="navbar-settings" />
+				</div>
 			</div>
 
 			<div className={css.footerSection}>
-				<SidebarItem Icon={SettingsIcon} slot={9} label={$L('Settings')} onClick={onSettings} spotlightId="navbar-settings" />
 				<div className={css.clock}>{clock}</div>
 			</div>
 		</SidebarContainer>

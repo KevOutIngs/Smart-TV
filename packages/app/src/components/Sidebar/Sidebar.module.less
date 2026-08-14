@@ -74,6 +74,16 @@
 	}
 }
 
+// Matches the middle aligned rail the other clients use. Auto margins share out the
+// leftover space, where justify-content would push the top out of reach once there
+// are more items than fit.
+.navItems {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	margin: auto 0;
+}
+
 .sidebarItem {
 	display: flex;
 	align-items: center;
