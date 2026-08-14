@@ -57,6 +57,9 @@ import css from './TizenPlayer.module.less';
 const AVPLAY_SCREEN = {width: 1920, height: 1080};
 const AVPLAY_FULLSCREEN_RECT = {x: 0, y: 0, ...AVPLAY_SCREEN};
 
+// The longest a segment skip waits on a session whose position never moves.
+const PLAYBACK_SETTLE_MS = 2000;
+
 const getRootFontSizePx = () => {
 	if (typeof window === 'undefined' || typeof document === 'undefined') return 24;
 	const computed = window.getComputedStyle(document.documentElement).fontSize;
@@ -143,6 +146,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const lastFocusedElementRef = useRef(null);
 	const timeUpdateIntervalRef = useRef(null);
 	const avplayReadyRef = useRef(false);
+	// Whether the pipeline is really running, and the segment skip waiting on it.
+	const playbackMovingRef = useRef(false);
+	const playIssuedAtRef = useRef(0);
+	const lastPolledMsRef = useRef(null);
+	const pendingSegmentSeekRef = useRef(null);
 	// Refs for stable callbacks inside AVPlay listener (avoids stale closures)
 	const handleEndedCallbackRef = useRef(null);
 	const handleErrorCallbackRef = useRef(null);
@@ -316,6 +324,21 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 		setCurrentTime(time);
 		positionRef.current = ticks;
+
+		// AVPlay reports PLAYING as soon as play is issued, so a position that has
+		// visibly moved is the only proof the pipeline is running. The elapsed
+		// time is a backstop for a stream whose position sits still, so nothing
+		// waiting on this is held forever.
+		if (!playbackMovingRef.current && state === 'PLAYING') {
+			const advanced = lastPolledMsRef.current != null && ms > lastPolledMsRef.current;
+			lastPolledMsRef.current = ms;
+			if (advanced || Date.now() - playIssuedAtRef.current > PLAYBACK_SETTLE_MS) {
+				playbackMovingRef.current = true;
+				const held = pendingSegmentSeekRef.current;
+				pendingSegmentSeekRef.current = null;
+				if (held != null) seekToSegmentTarget(held); // eslint-disable-line no-use-before-define
+			}
+		}
 
 		if (healthMonitorRef.current && state === 'PLAYING') {
 			healthMonitorRef.current.recordProgress();
@@ -652,6 +675,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		}
 
 		playIssued = true;
+		playbackMovingRef.current = false;
+		playIssuedAtRef.current = Date.now();
+		lastPolledMsRef.current = null;
+		pendingSegmentSeekRef.current = null;
 		avplayPlay();
 		setIsPaused(false);
 		if (pendingTracksRef.current) {
@@ -1420,15 +1447,27 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		onPlayNext(episode, trackOptions);
 	}, [onPlayNext, stopTimeUpdatePolling]);
 
-	const onSeekToSegmentEnd = useCallback((endTicks) => {
-		if (endTicks && avplayReadyRef.current) {
-			// An outro usually runs to the last frame and AVPlay won't seek there, so
-			// stop a second early and let playback finish on its own.
-			const limit = runTimeRef.current > 0 ? runTimeRef.current - 10000000 : endTicks;
-			const target = Math.max(0, Math.min(endTicks, limit));
-			avplaySeek(Math.floor(target / 10000)).catch(e => console.warn('[Player] Seek failed:', e));
-		}
+	const seekToSegmentTarget = useCallback((target) => {
+		avplaySeek(Math.floor(target / 10000)).catch(e => console.warn('[Player] Seek failed:', e));
 	}, []);
+
+	// A recap starts at the top of the episode, so its skip button is on screen
+	// while the session is still starting. A fresh session refuses seeks until
+	// playback is moving, which is what the resume seek above waits for, so a
+	// skip pressed that early waits with it rather than seeking into a session
+	// that is not ready.
+	const onSeekToSegmentEnd = useCallback((endTicks) => {
+		if (!endTicks || !avplayReadyRef.current) return;
+		// An outro usually runs to the last frame and AVPlay won't seek there, so
+		// stop a second early and let playback finish on its own.
+		const limit = runTimeRef.current > 0 ? runTimeRef.current - 10000000 : endTicks;
+		const target = Math.max(0, Math.min(endTicks, limit));
+		if (!playbackMovingRef.current) {
+			pendingSegmentSeekRef.current = target;
+			return;
+		}
+		seekToSegmentTarget(target);
+	}, [seekToSegmentTarget]);
 
 	const {
 		skipSegment, showSkipCredits, showNextEpisode, nextEpisodeCountdown,
