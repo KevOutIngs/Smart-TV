@@ -16,6 +16,7 @@ import RatingsRow from '../../components/RatingsRow';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
 import {useStorage} from '../../hooks/useStorage';
 import {buildFilterParams} from '../../utils/libraryFilters';
+import {keepFocusInView} from '../../utils/focusScroll';
 import {KEYS} from '../../utils/keys';
 import useSortSettingsPanels from '../../hooks/useSortSettingsPanels';
 import useStartLetter from '../../hooks/useStartLetter';
@@ -1193,6 +1194,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 				<div className={css.sortPanelOverlay} onClick={handleCloseSortPanel}>
 					<SortPanelContainer
 						className={css.sortPanel}
+						onFocus={keepFocusInView}
 						spotlightId="sort-panel"
 						onClick={stopPropagation}
 					>
@@ -1415,6 +1417,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 				<div className={css.sortPanelOverlay} onClick={handleCloseSettingsPanel}>
 					<SettingsPanelContainer
 						className={css.sortPanel}
+						onFocus={keepFocusInView}
 						spotlightId="settings-panel"
 						onClick={stopPropagation}
 					>
