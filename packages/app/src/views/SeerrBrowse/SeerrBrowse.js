@@ -8,6 +8,7 @@ import {useSeerr} from '../../context/SeerrContext';
 import {useSettings} from '../../context/SettingsContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import * as seerrApi from '../../services/seerrApi';
+import {buildSeerrDiscoverParams, getSeerrSortOptions, getSeerrTvStatusOptions, getSeerrMinRatingOptions, getSeerrMinVoteOptions, getSeerrRuntimeOptions, getSeerrReleaseOptions, hasSeerrDiscoverFilters} from '../../utils/seerrBrowseFilters';
 
 import css from './SeerrBrowse.module.less';
 
@@ -47,6 +48,18 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 	});
 	const [backdropUrl, setBackdropUrl] = useState('');
 	const [showFilterModal, setShowFilterModal] = useState(false);
+	const [sortBy, setSortBy] = useState('popularity.desc');
+	const [genreIds, setGenreIds] = useState([]);
+	const [tvStatuses, setTvStatuses] = useState([]);
+	const [language, setLanguage] = useState('');
+	const [minRating, setMinRating] = useState('');
+	const [minVotes, setMinVotes] = useState('');
+	const [runtime, setRuntime] = useState('');
+	const [released, setReleased] = useState('');
+	const [filterGenres, setFilterGenres] = useState([]);
+	const [filterLanguages, setFilterLanguages] = useState([]);
+	const [languagesExpanded, setLanguagesExpanded] = useState(false);
+	const filterOptionsRequestedRef = useRef(false);
 
 	const backdropTimeoutRef = useRef(null);
 	const backdropSetRef = useRef(false);
@@ -66,25 +79,24 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 		}
 
 		try {
-			let result;
-
-			switch (browseType) {
-				case 'genre':
-					result = await seerrApi.discoverByGenre(mediaType, item.id, page);
-					break;
-				case 'studio':
-					result = await seerrApi.discoverByStudio(item.id, page);
-					break;
-				case 'network':
-					result = await seerrApi.discoverByNetwork(item.id, page);
-					break;
-				case 'keyword':
-					result = await seerrApi.discoverByKeyword(mediaType, item.id, page);
-					break;
-				default:
-					console.error('Unknown browse type:', browseType);
-					return;
-			}
+			const params = {
+				page,
+				sortBy,
+				...buildSeerrDiscoverParams({
+					routeGenreId: browseType === 'genre' ? item.id : undefined,
+					genreIds,
+					tvStatuses,
+					language,
+					minRating,
+					minVotes,
+					runtime,
+					released
+				})
+			};
+			if (browseType === 'studio') params.studio = item.id;
+			if (browseType === 'network') params.network = item.id;
+			if (browseType === 'keyword') params.keywords = item.id;
+			const result = await seerrApi.discoverFiltered(mediaType, params);
 
 			const newItems = result.results || [];
 			totalPagesRef.current = result.totalPages || 1;
@@ -115,7 +127,7 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 				setTimeout(() => { loadCooldownRef.current = false; }, 500);
 			}
 		}
-	}, [item, isEnabled, browseType, mediaType]);
+	}, [item, isEnabled, browseType, mediaType, sortBy, genreIds, tvStatuses, language, minRating, minVotes, runtime, released]);
 
 	useEffect(() => {
 		if (item && isEnabled) {
@@ -173,9 +185,26 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 		setShowFilterModal(false);
 	}, []);
 
+	// The genre and language lists are only read once the panel opens, so a
+	// browse that never opens it costs nothing extra.
+	const loadFilterOptions = useCallback(async () => {
+		if (filterOptionsRequestedRef.current) return;
+		filterOptionsRequestedRef.current = true;
+		const [genres, languages] = await Promise.all([
+			(mediaType === 'tv' ? seerrApi.getGenreSliderTv() : seerrApi.getGenreSliderMovies()).catch(() => []),
+			seerrApi.getLanguages().catch(() => [])
+		]);
+		setFilterGenres(genres || []);
+		setFilterLanguages((languages || [])
+			.filter((l) => l.iso_639_1)
+			.map((l) => ({code: l.iso_639_1, name: l.english_name || l.name || l.iso_639_1}))
+			.sort((a, b) => a.name.localeCompare(b.name)));
+	}, [mediaType]);
+
 	const handleOpenFilterModal = useCallback(() => {
+		loadFilterOptions();
 		setShowFilterModal(true);
-	}, []);
+	}, [loadFilterOptions]);
 
 	useEffect(() => {
 		if (!backHandlerRef) return;
@@ -205,6 +234,15 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 			setShowFilterModal(false);
 		}
 	}, []);
+
+	// Genres and statuses belong to one media type, so switching type drops
+	// them and refetches the genre list on the next panel open.
+	useEffect(() => {
+		filterOptionsRequestedRef.current = false;
+		setFilterGenres([]);
+		setGenreIds([]);
+		setTvStatuses([]);
+	}, [mediaType]);
 
 	const renderItem = useCallback(({index, ...rest}) => {
 		const mediaItem = itemsRef.current[index];
@@ -276,7 +314,7 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 	const currentFilter = getFilterOptions().find(o => o.key === mediaType);
 
 	// Check if we should show the filter (not for studio/network which are media-type specific)
-	const showMediaTypeFilter = browseType === 'genre' || browseType === 'keyword';
+	const showMediaTypeFilter = browseType === 'genre' || browseType === 'keyword' || browseType === 'all';
 
 	const getBrowseTypeLabel = () => {
 		switch (browseType) {
@@ -287,6 +325,68 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 			default: return $L('Browse');
 		}
 	};
+
+	const handleSortSelect = useCallback((ev) => {
+		const key = ev.currentTarget?.dataset?.sortKey;
+		if (!key) return;
+		const option = getSeerrSortOptions(mediaType).find((o) => o.key === key);
+		if (!option) return;
+		// Reselecting the active axis flips its direction.
+		if (sortBy.startsWith(key + '.')) {
+			const flipped = sortBy.endsWith('.asc') ? `${key}.desc` : `${key}.asc`;
+			setSortBy(flipped);
+		} else {
+			setSortBy(option.defaultValue);
+		}
+	}, [mediaType, sortBy]);
+
+	const handleGenreToggle = useCallback((ev) => {
+		const id = parseInt(ev.currentTarget?.dataset?.genreId, 10);
+		if (!Number.isFinite(id)) return;
+		setGenreIds((prev) => (prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]));
+	}, []);
+
+	const handleTvStatusToggle = useCallback((ev) => {
+		const key = parseInt(ev.currentTarget?.dataset?.statusKey, 10);
+		if (!Number.isFinite(key)) return;
+		setTvStatuses((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+	}, []);
+
+	const handleLanguageSelect = useCallback((ev) => {
+		setLanguage(ev.currentTarget?.dataset?.languageCode || '');
+	}, []);
+
+	const handleMinRatingSelect = useCallback((ev) => {
+		setMinRating(ev.currentTarget?.dataset?.optionKey || '');
+	}, []);
+
+	const handleMinVotesSelect = useCallback((ev) => {
+		setMinVotes(ev.currentTarget?.dataset?.optionKey || '');
+	}, []);
+
+	const handleRuntimeSelect = useCallback((ev) => {
+		setRuntime(ev.currentTarget?.dataset?.optionKey || '');
+	}, []);
+
+	const handleReleasedSelect = useCallback((ev) => {
+		setReleased(ev.currentTarget?.dataset?.optionKey || '');
+	}, []);
+
+	const handleToggleLanguages = useCallback(() => {
+		setLanguagesExpanded((prev) => !prev);
+	}, []);
+
+	const handleClearFilters = useCallback(() => {
+		setGenreIds([]);
+		setTvStatuses([]);
+		setLanguage('');
+		setMinRating('');
+		setMinVotes('');
+		setRuntime('');
+		setReleased('');
+	}, []);
+
+	const filterState = {genreIds, tvStatuses, language, minRating, minVotes, runtime, released};
 
 	if (!item) {
 		return (
@@ -332,19 +432,17 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 					</div>
 				</div>
 
-				{showMediaTypeFilter && (
-					<div className={css.toolbar}>
-						<SpottableButton
-							className={css.filterButton}
-							onClick={handleOpenFilterModal}
-						>
-							<svg viewBox="0 0 24 24">
-								<path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z" />
-							</svg>
-							{currentFilter?.label}
-						</SpottableButton>
-					</div>
-				)}
+				<div className={css.toolbar}>
+					<SpottableButton
+						className={css.filterButton}
+						onClick={handleOpenFilterModal}
+					>
+						<svg viewBox="0 0 24 24">
+							<path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z" />
+						</svg>
+						{$L('Sort & Filter')}
+					</SpottableButton>
+				</div>
 
 				<div className={css.gridContainer}>
 					{isLoading && items.length === 0 ? (
@@ -375,19 +473,160 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 				scrimType="translucent"
 				noAutoDismiss
 			>
-				<div className={css.popupContent}>
-					<div className={css.modalTitle}>{$L('Media Type')}</div>
-					{getFilterOptions().map((option) => (
+				<div className={`${css.popupContent} ${css.popupScroll}`}>
+					{showMediaTypeFilter && (
+						<>
+							<div className={css.modalTitle}>{$L('Media Type')}</div>
+							{getFilterOptions().map((option) => (
+								<Button
+									key={option.key}
+									className={css.popupOption}
+									selected={mediaType === option.key}
+									onClick={handleFilterSelect}
+									data-filter-key={option.key}
+								>
+									{option.label}
+								</Button>
+							))}
+						</>
+					)}
+					<div className={css.modalTitle}>{$L('Sort By')}</div>
+					{getSeerrSortOptions(mediaType).map((option) => {
+						const active = sortBy.startsWith(option.key + '.');
+						const direction = sortBy.endsWith('.asc') ? '↑' : '↓';
+						return (
+							<Button
+								key={option.key}
+								className={css.popupOption}
+								selected={active}
+								onClick={handleSortSelect}
+								data-sort-key={option.key}
+							>
+								{active ? `${option.label} ${direction}` : option.label}
+							</Button>
+						);
+					})}
+					{filterGenres.length > 0 && (
+						<>
+							<div className={css.modalTitle}>{$L('Genres')}</div>
+							{filterGenres.map((genre) => (
+								<Button
+									key={genre.id}
+									className={css.popupOption}
+									selected={genreIds.includes(genre.id)}
+									onClick={handleGenreToggle}
+									data-genre-id={genre.id}
+								>
+									{genre.name}
+								</Button>
+							))}
+						</>
+					)}
+					{mediaType === 'tv' && (
+						<>
+							<div className={css.modalTitle}>{$L('Series Status')}</div>
+							{getSeerrTvStatusOptions().map((option) => (
+								<Button
+									key={option.key}
+									className={css.popupOption}
+									selected={tvStatuses.includes(option.key)}
+									onClick={handleTvStatusToggle}
+									data-status-key={option.key}
+								>
+									{option.label}
+								</Button>
+							))}
+						</>
+					)}
+					<div className={css.modalTitle}>{$L('Released')}</div>
+					{getSeerrReleaseOptions().map((option) => (
 						<Button
-							key={option.key}
+							key={option.key || 'any'}
 							className={css.popupOption}
-							selected={mediaType === option.key}
-							onClick={handleFilterSelect}
-							data-filter-key={option.key}
+							selected={released === option.key}
+							onClick={handleReleasedSelect}
+							data-option-key={option.key}
 						>
 							{option.label}
 						</Button>
 					))}
+					<div className={css.modalTitle}>{$L('Minimum Rating')}</div>
+					{getSeerrMinRatingOptions().map((option) => (
+						<Button
+							key={option.key || 'any'}
+							className={css.popupOption}
+							selected={minRating === option.key}
+							onClick={handleMinRatingSelect}
+							data-option-key={option.key}
+						>
+							{option.label}
+						</Button>
+					))}
+					<div className={css.modalTitle}>{$L('Minimum Votes')}</div>
+					{getSeerrMinVoteOptions().map((option) => (
+						<Button
+							key={option.key || 'any'}
+							className={css.popupOption}
+							selected={minVotes === option.key}
+							onClick={handleMinVotesSelect}
+							data-option-key={option.key}
+						>
+							{option.label}
+						</Button>
+					))}
+					<div className={css.modalTitle}>{$L('Runtime')}</div>
+					{getSeerrRuntimeOptions().map((option) => (
+						<Button
+							key={option.key || 'any'}
+							className={css.popupOption}
+							selected={runtime === option.key}
+							onClick={handleRuntimeSelect}
+							data-option-key={option.key}
+						>
+							{option.label}
+						</Button>
+					))}
+					{filterLanguages.length > 0 && (
+						<>
+							<Button
+								className={css.popupOption}
+								onClick={handleToggleLanguages}
+							>
+								{`${$L('Original Language')} ${languagesExpanded ? '▴' : '▾'}`}
+							</Button>
+							{languagesExpanded && (
+								<>
+									<Button
+										className={css.popupOption}
+										selected={language === ''}
+										onClick={handleLanguageSelect}
+										data-language-code=""
+									>
+										{$L('Any')}
+									</Button>
+									{filterLanguages.map((option) => (
+										<Button
+											key={option.code}
+											className={css.popupOption}
+											selected={language === option.code}
+											onClick={handleLanguageSelect}
+											data-language-code={option.code}
+										>
+											{option.name}
+										</Button>
+									))}
+								</>
+							)}
+						</>
+					)}
+					{hasSeerrDiscoverFilters(filterState) && (
+						<Button
+							className={css.popupOption}
+							onClick={handleClearFilters}
+						>
+							{$L('Clear Filters')}
+						</Button>
+					)}
 				</div>
 			</Popup>
 		</div>

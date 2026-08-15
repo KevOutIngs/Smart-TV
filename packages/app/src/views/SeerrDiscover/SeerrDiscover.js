@@ -9,7 +9,7 @@ import seerrApi from '../../services/seerrApi';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {KEYS} from '../../utils/keys';
 import hydrateRequestMediaItems from '../../utils/seerrHydration';
-import {STREAMING_NETWORKS, MOVIE_STUDIOS} from '../../utils/seerrHomeRows';
+import {STREAMING_NETWORKS, MOVIE_STUDIOS, SEERR_SHORTCUTS, pickShortcutBackdrops} from '../../utils/seerrHomeRows';
 import {libraryIdOf} from '../../utils/seerrTarget';
 
 import css from './SeerrDiscover.module.less';
@@ -24,6 +24,7 @@ const ITEMS_PER_PAGE = 9;
 
 let _rowConfigs;
 const getRowConfigs = () => (_rowConfigs ??= [
+	{id: 'shortcuts', title: $L('Seerr Browse'), type: 'shortcut'},
 	{id: 'myRequests', title: $L('Recent Requests'), type: 'request'},
 	{id: 'trending', title: $L('Trending Now'), type: 'media', fetchFn: 'trending'},
 	{id: 'popularMovies', title: $L('Popular Movies'), type: 'media', fetchFn: 'trendingMovies'},
@@ -35,6 +36,19 @@ const getRowConfigs = () => (_rowConfigs ??= [
 	{id: 'upcomingMovies', title: $L('Upcoming Movies'), type: 'media', fetchFn: 'upcomingMovies'},
 	{id: 'upcomingTv', title: $L('Upcoming TV Shows'), type: 'media', fetchFn: 'upcomingTv'}
 ]);
+
+// Discover stays off this copy of the row, since this screen is the
+// destination it would point at.
+const getShortcuts = (trendingResults = []) => {
+	const shortcuts = SEERR_SHORTCUTS.filter((shortcut) => shortcut.key !== 'discover');
+	const shuffled = trendingResults.slice().sort(() => Math.random() - 0.5);
+	const backdrops = pickShortcutBackdrops(shortcuts, shuffled);
+	return shortcuts.map((shortcut) => ({
+		key: shortcut.key,
+		name: shortcut.name(),
+		backdrop: backdrops[shortcut.key]
+	}));
+};
 
 let lastFocusedRowIndex = null;
 
@@ -69,6 +83,23 @@ const MediaCard = memo(function MediaCard({item, mediaType, onSelect, onFocus}) 
 				{status && [2, 3, 4, 5].includes(status) && (
 					<div className={`${css.availabilityBadge} ${css[`availability${status}`]}`} />
 				)}
+			</div>
+		</SpottableDiv>
+	);
+});
+
+const ShortcutCard = memo(function ShortcutCard({shortcut, onSelect}) {
+	const backdropUrl = shortcut.backdrop ? seerrApi.getImageUrl(shortcut.backdrop, 'w780') : '';
+
+	const handleClick = useCallback(() => {
+		onSelect?.(shortcut.key);
+	}, [shortcut.key, onSelect]);
+
+	return (
+		<SpottableDiv className={css.genreCard} onClick={handleClick}>
+			{backdropUrl && <img className={css.genreBackdrop} src={backdropUrl} alt={shortcut.name} loading="lazy" />}
+			<div className={css.genreOverlay}>
+				<span className={css.genreTitle}>{shortcut.name}</span>
 			</div>
 		</SpottableDiv>
 	);
@@ -210,6 +241,7 @@ const DiscoverRow = memo(function DiscoverRow({
 	onSelectGenre,
 	onSelectNetwork,
 	onSelectStudio,
+	onOpenShortcut,
 	onFocusItem,
 	onNavigateUp,
 	onNavigateDown,
@@ -267,6 +299,10 @@ const DiscoverRow = memo(function DiscoverRow({
 
 	const renderCards = useMemo(() => {
 		switch (config.type) {
+			case 'shortcut':
+				return items.map(item => (
+					<ShortcutCard key={item.key} shortcut={item} onSelect={onOpenShortcut} />
+				));
 			case 'request':
 				return items.map(item => (
 					<RequestCard
@@ -305,7 +341,7 @@ const DiscoverRow = memo(function DiscoverRow({
 					/>
 				));
 		}
-	}, [config.type, config.mediaType, items, onSelectItem, onSelectGenre, onSelectNetwork, onSelectStudio, onFocusItem]);
+	}, [config.type, config.mediaType, items, onSelectItem, onSelectGenre, onSelectNetwork, onSelectStudio, onOpenShortcut, onFocusItem]);
 
 	return (
 		<div className={css.contentRow} data-row-index={rowIndex}>
@@ -334,7 +370,7 @@ const DiscoverRow = memo(function DiscoverRow({
 let cachedBadge = {count: 0, at: 0};
 const BADGE_TTL_MS = 60000;
 
-const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectStudio, onOpenRequests}) => {
+const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectStudio, onOpenRequests, onOpenShortcut}) => {
 	const {isAuthenticated, isEnabled, user: contextUser} = useSeerr();
 	const {settings} = useSettings();
 	const [rows, setRows] = useState({});
@@ -416,6 +452,7 @@ const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectSt
 				const hydratedMyRequests = await hydrateRequestMediaItems(myRequestsData.results || []);
 
 				setRows({
+					shortcuts: getShortcuts(trendingData.results || []),
 					myRequests: hydratedMyRequests,
 					trending: (trendingData.results || []).slice(0, ITEMS_PER_PAGE),
 					popularMovies: (moviesData.results || []).slice(0, ITEMS_PER_PAGE),
@@ -689,6 +726,7 @@ const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectSt
 								onSelectGenre={onSelectGenre}
 								onSelectNetwork={onSelectNetwork}
 								onSelectStudio={onSelectStudio}
+								onOpenShortcut={onOpenShortcut}
 								onFocusItem={handleItemFocus}
 								onNavigateUp={handleNavigateUp}
 								onNavigateDown={handleNavigateDown}

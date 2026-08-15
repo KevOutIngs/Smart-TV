@@ -29,6 +29,7 @@ export const MOVIE_STUDIOS = [
 ];
 
 export const getSeerrHomeRowConfigs = () => [
+	{id: 'shortcuts', title: $L('Seerr Browse'), type: 'shortcut', cardType: 'landscape'},
 	{id: 'myRequests', title: $L('Recent Requests'), type: 'request', cardType: 'portrait'},
 	{id: 'yourWatchlist', title: $L('Your Watchlist'), type: 'media', cardType: 'portrait'},
 	{id: 'recentlyAdded', title: $L('Recently Added'), type: 'media', cardType: 'portrait'},
@@ -46,6 +47,7 @@ export const getSeerrHomeRowConfigs = () => [
 // Maps the plugin home section serialized names to the local seerr row config ids
 // so seerr rows share the unified home layout with the built-in rows.
 export const SEERR_SECTION_TO_CONFIG = {
+	seerr_shortcuts: 'shortcuts',
 	seerr_recent_requests: 'myRequests',
 	seerr_watchlist: 'yourWatchlist',
 	seerr_recently_added: 'recentlyAdded',
@@ -112,6 +114,67 @@ const normalizeRequestItem = (request) => {
 	};
 };
 
+// The jump tiles the shortcuts row holds. Static, so the row renders complete
+// without a fetch.
+export const SEERR_SHORTCUTS = [
+	{key: 'discover', name: () => $L('Discover')},
+	{key: 'movies', name: () => $L('Movies')},
+	{key: 'series', name: () => $L('TV Shows')},
+	{key: 'requests', name: () => $L('Requests')},
+	{key: 'issues', name: () => $L('Issues')}
+];
+
+const normalizeShortcutItem = (shortcut, backdrop) => ({
+	Id: `seerr-shortcut-${shortcut.key}`,
+	Name: shortcut.name(),
+	_externalBackdropUrl: backdrop ? seerrApi.getImageUrl(backdrop, 'w780') : null,
+	_seerr: true,
+	_seerrType: 'shortcut',
+	_seerrRaw: {shortcut: shortcut.key}
+});
+
+// Picks one still per shortcut so the tiles carry artwork rather than a flat
+// colour. Movies and TV Shows get one of their own kind, the rest take what is
+// left, and nothing repeats while there is still art to go round.
+export const pickShortcutBackdrops = (shortcuts, results) => {
+	const pathOf = (item) => item.backdrop_path || item.backdropPath;
+	const ofType = (type) => results
+		.filter((item) => (item.media_type || item.mediaType) === type && pathOf(item))
+		.map(pathOf);
+	const movies = ofType('movie');
+	const tv = ofType('tv');
+	const mixed = [];
+	for (let i = 0; i < Math.max(movies.length, tv.length); i++) {
+		if (i < tv.length) mixed.push(tv[i]);
+		if (i < movies.length) mixed.push(movies[i]);
+	}
+
+	const used = new Set();
+	const take = (...pools) => {
+		for (const pool of pools) {
+			for (const path of pool) {
+				if (!used.has(path)) {
+					used.add(path);
+					return path;
+				}
+			}
+		}
+		return null;
+	};
+
+	// Movies and TV Shows claim first, so a short pool cannot leave them bare
+	// while a tile with no kind of its own takes the only still.
+	const picked = {};
+	shortcuts.forEach((shortcut) => {
+		if (shortcut.key === 'movies') picked[shortcut.key] = take(movies, tv);
+		else if (shortcut.key === 'series') picked[shortcut.key] = take(tv, movies);
+	});
+	shortcuts.forEach((shortcut) => {
+		if (picked[shortcut.key] === undefined) picked[shortcut.key] = take(mixed);
+	});
+	return picked;
+};
+
 const normalizeGenreItem = (genre, mediaType) => ({
 	Id: `seerr-genre-${mediaType}-${genre.id}`,
 	Name: genre.name,
@@ -143,6 +206,14 @@ const normalizeNetworkItem = (network) => ({
 export const fetchSeerrHomeRow = async (rowId, {userId} = {}) => {
 	try {
 		switch (rowId) {
+			case 'shortcuts': {
+				// Artwork is the only thing the read adds, so a failure still
+				// leaves a usable row.
+				const trending = await seerrApi.trending(1).catch(() => ({results: []}));
+				const results = (trending.results || []).slice().sort(() => Math.random() - 0.5);
+				const backdrops = pickShortcutBackdrops(SEERR_SHORTCUTS, results);
+				return SEERR_SHORTCUTS.map((shortcut) => normalizeShortcutItem(shortcut, backdrops[shortcut.key]));
+			}
 			case 'trending':
 				return ((await seerrApi.trending(1)).results || []).slice(0, HOME_ROW_LIMIT).map(normalizeMediaItem);
 			case 'recentlyAdded':

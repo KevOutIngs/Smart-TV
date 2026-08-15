@@ -265,11 +265,17 @@ const IssueItem = memo(function IssueItem({issue, index, canManage, myUserId, on
 	);
 });
 
-const SeerrRequests = ({onSelectItem, onClose, backHandlerRef, ...rest}) => {
+const SeerrRequests = ({onSelectItem, onClose, initialTab = 'requests', backHandlerRef, ...rest}) => {
 	const {isAuthenticated, user: contextUser} = useSeerr();
 	const {settings} = useSettings();
 	const rootFontSize = useRootFontSize(settings.uiScale);
-	const [tab, setTab] = useState('requests');
+	const [tab, setTab] = useState(initialTab);
+
+	// The screen stays mounted across visits, so an issues shortcut has to
+	// switch an already open view too.
+	useEffect(() => {
+		setTab(initialTab);
+	}, [initialTab]);
 	const [requestFilter, setRequestFilter] = useState('all');
 	const [issueFilter, setIssueFilter] = useState('open');
 	const [requests, setRequests] = useState([]);

@@ -898,8 +898,36 @@ const AppContent = (props) => {
 		setPanelIndex(PANELS.BROWSE);
 	}, []);
 
+	const [seerrRequestsTab, setSeerrRequestsTab] = useState('requests');
+
 	const handleOpenSeerrRequests = useCallback(() => {
+		setSeerrRequestsTab('requests');
 		navigateTo(PANELS.SEERR_REQUESTS);
+	}, [navigateTo]);
+
+	// One dispatcher for the Seerr shortcuts row, shared by home and discover.
+	const handleOpenSeerrShortcut = useCallback((shortcut) => {
+		switch (shortcut) {
+			case 'discover':
+				navigateTo(PANELS.SEERR_DISCOVER);
+				break;
+			case 'movies':
+				setSeerrBrowse({browseType: 'all', item: {name: $L('Movies')}, mediaType: 'movie'});
+				navigateTo(PANELS.SEERR_BROWSE);
+				break;
+			case 'series':
+				setSeerrBrowse({browseType: 'all', item: {name: $L('TV Shows')}, mediaType: 'tv'});
+				navigateTo(PANELS.SEERR_BROWSE);
+				break;
+			case 'requests':
+				setSeerrRequestsTab('requests');
+				navigateTo(PANELS.SEERR_REQUESTS);
+				break;
+			case 'issues':
+				setSeerrRequestsTab('issues');
+				navigateTo(PANELS.SEERR_REQUESTS);
+				break;
+		}
 	}, [navigateTo]);
 
 	const handleSwitchUser = useCallback(async () => {
@@ -1140,6 +1168,7 @@ const AppContent = (props) => {
 							onSelectSeerrGenre={handleSelectSeerrGenre}
 							onSelectSeerrStudio={handleSelectSeerrStudio}
 							onSelectSeerrNetwork={handleSelectSeerrNetwork}
+							onOpenSeerrShortcut={handleOpenSeerrShortcut}
 							isVisible={panelIndex === PANELS.BROWSE && !showSettingsPanel}
 							onFocusItemThemeMusic={themeMusic.playThemeMusicDelayed}
 							onBlurItemThemeMusic={themeMusic.cancelDelayed}
@@ -1234,7 +1263,7 @@ const AppContent = (props) => {
 								onSelectStudio={handleSelectSeerrStudio}
 								onSelectNetwork={handleSelectSeerrNetwork}
 								onOpenRequests={handleOpenSeerrRequests}
-
+								onOpenShortcut={handleOpenSeerrShortcut}
 							/>
 						)}
 					</Panel>
@@ -1243,6 +1272,7 @@ const AppContent = (props) => {
 							<SeerrRequests
 								onSelectItem={handleSelectSeerrItem}
 								onClose={handleBack}
+								initialTab={seerrRequestsTab}
 								backHandlerRef={backHandlerRef}
 							/>
 						)}

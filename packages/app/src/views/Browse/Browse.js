@@ -39,6 +39,7 @@ const Browse = ({
 	onSelectSeerrGenre,
 	onSelectSeerrStudio,
 	onSelectSeerrNetwork,
+	onOpenSeerrShortcut,
 	isVisible = true,
 	onFocusItemThemeMusic,
 	onBlurItemThemeMusic,
@@ -370,11 +371,14 @@ const Browse = ({
 			case 'network':
 				onSelectSeerrNetwork?.(raw.networkId, raw.networkName);
 				break;
+			case 'shortcut':
+				onOpenSeerrShortcut?.(raw.shortcut);
+				break;
 			default:
 				onSelectSeerrItem?.(raw);
 				break;
 		}
-	}, [onSelectSeerrItem, onSelectSeerrGenre, onSelectSeerrStudio, onSelectSeerrNetwork]);
+	}, [onSelectSeerrItem, onSelectSeerrGenre, onSelectSeerrStudio, onSelectSeerrNetwork, onOpenSeerrShortcut]);
 
 	// External row items that resolved to a library item open as the library item, and the ones
 	// that did not open as the Seerr title they came from.

@@ -34,7 +34,7 @@ const useSeerrRows = ({seerrEnabled, seerrAuthenticated, seerrUserId, homeRows})
 					items,
 					type: cfg.cardType,
 					isSeerrRow: true,
-					isTileRow: cfg.type === 'genre' || cfg.type === 'studio' || cfg.type === 'network'
+					isTileRow: cfg.type === 'genre' || cfg.type === 'studio' || cfg.type === 'network' || cfg.type === 'shortcut'
 				};
 			}));
 			if (!cancelled) setSeerrRows(built.filter(Boolean));

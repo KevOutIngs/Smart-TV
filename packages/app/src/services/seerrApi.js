@@ -817,22 +817,52 @@ export const getGenreSliderTv = async () => {
 	return request('/discover/genreslider/tv');
 };
 
-export const discoverByGenre = async (mediaType, genreId, page = 1) => {
+// One query builder for every discover browse, since the sort and filter
+// parameters are the same regardless of what the browse was opened on.
+export const discoverFiltered = async (mediaType, {page = 1, sortBy, genre, studio, network, keywords, language, status, voteAverageGte, voteCountGte, withRuntimeGte, withRuntimeLte, releaseDateGte, releaseDateLte} = {}) => {
 	const endpoint = mediaType === 'movie' ? 'movies' : 'tv';
-	return request(`/discover/${endpoint}?genre=${genreId}&page=${page}`);
+	const params = {
+		page,
+		sortBy,
+		genre,
+		studio,
+		network,
+		keywords,
+		language,
+		status,
+		voteAverageGte,
+		voteCountGte,
+		withRuntimeGte,
+		withRuntimeLte,
+		// The two media types name their release date bounds differently.
+		[mediaType === 'movie' ? 'primaryReleaseDateGte' : 'firstAirDateGte']: releaseDateGte,
+		[mediaType === 'movie' ? 'primaryReleaseDateLte' : 'firstAirDateLte']: releaseDateLte
+	};
+	const query = Object.entries(params)
+		.filter(([, value]) => value !== undefined && value !== null && value !== '')
+		.map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+		.join('&');
+	return request(`/discover/${endpoint}?${query}`);
+};
+
+export const discoverByGenre = async (mediaType, genreId, page = 1) => {
+	return discoverFiltered(mediaType, {genre: genreId, page});
 };
 
 export const discoverByNetwork = async (networkId, page = 1) => {
-	return request(`/discover/tv?network=${networkId}&page=${page}`);
+	return discoverFiltered('tv', {network: networkId, page});
 };
 
 export const discoverByStudio = async (studioId, page = 1) => {
-	return request(`/discover/movies?studio=${studioId}&page=${page}`);
+	return discoverFiltered('movie', {studio: studioId, page});
 };
 
 export const discoverByKeyword = async (mediaType, keywordId, page = 1) => {
-	const endpoint = mediaType === 'movie' ? 'movies' : 'tv';
-	return request(`/discover/${endpoint}?keywords=${keywordId}&page=${page}`);
+	return discoverFiltered(mediaType, {keywords: keywordId, page});
+};
+
+export const getLanguages = async () => {
+	return request('/languages');
 };
 
 export const getMovieRecommendations = async (movieId, page = 1) => {
@@ -1094,10 +1124,12 @@ export default {
 	upcomingTv,
 	getGenreSliderMovies,
 	getGenreSliderTv,
+	discoverFiltered,
 	discoverByGenre,
 	discoverByNetwork,
 	discoverByStudio,
 	discoverByKeyword,
+	getLanguages,
 	getMovieRecommendations,
 	getTvRecommendations,
 	getMovieSimilar,
