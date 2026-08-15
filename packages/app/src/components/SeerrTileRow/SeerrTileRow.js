@@ -13,12 +13,27 @@ const RowContainer = SpotlightContainerDecorator({
 
 const SpottableDiv = Spottable('div');
 
+const FOCUS_SETTLE_MS = 50;
+
 const TileCard = memo(function TileCard({item, cardType, spotlightId, onSelect, onFocusItem, onSpotlightLeft, onSpotlightRight}) {
+	const focusTimeoutRef = useRef(null);
 	const handleClick = useCallback(() => onSelect?.(item), [item, onSelect]);
-	const handleFocus = useCallback(() => onFocusItem?.(item), [item, onFocusItem]);
+
+	useEffect(() => {
+		return () => {
+			if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+		};
+	}, []);
+
+	// The cards in the other rows let a step settle before announcing it, so passing
+	// over a tile on the way somewhere else doesn't put it up on the info band.
+	const handleFocus = useCallback(() => {
+		if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+		focusTimeoutRef.current = setTimeout(() => onFocusItem?.(item), FOCUS_SETTLE_MS);
+	}, [item, onFocusItem]);
 
 	const isLogo = cardType === 'logo';
-	const image = isLogo ? item._externalLogoUrl : item._externalBackdropUrl;
+	const image = isLogo ? item._externalLogoUrl : item._externalTileUrl;
 
 	return (
 		<SpottableDiv

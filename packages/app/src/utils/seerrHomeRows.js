@@ -124,10 +124,17 @@ export const SEERR_SHORTCUTS = [
 	{key: 'issues', name: () => $L('Issues')}
 ];
 
+// A tile is a fraction of the screen, so it asks for a still cut to its own size.
+// The full size one is kept alongside, since focusing a tile is what paints the
+// screen behind it.
+const TILE_STILL = 'w300';
+const BACKDROP_STILL = 'w780';
+
 const normalizeShortcutItem = (shortcut, backdrop) => ({
 	Id: `seerr-shortcut-${shortcut.key}`,
 	Name: shortcut.name(),
-	_externalBackdropUrl: backdrop ? seerrApi.getImageUrl(backdrop, 'w780') : null,
+	_externalTileUrl: backdrop ? seerrApi.getImageUrl(backdrop, TILE_STILL) : null,
+	_externalBackdropUrl: backdrop ? seerrApi.getImageUrl(backdrop, BACKDROP_STILL) : null,
 	_seerr: true,
 	_seerrType: 'shortcut',
 	_seerrRaw: {shortcut: shortcut.key}
@@ -178,7 +185,8 @@ export const pickShortcutBackdrops = (shortcuts, results) => {
 const normalizeGenreItem = (genre, mediaType) => ({
 	Id: `seerr-genre-${mediaType}-${genre.id}`,
 	Name: genre.name,
-	_externalBackdropUrl: genre.backdrops?.[0] ? seerrApi.getImageUrl(genre.backdrops[0], 'w780') : null,
+	_externalTileUrl: genre.backdrops?.[0] ? seerrApi.getImageUrl(genre.backdrops[0], TILE_STILL) : null,
+	_externalBackdropUrl: genre.backdrops?.[0] ? seerrApi.getImageUrl(genre.backdrops[0], BACKDROP_STILL) : null,
 	_seerr: true,
 	_seerrType: 'genre',
 	_seerrMediaType: mediaType,

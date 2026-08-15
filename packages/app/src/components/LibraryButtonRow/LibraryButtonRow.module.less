@@ -7,7 +7,10 @@
 	padding-right: 60px;
 	contain: layout style;
 	content-visibility: auto;
+	// The auto keyword stands the row in at the height it last rendered at rather than
+	// a guess, and the plain value stays in front for engines that dont take it.
 	contain-intrinsic-size: 0 260px;
+	contain-intrinsic-size: auto 260px;
 
 	&:first-child {
 		margin-top: 40px;
