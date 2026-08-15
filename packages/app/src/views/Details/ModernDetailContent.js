@@ -32,6 +32,12 @@ const hasSpottableAbove = (container, active) => {
 		.some((el) => el !== active && el.getBoundingClientRect().bottom <= top);
 };
 
+const hasSpottableBelow = (container, active) => {
+	const bottom = active.getBoundingClientRect().bottom - 1;
+	return Array.from(container.querySelectorAll('.spottable'))
+		.some((el) => el !== active && el.getBoundingClientRect().top >= bottom);
+};
+
 const Icon = ({path}) => (
 	<svg className={css.icon} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">
 		<path d={path} />
@@ -278,6 +284,22 @@ const ModernDetailContent = (props) => {
 		}
 		setActiveTab((prev) => (prev === id ? null : id));
 	}, [expanded]);
+
+	// Leaving the hero downwards arrives at the tab bar. Left to itself Spotlight
+	// picks the pill nearest the overview, which is a wide box whose middle sits well
+	// past the first tab, so a collection would open on Studios rather than Items.
+	// The press lands on the tab that is already open instead.
+	const handleHeroKeyDown = useCallback((ev) => {
+		if (ev.keyCode !== KEYS.DOWN) return;
+		const hero = ev.currentTarget;
+		const active = document.activeElement;
+		if (!active || !hero.contains(active) || hasSpottableBelow(hero, active)) return;
+		const pill = document.querySelector(`[data-spotlight-id="details-tab-bar"] [data-id="${currentTab || tabs[0]?.id}"]`);
+		if (pill && Spotlight.focus(pill)) {
+			ev.preventDefault();
+			ev.stopPropagation();
+		}
+	}, [currentTab, tabs]);
 
 	const handleTabsKeyDown = useCallback((ev) => {
 		if (ev.keyCode !== KEYS.DOWN && ev.keyCode !== KEYS.UP) return;
@@ -705,7 +727,7 @@ const ModernDetailContent = (props) => {
 			<Scroller cbScrollTo={handleScrollTo} onScroll={handleScroll} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
 				<div className={`${css.content} ${settings.navbarPosition === 'left' ? css.sidebarOffset : ''}`} ref={contentRef} onKeyDown={handleContentKeyDown}>
 					{hasUpNext && <div className={css.aboveHero}>{renderTitleBlock()}</div>}
-					<div className={`${css.hero} ${hasUpNext ? css.hasUpNext : ''}`}>
+					<div className={`${css.hero} ${hasUpNext ? css.hasUpNext : ''}`} onKeyDown={handleHeroKeyDown}>
 						<div className={`${css.heroMain} ${isPerson ? css.heroPerson : ''}`}>
 							{!hasUpNext && renderTitleBlock()}
 							{tagline && <div className={css.tagline}>{tagline}</div>}
