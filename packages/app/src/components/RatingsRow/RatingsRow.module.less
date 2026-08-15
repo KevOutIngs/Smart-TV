@@ -65,6 +65,16 @@
 	flex-shrink: 0;
 }
 
+/* The viewer's own star wears the accent so it never reads as another
+   community score. */
+.personalStar {
+	color: var(--theme-accent, #00a4dc);
+	font-size: 28px;
+	margin-right: 6px;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
 /* Compact mode - inline icon + value for media bars */
 .ratingsRowCompact {
 	display: flex;
@@ -125,6 +135,14 @@
 .communityStarCompact {
 	color: #ffd700;
 	color: var(--theme-accent-secondary);
+	font-size: 26px;
+	margin-right: 6px;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.personalStarCompact {
+	color: var(--theme-accent, #00a4dc);
 	font-size: 26px;
 	margin-right: 6px;
 	line-height: 1;

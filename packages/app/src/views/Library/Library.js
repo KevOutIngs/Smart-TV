@@ -70,6 +70,12 @@ const PLAYED_FILTERS = [
 	{key: 'unwatched', label: $L('Unwatched')}
 ];
 
+const LIKED_FILTERS = [
+	{key: 'all', label: $L('All')},
+	{key: 'liked', label: $L('Liked')},
+	{key: 'disliked', label: $L('Disliked')}
+];
+
 const SERIES_FILTERS = [
 	{key: 'all', label: $L('All')},
 	{key: 'continuing', label: $L('Continuing')},
@@ -140,6 +146,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	const [totalCount, setTotalCount] = useState(0);
 	const [favoritesOnly, setFavoritesOnly] = useState(false);
 	const [playedFilter, setPlayedFilter] = useState('all');
+	const [likedFilter, setLikedFilter] = useState('all');
 	const [seriesFilter, setSeriesFilter] = useState('all');
 	const [musicContentType, setMusicContentType] = useState('albums');
 	const [focusedItem, setFocusedItem] = useState(null);
@@ -263,6 +270,8 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			if (favoritesOnly) filters.push('IsFavorite');
 			if (playedFilter === 'watched') filters.push('IsPlayed');
 			if (playedFilter === 'unwatched') filters.push('IsUnplayed');
+			if (likedFilter === 'liked') filters.push('Likes');
+			if (likedFilter === 'disliked') filters.push('Dislikes');
 			const seriesStatusParam = seriesFilter === 'all' ? null : (seriesFilter === 'continuing' ? 'Continuing' : 'Ended');
 
 			if (isFolderView) {
@@ -374,7 +383,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			setIsLoading(false);
 			loadingMoreRef.current = false;
 		}
-	}, [effectiveApi, library, genreFilter, studioFilter, sortKey, sortOrder, favoritesOnly, playedFilter, seriesFilter, isFolderView, currentFolderId, currentFolderCollectionType, isMusicLibrary, musicContentType, getItemTypeForLibrary, getExcludeItemTypes]);
+	}, [effectiveApi, library, genreFilter, studioFilter, sortKey, sortOrder, favoritesOnly, playedFilter, likedFilter, seriesFilter, isFolderView, currentFolderId, currentFolderCollectionType, isMusicLibrary, musicContentType, getItemTypeForLibrary, getExcludeItemTypes]);
 
 	loadItemsRef.current = loadItems;
 
@@ -392,7 +401,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			initialFocusDoneRef.current = false;
 			loadItemsRef.current(0, false);
 		}
-	}, [library, sortKey, sortOrder, favoritesOnly, playedFilter, seriesFilter, musicContentType, isFolderView, currentFolderId, genreFilter, studioFilter, isMusicBrowseHome]);
+	}, [library, sortKey, sortOrder, favoritesOnly, playedFilter, likedFilter, seriesFilter, musicContentType, isFolderView, currentFolderId, genreFilter, studioFilter, isMusicBrowseHome]);
 
 	// Favorites is the albums grid with the filter on rather than a type of its own.
 	const handleOpenMusicGrid = useCallback((target) => {
@@ -521,6 +530,12 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 
 	const handlePlayedFilterSelect = useCallback((ev) => {
 		setPlayedFilter(ev.currentTarget.dataset.playedKey);
+		handleCloseSortPanel();
+		setTimeout(() => Spotlight.focus('library-grid'), 100);
+	}, [handleCloseSortPanel]);
+
+	const handleLikedFilterSelect = useCallback((ev) => {
+		setLikedFilter(ev.currentTarget.dataset.likedKey);
 		handleCloseSortPanel();
 		setTimeout(() => Spotlight.focus('library-grid'), 100);
 	}, [handleCloseSortPanel]);
@@ -695,6 +710,8 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	if (favoritesOnly) filterParts.push($L('Favorites'));
 	if (playedFilter === 'watched') filterParts.push($L('Watched'));
 	if (playedFilter === 'unwatched') filterParts.push($L('Unwatched'));
+	if (likedFilter === 'liked') filterParts.push($L('Liked'));
+	if (likedFilter === 'disliked') filterParts.push($L('Disliked'));
 	const filterLabel = filterParts.length > 0 ? filterParts.join(' & ') : $L('All items');
 	const folderName = folderStack.length > 0 ? folderStack[folderStack.length - 1].name : library?.Name;
 	const displayName = genreFilter || studioFilter || library?.Name || '';
@@ -1007,6 +1024,24 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 								>
 									<span className={css.radioCircle}>
 										{playedFilter === option.key && <span className={css.radioFill} />}
+									</span>
+									<span className={css.sortOptionLabel}>{$L(option.label)}</span>
+								</SpottableButton>
+							))}
+						</div>
+
+						<div className={css.filterSection}>
+							<div className={css.sortSectionLabel}>{$L('My Rating')}</div>
+							{LIKED_FILTERS.map((option) => (
+								<SpottableButton
+									key={option.key}
+									className={`${css.sortOption} ${likedFilter === option.key ? css.sortOptionActive : ''}`}
+									onClick={handleLikedFilterSelect}
+									data-liked-key={option.key}
+									spotlightId={`filter-liked-${option.key}`}
+								>
+									<span className={css.radioCircle}>
+										{likedFilter === option.key && <span className={css.radioFill} />}
 									</span>
 									<span className={css.sortOptionLabel}>{$L(option.label)}</span>
 								</SpottableButton>

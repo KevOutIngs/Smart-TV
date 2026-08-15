@@ -510,6 +510,22 @@ export const api = {
 		method: watched ? 'POST' : 'DELETE'
 	}),
 
+	// A thumb rating goes through the dedicated endpoint, which stores the liked
+	// flag and a score of its own choosing.
+	setRating: (itemId, likes) => request(`/UserItems/${itemId}/Rating?Likes=${likes}`, {
+		method: 'POST'
+	}),
+
+	// A score is written straight into the user data, on its scale of ten.
+	setNumericRating: (itemId, rating) => request(`/UserItems/${itemId}/UserData`, {
+		method: 'POST',
+		body: {Rating: rating}
+	}),
+
+	clearRating: (itemId) => request(`/UserItems/${itemId}/Rating`, {
+		method: 'DELETE'
+	}),
+
 	getIntros: (itemId) =>
 		request(`/Users/${currentUser}/Items/${itemId}/Intros`),
 
@@ -814,8 +830,9 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 			body: config
 		}),
 
+		// UserData is named so a saved rating comes back when the title is reopened.
 		getItem: (itemId) =>
-			serverRequest(`/Users/${userId}/Items/${itemId}?Fields=Overview,Genres,People,Studios,MediaSources,MediaStreams,ExternalUrls,ProviderIds,RemoteTrailers,Taglines`),
+			serverRequest(`/Users/${userId}/Items/${itemId}?Fields=Overview,Genres,People,Studios,MediaSources,MediaStreams,ExternalUrls,ProviderIds,RemoteTrailers,Taglines,UserData`),
 
 		getItems: (params = {}) => {
 			// Manually build query string to match main api.getItems behavior
@@ -935,6 +952,19 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 
 		setWatched: (itemId, watched) => serverRequest(`/Users/${userId}/PlayedItems/${itemId}`, {
 			method: watched ? 'POST' : 'DELETE'
+		}),
+
+		setRating: (itemId, likes) => serverRequest(`/UserItems/${itemId}/Rating?Likes=${likes}`, {
+			method: 'POST'
+		}),
+
+		setNumericRating: (itemId, rating) => serverRequest(`/UserItems/${itemId}/UserData`, {
+			method: 'POST',
+			body: {Rating: rating}
+		}),
+
+		clearRating: (itemId) => serverRequest(`/UserItems/${itemId}/Rating`, {
+			method: 'DELETE'
 		}),
 
 		// Music API methods

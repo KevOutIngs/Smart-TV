@@ -16,6 +16,7 @@ import {castPhotoUrl} from './detailsMedia';
 import ExpandableOverview from './ExpandableOverview';
 import {KEYS} from '../../utils/keys';
 import {DETAIL_ICON_PATHS} from './detailIcons';
+import {personalRatingIconPath, personalRatingLabel} from './personalRatingAction';
 import {arrange, seerrOnlyRow, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
 
 import css from './ModernDetailContent.module.less';
@@ -63,6 +64,7 @@ const ModernDetailContent = (props) => {
 		techBadges = [], techSize, overviewBackRef,
 		mediaSource, supportsMediaSourceSelection, hasMultipleVersions, hasMultipleAudio,
 		handlePlay, handleResume, handleShuffle, handleTrailer, handleToggleWatched, handleToggleFavorite, handleGoToSeries,
+		showsPersonalRating, personalRatingStyle, handleOpenRatingDialog,
 		handleOpenVersionModal, handleOpenAudioModal, handleOpenSubtitleModal, handleOpenPlaylistModal, handleOpenCollectionModal, handleOpenDeleteDialog,
 		handleChapterSelect, handleExtraSelect, handleTrackPlay,
 		onSelectItem, onSelectPerson, onSelectStudio,
@@ -571,6 +573,7 @@ const ModernDetailContent = (props) => {
 			{id: 'trailer', when: hasTrailer, render: () => <ActionButton path={DETAIL_ICON_PATHS.trailer} label={$L('Trailer')} onClick={handleTrailer} />},
 			{id: 'watched', when: true, render: () => <ActionButton path={DETAIL_ICON_PATHS.watched} label={played ? $L('Watched') : $L('Mark Watched')} active={played} onClick={handleToggleWatched} spotlightId="details-watched-btn" />},
 			{id: 'favorite', when: true, render: () => <ActionButton path={DETAIL_ICON_PATHS.favorite} label={isFavorite ? $L('Favorited') : $L('Favorite')} active={isFavorite} onClick={handleToggleFavorite} spotlightId="details-favorite-btn" />},
+			{id: 'personalRating', when: showsPersonalRating, render: () => <ActionButton path={personalRatingIconPath(personalRatingStyle, item.UserData)} label={personalRatingLabel(personalRatingStyle, item.UserData)} onClick={handleOpenRatingDialog} spotlightId="details-rating-btn" />},
 			{id: 'goToSeries', when: isEpisode && item.SeriesId, render: () => <ActionButton path={DETAIL_ICON_PATHS.series} label={$L('Series')} onClick={handleGoToSeries} />},
 			{id: 'playlist', when: true, render: () => <ActionButton path={DETAIL_ICON_PATHS.playlist} label={$L('Add to Playlist')} onClick={handleOpenPlaylistModal} />},
 			{id: 'collection', when: Boolean(handleOpenCollectionModal), render: () => <ActionButton path={DETAIL_ICON_PATHS.collection} label={$L('Add to Collection')} onClick={handleOpenCollectionModal} />},

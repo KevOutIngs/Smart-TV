@@ -31,6 +31,7 @@ import {
 	getOverlayColorOptions,
 	getPassthroughModeOptions,
 	getPerformanceModeOptions,
+	getPersonalRatingStyleOptions,
 	getPlaybackTimeDisplayOptions,
 	getPlaybackTimeSlotOptions,
 	getPosterSizeOptions,
@@ -250,6 +251,7 @@ export const SETTINGS_SCHEMA = [
 						fallback: (ctx) => (ctx.settings.detailScreenStyle === 'v1' ? $L('Medium') : '80%')
 					},
 					{kind: KIND.TOGGLE, key: 'detailExpandedTabs', label: () => $L('Expanded Tabs'), desc: () => $L('Automatically show tab content while browsing tabs. Turn off to open and close each tab manually.'), icon: 'tab', when: (ctx) => ctx.settings.detailScreenStyle !== 'v1'},
+					{kind: KIND.OPTION, key: 'personalRatingStyle', label: () => $L('Personal Rating Style'), desc: () => $L('How your own rating is shown and entered on a movie'), options: getPersonalRatingStyleOptions, fallback: () => $L('Like / dislike'), icon: 'rate_review'},
 					{kind: KIND.TOGGLE, key: 'detailShowTechnicalDetails', label: () => $L('Show Technical Details?'), desc: () => $L('Show codec, resolution, and stream information in banner summary'), icon: 'info'},
 					{kind: KIND.NAV, id: 'detailButtons', label: () => $L('Action Buttons'), desc: () => $L('Choose which buttons the details screen shows'), icon: 'buttons_alt', action: (ctx) => ctx.actions.openDetailButtons()}
 				]

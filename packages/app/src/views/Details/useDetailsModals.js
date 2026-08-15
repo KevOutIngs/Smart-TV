@@ -9,6 +9,7 @@ const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef, overvi
 	const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 	const [showCollectionModal, setShowCollectionModal] = useState(false);
 	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+	const [showRatingDialog, setShowRatingDialog] = useState(false);
 	const [showArtworkModal, setShowArtworkModal] = useState(false);
 	const [showIdentifyModal, setShowIdentifyModal] = useState(false);
 
@@ -78,6 +79,15 @@ const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef, overvi
 		window.requestAnimationFrame(() => Spotlight.focus('details-action-buttons'));
 	}, []);
 
+	const handleOpenRatingDialog = useCallback(() => {
+		setShowRatingDialog(true);
+	}, []);
+
+	const handleCloseRatingDialog = useCallback(() => {
+		setShowRatingDialog(false);
+		window.requestAnimationFrame(() => Spotlight.focus('details-rating-btn') || Spotlight.focus('details-action-buttons'));
+	}, []);
+
 	const handleOpenDeleteDialog = useCallback(() => {
 		setShowDeleteDialog(true);
 	}, []);
@@ -120,6 +130,7 @@ const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef, overvi
 			}
 			if (showIdentifyModal) { handleCloseIdentifyModal(); return true; }
 			if (showDeleteDialog) { handleCloseDeleteDialog(); return true; }
+			if (showRatingDialog) { handleCloseRatingDialog(); return true; }
 			if (showPlaylistModal) { handleClosePlaylistModal(); return true; }
 			if (showCollectionModal) { handleCloseCollectionModal(); return true; }
 			if (activeModal) { closeModal(); return true; }
@@ -128,7 +139,7 @@ const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef, overvi
 		};
 		backHandlerRef.current = handler;
 		return () => { if (backHandlerRef.current === handler) backHandlerRef.current = null; };
-	}, [backHandlerRef, seerrBackRef, overviewBackRef, activeModal, showPlaylistModal, showCollectionModal, showDeleteDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
+	}, [backHandlerRef, seerrBackRef, overviewBackRef, activeModal, showPlaylistModal, showCollectionModal, showDeleteDialog, showRatingDialog, showArtworkModal, showIdentifyModal, closeModal, handleClosePlaylistModal, handleCloseCollectionModal, handleCloseDeleteDialog, handleCloseRatingDialog, handleCloseArtworkModal, handleCloseIdentifyModal]);
 
 	return {
 		activeModal,
@@ -145,6 +156,9 @@ const useDetailsModals = ({backHandlerRef, onArtworkClosed, seerrBackRef, overvi
 		showDeleteDialog,
 		handleOpenDeleteDialog,
 		handleCloseDeleteDialog,
+		showRatingDialog,
+		handleOpenRatingDialog,
+		handleCloseRatingDialog,
 		showArtworkModal,
 		handleOpenArtworkModal,
 		handleCloseArtworkModal,

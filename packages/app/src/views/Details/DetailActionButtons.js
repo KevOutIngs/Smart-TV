@@ -3,6 +3,7 @@ import $L from '@enact/i18n/$L';
 
 import {arrange, seerrOnlyRow, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
 import {DETAIL_ICON_PATHS} from './detailIcons';
+import {personalRatingIconPath, personalRatingLabel} from './personalRatingAction';
 import {SpottableDiv, HorizontalContainer} from './detailsSpottables';
 import {handleButtonRowKeyDown} from './detailsFocus';
 
@@ -43,6 +44,9 @@ const DetailActionButtons = ({
 	onTrailer,
 	onToggleWatched,
 	onToggleFavorite,
+	showsPersonalRating,
+	personalRatingStyle,
+	onOpenRatingDialog,
 	onGoToSeries,
 	onOpenPlaylistModal,
 	onOpenCollectionModal,
@@ -157,6 +161,16 @@ const DetailActionButtons = ({
 					</svg>
 				</div>
 				<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
+			</SpottableDiv>
+		)},
+		{id: 'personalRating', when: showsPersonalRating, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={onOpenRatingDialog} spotlightId="details-rating-btn">
+				<div className={css.btnAction}>
+					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
+						<path d={personalRatingIconPath(personalRatingStyle, item.UserData)}/>
+					</svg>
+				</div>
+				<span className={css.btnLabel}>{personalRatingLabel(personalRatingStyle, item.UserData)}</span>
 			</SpottableDiv>
 		)},
 		{id: 'goToSeries', when: isEpisode && item.SeriesId, render: () => (

@@ -192,6 +192,7 @@ export const defaultSettings = {
 	homeRowImageTypes: {},
 	homeRowsStyle: 'v2',
 	detailScreenStyle: 'v2',
+	personalRatingStyle: 'thumbs',
 	detailExpandedTabs: true,
 	homeRowOverlay: true,
 	folderViewMode: 'local',

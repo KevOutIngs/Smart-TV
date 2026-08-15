@@ -191,6 +191,12 @@ export const getDetailScreenStyleOptions = () => [
 	{ value: 'v1', label: $L('Classic') }
 ];
 
+export const getPersonalRatingStyleOptions = () => [
+	{ value: 'thumbs', label: $L('Like / dislike') },
+	{ value: 'stars', label: $L('5 stars') },
+	{ value: 'numeric', label: $L('Numeric score out of 10') }
+];
+
 export const getHomeRowSortOptions = () => [
 	{ value: 'SortName', label: $L('Name') },
 	{ value: 'DateCreated', label: $L('Date Added') },
@@ -409,6 +415,7 @@ export const getMaxAudioChannelsOptions = () => [
 ];
 
 export const getRatingSourceOptions = () => [
+	{ value: 'personal', label: $L('My Rating') },
 	{ value: 'stars', label: $L('Community Rating') },
 	{ value: 'imdb', label: $L('IMDb') },
 	{ value: 'tmdb', label: $L('TMDB') },

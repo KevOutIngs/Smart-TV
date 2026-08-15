@@ -29,6 +29,8 @@ import DetailTrackModals from './DetailTrackModals';
 import DetailDialogs from './DetailDialogs';
 import SeerrDialogs from './SeerrDialogs';
 import TrailerOverlay from './TrailerOverlay';
+import PersonalRatingDialog from '../../components/PersonalRatingDialog';
+import {clampRating, clearedRatingPatch, isRatableItemType, normalizeRatingStyle, numericRatingPatch, thumbRatingPatch} from '../../utils/personalRating';
 import ClassicDetailScreen from './ClassicDetailScreen';
 import PersonScreen from './PersonScreen';
 import SeasonScreen from './SeasonScreen';
@@ -73,6 +75,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const [isSearchingRemoteSubtitles, setIsSearchingRemoteSubtitles] = useState(false);
 	const [toastMessage, setToastMessage] = useState(null);
 	const [logoFailed, setLogoFailed] = useState(false);
+	const ratingSaveRef = useRef(false);
 
 	const handleLogoError = useCallback(() => setLogoFailed(true), []);
 	const handleToastEnd = useCallback(() => setToastMessage(null), []);
@@ -329,6 +332,36 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		window.dispatchEvent(new CustomEvent('moonfin:browseRefresh'));
 		window.requestAnimationFrame(() => Spotlight.focus('details-watched-btn') || Spotlight.focus('season-watched-btn'));
 	}, [effectiveApi, item, setItem]);
+
+	// A rating shows on the screen before the server answers, and goes back to
+	// what it was if the save fails.
+	const applyRating = useCallback(async (patch, save) => {
+		if (!item || ratingSaveRef.current) return;
+		ratingSaveRef.current = true;
+		const previousUserData = item.UserData;
+		setItem(prev => ({...prev, UserData: {...prev.UserData, ...patch}}));
+		try {
+			await save();
+		} catch {
+			setItem(prev => ({...prev, UserData: previousUserData}));
+			showToast($L('Could not save rating'));
+		} finally {
+			ratingSaveRef.current = false;
+		}
+	}, [item, setItem, showToast]);
+
+	const handleSetThumbRating = useCallback((likes) => (
+		applyRating(thumbRatingPatch(likes), () => effectiveApi.setRating(item.Id, likes))
+	), [applyRating, effectiveApi, item]);
+
+	const handleSetNumericRating = useCallback((rating) => {
+		const score = clampRating(rating);
+		return applyRating(numericRatingPatch(score), () => effectiveApi.setNumericRating(item.Id, score));
+	}, [applyRating, effectiveApi, item]);
+
+	const handleClearRating = useCallback(() => (
+		applyRating(clearedRatingPatch(), () => effectiveApi.clearRating(item.Id))
+	), [applyRating, effectiveApi, item]);
 
 	const handleGoToSeries = useCallback(() => {
 		if (item?.SeriesId) {
@@ -662,6 +695,8 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const isAudioTrack = item.Type === 'Audio';
 	const isBook = item.Type === 'Book';
 	const isReadableBook = isBook && item.Path?.toLowerCase().endsWith('.cbz');
+	const isRatable = isRatableItemType(item.Type);
+	const ratingStyle = normalizeRatingStyle(settings.personalRatingStyle);
 
 	// Collections only hold video content, so the action is hidden on people,
 	// music and playlists rather than offering a call the server would reject.
@@ -766,6 +801,15 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 				toastMessage={toastMessage}
 				onToastEnd={handleToastEnd}
 			/>
+			<PersonalRatingDialog
+				open={modals.showRatingDialog}
+				style={ratingStyle}
+				userData={item.UserData}
+				onSetThumbRating={handleSetThumbRating}
+				onSetNumericRating={handleSetNumericRating}
+				onClearRating={handleClearRating}
+				onClose={modals.handleCloseRatingDialog}
+			/>
 			<SeerrDialogs seerr={seerr} title={item.Name} />
 		</>
 	);
@@ -838,6 +882,9 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 					handleTrailer={trailer.handleTrailer}
 					handleToggleWatched={handleToggleWatched}
 					handleToggleFavorite={handleToggleFavorite}
+					showsPersonalRating={isRatable}
+					personalRatingStyle={ratingStyle}
+					handleOpenRatingDialog={modals.handleOpenRatingDialog}
 					handleGoToSeries={handleGoToSeries}
 					handleOpenVersionModal={modals.handleOpenVersionModal}
 					handleOpenAudioModal={modals.handleOpenAudioModal}
@@ -1013,6 +1060,9 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			onTrailer={trailer.handleTrailer}
 			onToggleWatched={handleToggleWatched}
 			onToggleFavorite={handleToggleFavorite}
+			showsPersonalRating={isRatable}
+			personalRatingStyle={ratingStyle}
+			onOpenRatingDialog={modals.handleOpenRatingDialog}
 			onGoToSeries={handleGoToSeries}
 			onOpenPlaylistModal={modals.handleOpenPlaylistModal}
 			onOpenCollectionModal={modals.handleOpenCollectionModal}

@@ -2,6 +2,7 @@ import {useState, useEffect, useRef, useMemo} from 'react';
 import $L from '@enact/i18n/$L';
 import {fetchRatings, fetchEpisodeRatings, buildDisplayRatings, getContentType, getTmdbId, getSelectionSource, isRatingSourceEnabled} from '../../services/mdblistApi';
 import {useSettings} from '../../context/SettingsContext';
+import {normalizeRatingStyle, personalRatingOf} from '../../utils/personalRating';
 import {getRtFallbackIcon} from '../icons/rtIcons';
 import css from './RatingsRow.module.less';
 
@@ -68,17 +69,33 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 			.sort((a, b) => enabledSources.indexOf(getSelectionSource(a.source)) - enabledSources.indexOf(getSelectionSource(b.source)));
 	}, [allRatings, enabledSources]);
 
+	// The viewer's own score leads the row, formatted the way their chosen
+	// rating style reads. It never waits on the plugin, since it comes from the
+	// server's user data on the item itself.
+	const personalValue = isRatingSourceEnabled(settings, 'personal') && item ? personalRatingOf(item.UserData) : null;
+	const personalRating = personalValue === null ? null : (
+		normalizeRatingStyle(settings.personalRatingStyle) === 'stars' ? `${(personalValue / 2).toFixed(1)}/5` : personalValue.toFixed(1)
+	);
 	const communityRating = isRatingSourceEnabled(settings, 'stars') && item && item.CommunityRating ? item.CommunityRating.toFixed(1) : null;
 	// The server's own critic rating stands in until plugin ratings actually
 	// arrive, so it stays visible when there's no API key or nothing came back.
 	const showCriticRating = allRatings.length === 0 && item && item.CriticRating != null;
-	const hasContent = communityRating || displayRatings.length > 0 || showCriticRating;
+	const hasContent = personalRating || communityRating || displayRatings.length > 0 || showCriticRating;
 	if (!hasContent) return null;
 
 	if (compact) {
 		const compactClass = `${css.ratingCompact}${showBadges ? ' ' + css.ratingCompactBadge : ''}`;
 		return (
 			<div className={css.ratingsRowCompact}>
+				{personalRating && (
+					<span className={compactClass}>
+						<span className={css.ratingTopCompact}>
+							<span className={css.personalStarCompact}>{"\u2605"}</span>
+							<span className={css.ratingValueCompact}>{personalRating}</span>
+						</span>
+						{showLabels && <span className={css.ratingNameCompact}>{$L('My Rating')}</span>}
+					</span>
+				)}
 				{communityRating && (
 					<span className={compactClass}>
 						<span className={css.ratingTopCompact}>
@@ -122,6 +139,15 @@ const RatingsRow = ({item, serverUrl, compact = false, pluginEnabled = true}) =>
 	const itemClass = `${css.ratingItem}${showBadges ? '' : ' ' + css.ratingItemPlain}`;
 	return (
 		<div className={css.ratingsRow}>
+			{personalRating && (
+				<div className={itemClass}>
+					<div className={css.ratingTop}>
+						<span className={css.personalStar}>{"\u2605"}</span>
+						<span className={css.ratingValue}>{personalRating}</span>
+					</div>
+					{showLabels && <span className={css.ratingName}>{$L('My Rating')}</span>}
+				</div>
+			)}
 			{communityRating && (
 				<div className={itemClass}>
 					<div className={css.ratingTop}>

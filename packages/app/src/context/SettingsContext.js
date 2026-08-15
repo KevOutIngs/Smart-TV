@@ -211,6 +211,7 @@ export const SYNCABLE_KEYS = [
 	'mediaBarSourceType', 'mediaBarLibraryIds', 'mediaBarCollectionIds',
 	'mediaBarOverlayColor', 'mediaBarOverlayOpacity',
 	'homeRows', 'homeRowsStyle', 'detailScreenStyle', 'detailExpandedTabs', 'fullScreenRows', 'homeRowsPosterSize', 'useSeriesThumbnails',
+	'personalRatingStyle',
 	'useDetailedSubHeadings', 'showMediaDetailsOnLibraryPage', 'hideBackdropsInLibraries',
 	'syncplayEnabled', 'syncplayAutoOpen',
 	'showSyncPlayButton',
