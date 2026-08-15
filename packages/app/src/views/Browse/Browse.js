@@ -207,7 +207,15 @@ const Browse = ({
 		}
 
 		const topbarOffset = settings.navbarPosition !== 'left' ? 130 : 0;
-		container.scrollTop = Math.max(0, targetRow.offsetTop - topbarOffset);
+		// A row is only measured once it renders, so landing on one that was still
+		// standing in at a guessed height leaves it above the screen with its cards
+		// cut off. Settling once it is real puts it where it was asked to go.
+		const settle = (passes) => {
+			const top = Math.max(0, targetRow.offsetTop - topbarOffset);
+			if (Math.abs(container.scrollTop - top) > 1) container.scrollTop = top;
+			if (passes > 0) window.requestAnimationFrame(() => settle(passes - 1));
+		};
+		settle(2);
 
 		if (thenFocus) {
 			let attempts = 0;

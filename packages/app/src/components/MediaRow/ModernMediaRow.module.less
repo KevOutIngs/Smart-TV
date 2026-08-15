@@ -5,7 +5,12 @@
 	padding-right: 60px;
 	contain: layout style;
 	content-visibility: auto;
+	// A row below the fold stands in at a guessed height until it renders, and the
+	// guess is nowhere near a real one, so scrolling by offsetTop lands wrong. The
+	// auto keyword remembers the height a row last rendered at and stands in at
+	// that instead. Engines that dont take it keep the plain guess above.
 	contain-intrinsic-size: 0 620px;
+	contain-intrinsic-size: auto 620px;
 
 	&:first-child {
 		margin-top: 40px;
@@ -70,6 +75,7 @@
 
 .platformTizen {
 	contain-intrinsic-size: 0 590px;
+	contain-intrinsic-size: auto 590px;
 }
 
 .platformTizen .title {
