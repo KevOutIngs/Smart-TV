@@ -18,6 +18,11 @@ export const seerrDetailStub = ({mediaId, mediaType}) => ({
 
 export const isSeerrOnlyItem = (item) => item?._seerrMediaId != null;
 
+// Seerr hands back the media server's own id for a title it knows is already in
+// the library. Opening that instead of the stand-in is what gives the screen its
+// playback, ratings and everything else a synthetic item has none of.
+export const libraryIdOf = (media) => media?.jellyfinMediaId || media?.jellyfinMediaId4k || null;
+
 export const seerrTargetFor = (item) => {
 	if (isSeerrOnlyItem(item)) {
 		return {mediaId: Number(item._seerrMediaId), mediaType: item._seerrMediaType === 'tv' ? 'tv' : 'movie'};

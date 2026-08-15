@@ -6,13 +6,13 @@ import BodyText from '@enact/sandstone/BodyText';
 import Button from '@enact/sandstone/Button';
 import Image from '@enact/sandstone/Image';
 import VirtualList from '@enact/sandstone/VirtualList';
-import ri from '@enact/ui/resolution';
 import Spotlight from '@enact/spotlight';
 import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import $L from '@enact/i18n/$L';
 import seerrApi from '../../services/seerrApi';
 import hydrateRequestMediaItems from '../../utils/seerrHydration';
+import {libraryIdOf} from '../../utils/seerrTarget';
 import {useSeerr} from '../../context/SeerrContext';
 import {useSettings} from '../../context/SettingsContext';
 import SeerrStatusChip from '../../components/SeerrStatusChip';
@@ -28,6 +28,25 @@ import {
 	isRequestDownloading
 } from '../../utils/seerrStatus';
 import css from './SeerrRequests.module.less';
+
+// The stylesheet sizes a row in rem, so the list has to be told its height in the
+// pixels those come out as. Reading the root font size picks up both the screen's
+// own scaling and the interface scale setting.
+const ROW_HEIGHT_REM = 7;
+// These two share out the space between rows, and the first has to match the top
+// margin the stylesheet gives a row for its focus ring.
+const ROW_FOCUS_INSET_REM = 0.35;
+const ROW_GAP_REM = 1 / 3;
+const FALLBACK_ROOT_FONT_PX = 24;
+
+const useRootFontSize = (uiScale) => {
+	const [size, setSize] = useState(FALLBACK_ROOT_FONT_PX);
+	useEffect(() => {
+		const measured = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize);
+		if (Number.isFinite(measured) && measured > 0) setSize(measured);
+	}, [uiScale]);
+	return size;
+};
 
 const SpottableDiv = Spottable('div');
 const PillContainer = SpotlightContainerDecorator({enterTo: 'last-focused'}, 'div');
@@ -249,6 +268,7 @@ const IssueItem = memo(function IssueItem({issue, index, canManage, myUserId, on
 const SeerrRequests = ({onSelectItem, onClose, backHandlerRef, ...rest}) => {
 	const {isAuthenticated, user: contextUser} = useSeerr();
 	const {settings} = useSettings();
+	const rootFontSize = useRootFontSize(settings.uiScale);
 	const [tab, setTab] = useState('requests');
 	const [requestFilter, setRequestFilter] = useState('all');
 	const [issueFilter, setIssueFilter] = useState('open');
@@ -425,7 +445,8 @@ const SeerrRequests = ({onSelectItem, onClose, backHandlerRef, ...rest}) => {
 			const mediaType = request.media.mediaType || request.media.media_type || request.type;
 			onSelectItem({
 				mediaType,
-				mediaId: request.media.tmdbId || request.media.id
+				mediaId: request.media.tmdbId || request.media.id,
+				libraryId: libraryIdOf(request.media)
 			});
 		}
 	}, [onSelectItem]);
@@ -571,8 +592,8 @@ const SeerrRequests = ({onSelectItem, onClose, backHandlerRef, ...rest}) => {
 			<VirtualList
 				dataSize={items.length}
 				itemRenderer={renderItem}
-				itemSize={ri.scale(168 * (settings.uiScale || 1.0))}
-				spacing={ri.scale(16 * (settings.uiScale || 1.0))}
+				itemSize={Math.round((ROW_HEIGHT_REM + ROW_FOCUS_INSET_REM) * rootFontSize)}
+				spacing={Math.round(ROW_GAP_REM * rootFontSize)}
 				direction="vertical"
 				spotlightId="hub-list"
 			/>

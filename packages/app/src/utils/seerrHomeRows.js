@@ -1,6 +1,7 @@
 import $L from '@enact/i18n/$L';
 import seerrApi from '../services/seerrApi';
 import hydrateRequestMediaItems from './seerrHydration';
+import {libraryIdOf} from './seerrTarget';
 
 const HOME_ROW_LIMIT = 20;
 
@@ -82,6 +83,7 @@ export const normalizeMediaItem = (item) => {
 		_externalPosterUrl: poster ? seerrApi.getImageUrl(poster, 'w342') : null,
 		_externalBackdropUrl: backdrop ? seerrApi.getImageUrl(backdrop, 'w1280') : null,
 		mediaInfo: {status: item.mediaInfo?.status},
+		_seerrLibraryId: libraryIdOf(item.mediaInfo),
 		_seerr: true,
 		_seerrType: 'item',
 		_seerrMediaType: mediaType,
@@ -102,6 +104,7 @@ const normalizeRequestItem = (request) => {
 		_externalPosterUrl: poster ? seerrApi.getImageUrl(poster, 'w342') : null,
 		_externalBackdropUrl: backdrop ? seerrApi.getImageUrl(backdrop, 'w1280') : null,
 		mediaInfo: {status: media.status},
+		_seerrLibraryId: libraryIdOf(media),
 		_seerr: true,
 		_seerrType: 'item',
 		_seerrMediaType: mediaType,

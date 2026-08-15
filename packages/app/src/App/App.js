@@ -11,7 +11,7 @@ import {AuthProvider, useAuth} from '../context/AuthContext';
 import {useSettings} from '../context/SettingsContext';
 import * as connectionPool from '../services/connectionPool';
 import * as jellyfinApi from '../services/jellyfinApi';
-import {seerrDetailStub} from '../utils/seerrTarget';
+import {libraryIdOf, seerrDetailStub} from '../utils/seerrTarget';
 import serverLogger from '../services/serverLogger';
 import {isBackKey, KEYS} from '../utils/keys';
 import {applyPerfTier} from '../utils/perfTier';
@@ -91,7 +91,10 @@ const normalizeSeerrSelection = (item) => {
 	const mediaId = item.mediaId || item.tmdbId || item.id || item.Id || item.media?.tmdbId || item.media?.id;
 	if (mediaId == null) return null;
 
-	return {mediaId, mediaType};
+	const libraryId = item.libraryId || item._seerrLibraryId ||
+		libraryIdOf(item.mediaInfo) || libraryIdOf(item.media);
+
+	return {mediaId, mediaType, libraryId};
 };
 
 const PanelLoader = () => (
@@ -918,11 +921,19 @@ const AppContent = (props) => {
 		setPanelIndex(PANELS.BROWSE);
 	}, []);
 
-	// A Seerr title opens on the same detail screen as everything else, carrying its Seerr
-	// identity in place of a library id.
+	// A Seerr title opens on the same detail screen as everything else. One the library
+	// already holds opens as itself, since a stand-in has nothing to play, and only a
+	// title the library has never heard of keeps its Seerr identity.
 	const handleSelectSeerrItem = useCallback((item) => {
 		const normalized = normalizeSeerrSelection(item);
 		if (!normalized) {
+			return;
+		}
+		if (normalized.libraryId) {
+			handleSelectItem({
+				Id: normalized.libraryId,
+				Type: normalized.mediaType === 'tv' ? 'Series' : 'Movie'
+			});
 			return;
 		}
 		handleSelectItem(seerrDetailStub(normalized));

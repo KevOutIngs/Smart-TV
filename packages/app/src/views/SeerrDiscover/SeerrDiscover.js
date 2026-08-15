@@ -10,6 +10,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import {KEYS} from '../../utils/keys';
 import hydrateRequestMediaItems from '../../utils/seerrHydration';
 import {STREAMING_NETWORKS, MOVIE_STUDIOS} from '../../utils/seerrHomeRows';
+import {libraryIdOf} from '../../utils/seerrTarget';
 
 import css from './SeerrDiscover.module.less';
 
@@ -160,7 +161,8 @@ const RequestCard = memo(function RequestCard({request, onSelect, onFocus}) {
 			backdrop_path: media?.backdropPath,
 			overview: media?.overview,
 			media_type: mediaType,
-			mediaType: mediaType
+			mediaType: mediaType,
+			_seerrLibraryId: libraryIdOf(media)
 		};
 		onSelect?.(item, mediaType);
 	}, [media, mediaType, onSelect]);
@@ -529,7 +531,8 @@ const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectSt
 		const type = mediaType || item.media_type || item.mediaType || (item.title ? 'movie' : 'tv');
 		onSelectItem?.({
 			mediaId: item.id,
-			mediaType: type
+			mediaType: type,
+			libraryId: item._seerrLibraryId || libraryIdOf(item.mediaInfo)
 		});
 	}, [onSelectItem]);
 

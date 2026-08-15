@@ -130,7 +130,10 @@
 	padding: 1rem;
 	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.05);
 	border-radius: 8px;
-	margin: 0 1rem;
+	// The focus ring and the lift it comes with are drawn outside the row, so the top
+	// of the slot stays free for them. The first row has no room above it otherwise
+	// and loses its ring to the edge of the list.
+	margin: 0.35rem 1rem 0;
 	cursor: pointer;
 	transition: background 0.2s;
 
