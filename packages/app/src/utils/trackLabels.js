@@ -1,11 +1,18 @@
 import $L from '@enact/i18n/$L';
 
-// A file carrying pt-BR, pt-BR closed caption and pt-PT offers three rows all reading
-// Portuguese, so number every row and say what the track is and where it comes from.
+// A file carrying pt-BR, pt-BR closed caption and pt-PT offers three rows all
+// reading Portuguese, so each row says what the track is and where it comes from.
 // That is what tells them apart and shows which ones have already been tried.
 
+// A track with no name of its own still needs something to be called, and its
+// position is the only thing left to call it by.
+export const trackName = (position, title, typeLabel) =>
+	title || `${typeLabel || $L('Track')} ${position}`;
+
+// Audio rows lead with their position, which is how the players below refer to
+// the track when switching between them.
 export const numberedTrackName = (position, title, typeLabel) =>
-	`${position} - ${title || `${typeLabel || $L('Track')} ${position}`}`;
+	`${position} - ${trackName(position, title, typeLabel)}`;
 
 const isExternalSubtitle = (stream) =>
 	stream.isExternal === true ||

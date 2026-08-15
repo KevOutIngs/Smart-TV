@@ -164,4 +164,44 @@ describe('bestSubtitle', () => {
 	test('an empty list has no answer', () => {
 		expect(bestSubtitle([], 'eng')).toBeUndefined();
 	});
+
+	test('a format the player renders itself wins a tie', () => {
+		const list = [{index: 1, language: 'eng', codec: 'subrip'}, {index: 2, language: 'eng', codec: 'ass'}];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+		expect(bestSubtitle(list, 'eng', {assDirectPlay: false})).toBe(list[0]);
+	});
+
+	test('hearing impaired rises to the top when it is asked for', () => {
+		const list = [{index: 1, language: 'eng'}, {index: 2, language: 'eng', isHearingImpaired: true}];
+		expect(bestSubtitle(list, 'eng', {preferSdh: true})).toBe(list[1]);
+		expect(bestSubtitle(list, 'eng')).toBe(list[0]);
+	});
+
+	test('a track delivered externally counts as external', () => {
+		const list = [{index: 1, language: 'eng', deliveryMethod: 'External'}, {index: 2, language: 'eng'}];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+	});
+});
+
+describe('flagged candidates', () => {
+	const flagged = (streams, preferred, extra) => bestSubtitle(streams, preferred, {subtitleMode: 'flagged', ...extra});
+
+	test('only flagged tracks are on the table', () => {
+		const list = [{index: 1, language: 'spa'}, {index: 2, language: 'spa', isDefault: true}];
+		expect(flagged(list, 'spa')).toBe(list[1]);
+	});
+
+	test('nothing flagged and nothing to fall back on leaves it alone', () => {
+		expect(flagged([{index: 1, language: 'spa'}], 'spa')).toBeUndefined();
+	});
+
+	test('English joins in when neither chosen language is in the file', () => {
+		const list = [{index: 1, language: 'spa'}, {index: 2, language: 'eng'}];
+		expect(flagged(list, 'jpn', {fallbackLanguage: 'kor'})).toBe(list[1]);
+	});
+
+	test('English stays out when the chosen language is there to be flagged', () => {
+		const list = [{index: 1, language: 'eng'}, {index: 2, language: 'jpn'}];
+		expect(flagged(list, 'jpn')).toBeUndefined();
+	});
 });

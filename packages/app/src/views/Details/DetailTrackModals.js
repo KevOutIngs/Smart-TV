@@ -3,7 +3,7 @@ import $L from '@enact/i18n/$L';
 
 import {TRANSCODE_QUALITIES} from './detailsMedia';
 import {ModalContainer} from '../../utils/spotlightContainers';
-import {numberedTrackName, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
+import {numberedTrackName, trackName, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
 import {SpottableButton, SpottableDiv} from './detailsSpottables';
 
 import css from './Details.module.less';
@@ -128,7 +128,7 @@ const DetailTrackModals = ({
 									data-selected={i === selectedSubtitleIndex ? 'true' : undefined}
 									onClick={onSelectSubtitle}
 								>
-									<span className={css.trackName}>{numberedTrackName(i + 1, stream.DisplayTitle || stream.Title || stream.Language, $L('Subtitle'))}</span>
+									<span className={css.trackName}>{trackName(i + 1, stream.DisplayTitle || stream.Title || stream.Language, $L('Subtitle'))}</span>
 									<span className={css.trackInfo}>{subtitleTrackDetail({name: stream.DisplayTitle || stream.Title || stream.Language, codec: stream.Codec, language: stream.Language, isExternal: stream.IsExternal, deliveryMethod: stream.DeliveryMethod, isForced: stream.IsForced, isHearingImpaired: stream.IsHearingImpaired})}</span>
 								</SpottableButton>
 							))}

@@ -1,77 +1,119 @@
-import {normalizeLanguageCode} from './audioLanguage';
+import {languageMatches} from './audioLanguage';
+import {streamTitleText} from './streamTitle';
 
-// Picks the audio track a fresh playback should start on, the same way the other
-// clients do: skip commentary, respect the audio description preference, honor the
-// default track shortcut, then match preferred language, fallback language, and
-// English before falling back to the best remaining track.
+// Picks the audio track a fresh playback starts on, following the same order the
+// other clients follow: an explicit pick, then commentary and audio description
+// filtered out, then the default track shortcut, then preferred language,
+// fallback language and English, each of those preferring the track the viewer
+// last chose by hand before ranking what is left.
 
-const COMMENTARY = /\b(commentary|commentaries)\b/i;
-const AUDIO_DESCRIPTION = /\b(audio\s+description|descriptive\s+audio|visual\s+description|descriptive|description|ad)\b/i;
+const COMMENTARY = /\b(commentary|director\s*commentary|commentaries|directors\s*commentary)\b/;
+const AUDIO_DESCRIPTION = /\b(audio\s+description|descriptive\s+audio|visual\s+description|descriptive|description|ad)\b/;
 
-const titleOf = (stream) => stream?.displayTitle || '';
+export const isCommentaryAudioStream = (stream) =>
+	stream?.isCommentary === true || COMMENTARY.test(streamTitleText(stream));
 
-const isCommentaryAudio = (stream) => COMMENTARY.test(titleOf(stream));
+export const isAudioDescriptionAudioStream = (stream) =>
+	stream?.isAudioDescription === true || AUDIO_DESCRIPTION.test(streamTitleText(stream));
 
-const isAudioDescription = (stream) =>
-	stream?.isAudioDescription === true || AUDIO_DESCRIPTION.test(titleOf(stream));
+const trackTitle = (stream) => String(stream?.title || stream?.displayTitle || '').trim().toLowerCase();
 
 const channelsOf = (stream) => (typeof stream?.channels === 'number' ? stream.channels : 0);
 
-// Higher is better. The default flag outranks channel count only when the user
-// asked for default tracks, otherwise it is just a tiebreak after channels.
-const rank = (stream, settings) => {
-	let score = 0;
-	if (settings?.preferAudioDescription && isAudioDescription(stream)) score += 1000000;
-	if (settings?.preferDefaultAudioTrack && stream?.isDefault) score += 100000;
-	score += channelsOf(stream) * 10;
-	if (!settings?.preferDefaultAudioTrack && stream?.isDefault) score += 1;
-	return score;
-};
-
-const bestOf = (candidates, settings) => {
-	if (!candidates.length) return null;
-	let best = candidates[0];
-	let bestScore = rank(best, settings);
-	for (let i = 1; i < candidates.length; i++) {
-		const score = rank(candidates[i], settings);
-		if (score > bestScore) {
-			best = candidates[i];
-			bestScore = score;
+// Surround beats stereo once language and the two flags have had their say. The
+// default flag moves above or below the channel count depending on whether the
+// viewer asked for default tracks.
+const rankAudioCandidates = (candidates, prefs) => {
+	if (candidates.length <= 1) return candidates[0];
+	const {preferDefaultAudioTrack, preferAudioDescription} = prefs;
+	return candidates.slice().sort((a, b) => {
+		if (preferAudioDescription) {
+			const aAd = isAudioDescriptionAudioStream(a);
+			const bAd = isAudioDescriptionAudioStream(b);
+			if (aAd !== bAd) return aAd ? -1 : 1;
 		}
+		if (preferDefaultAudioTrack) {
+			const aDefault = a.isDefault === true;
+			const bDefault = b.isDefault === true;
+			if (aDefault !== bDefault) return aDefault ? -1 : 1;
+		}
+		const aChannels = channelsOf(a);
+		const bChannels = channelsOf(b);
+		if (aChannels !== bChannels) return bChannels - aChannels;
+		if (!preferDefaultAudioTrack) {
+			const aDefault = a.isDefault === true;
+			const bDefault = b.isDefault === true;
+			if (aDefault !== bDefault) return aDefault ? -1 : 1;
+		}
+		return (a.index || 0) - (b.index || 0);
+	})[0];
+};
+
+// Within one language, the track the viewer picked last time wins, first by its
+// own index and then by its name, which survives a file listing its tracks in a
+// different order.
+const preferRemembered = (matches, prefs) => {
+	const {lastIndex, lastTitle} = prefs;
+	if (lastIndex !== null && lastIndex !== undefined) {
+		const byIndex = matches.find((stream) => stream.index === lastIndex);
+		if (byIndex) return byIndex;
 	}
-	return best;
+	if (lastTitle) {
+		const byTitle = matches.find((stream) => trackTitle(stream) === lastTitle);
+		if (byTitle) return byTitle;
+	}
+	return rankAudioCandidates(matches, prefs);
 };
 
-const matchLanguage = (candidates, language) => {
-	const wanted = normalizeLanguageCode(language);
-	if (!wanted) return [];
-	return candidates.filter((stream) => normalizeLanguageCode(stream.language) === wanted);
-};
-
+/**
+ * @param {Array} audioStreams - the audio tracks the source offers
+ * @param {Object} [settings] - audioLanguage, fallbackAudioLanguage,
+ *   preferDefaultAudioTrack, preferAudioDescription, and optionally
+ *   explicitAudioIndex, lastExplicitAudioIndex and lastExplicitAudioTitle
+ * @returns {Object|null} the track to start on
+ */
 export const selectPreferredAudioStream = (audioStreams, settings = {}) => {
 	if (!Array.isArray(audioStreams) || audioStreams.length === 0) return null;
 
-	let candidates = audioStreams.filter((stream) => !isCommentaryAudio(stream));
+	const {
+		audioLanguage,
+		fallbackAudioLanguage,
+		preferDefaultAudioTrack = false,
+		preferAudioDescription = false,
+		explicitAudioIndex,
+		lastExplicitAudioIndex,
+		lastExplicitAudioTitle
+	} = settings;
+
+	if (explicitAudioIndex !== null && explicitAudioIndex !== undefined) {
+		const explicit = audioStreams.find((stream) => stream.index === explicitAudioIndex);
+		if (explicit) return explicit;
+	}
+
+	let candidates = audioStreams.filter((stream) => !isCommentaryAudioStream(stream));
 	if (!candidates.length) candidates = audioStreams;
 
-	if (!settings.preferAudioDescription) {
-		const withoutAd = candidates.filter((stream) => !isAudioDescription(stream));
+	if (!preferAudioDescription) {
+		const withoutAd = candidates.filter((stream) => !isAudioDescriptionAudioStream(stream));
 		if (withoutAd.length) candidates = withoutAd;
 	}
 
-	if (settings.preferDefaultAudioTrack) {
-		const defaults = candidates.filter((stream) => stream.isDefault);
-		if (defaults.length) return bestOf(defaults, settings);
+	const prefs = {
+		preferDefaultAudioTrack,
+		preferAudioDescription,
+		lastIndex: lastExplicitAudioIndex,
+		lastTitle: lastExplicitAudioTitle ? String(lastExplicitAudioTitle).trim().toLowerCase() : ''
+	};
+
+	if (preferDefaultAudioTrack) {
+		const defaults = candidates.filter((stream) => stream.isDefault === true);
+		if (defaults.length) return rankAudioCandidates(defaults, prefs);
 	}
 
-	const preferred = matchLanguage(candidates, settings.audioLanguage);
-	if (preferred.length) return bestOf(preferred, settings);
+	for (const language of [audioLanguage, fallbackAudioLanguage, 'eng']) {
+		const matches = candidates.filter((stream) => languageMatches(stream.language, language));
+		if (matches.length) return preferRemembered(matches, prefs);
+	}
 
-	const fallback = matchLanguage(candidates, settings.fallbackAudioLanguage);
-	if (fallback.length) return bestOf(fallback, settings);
-
-	const english = matchLanguage(candidates, 'eng');
-	if (english.length) return bestOf(english, settings);
-
-	return bestOf(candidates, settings);
+	return rankAudioCandidates(candidates, prefs);
 };
