@@ -34,7 +34,6 @@ const PersonalRatingDialog = ({open, style, userData, onSetThumbRating, onSetNum
 	const savedLikes = displayRatingLikes(userData);
 	const [draft, setDraft] = useState(0);
 	const savingRef = useRef(false);
-	const starsRef = useRef(null);
 
 	useEffect(() => {
 		if (!open) return;
@@ -85,23 +84,24 @@ const PersonalRatingDialog = ({open, style, userData, onSetThumbRating, onSetNum
 	}, []);
 
 	const handleKeyDown = useCallback((e) => {
-		if (isBackKey(e)) {
-			e.preventDefault();
-			e.stopPropagation();
-			onClose?.();
-			return;
-		}
-		if (savingRef.current || style !== 'stars') return;
+		if (!isBackKey(e)) return;
+		e.preventDefault();
+		e.stopPropagation();
+		onClose?.();
+	}, [onClose]);
+
+	// The five stars are one control, so left and right set the rating while the
+	// strip holds focus. The handler rides on the strip rather than the dialog
+	// because that is what tells us the press landed there. A ref would not, since
+	// a Spottable hands back its component instead of its element.
+	const handleStarsKeyDown = useCallback((e) => {
+		if (savingRef.current) return;
 		const code = e.keyCode || e.which;
 		if (code !== KEYS.LEFT && code !== KEYS.RIGHT) return;
-		// The five stars are one control, so left and right set the rating while
-		// it holds focus. Anywhere else they go on moving between the buttons.
-		const strip = starsRef.current;
-		if (!strip || !(e.target === strip || strip.contains(e.target))) return;
 		e.preventDefault();
 		e.stopPropagation();
 		adjust(code === KEYS.RIGHT ? 1 : -1);
-	}, [onClose, style, adjust]);
+	}, [adjust]);
 
 	if (!open) return null;
 
@@ -124,7 +124,7 @@ const PersonalRatingDialog = ({open, style, userData, onSetThumbRating, onSetNum
 		</div>
 	) : style === 'stars' ? (
 		<div className={css.editor}>
-			<SpottableDiv className={`${css.stars} spottable-default`} spotlightId="personal-rating-stars" ref={starsRef}>
+			<SpottableDiv className={`${css.stars} spottable-default`} spotlightId="personal-rating-stars" onKeyDown={handleStarsKeyDown}>
 				{[0, 1, 2, 3, 4].map((index) => {
 					const remaining = stars - index;
 					const path = remaining >= 0.75 ? RATING_ICON_PATHS.starFull : remaining >= 0.25 ? RATING_ICON_PATHS.starHalf : RATING_ICON_PATHS.star;
