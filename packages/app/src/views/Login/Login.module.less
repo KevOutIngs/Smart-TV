@@ -1,8 +1,14 @@
+// The sign-in screens are laid out the way the other clients lay them out. Their
+// sizes are in logical pixels on a half-scale surface, so every measurement here
+// is twice the one over there and the two look the same on a 1080p panel.
+
 @accent: var(--theme-accent, #00a4dc);
-@accentHover: var(--theme-button-focused, #00b4ec);
-@bg1: var(--theme-background, #1a1a3a);
-@bg2: var(--theme-surface, #2a2a5e);
-@bg3: var(--theme-login-gradient-end, #26316e);
+@error: var(--theme-recording-active, #ef4444);
+@fg: var(--theme-on-surface, #fff);
+
+.fg(@alpha) {
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), @alpha);
+}
 
 .page {
 	position: fixed;
@@ -10,253 +16,374 @@
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: linear-gradient(135deg, @bg1 0%, @bg2 50%, @bg3 100%);
-	display: flex;
-	align-items: center;
-	justify-content: center;
 	overflow-y: auto;
+	overflow-x: hidden;
+	background: linear-gradient(
+		135deg,
+		var(--theme-background, #0a0a0a) 0%,
+		var(--theme-surface-variant, #1a1a2e) 50%,
+		var(--theme-surface, #16213e) 100%
+	);
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-box-orient: vertical;
+	-webkit-flex-direction: column;
+	flex-direction: column;
 
 	// Legacy: WebKit 538.1 breaks flex centering with overflow-y
 	:global(.legacy) & {
 		display: block;
-		text-align: center;
-		padding: 20px 0;
+		padding: 60px 0;
 	}
 }
 
-.container {
-	width: 100%;
-	max-width: 800px;
-	padding: 40px;
-	text-align: center;
+// The card sits above center, taking a fifth of the spare room above it and the
+// rest below. When the content outgrows the screen both collapse and it scrolls.
+.spacerTop {
+	-webkit-box-flex: 2;
+	-webkit-flex: 2 1 0;
+	flex: 2 1 0;
 
 	:global(.legacy) & {
-		display: inline-block;
-		padding: 20px 40px;
-		vertical-align: top;
+		display: none;
 	}
+}
+
+.spacerBottom {
+	-webkit-box-flex: 8;
+	-webkit-flex: 8 1 0;
+	flex: 8 1 0;
+
+	:global(.legacy) & {
+		display: none;
+	}
+}
+
+.frame {
+	-webkit-flex: 0 0 auto;
+	flex: 0 0 auto;
+	width: 100%;
+	max-width: 1400px;
+	margin: 0 auto;
+	padding: 32px 48px;
+	box-sizing: border-box;
+	text-align: center;
+}
+
+.frameNarrow {
+	max-width: 1200px;
 }
 
 .logoSection {
-	margin-bottom: 40px;
-
-	:global(.legacy) & {
-		margin-bottom: 20px;
-	}
+	padding-bottom: 48px;
 }
 
 .logo {
-	max-width: 360px;
-	width: 100%;
-	height: auto;
+	height: 160px;
+	max-width: 100%;
 	object-fit: contain;
-
-	:global(.legacy) & {
-		max-width: 280px;
-	}
 }
 
-.contentWrapper {
-	background: rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.75);
-	backdrop-filter: blur(10px);
-	border-radius: 20px;
-	padding: 50px 40px;
-	border: 3px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.1);
-
-	:global(.legacy) & {
-		padding: 20px 30px;
-	}
+.logoSmall {
+	height: 128px;
 }
 
-.section {
-	h1 {
-		color: var(--theme-text-primary, #fff);
-		font-size: 42px;
-		font-weight: 700;
-		margin: 0 0 10px 0;
-	}
-
-	h2 {
-		color: var(--theme-text-primary, #fff);
-		font-size: 36px;
-		font-weight: 600;
-		margin: 0 0 20px 0;
-	}
+.card {
+	background: rgba(17, 21, 40, 0.8);
+	border: 2px solid rgba(255, 255, 255, 0.2);
+	border-radius: 40px;
+	padding: 64px;
+	text-align: left;
+	box-sizing: border-box;
 }
 
-.subtitle {
-	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.7));
+.cardCentered {
+	text-align: center;
+}
+
+.versionFooter {
+	padding-top: 32px;
 	font-size: 24px;
-	margin: 0 0 30px 0;
+	text-align: center;
+	.fg(0.4);
+}
+
+.title {
+	margin: 0;
+	font-size: 48px;
+	font-weight: 700;
+	color: @fg;
+}
+
+.sectionTitle {
+	font-size: 28px;
+	font-weight: 700;
+	color: @fg;
+	margin-bottom: 16px;
 }
 
 .serverLabel {
-	color: var(--theme-text-muted, rgba(255, 255, 255, 0.5));
-	font-size: 20px;
-	font-weight: 400;
-	margin: 0 0 6px 0;
-	letter-spacing: 0.5px;
-}
-
-.serverName {
-	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.6));
-	font-size: 22px;
-	margin-bottom: 30px;
-}
-
-.formGroup {
-	margin-bottom: 24px;
-	text-align: left;
-
-	label {
-		display: block;
-		color: var(--theme-text-primary, rgba(255, 255, 255, 0.8));
-		font-size: 20px;
-		margin-bottom: 10px;
-	}
-}
-
-.input {
-	width: 100%;
-	padding: 20px 24px;
-	font-size: 26px;
-	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.1);
-	border: 4px solid transparent;
-	border-radius: 18px;
-	color: var(--theme-text-primary, #fff);
-	outline: none;
-	box-sizing: border-box;
-	transition: all 0.2s ease;
-
-	input::placeholder {
-		color: var(--theme-text-muted, rgba(255, 255, 255, 0.4));
-	}
-
-	&:focus, &[data-focused] {
-		border-color: @accent;
-		background: var(--theme-input-focused, rgba(255, 255, 255, 0.15));
-		box-shadow: var(--theme-focus-glow, 0 0 0 4px rgba(0, 164, 220, 0.3));
-	}
-}
-
-.buttonGroup {
-	display: flex;
-	justify-content: center;
-	margin-top: 30px;
-	flex-wrap: wrap;
-	margin-left: -10px;
-	margin-right: -10px;
-
-	> * {
-		margin: 10px;
-	}
-}
-
-.btn {
-	padding: 18px 50px;
+	margin: 0;
 	font-size: 24px;
-	font-weight: 600;
-	border: none;
-	border-radius: 12px;
+	.fg(0.5);
+}
+
+.disclaimer {
+	margin: 16px 0 0;
+	font-size: 24px;
+	.fg(0.7);
+}
+
+.errorText {
+	padding-top: 16px;
+	font-size: 28px;
+	color: @error;
+}
+
+.emptyHint {
+	padding: 24px 0;
+	font-size: 28px;
+	.fg(0.4);
+}
+
+// Server tiles
+
+.tile {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-box-align: center;
+	-webkit-align-items: center;
+	align-items: center;
+	padding: 24px 32px;
+	margin-bottom: 8px;
+	border: 4px solid transparent;
+	border-radius: 24px;
+	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.05);
 	cursor: pointer;
-	transition: all 0.2s ease;
 	outline: none;
+	transition: background 0.12s ease, border-color 0.12s ease;
 
 	&:focus {
-		background: @accent;
+		background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.18);
 		border-color: @accent;
-		color: #fff;
-		transform: scale(1.05);
+	}
+}
+
+.tileIcon {
+	width: 48px;
+	height: 48px;
+	margin-right: 24px;
+	-webkit-flex-shrink: 0;
+	flex-shrink: 0;
+	.fg(0.7);
+}
+
+.tileBody {
+	-webkit-box-flex: 1;
+	-webkit-flex: 1;
+	flex: 1;
+	min-width: 0;
+}
+
+.tileName {
+	font-size: 28px;
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	.fg(0.9);
+}
+
+.tileDetail {
+	font-size: 26px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	.fg(0.5);
+}
+
+.spinnerRow {
+	padding: 32px 0;
+	text-align: center;
+}
+
+.spinnerRowTight {
+	padding: 8px 0 16px;
+	text-align: center;
+}
+
+// Buttons
+
+.outline-chrome() {
+	font-size: 30px;
+	font-weight: 500;
+	border: 4px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
+	border-radius: 48px;
+	background: transparent;
+	cursor: pointer;
+	outline: none;
+	transition: border-color 0.12s ease, color 0.12s ease;
+	.fg(0.8);
+
+	&:focus {
+		border-color: @accent;
+		color: @accent;
 	}
 
 	&:disabled {
 		opacity: 0.5;
-		cursor: not-allowed;
+		cursor: default;
 	}
 }
 
-.btnPrimary {
-	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.15);
-	color: var(--theme-text-primary, #fff);
-	border: 3px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
-
-	&:hover, &:focus {
-		background: @accent;
-		border-color: @accent;
-	}
-}
-
-.btnSecondary {
-	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.15);
-	color: var(--theme-text-primary, #fff);
-	border: 3px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
-
-	&:hover, &:focus {
-		background: @accent;
-		border-color: @accent;
-	}
-}
-
-.userGrid {
-	display: flex;
-	flex-wrap: nowrap;
+.outlineButton {
+	display: -webkit-inline-box;
+	display: -webkit-inline-flex;
+	display: inline-flex;
+	-webkit-box-align: center;
+	-webkit-align-items: center;
+	align-items: center;
+	-webkit-box-pack: center;
+	-webkit-justify-content: center;
 	justify-content: center;
-	margin: 40px 0 20px;
-	overflow-x: auto;
-	overflow-y: hidden;
-	padding: 10px 0;
-	scroll-behavior: smooth;
+	padding: 28px 48px;
+	white-space: nowrap;
+	.outline-chrome();
+}
+
+.outlineButtonIcon {
+	width: 32px;
+	height: 32px;
+	margin-right: 16px;
+	-webkit-flex-shrink: 0;
+	flex-shrink: 0;
+}
+
+.actionRow {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	padding-top: 32px;
+
+	> * {
+		-webkit-box-flex: 1;
+		-webkit-flex: 1 1 0;
+		flex: 1 1 0;
+		min-width: 0;
+	}
 
 	> * + * {
-		margin-left: 40px;
+		margin-left: 16px;
 	}
+
+	// Sharing the row means each label has to survive a long translation
+	.outlineButton {
+		padding: 24px 16px;
+	}
+}
+
+.actionRowWide > * + * {
+	margin-left: 24px;
+}
+
+// Three actions no longer fit side by side, so they stack instead
+.actionColumn {
+	-webkit-box-orient: vertical;
+	-webkit-flex-direction: column;
+	flex-direction: column;
+
+	> * + * {
+		margin-left: 0;
+		margin-top: 16px;
+	}
+}
+
+// A centered row of buttons that wraps, used for the sign-in actions and for
+// the Quick Connect and Password pills above them.
+.buttonWrap {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-flex-wrap: wrap;
+	flex-wrap: wrap;
+	-webkit-box-pack: center;
+	-webkit-justify-content: center;
+	justify-content: center;
+	margin: 48px -12px 0;
+
+	> * {
+		margin: 12px;
+	}
+}
+
+// Who's watching
+
+.userRow {
+	margin-top: 48px;
+	padding: 8px 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	scroll-behavior: smooth;
 
 	&::-webkit-scrollbar {
-		height: 8px;
+		display: none;
 	}
+}
 
-	&::-webkit-scrollbar-track {
-		background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.1);
-		border-radius: 4px;
-	}
-
-	&::-webkit-scrollbar-thumb {
-		background: @accent;
-		border-radius: 4px;
-	}
+// A short list sits centered, a long one grows past the edge and scrolls. Being
+// inline is what lets it outgrow the strip, and the minimum width is what keeps
+// it centered until it does. A block would pin it to the strip and park the
+// first card off the left edge, where scrolling cant reach it.
+.userRowInner {
+	display: -webkit-inline-box;
+	display: -webkit-inline-flex;
+	display: inline-flex;
+	-webkit-box-pack: center;
+	-webkit-justify-content: center;
+	justify-content: center;
+	min-width: 100%;
+	vertical-align: top;
 }
 
 .userCard {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	padding: 10px;
+	-webkit-flex-shrink: 0;
+	flex-shrink: 0;
+	width: 220px;
+	padding: 16px;
+	margin: 0 16px;
+	text-align: center;
 	background: transparent;
-	border-radius: 12px;
-	cursor: pointer;
-	transition: all 0.25s ease;
 	border: none;
-	min-width: 120px;
+	border-radius: 24px;
+	cursor: pointer;
 	outline: none;
+	transition: -webkit-transform 0.12s ease-out;
+	transition: transform 0.12s ease-out;
 
-	&:hover, &:focus {
-		background: transparent;
+	&:focus {
+		-webkit-transform: scale(1.08);
 		transform: scale(1.08);
 
 		.userAvatar, .userAvatarPlaceholder {
 			border-color: @accent;
-			box-shadow: var(--theme-focus-glow, 0 0 0 3px rgba(0, 164, 220, 0.4));
+		}
+
+		.userName {
+			color: @accent;
 		}
 	}
 }
 
 .userAvatar, .userAvatarPlaceholder {
-	width: 130px;
-	height: 130px;
+	width: 144px;
+	height: 144px;
+	margin: 0 auto 16px;
+	border: 6px solid transparent;
 	border-radius: 50%;
-	margin-bottom: 14px;
-	border: 3px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.25);
-	transition: all 0.25s ease;
+	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.1);
+	box-sizing: border-box;
 }
 
 .userAvatar {
@@ -264,154 +391,273 @@
 }
 
 .userAvatarPlaceholder {
-	background: transparent;
+	display: -webkit-box;
+	display: -webkit-flex;
 	display: flex;
+	-webkit-box-align: center;
+	-webkit-align-items: center;
 	align-items: center;
+	-webkit-box-pack: center;
+	-webkit-justify-content: center;
 	justify-content: center;
 }
 
 .placeholderIcon {
-	width: 80px;
-	height: 80px;
-	fill: var(--theme-text-primary, #FFFFFF);
+	width: 64px;
+	height: 64px;
+	.fg(0.6);
 }
 
 .userName {
-	color: var(--theme-text-primary, rgba(255, 255, 255, 0.85));
-	font-size: 20px;
-	font-weight: 500;
-	margin-top: 2px;
-}
-
-.selectedUserInfo {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	margin-bottom: 30px;
-}
-
-.selectedAvatar, .selectedAvatarPlaceholder {
-	width: 120px;
-	height: 120px;
-	border-radius: 50%;
-	margin-bottom: 15px;
-}
-
-.selectedAvatar {
-	object-fit: cover;
-	border: 3px solid @accent;
-}
-
-.selectedAvatarPlaceholder {
-	background: linear-gradient(135deg, var(--theme-accent, #00a4dc), var(--theme-login-gradient-end, #6366f1));
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 48px;
-	font-weight: 600;
-	color: var(--theme-on-accent, #fff);
-	border: 3px solid @accent;
-}
-
-.selectedName {
-	color: var(--theme-text-primary, #fff);
 	font-size: 28px;
-	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: @fg;
 }
 
-.statusMessage {
-	background: var(--theme-chip-background, rgba(0, 164, 220, 0.2));
-	border: 3px solid var(--theme-focus-border-color, #ffffff);
-	border-radius: 12px;
-	padding: 16px 24px;
-	margin-bottom: 20px;
-	color: @accent;
-	font-size: 20px;
-}
+// Sign in
 
-.errorMessage {
-	background: rgba(var(--theme-recording-active-rgb, 239, 68, 68), 0.2);
-	border: 3px solid rgba(var(--theme-recording-active-rgb, 239, 68, 68), 0.4);
-	border-radius: 12px;
-	padding: 16px 24px;
-	margin-bottom: 20px;
-	color: var(--theme-recording-active, #ef4444);
-	font-size: 20px;
-}
-
-.loading {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	height: 100%;
-	color: var(--theme-text-primary, #fff);
+.signInSubtitle {
+	margin: 8px 0 0;
 	font-size: 24px;
+	text-align: center;
+	.fg(0.5);
+}
 
-	> * + * {
-		margin-top: 20px;
+.toggleButton {
+	min-width: 240px;
+	padding: 24px 40px;
+	.outline-chrome();
+}
+
+.toggleButtonSelected {
+	background: @accent;
+	border-color: transparent;
+	color: @fg;
+
+	&:focus {
+		border-color: @fg;
+		color: @fg;
 	}
 }
 
+.formBlock {
+	margin-top: 48px;
+}
+
+.field + .field {
+	margin-top: 32px;
+}
+
+// Focus turns the field inside out, the way it does on the other clients: the
+// fill goes solid and the text flips to dark so the caret is unmistakable.
+.input {
+	width: 100%;
+	padding: 24px 32px;
+	font-size: 30px;
+	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.08);
+	border: 4px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.1);
+	border-radius: 24px;
+	color: @fg;
+	outline: none;
+	box-sizing: border-box;
+	transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+
+	input::placeholder {
+		color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.5);
+	}
+
+	&:focus, &[data-focused] {
+		background: @fg;
+		border-color: @accent;
+		color: #000;
+
+		input::placeholder {
+			color: rgba(0, 0, 0, 0.5);
+		}
+	}
+}
+
+.inputWithIcon {
+	position: relative;
+
+	.input {
+		padding-left: 96px;
+	}
+}
+
+.inputIcon {
+	position: absolute;
+	top: 50%;
+	left: 32px;
+	width: 40px;
+	height: 40px;
+	margin-top: -20px;
+	pointer-events: none;
+	color: @fg;
+}
+
+.inputWithIcon:focus-within .inputIcon {
+	color: #000;
+}
+
+.fieldError {
+	margin-top: 24px;
+	font-size: 24px;
+	color: @error;
+}
+
+// Quick Connect
+
+.quickConnect {
+	margin-top: 48px;
+	text-align: center;
+}
+
+.quickConnectInstruction {
+	margin: 0;
+	font-size: 28px;
+	.fg(0.7);
+}
+
+.quickConnectCode {
+	margin: 40px 0;
+	font-size: 96px;
+	font-weight: 700;
+	letter-spacing: 16px;
+	font-family: monospace;
+	color: @accent;
+}
+
+// A dim line under whatever it follows, for the Quick Connect wait and for the
+// address the add dialog is trying.
+.statusLine {
+	margin-top: 24px;
+	font-size: 24px;
+	.fg(0.5);
+}
+
+// Add server dialog
+
+.dialogScrim {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1000;
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-box-align: center;
+	-webkit-align-items: center;
+	align-items: center;
+	-webkit-box-pack: center;
+	-webkit-justify-content: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.6);
+	padding: 48px;
+}
+
+.dialog {
+	width: 100%;
+	max-width: 1000px;
+	padding: 48px;
+	background: var(--theme-surface, #1a1a1a);
+	border-radius: 32px;
+	box-sizing: border-box;
+	text-align: left;
+}
+
+.dialogTitle {
+	margin: 0 0 32px;
+	font-size: 40px;
+	font-weight: 500;
+	color: @fg;
+}
+
+.dialogActions {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-box-pack: end;
+	-webkit-justify-content: flex-end;
+	justify-content: flex-end;
+	margin-top: 40px;
+
+	> * + * {
+		margin-left: 16px;
+	}
+}
+
+.dialogButton {
+	padding: 24px 36px;
+	border-radius: 40px;
+}
+
+// Spinners
+
 .spinner {
-	width: 60px;
-	height: 60px;
+	display: inline-block;
+	width: 48px;
+	height: 48px;
 	border: 4px solid rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.2);
 	border-top-color: @accent;
 	border-radius: 50%;
+	-webkit-animation: spin 1s linear infinite;
 	animation: spin 1s linear infinite;
+}
+
+.spinnerSmall {
+	width: 32px;
+	height: 32px;
+	border-width: 3px;
+}
+
+.spinnerAccent {
+	border-color: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.25);
+	border-top-color: @accent;
+}
+
+@-webkit-keyframes spin {
+	to { -webkit-transform: rotate(360deg); }
 }
 
 @keyframes spin {
 	to { transform: rotate(360deg); }
 }
 
-.loginMethodButtons {
+.loading {
+	display: -webkit-box;
+	display: -webkit-flex;
 	display: flex;
+	-webkit-box-orient: vertical;
+	-webkit-flex-direction: column;
+	flex-direction: column;
+	-webkit-box-align: center;
+	-webkit-align-items: center;
+	align-items: center;
+	-webkit-box-pack: center;
+	-webkit-justify-content: center;
 	justify-content: center;
-	margin: 30px 0;
-	flex-wrap: wrap;
-	margin-left: -10px;
-	margin-right: -10px;
+	height: 100%;
+	font-size: 28px;
+	color: @fg;
 
-	> * {
-		margin: 10px;
+	> * + * {
+		margin-top: 24px;
 	}
 }
 
-.quickConnectCodeDisplay {
-	margin: 30px 0;
-	padding: 30px;
-	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.05);
-	border-radius: 16px;
-	border: 4px solid @accent;
-}
-
-.qcLabel {
-	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.8));
-	font-size: 20px;
-	margin-bottom: 20px;
-}
-
-.qcCode {
-	font-size: 64px;
-	font-weight: 700;
+.statusMessage {
+	margin-bottom: 32px;
+	padding: 24px 32px;
+	font-size: 26px;
+	border-radius: 24px;
+	background: rgba(var(--theme-accent-rgb, 0, 164, 220), 0.18);
+	border: 3px solid rgba(var(--theme-accent-rgb, 0, 164, 220), 0.4);
 	color: @accent;
-	letter-spacing: 8px;
-	margin: 20px 0;
-	font-family: monospace;
-}
-
-.qcWaiting {
-	color: rgba(255, 255, 255, 0.6);
-	font-size: 22px;
-	margin-top: 20px;
-	animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-	0%, 100% { opacity: 0.6; }
-	50% { opacity: 1; }
 }
 
 .keyboardSpacer {

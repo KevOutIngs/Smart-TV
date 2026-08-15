@@ -82,6 +82,7 @@ export const getUniqueServers = async () => {
 				name: server.name,
 				url: server.url,
 				serverType: server.serverType || 'jellyfin',
+				version: server.version || null,
 				addedDate: server.addedDate,
 				userCount: userCount
 			});
@@ -235,9 +236,10 @@ export const setActiveServer = async (serverId, userId) => {
  * @param {string} accessToken - Access token
  * @param {string} [primaryImageTag] - User avatar image tag
  * @param {string} [serverType] - 'jellyfin' or 'emby'
+ * @param {string} [serverVersion] - Version reported by the server
  * @returns {Promise<Object>} Created server/user object
  */
-export const addServer = async (serverUrl, serverName, userId, username, accessToken, primaryImageTag, serverType = 'jellyfin') => {
+export const addServer = async (serverUrl, serverName, userId, username, accessToken, primaryImageTag, serverType = 'jellyfin', serverVersion = null) => {
 	const servers = await getAllServers();
 
 	// Check if server already exists by URL
@@ -259,6 +261,7 @@ export const addServer = async (serverUrl, serverName, userId, username, accessT
 			name: serverName,
 			url: serverUrl,
 			serverType: serverType || 'jellyfin',
+			version: serverVersion || null,
 			addedDate: new Date().toISOString(),
 			users: {}
 		};
@@ -266,6 +269,7 @@ export const addServer = async (serverUrl, serverName, userId, username, accessT
 	} else {
 		// Backfill type on a pre-existing entry that predates serverType
 		servers[serverId].serverType = servers[serverId].serverType || serverType || 'jellyfin';
+		if (serverVersion) servers[serverId].version = serverVersion;
 		console.log('[MULTI-SERVER] Server already exists, adding user');
 	}
 

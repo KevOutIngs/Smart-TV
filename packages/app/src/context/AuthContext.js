@@ -161,7 +161,7 @@ export const AuthProvider = ({children}) => {
 	}, [loadServers]);
 
 	const login = useCallback(async (server, username, password, options = {}) => {
-		const {serverName: sName, serverType: sType = 'jellyfin', isAddingNewServer = false, switchToNewUser = true} = options;
+		const {serverName: sName, serverType: sType = 'jellyfin', serverVersion: sVersion = null, isAddingNewServer = false, switchToNewUser = true} = options;
 
 		jellyfinApi.setServer(server);
 		jellyfinApi.setServerType(sType);
@@ -189,7 +189,8 @@ export const AuthProvider = ({children}) => {
 			result.User.Name,
 			result.AccessToken,
 			result.User.PrimaryImageTag,
-			sType
+			sType,
+			sVersion
 		);
 
 		// Always switch to the newly logged in user
@@ -223,7 +224,7 @@ export const AuthProvider = ({children}) => {
 	}, [loadServers]);
 
 	const loginWithToken = useCallback(async (server, authResult, options = {}) => {
-		const {serverName: sName, serverType: sType = 'jellyfin', isAddingNewServer = false, switchToNewUser = true} = options;
+		const {serverName: sName, serverType: sType = 'jellyfin', serverVersion: sVersion = null, isAddingNewServer = false, switchToNewUser = true} = options;
 
 		jellyfinApi.setServer(server);
 		jellyfinApi.setServerType(sType);
@@ -247,7 +248,8 @@ export const AuthProvider = ({children}) => {
 			authResult.User.Name,
 			authResult.AccessToken,
 			authResult.User.PrimaryImageTag,
-			sType
+			sType,
+			sVersion
 		);
 
 		// Always switch to the newly logged in user
@@ -365,6 +367,22 @@ export const AuthProvider = ({children}) => {
 			return false;
 		}
 	}, [loadServers, switchUser]);
+
+	/**
+	 * Forget a server and every account saved against it
+	 */
+	const removeServerEntry = useCallback(async (serverId) => {
+		try {
+			await multiServerManager.removeServer(serverId);
+			// Forgetting a server is not a request to be signed in as somebody
+			// else, so the remaining accounts are only reloaded, never resumed.
+			await loadServers();
+			return true;
+		} catch (error) {
+			console.error('[AUTH] Error removing server:', error);
+			return false;
+		}
+	}, [loadServers]);
 
 	/**
 	 * Start "Add Server" flow
@@ -558,6 +576,7 @@ export const AuthProvider = ({children}) => {
 		logoutAll,
 		switchUser,
 		removeUser,
+		removeServerEntry,
 		loadServers,
 
 		// API reference
@@ -592,6 +611,7 @@ export const AuthProvider = ({children}) => {
 		logoutAll,
 		switchUser,
 		removeUser,
+		removeServerEntry,
 		loadServers
 	]);
 

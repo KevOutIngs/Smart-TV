@@ -576,6 +576,8 @@ const AppContent = (props) => {
 				}
 
 				if (panelIndex === PANELS.BROWSE || panelIndex === PANELS.LOGIN) {
+					// Sign-in walks its own screens and dialogs before back means exit
+					if (panelIndex === PANELS.LOGIN && backHandlerRef.current?.()) return;
 					if (settings.exitConfirmation === false) {
 						performAppCleanup();
 					} else {
@@ -1125,7 +1127,7 @@ const AppContent = (props) => {
 			<Suspense fallback={<PanelLoader />}>
 				<Panels index={panelIndex} noCloseButton noAnimation>
 					<Panel>
-						<Login onLoggedIn={handleLoggedIn} />
+						<Login onLoggedIn={handleLoggedIn} backHandlerRef={backHandlerRef} />
 					</Panel>
 					<Panel>
 						<Browse
@@ -1285,6 +1287,7 @@ const AppContent = (props) => {
 							<Login
 								onLoggedIn={handleLoggedIn}
 								onServerAdded={handleServerAdded}
+								backHandlerRef={backHandlerRef}
 								isAddingServer
 							/>
 						)}
@@ -1294,6 +1297,7 @@ const AppContent = (props) => {
 							<Login
 								onLoggedIn={handleLoggedIn}
 								onServerAdded={handleServerAdded}
+								backHandlerRef={backHandlerRef}
 								isAddingUser
 								currentServerUrl={serverUrl}
 								currentServerName={serverName}

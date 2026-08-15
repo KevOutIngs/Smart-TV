@@ -4,33 +4,43 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 import Spotlight from '@enact/spotlight';
 import $L from '@enact/i18n/$L';
 import {useAuth} from '../../context/AuthContext';
+import {useSettings} from '../../context/SettingsContext';
 import * as jellyfinApi from '../../services/jellyfinApi';
 import * as embyConnect from '../../services/embyConnect';
-import {generateCandidates} from '../../utils/serverUrl';
-import {classifyError, getConnectionMessage, getLoginMessage, isVersionSupported, INVALID_ADDRESS, SERVER_NOT_JELLYFIN, VERSION_UNSUPPORTED, INSECURE_CERT, MIN_SERVER_VERSION} from '../../utils/connectionErrors';
+import {discoverLocalServers} from '../../services/serverDiscovery';
+import {generateCandidates, normalizeServerBaseUrl} from '../../utils/serverUrl';
+import {classifyError, detectServerType, getConnectionMessage, getLoginMessage, isVersionSupported, INVALID_ADDRESS, SERVER_NOT_JELLYFIN, INSECURE_CERT, MIN_SERVER_VERSION} from '../../utils/connectionErrors';
 import {KEYS} from '../../utils/keys';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
 import {subscribeTvKeyboardVisibility} from '../../components/TVKeyboard/keyboardBus';
+import {MaterialIcon, ServerTypeIcon} from './loginIcons';
 
 import css from './Login.module.less';
 
 const SpottableButton = Spottable('button');
 const SpottableDiv = Spottable('div');
-const UserGridContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-first'}, 'div');
+const FocusArea = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-first'}, 'div');
+const DialogArea = SpotlightContainerDecorator({enterTo: 'default-element', restrict: 'self-only'}, 'div');
 
-const detectServerType = (info) => {
-	const productName = (info.ProductName || '').toLowerCase();
-	if (productName.includes('jellyfin')) return 'jellyfin';
-	if (productName.includes('emby')) return 'emby';
-	const parts = String(info.Version || '').split('.');
-	const major = parseInt(parts[0], 10);
-	if (!Number.isNaN(major) && parts.length >= 4 && major < 10) return 'emby';
-	return null;
+const QUICK_CONNECT_POLL = 5000;
+const LONG_PRESS_DELAY = 500;
+
+const focusLater = (id) => setTimeout(() => Spotlight.focus(`[data-spotlight-id="${id}"]`), 100);
+
+const formatQuickConnectCode = (code) => (code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code);
+
+const hasQuickConnect = (target) => target?.serverType !== 'emby';
+
+// Where a press should land once the password half of the screen is showing
+const credentialFocusTarget = (user) => {
+	if (!user) return 'username-input';
+	return user.hasPassword ? 'password-input' : 'signin-btn';
 };
 
 const Login = ({
 	onLoggedIn,
 	onServerAdded,
+	backHandlerRef,
 	isAddingServer: isAddingServerProp = false,
 	isAddingUser = false,
 	currentServerUrl = null,
@@ -46,35 +56,47 @@ const Login = ({
 		pendingServer: pendingServerContext,
 		completeAddServerFlow,
 		cancelAddServerFlow,
-		lastServerUrl: storedServerUrl,
-		lastServerName: storedServerName,
+		activeServerInfo,
 		servers: savedAccounts,
-		switchUser
+		uniqueServers,
+		switchUser,
+		removeServerEntry
 	} = useAuth();
+	const {settings} = useSettings();
 
-	// Determine if we're in "add server" mode (either adding new server or adding user to current)
 	const isAddingServer = isAddingServerProp || isAddingServerContext;
 	const isAddingToExisting = isAddingUser && currentServerUrl;
+	const isAdding = isAddingServer || isAddingToExisting;
 	const pendingServer = pendingServerInfo || pendingServerContext;
+	const alwaysAuthenticate = settings.alwaysAuthenticate === true;
 
-	const [step, setStep] = useState(isAddingToExisting ? 'connecting' : 'server');
-	const [serverUrl, setServerUrl] = useState(isAddingToExisting ? currentServerUrl : (pendingServer?.url || storedServerUrl || ''));
-	const [serverInfo, setServerInfo] = useState(isAddingToExisting ? {ServerName: currentServerName} : (pendingServer ? {ServerName: pendingServer.name} : (storedServerName ? {ServerName: storedServerName} : null)));
-	const [publicUsers, setPublicUsers] = useState([]);
-	const [selectedUser, setSelectedUser] = useState(null);
+	const [step, setStep] = useState('servers');
+	const [server, setServer] = useState(null);
+	const [users, setUsers] = useState([]);
+	const [discovered, setDiscovered] = useState([]);
+	const [isDiscovering, setIsDiscovering] = useState(false);
+	const [addressValue, setAddressValue] = useState('');
+	const [dialog, setDialog] = useState(null);
+	const [dialogError, setDialogError] = useState(null);
+	const [signInUser, setSignInUser] = useState(null);
 	const [username, setUsername] = useState('');
 	const [password, setPassword] = useState('');
-	const [quickConnectCode, setQuickConnectCode] = useState('');
-	const [, setQuickConnectSecret] = useState(null);
-	const [quickConnectInterval, setQuickConnectInterval] = useState(null);
+	const [showQuickConnect, setShowQuickConnect] = useState(false);
+	const [quickConnectCode, setQuickConnectCode] = useState(null);
+	const [connectServers, setConnectServers] = useState([]);
+	const [connectSession, setConnectSession] = useState(null);
 	const [error, setError] = useState(null);
 	const [status, setStatus] = useState(null);
 	const [isConnecting, setIsConnecting] = useState(false);
-	const [serverType, setServerType] = useState('jellyfin');
-	const [connectServers, setConnectServers] = useState([]);
-	const [connectSession, setConnectSession] = useState(null);
-	const pageRef = useRef(null);
 	const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+	const pageRef = useRef(null);
+	const quickConnectTimer = useRef(null);
+	const bootstrapped = useRef(false);
+	const suppressClick = useRef(false);
+	const longPressTimer = useRef(null);
+
+	const supportsQuickConnect = hasQuickConnect(server);
 
 	// When a keyboard opens, a spacer grows under the card and the active field
 	// gets pulled toward the top so it stays visible above the keys. The scroll
@@ -100,14 +122,23 @@ const Login = ({
 		};
 	}, []);
 
-	const serverRecents = useMemo(() => {
-		const urls = [];
-		savedAccounts.forEach((account) => {
-			if (account.url && urls.indexOf(account.url) < 0) urls.push(account.url);
-		});
-		if (storedServerUrl && urls.indexOf(storedServerUrl) < 0) urls.push(storedServerUrl);
-		return urls;
-	}, [savedAccounts, storedServerUrl]);
+	const stopQuickConnect = useCallback(() => {
+		if (quickConnectTimer.current) {
+			clearInterval(quickConnectTimer.current);
+			quickConnectTimer.current = null;
+		}
+		setQuickConnectCode(null);
+	}, []);
+
+	useEffect(() => () => {
+		if (quickConnectTimer.current) clearInterval(quickConnectTimer.current);
+		if (longPressTimer.current) clearTimeout(longPressTimer.current);
+	}, []);
+
+	const serverRecents = useMemo(
+		() => uniqueServers.map((entry) => entry.url).filter(Boolean),
+		[uniqueServers]
+	);
 
 	const usernameRecents = useMemo(() => {
 		const names = [];
@@ -117,20 +148,137 @@ const Login = ({
 		return names;
 	}, [savedAccounts]);
 
-	const handleConnect = useCallback(async () => {
-		if (!serverUrl.trim()) return;
+	// Discovery
 
-		setIsConnecting(true);
+	useEffect(() => {
+		if (step !== 'servers') return undefined;
+
+		setDiscovered([]);
+		setIsDiscovering(true);
+		const savedAddresses = uniqueServers.map((entry) => normalizeServerBaseUrl(entry.url).toLowerCase());
+
+		const cancel = discoverLocalServers({
+			onFound: (found) => {
+				if (savedAddresses.indexOf(normalizeServerBaseUrl(found.address).toLowerCase()) >= 0) return;
+				setDiscovered((current) => current.concat([found]));
+			},
+			onDone: () => setIsDiscovering(false)
+		});
+
+		return cancel;
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [step]);
+
+	// Moving between screens
+
+	const goToSignIn = useCallback((target, user) => {
+		stopQuickConnect();
+		setSignInUser(user || null);
+		setUsername(user ? user.name : '');
+		setPassword('');
 		setError(null);
+		setStatus(null);
+		// Quick Connect is what the other clients open on, and a server that has
+		// it switched off says so on the first request and drops us to password.
+		const quickConnect = hasQuickConnect(target);
+		setShowQuickConnect(quickConnect);
+		setStep('signin');
+		if (!quickConnect) focusLater(credentialFocusTarget(user));
+	}, [stopQuickConnect]);
 
-		const candidates = generateCandidates(serverUrl);
-		if (candidates.length === 0) {
-			setError(getConnectionMessage(INVALID_ADDRESS));
-			setIsConnecting(false);
+	const openServer = useCallback(async (target, {forceSignIn = false} = {}) => {
+		jellyfinApi.setServer(target.url);
+		jellyfinApi.setServerType(target.serverType || 'jellyfin');
+
+		setServer(target);
+		setError(null);
+		setStatus(null);
+
+		if (forceSignIn) {
+			goToSignIn(target, null);
 			return;
 		}
 
-		let connected = false;
+		setStep('users');
+		setUsers([]);
+		setStatus($L('Loading users...'));
+
+		let info = null;
+		try {
+			info = await jellyfinApi.api.getPublicInfo();
+		} catch {
+			// A saved server we cant reach still lists the users already stored
+		}
+
+		let publicUsers = [];
+		try {
+			publicUsers = (await jellyfinApi.api.getPublicUsers()) || [];
+		} catch {
+			// A server can switch its public user list off, which offers nobody up
+		}
+
+		const merged = [];
+		const byId = {};
+		savedAccounts.forEach((account) => {
+			if (account.serverId !== target.serverId) return;
+			byId[account.userId] = true;
+			merged.push({
+				id: account.userId,
+				name: account.username,
+				imageTag: account.primaryImageTag,
+				hasToken: true,
+				hasPassword: true
+			});
+		});
+		publicUsers.forEach((user) => {
+			if (byId[user.Id]) return;
+			byId[user.Id] = true;
+			merged.push({
+				id: user.Id,
+				name: user.Name,
+				imageTag: user.PrimaryImageTag,
+				hasToken: false,
+				hasPassword: user.HasPassword !== false
+			});
+		});
+
+		const resolved = {
+			...target,
+			name: info?.ServerName || target.name,
+			version: info?.Version || target.version || null,
+			loginDisclaimer: info?.LoginDisclaimer || null
+		};
+		setServer(resolved);
+		setStatus(null);
+
+		if (merged.length === 0) {
+			goToSignIn(resolved, null);
+			return;
+		}
+
+		setUsers(merged);
+		focusLater('user-0');
+	}, [savedAccounts, goToSignIn]);
+
+	const goToServers = useCallback(() => {
+		stopQuickConnect();
+		setStep('servers');
+		setServer(null);
+		setUsers([]);
+		setSignInUser(null);
+		setError(null);
+		setStatus(null);
+		focusLater('add-server-btn');
+	}, [stopQuickConnect]);
+
+	// Connecting
+
+	const probeServer = useCallback(async (input) => {
+		const candidates = generateCandidates(input);
+		if (candidates.length === 0) {
+			return {error: getConnectionMessage(INVALID_ADDRESS)};
+		}
+
 		let lastErrorType = null;
 		for (const candidate of candidates) {
 			setStatus($L('Trying {url}...').replace('{url}', candidate));
@@ -140,46 +288,32 @@ const Login = ({
 				const info = await jellyfinApi.api.getPublicInfo();
 				if (!info) continue;
 
-				const detectedType = detectServerType(info);
-				if (!detectedType) {
+				const serverType = detectServerType(info.ProductName, info.Version);
+				if (!serverType) {
 					lastErrorType = SERVER_NOT_JELLYFIN;
 					continue;
 				}
 
 				// Emby reports a 4.x version that has nothing to do with the Jellyfin minimum
-				if (detectedType === 'jellyfin' && !isVersionSupported(info.Version)) {
-					lastErrorType = VERSION_UNSUPPORTED;
-					setError($L('Server version {version} is not supported. Minimum: {minimum}.').replace('{version}', info.Version).replace('{minimum}', MIN_SERVER_VERSION));
-					setStatus(null);
-					setIsConnecting(false);
-					return;
+				if (serverType === 'jellyfin' && !isVersionSupported(info.Version)) {
+					return {
+						error: $L('Server version {version} is not supported. Minimum: {minimum}.')
+							.replace('{version}', info.Version)
+							.replace('{minimum}', MIN_SERVER_VERSION)
+					};
 				}
 
-				setServerType(detectedType);
-				jellyfinApi.setServerType(detectedType);
-				setServerUrl(candidate);
-				setServerInfo(info);
-				setStatus($L('Connected to {serverName}! Loading users...').replace('{serverName}', info.ServerName));
-				connected = true;
-
-				try {
-					const users = await jellyfinApi.api.getPublicUsers();
-					setPublicUsers(users || []);
-					if (users && users.length > 0) {
-						setStep('users');
-						setStatus(null);
-						setTimeout(() => Spotlight.focus('[data-spotlight-id="user-0"]'), 100);
-					} else {
-						setStep('manual');
-						setStatus(null);
-						setTimeout(() => Spotlight.focus('[data-spotlight-id="username-input"]'), 100);
+				jellyfinApi.setServerType(serverType);
+				return {
+					server: {
+						serverId: null,
+						url: candidate,
+						name: info.ServerName || candidate,
+						serverType,
+						version: info.Version || null,
+						loginDisclaimer: info.LoginDisclaimer || null
 					}
-				} catch {
-					setStep('manual');
-					setStatus(null);
-					setTimeout(() => Spotlight.focus('[data-spotlight-id="username-input"]'), 100);
-				}
-				break;
+				};
 			} catch (err) {
 				const errType = classifyError(err);
 				// A cert rejection (from the https candidate / proxy probe) is the
@@ -188,195 +322,198 @@ const Login = ({
 				if (lastErrorType !== INSECURE_CERT) {
 					lastErrorType = errType || lastErrorType;
 				}
-				continue;
 			}
 		}
 
-		if (!connected) {
-			setError(getConnectionMessage(lastErrorType));
-			setStatus(null);
-		}
-
-		setIsConnecting(false);
-	}, [serverUrl]);
-
-	// If we have a pending server, adding user to existing, or a stored server (auto-login disabled), auto-connect
-	useEffect(() => {
-		if ((pendingServer?.url && step === 'server') || (isAddingToExisting && step === 'connecting')) {
-			handleConnect();
-			return;
-		}
-		if (storedServerUrl && !isAuthenticated && !isAddingServer && !isAddingToExisting && step === 'server') {
-			// Prefer the saved-account picker so disabling autologin still lets you
-			// pick an already authenticated account, even when the server has public
-			// users disabled (#200). Only auto-connect when nothing is saved.
-			if (savedAccounts.length > 0) {
-				setStep('accounts');
-				setTimeout(() => Spotlight.focus('[data-spotlight-id="account-0"]'), 100);
-			} else {
-				handleConnect();
-			}
-		}
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		return {error: getConnectionMessage(lastErrorType)};
 	}, []);
 
+	const connectTo = useCallback(async (input, {inDialog = false} = {}) => {
+		setIsConnecting(true);
+		if (inDialog) setDialogError(null);
+		else setError(null);
+
+		const result = await probeServer(input);
+		setStatus(null);
+		setIsConnecting(false);
+
+		if (result.error) {
+			if (inDialog) setDialogError(result.error);
+			else setError(result.error);
+			focusLater(inDialog ? 'add-connect-btn' : 'add-server-btn');
+			return;
+		}
+
+		if (inDialog) setDialog(null);
+		openServer(result.server);
+	}, [probeServer, openServer]);
+
+	// First screen on arrival, matching the other clients: a known server goes
+	// straight to its user list, anything else starts at the server picker.
 	useEffect(() => {
-		// Only auto-navigate if authenticated and NOT in adding mode
-		if (isAuthenticated && !isAddingServer && !isAddingToExisting) {
+		if (isLoading || bootstrapped.current) return;
+		bootstrapped.current = true;
+
+		if (isAddingToExisting) {
+			const saved = uniqueServers.find((entry) => entry.url === currentServerUrl);
+			openServer(saved || {
+				serverId: null,
+				url: currentServerUrl,
+				name: currentServerName,
+				serverType: 'jellyfin',
+				version: null
+			}, {forceSignIn: true});
+			return;
+		}
+
+		if (isAddingServer) {
+			focusLater('add-server-btn');
+			return;
+		}
+
+		if (pendingServer?.url) {
+			connectTo(pendingServer.url);
+			return;
+		}
+
+		const lastServerId = activeServerInfo?.serverId;
+		const known = uniqueServers.find((entry) => entry.serverId === lastServerId);
+		if (known) {
+			openServer(known);
+			return;
+		}
+
+		focusLater('add-server-btn');
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isLoading]);
+
+	useEffect(() => {
+		if (isAuthenticated && !isAdding) onLoggedIn?.();
+	}, [isAuthenticated, onLoggedIn, isAdding]);
+
+	// Signing in
+
+	const finishLogin = useCallback((result) => {
+		if (isAdding) {
+			completeAddServerFlow?.();
+			onServerAdded?.(result);
+		} else {
 			onLoggedIn?.();
 		}
-	}, [isAuthenticated, onLoggedIn, isAddingServer, isAddingToExisting]);
+	}, [isAdding, completeAddServerFlow, onServerAdded, onLoggedIn]);
 
-	useEffect(() => {
-		if (!isLoading && step === 'server') {
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="server-input"]'), 100);
-		}
-	}, [isLoading, step]);
-
-	const handleServerUrlChange = useCallback((e) => {
-		setServerUrl(e.target.value);
-	}, []);
-
-	const handleUsernameChange = useCallback((e) => {
-		setUsername(e.target.value);
-	}, []);
-
-	const handlePasswordChange = useCallback((e) => {
-		setPassword(e.target.value);
-	}, []);
-
-	const handleUserSelect = useCallback(async (user) => {
-		if (!user.HasPassword) {
-			setSelectedUser(user);
-			setUsername(user.Name);
-			setPassword('');
-			setIsConnecting(true);
-			setError(null);
-			const isAdding = isAddingServer || isAddingToExisting;
-			setStatus(isAdding ? $L('Adding user...') : $L('Signing in...'));
-
-			try {
-				const result = await login(jellyfinApi.getServerUrl(), user.Name, '', {
-					serverName: serverInfo?.ServerName,
-					serverType,
-					isAddingNewServer: isAdding,
-					switchToNewUser: true
-				});
-
-				if (isAdding) {
-					completeAddServerFlow?.();
-					onServerAdded?.(result);
-				} else {
-					onLoggedIn?.();
-				}
-			} catch {
-				setPassword('');
-				setStep('password');
-				setStatus(null);
-				setTimeout(() => Spotlight.focus('[data-spotlight-id="password-input"]'), 100);
-			} finally {
-				setIsConnecting(false);
-			}
-			return;
-		}
-
-		setSelectedUser(user);
-		setUsername(user.Name);
-		setPassword('');
-		setStep('password');
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="password-input"]'), 100);
-	}, [login, onLoggedIn, isAddingServer, isAddingToExisting, serverInfo, serverType, completeAddServerFlow, onServerAdded]);
-
-	const handleLogin = useCallback(async () => {
-		if (!username) return;
+	const signIn = useCallback(async (name, secret) => {
+		if (!server || !name) return false;
 
 		setIsConnecting(true);
 		setError(null);
-		const isAdding = isAddingServer || isAddingToExisting;
 		setStatus(isAdding ? $L('Adding user...') : $L('Signing in...'));
 
 		try {
-			const result = await login(jellyfinApi.getServerUrl(), username, password, {
-				serverName: serverInfo?.ServerName,
-				serverType,
+			const result = await login(jellyfinApi.getServerUrl(), name, secret, {
+				serverName: server.name,
+				serverType: server.serverType,
+				serverVersion: server.version,
 				isAddingNewServer: isAdding,
 				switchToNewUser: true
 			});
-
-			if (isAdding) {
-				completeAddServerFlow?.();
-				onServerAdded?.(result);
-			} else {
-				onLoggedIn?.();
-			}
+			finishLogin(result);
+			return true;
 		} catch (err) {
-			console.error('Login error:', err);
 			setError(getLoginMessage(classifyError(err)));
 			setStatus(null);
+			return false;
 		} finally {
 			setIsConnecting(false);
 		}
-	}, [username, password, login, onLoggedIn, isAddingServer, isAddingToExisting, serverInfo, serverType, completeAddServerFlow, onServerAdded]);
+	}, [server, login, isAdding, finishLogin]);
 
-	const handleBack = useCallback(() => {
+	const handleUserSelect = useCallback(async (user) => {
+		if (!server) return;
+
+		// An account we already hold a token for can be resumed, unless the user
+		// asked to be challenged every time or we're here to add an account.
+		if (user.hasToken && !alwaysAuthenticate && !isAdding && server.serverId) {
+			setIsConnecting(true);
+			setStatus($L('Signing in...'));
+			const ok = await switchUser(server.serverId, user.id);
+			setIsConnecting(false);
+			setStatus(null);
+			if (ok) {
+				onLoggedIn?.();
+				return;
+			}
+			goToSignIn(server, user);
+			return;
+		}
+
+		if (!user.hasPassword && !alwaysAuthenticate) {
+			const ok = await signIn(user.name, '');
+			if (ok) return;
+			goToSignIn(server, user);
+			return;
+		}
+
+		goToSignIn(server, user);
+	}, [server, alwaysAuthenticate, isAdding, switchUser, onLoggedIn, goToSignIn, signIn]);
+
+	// Quick Connect
+
+	const pollQuickConnect = useCallback(async (secret) => {
+		try {
+			const state = await jellyfinApi.api.getQuickConnectState(secret);
+			if (!state.Authenticated) return;
+
+			stopQuickConnect();
+			setStatus(isAdding ? $L('Adding user...') : $L('Signing in...'));
+			const authResult = await jellyfinApi.api.authenticateQuickConnect(secret);
+			const result = await loginWithToken(jellyfinApi.getServerUrl(), authResult, {
+				serverName: server?.name,
+				serverType: server?.serverType,
+				serverVersion: server?.version,
+				isAddingNewServer: isAdding,
+				switchToNewUser: true
+			});
+			finishLogin(result);
+		} catch (err) {
+			console.error('Quick Connect poll error:', err);
+		}
+	}, [stopQuickConnect, isAdding, loginWithToken, server, finishLogin]);
+
+	const selectPassword = useCallback(() => {
+		stopQuickConnect();
+		setShowQuickConnect(false);
 		setError(null);
-		setStatus(null);
-		const isAdding = isAddingServer || isAddingToExisting;
-		if (quickConnectInterval) {
-			clearInterval(quickConnectInterval);
-			setQuickConnectInterval(null);
-		}
-		if (step === 'embyconnect-servers') {
-			setStep('embyconnect');
-			setConnectServers([]);
-			setConnectSession(null);
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="emby-username-input"]'), 100);
-		} else if (step === 'embyconnect') {
-			if (isAdding) {
-				cancelAddServerFlow?.();
-				onServerAdded?.(null);
-				return;
-			}
-			setStep('server');
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="server-input"]'), 100);
-		} else if (step === 'quickconnect-manual') {
-			setStep('manual');
-			setQuickConnectCode('');
-			setQuickConnectSecret(null);
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="username-input"]'), 100);
-		} else if (step === 'password' || step === 'passwordform' || step === 'quickconnect') {
-			setStep('users');
-			setSelectedUser(null);
-			setPassword('');
-			setQuickConnectCode('');
-			setQuickConnectSecret(null);
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="user-0"]'), 100);
-		} else if (step === 'manual' || step === 'users') {
-			if (isAdding) {
-				cancelAddServerFlow?.();
-				onServerAdded?.(null);
-				return;
-			}
-			setStep('server');
-			setServerInfo(null);
-			setPublicUsers([]);
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="server-input"]'), 100);
-		} else if (step === 'server' && isAdding) {
-			cancelAddServerFlow?.();
-			onServerAdded?.(null);
-		} else if (step === 'server' && savedAccounts.length > 0) {
-			setStep('accounts');
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="account-0"]'), 100);
-		}
-	}, [step, quickConnectInterval, isAddingServer, isAddingToExisting, cancelAddServerFlow, onServerAdded, savedAccounts.length]);
+		focusLater(credentialFocusTarget(signInUser));
+	}, [stopQuickConnect, signInUser]);
 
-	const handleManualLogin = useCallback(() => {
-		setStep('manual');
-		setSelectedUser(null);
-		setUsername('');
-		setPassword('');
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="username-input"]'), 100);
-	}, []);
+	const startQuickConnect = useCallback(async () => {
+		try {
+			const result = await jellyfinApi.api.initiateQuickConnect();
+			if (!result?.Code || !result?.Secret) return;
+			setQuickConnectCode(result.Code);
+			quickConnectTimer.current = setInterval(() => pollQuickConnect(result.Secret), QUICK_CONNECT_POLL);
+			focusLater('back-btn');
+		} catch {
+			setError($L('Quick Connect is disabled'));
+			selectPassword();
+		}
+	}, [pollQuickConnect, selectPassword]);
+
+	useEffect(() => {
+		if (step !== 'signin' || !showQuickConnect || !supportsQuickConnect) return;
+		if (quickConnectTimer.current || quickConnectCode) return;
+		startQuickConnect();
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [step, showQuickConnect, supportsQuickConnect]);
+
+	const selectQuickConnect = useCallback(() => {
+		if (showQuickConnect) return;
+		setShowQuickConnect(true);
+		setError(null);
+	}, [showQuickConnect]);
+
+	// Emby Connect
 
 	const embyConnectErrorMessage = useCallback((err) => {
 		switch (err?.reason) {
@@ -389,6 +526,17 @@ const Login = ({
 		}
 	}, []);
 
+	const finishEmbyLogin = useCallback((target, session) =>
+		embyConnect.connectToServer(target, session.userId).then((exchange) => loginWithToken(
+			exchange.resolvedBaseUrl,
+			{User: {Id: exchange.localUserId, Name: session.userName || username}, AccessToken: exchange.accessToken},
+			{serverName: target.name, serverType: 'emby', isAddingNewServer: isAdding, switchToNewUser: true}
+		)).then((result) => {
+			setIsConnecting(false);
+			setStatus(null);
+			finishLogin(result);
+		}), [loginWithToken, username, isAdding, finishLogin]);
+
 	const handleEmbyConnectStart = useCallback(() => {
 		setError(null);
 		setStatus(null);
@@ -397,26 +545,8 @@ const Login = ({
 		setConnectServers([]);
 		setConnectSession(null);
 		setStep('embyconnect');
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="emby-username-input"]'), 100);
+		focusLater('emby-username-input');
 	}, []);
-
-	const finishEmbyLogin = useCallback((server, session) => {
-		const isAdding = isAddingServer || isAddingToExisting;
-		return embyConnect.connectToServer(server, session.userId).then((exchange) => loginWithToken(
-			exchange.resolvedBaseUrl,
-			{User: {Id: exchange.localUserId, Name: session.userName || username}, AccessToken: exchange.accessToken},
-			{serverName: server.name, serverType: 'emby', isAddingNewServer: isAdding, switchToNewUser: true}
-		)).then((result) => {
-			setIsConnecting(false);
-			setStatus(null);
-			if (isAdding) {
-				completeAddServerFlow?.();
-				onServerAdded?.(result);
-			} else {
-				onLoggedIn?.();
-			}
-		});
-	}, [isAddingServer, isAddingToExisting, loginWithToken, username, completeAddServerFlow, onServerAdded, onLoggedIn]);
 
 	const handleEmbyConnectSignIn = useCallback(async () => {
 		if (!username.trim() || !password) return;
@@ -424,278 +554,197 @@ const Login = ({
 		setIsConnecting(true);
 		setStatus($L('Signing in...'));
 		try {
-			const {session, servers} = await embyConnect.authenticateAndLoadServers(username.trim(), password);
-			if (!servers.length) {
+			const {session, servers: linked} = await embyConnect.authenticateAndLoadServers(username.trim(), password);
+			if (!linked.length) {
 				const err = new Error('No linked servers');
 				err.reason = 'noLinkedServers';
 				throw err;
 			}
-			if (servers.length === 1) {
+			if (linked.length === 1) {
 				setStatus($L('Connecting to server...'));
-				await finishEmbyLogin(servers[0], session);
+				await finishEmbyLogin(linked[0], session);
 				return;
 			}
 			setConnectSession(session);
-			setConnectServers(servers);
+			setConnectServers(linked);
 			setStep('embyconnect-servers');
 			setStatus(null);
 			setIsConnecting(false);
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="emby-server-0"]'), 100);
+			focusLater('emby-server-0');
 		} catch (err) {
-			console.error('Emby Connect sign-in error:', err?.reason || err?.message || err);
 			setIsConnecting(false);
 			setStatus(null);
 			setError(embyConnectErrorMessage(err));
 		}
 	}, [username, password, finishEmbyLogin, embyConnectErrorMessage]);
 
-	const handleEmbyServerSelect = useCallback(async (server) => {
-		if (!connectSession) return;
-		setError(null);
-		setIsConnecting(true);
-		setStatus($L('Connecting to server...'));
-		try {
-			await finishEmbyLogin(server, connectSession);
-		} catch (err) {
-			setIsConnecting(false);
-			setStatus(null);
-			setError(embyConnectErrorMessage(err));
+	// Back
+
+	const closeDialog = useCallback(() => {
+		setDialog(null);
+		setDialogError(null);
+		focusLater('add-server-btn');
+	}, []);
+
+	const handleBack = useCallback(() => {
+		if (dialog) {
+			closeDialog();
+			return true;
 		}
-	}, [connectSession, finishEmbyLogin, embyConnectErrorMessage]);
+		if (step === 'embyconnect-servers') {
+			setConnectServers([]);
+			setConnectSession(null);
+			setStep('embyconnect');
+			focusLater('emby-username-input');
+			return true;
+		}
+		if (step === 'embyconnect') {
+			goToServers();
+			return true;
+		}
+		if (step === 'signin') {
+			stopQuickConnect();
+			if (users.length > 0) {
+				setStep('users');
+				focusLater('user-0');
+			} else {
+				goToServers();
+			}
+			return true;
+		}
+		if (step === 'users') {
+			goToServers();
+			return true;
+		}
+		if (isAdding) {
+			cancelAddServerFlow?.();
+			onServerAdded?.(null);
+			return true;
+		}
+		return false;
+	}, [dialog, closeDialog, step, users.length, isAdding, goToServers, stopQuickConnect, cancelAddServerFlow, onServerAdded]);
 
-	const handleEmbyServerCardClick = useCallback((e) => {
-		const index = parseInt(e.currentTarget.dataset.serverIndex, 10);
-		const server = connectServers[index];
-		if (server) handleEmbyServerSelect(server);
-	}, [connectServers, handleEmbyServerSelect]);
+	useEffect(() => {
+		if (!backHandlerRef) return undefined;
+		backHandlerRef.current = handleBack;
+		return () => {
+			if (backHandlerRef.current === handleBack) backHandlerRef.current = null;
+		};
+	}, [backHandlerRef, handleBack]);
 
-	const handleEmbyServerCardKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.ENTER) handleEmbyServerCardClick(e);
-	}, [handleEmbyServerCardClick]);
+	// Handlers bound to the markup
+
+	const handleAddressChange = useCallback((e) => setAddressValue(e.target.value), []);
+	const handleUsernameChange = useCallback((e) => setUsername(e.target.value), []);
+	const handlePasswordChange = useCallback((e) => setPassword(e.target.value), []);
+
+	const openAddDialog = useCallback(() => {
+		setAddressValue('');
+		setDialogError(null);
+		setDialog({kind: 'add'});
+		focusLater('add-address-input');
+	}, []);
+
+	const submitAddress = useCallback(() => {
+		if (!addressValue.trim() || isConnecting) return;
+		connectTo(addressValue, {inDialog: true});
+	}, [addressValue, isConnecting, connectTo]);
+
+	const handleAddressKeyDown = useCallback((e) => {
+		if (e.keyCode === KEYS.ENTER) submitAddress();
+	}, [submitAddress]);
+
+	// Hold select on a saved server to forget it, the way the other clients do.
+	const handleSavedKeyDown = useCallback((e) => {
+		if (e.keyCode !== KEYS.ENTER || longPressTimer.current) return;
+		const {serverId} = e.currentTarget.dataset;
+		longPressTimer.current = setTimeout(() => {
+			longPressTimer.current = null;
+			suppressClick.current = true;
+			const entry = uniqueServers.find((item) => item.serverId === serverId);
+			if (entry) {
+				setDialog({kind: 'remove', server: entry});
+				focusLater('remove-cancel-btn');
+			}
+		}, LONG_PRESS_DELAY);
+	}, [uniqueServers]);
+
+	const handleSavedKeyUp = useCallback(() => {
+		if (longPressTimer.current) {
+			clearTimeout(longPressTimer.current);
+			longPressTimer.current = null;
+		}
+	}, []);
+
+	const handleSavedClick = useCallback((e) => {
+		if (suppressClick.current) {
+			suppressClick.current = false;
+			return;
+		}
+		const {serverId} = e.currentTarget.dataset;
+		const entry = uniqueServers.find((item) => item.serverId === serverId);
+		if (entry) openServer(entry);
+	}, [uniqueServers, openServer]);
+
+	const handleDiscoveredClick = useCallback((e) => {
+		if (isConnecting) return;
+		const index = parseInt(e.currentTarget.dataset.index, 10);
+		const found = discovered[index];
+		if (found) connectTo(found.address);
+	}, [discovered, isConnecting, connectTo]);
+
+	const handleConfirmRemove = useCallback(async () => {
+		const target = dialog?.server;
+		setDialog(null);
+		if (target) await removeServerEntry(target.serverId);
+		focusLater('add-server-btn');
+	}, [dialog, removeServerEntry]);
+
+	const handleUserClick = useCallback((e) => {
+		const {userId} = e.currentTarget.dataset;
+		const user = users.find((item) => String(item.id) === String(userId));
+		if (user) handleUserSelect(user);
+	}, [users, handleUserSelect]);
+
+	const handleAddUser = useCallback(() => {
+		if (server) goToSignIn(server, null);
+	}, [server, goToSignIn]);
+
+	const handleSignIn = useCallback(() => {
+		if (!username.trim()) return;
+		signIn(username.trim(), password);
+	}, [username, password, signIn]);
+
+	const handlePasswordKeyDown = useCallback((e) => {
+		if (e.keyCode === KEYS.ENTER) handleSignIn();
+	}, [handleSignIn]);
+
+	const handleUsernameKeyDown = useCallback((e) => {
+		if (e.keyCode === KEYS.ENTER) focusLater(signInUser?.hasPassword === false ? 'signin-btn' : 'password-input');
+	}, [signInUser]);
 
 	const handleEmbyPasswordKeyDown = useCallback((e) => {
 		if (e.keyCode === KEYS.ENTER) handleEmbyConnectSignIn();
 	}, [handleEmbyConnectSignIn]);
 
-	const handleManualQuickConnect = useCallback(async () => {
-		setIsConnecting(true);
+	const handleEmbyServerClick = useCallback(async (e) => {
+		if (!connectSession) return;
+		const index = parseInt(e.currentTarget.dataset.index, 10);
+		const target = connectServers[index];
+		if (!target) return;
 		setError(null);
-		setStatus($L('Initiating Quick Connect...'));
-		const isAdding = isAddingServer || isAddingToExisting;
-
+		setIsConnecting(true);
+		setStatus($L('Connecting to server...'));
 		try {
-			const result = await jellyfinApi.api.initiateQuickConnect();
-			setQuickConnectCode(result.Code);
-			setQuickConnectSecret(result.Secret);
-			setStep('quickconnect-manual');
-			setStatus($L('Enter the code on another device or authorize in the Jellyfin dashboard'));
-
-			const intervalId = setInterval(async () => {
-				try {
-					const state = await jellyfinApi.api.getQuickConnectState(result.Secret);
-					if (state.Authenticated) {
-						clearInterval(intervalId);
-						setQuickConnectInterval(null);
-						setStatus(isAdding ? $L('Quick Connect authorized! Adding user...') : $L('Quick Connect authorized! Signing in...'));
-
-						const authResult = await jellyfinApi.api.authenticateQuickConnect(result.Secret);
-						const loginResult = await loginWithToken(jellyfinApi.getServerUrl(), authResult, {
-							serverName: serverInfo?.ServerName,
-							isAddingNewServer: isAdding,
-							switchToNewUser: true
-						});
-
-						if (isAdding) {
-							completeAddServerFlow?.();
-							onServerAdded?.(loginResult);
-						} else {
-							onLoggedIn?.();
-						}
-					}
-				} catch (err) {
-					console.error('Quick Connect poll error:', err);
-				}
-			}, 3000);
-
-			setQuickConnectInterval(intervalId);
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="qc-back-btn"]'), 100);
+			await finishEmbyLogin(target, connectSession);
 		} catch (err) {
-			console.error('Quick Connect error:', err);
-			setError($L('Quick Connect is not available on this server. Use password login.'));
-			setStatus(null);
-		} finally {
 			setIsConnecting(false);
-		}
-	}, [loginWithToken, onLoggedIn, isAddingServer, isAddingToExisting, serverInfo, completeAddServerFlow, onServerAdded]);
-
-	const handleQuickConnect = useCallback(async (user) => {
-		setSelectedUser(user);
-		setUsername(user.Name);
-		setIsConnecting(true);
-		setError(null);
-		setStatus($L('Initiating Quick Connect...'));
-		const isAdding = isAddingServer || isAddingToExisting;
-
-		try {
-			const result = await jellyfinApi.api.initiateQuickConnect();
-			setQuickConnectCode(result.Code);
-			setQuickConnectSecret(result.Secret);
-			setStep('quickconnect');
-			setStatus($L('Enter the code on another device or authorize in the Jellyfin dashboard'));
-
-			const intervalId = setInterval(async () => {
-				try {
-					const state = await jellyfinApi.api.getQuickConnectState(result.Secret);
-					if (state.Authenticated) {
-						clearInterval(intervalId);
-						setQuickConnectInterval(null);
-						setStatus(isAdding ? $L('Quick Connect authorized! Adding user...') : $L('Quick Connect authorized! Signing in...'));
-
-						const authResult = await jellyfinApi.api.authenticateQuickConnect(result.Secret);
-						const loginResult = await loginWithToken(jellyfinApi.getServerUrl(), authResult, {
-							serverName: serverInfo?.ServerName,
-							isAddingNewServer: isAdding,
-							switchToNewUser: true
-						});
-
-						if (isAdding) {
-							completeAddServerFlow?.();
-							onServerAdded?.(loginResult);
-						} else {
-							onLoggedIn?.();
-						}
-					}
-				} catch (err) {
-					console.error('Quick Connect poll error:', err);
-				}
-			}, 3000);
-
-			setQuickConnectInterval(intervalId);
-			setTimeout(() => Spotlight.focus('[data-spotlight-id="qc-back-btn"]'), 100);
-		} catch (err) {
-			console.error('Quick Connect error:', err);
-			setError($L('Quick Connect failed. Try password login instead.'));
 			setStatus(null);
-		} finally {
-			setIsConnecting(false);
+			setError(embyConnectErrorMessage(err));
 		}
-	}, [loginWithToken, onLoggedIn, isAddingServer, isAddingToExisting, serverInfo, completeAddServerFlow, onServerAdded]);
+	}, [connectSession, connectServers, finishEmbyLogin, embyConnectErrorMessage]);
 
-	const cancelQuickConnect = useCallback(() => {
-		if (quickConnectInterval) {
-			clearInterval(quickConnectInterval);
-			setQuickConnectInterval(null);
-		}
-		setQuickConnectCode('');
-		setQuickConnectSecret(null);
-		setStep('users');
-		setSelectedUser(null);
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="user-0"]'), 100);
-	}, [quickConnectInterval]);
-
-	const handleServerInputKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.ENTER) {
-			handleConnect();
-		}
-	}, [handleConnect]);
-
-	const handlePasswordKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.ENTER) {
-			handleLogin();
-		}
-	}, [handleLogin]);
-
-	const handleUserCardClick = useCallback((e) => {
-		const userId = e.currentTarget.dataset.userId;
-		const user = publicUsers.find(u => String(u.Id) === String(userId));
-		if (user) handleUserSelect(user);
-	}, [publicUsers, handleUserSelect]);
-
-	const handleUserCardKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.ENTER) {
-			const userId = e.currentTarget.dataset.userId;
-			const user = publicUsers.find(u => String(u.Id) === String(userId));
-			if (user) handleUserSelect(user);
-		} else if (e.keyCode === KEYS.DOWN) {
-			e.stopPropagation();
-			e.preventDefault();
-			Spotlight.focus('[data-spotlight-id="manual-login-btn"]');
-		}
-	}, [publicUsers, handleUserSelect]);
-
-	const handleSavedAccountSelect = useCallback(async (account) => {
-		setIsConnecting(true);
-		setError(null);
-		setStatus($L('Signing in...'));
-		const ok = await switchUser(account.serverId, account.userId);
-		setIsConnecting(false);
-		if (ok) {
-			onLoggedIn?.();
-			return;
-		}
-		// Stored session was rejected, fall back to a normal sign-in on that server. womp womp
-		setStatus(null);
-		setServerUrl(account.url);
-		setServerInfo({ServerName: account.name});
-		setStep('server');
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="connect-btn"]'), 100);
-	}, [switchUser, onLoggedIn]);
-
-	const handleAccountCardClick = useCallback((e) => {
-		const {serverId, userId} = e.currentTarget.dataset;
-		const account = savedAccounts.find(a => a.serverId === serverId && a.userId === userId);
-		if (account) handleSavedAccountSelect(account);
-	}, [savedAccounts, handleSavedAccountSelect]);
-
-	const handleAccountCardKeyDown = useCallback((e) => {
-		if (e.keyCode === KEYS.ENTER) {
-			handleAccountCardClick(e);
-		} else if (e.keyCode === KEYS.DOWN) {
-			e.stopPropagation();
-			e.preventDefault();
-			Spotlight.focus('[data-spotlight-id="add-account-btn"]');
-		}
-	}, [handleAccountCardClick]);
-
-	const handleAddAccount = useCallback(() => {
-		setServerUrl(storedServerUrl || '');
-		setStep('server');
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="server-input"]'), 100);
-	}, [storedServerUrl]);
-
-	const handleQuickConnectClick = useCallback(() => {
-		if (selectedUser) handleQuickConnect(selectedUser);
-	}, [selectedUser, handleQuickConnect]);
-
-	const handlePasswordMethodClick = useCallback(() => {
-		setStep('passwordform');
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="password-input"]'), 100);
-	}, []);
-
-	const handlePasswordFormCancel = useCallback(() => {
-		setStep('password');
-		setPassword('');
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="use-password-btn"]'), 100);
-	}, []);
-
-	const handleUsePasswordInstead = useCallback(() => {
-		if (quickConnectInterval) {
-			clearInterval(quickConnectInterval);
-			setQuickConnectInterval(null);
-		}
-		setQuickConnectCode('');
-		setQuickConnectSecret(null);
-		setStep('passwordform');
-		setTimeout(() => Spotlight.focus('[data-spotlight-id="password-input"]'), 100);
-	}, [quickConnectInterval]);
-
-	useEffect(() => {
-		return () => {
-			if (quickConnectInterval) {
-				clearInterval(quickConnectInterval);
-			}
-		};
-	}, [quickConnectInterval]);
+	// Rendering
 
 	if (isLoading) {
 		return (
@@ -708,467 +757,456 @@ const Login = ({
 		);
 	}
 
+	const renderTile = ({key, spotlightId, serverType, name, detail, ...rest}) => (
+		<SpottableDiv
+			key={key}
+			data-spotlight-id={spotlightId}
+			className={css.tile}
+			{...rest}
+		>
+			<ServerTypeIcon serverType={serverType} className={css.tileIcon} />
+			<div className={css.tileBody}>
+				<div className={css.tileName}>{name}</div>
+				<div className={css.tileDetail}>{detail}</div>
+			</div>
+		</SpottableDiv>
+	);
+
+	const renderServers = () => {
+		const actions = [
+			<SpottableButton
+				key="add"
+				data-spotlight-id="add-server-btn"
+				className={css.outlineButton}
+				onClick={openAddDialog}
+				disabled={isConnecting}
+			>
+				<MaterialIcon name="add" className={css.outlineButtonIcon} />
+				{$L('Add Server')}
+			</SpottableButton>,
+			<SpottableButton
+				key="emby"
+				data-spotlight-id="emby-connect-btn"
+				className={css.outlineButton}
+				onClick={handleEmbyConnectStart}
+				disabled={isConnecting}
+			>
+				<ServerTypeIcon serverType="emby" className={css.outlineButtonIcon} />
+				{$L('Emby Connect')}
+			</SpottableButton>
+		];
+
+		if (isAdding) {
+			actions.push(
+				<SpottableButton
+					key="cancel"
+					data-spotlight-id="cancel-add-btn"
+					className={css.outlineButton}
+					onClick={handleBack}
+				>
+					{$L('Cancel')}
+				</SpottableButton>
+			);
+		}
+
+		return (
+			<FocusArea className={css.card}>
+				{uniqueServers.length > 0 && (
+					<div>
+						<div className={css.sectionTitle}>{$L('Saved Servers')}</div>
+						{uniqueServers.map((entry, index) => renderTile({
+							key: entry.serverId,
+							spotlightId: `saved-${index}`,
+							serverType: entry.serverType,
+							name: entry.name,
+							detail: entry.version ? `${entry.url} • ${entry.version}` : entry.url,
+							'data-server-id': entry.serverId,
+							onClick: handleSavedClick,
+							onKeyDown: handleSavedKeyDown,
+							onKeyUp: handleSavedKeyUp
+						}))}
+					</div>
+				)}
+
+				<div className={uniqueServers.length > 0 ? css.formBlock : ''}>
+					<div className={css.sectionTitle}>{$L('Discovered Servers')}</div>
+					{discovered.length > 0
+						? discovered.map((found, index) => renderTile({
+							key: found.id,
+							spotlightId: `discovered-${index}`,
+							serverType: found.serverType,
+							name: found.name,
+							detail: found.address,
+							'data-index': index,
+							onClick: handleDiscoveredClick
+						}))
+						: isDiscovering
+							? <div className={css.spinnerRow}><div className={css.spinner} /></div>
+							: <div className={css.emptyHint}>{$L('None found')}</div>}
+					{isDiscovering && discovered.length > 0 && (
+						<div className={css.spinnerRowTight}><div className={`${css.spinner} ${css.spinnerSmall}`} /></div>
+					)}
+				</div>
+
+				{error && <div className={css.errorText}>{error}</div>}
+
+				<div className={`${css.actionRow} ${actions.length === 2 ? '' : css.actionColumn}`}>
+					{actions}
+				</div>
+			</FocusArea>
+		);
+	};
+
+	const renderUsers = () => (
+		<FocusArea className={`${css.card} ${css.cardCentered}`}>
+			<p className={css.serverLabel}>{server?.name}</p>
+			<h1 className={css.title}>{$L("Who's watching?")}</h1>
+			{server?.loginDisclaimer && <p className={css.disclaimer}>{server.loginDisclaimer}</p>}
+
+			<div className={css.userRow}>
+				<div className={css.userRowInner}>
+					{users.map((user, index) => (
+						<SpottableDiv
+							key={user.id}
+							data-spotlight-id={`user-${index}`}
+							data-user-id={user.id}
+							className={css.userCard}
+							onClick={handleUserClick}
+						>
+							{user.imageTag ? (
+								<img
+									src={`${jellyfinApi.getServerUrl()}/Users/${user.id}/Images/Primary?tag=${user.imageTag}&quality=90&maxHeight=150`}
+									alt={user.name}
+									className={css.userAvatar}
+								/>
+							) : (
+								<div className={css.userAvatarPlaceholder}>
+									<MaterialIcon name="personFilled" className={css.placeholderIcon} />
+								</div>
+							)}
+							<div className={css.userName}>{user.name}</div>
+						</SpottableDiv>
+					))}
+				</div>
+			</div>
+
+			{error && <div className={css.errorText}>{error}</div>}
+
+			<div className={`${css.actionRow} ${css.actionRowWide}`}>
+				<SpottableButton
+					data-spotlight-id="add-user-btn"
+					className={css.outlineButton}
+					onClick={handleAddUser}
+				>
+					<MaterialIcon name="person" className={css.outlineButtonIcon} />
+					{$L('Add User')}
+				</SpottableButton>
+				<SpottableButton
+					data-spotlight-id="select-server-btn"
+					className={css.outlineButton}
+					onClick={goToServers}
+				>
+					<MaterialIcon name="home" className={css.outlineButtonIcon} />
+					{$L('Select Server')}
+				</SpottableButton>
+			</div>
+		</FocusArea>
+	);
+
+	const renderQuickConnect = () => (
+		<div className={css.quickConnect}>
+			<p className={css.quickConnectInstruction}>{$L("Enter this code on your server's web dashboard:")}</p>
+			{quickConnectCode ? (
+				<div>
+					<div className={css.quickConnectCode}>{formatQuickConnectCode(quickConnectCode)}</div>
+					<div className={`${css.spinner} ${css.spinnerAccent}`} />
+					<div className={css.statusLine}>{$L('Waiting for authorization...')}</div>
+				</div>
+			) : (!error && <div className={css.spinnerRow}><div className={css.spinner} /></div>)}
+			{error && <div className={css.fieldError}>{error}</div>}
+			<div className={css.buttonWrap}>
+				<SpottableButton
+					data-spotlight-id="back-btn"
+					className={css.outlineButton}
+					onClick={handleBack}
+				>
+					{$L('Back')}
+				</SpottableButton>
+			</div>
+		</div>
+	);
+
+	const renderCredentials = () => (
+		<div className={css.formBlock}>
+			{!signInUser && (
+				<div className={css.field}>
+					<SpottableInput
+						data-spotlight-id="username-input"
+						type="text"
+						purpose="username"
+						recents={usernameRecents}
+						className={css.input}
+						placeholder={$L('Username')}
+						value={username}
+						onChange={handleUsernameChange}
+						onKeyDown={handleUsernameKeyDown}
+						disabled={isConnecting}
+					/>
+				</div>
+			)}
+			{signInUser?.hasPassword !== false && (
+				<div className={css.field}>
+					<SpottableInput
+						data-spotlight-id="password-input"
+						type="password"
+						purpose="password"
+						className={css.input}
+						placeholder={$L('Password')}
+						value={password}
+						onChange={handlePasswordChange}
+						onKeyDown={handlePasswordKeyDown}
+						disabled={isConnecting}
+					/>
+				</div>
+			)}
+			{error && <div className={css.fieldError}>{error}</div>}
+			<div className={css.buttonWrap}>
+				<SpottableButton
+					data-spotlight-id="back-btn"
+					className={css.outlineButton}
+					onClick={handleBack}
+				>
+					{$L('Back')}
+				</SpottableButton>
+				<SpottableButton
+					data-spotlight-id="signin-btn"
+					className={css.outlineButton}
+					onClick={handleSignIn}
+					disabled={isConnecting || !username.trim()}
+				>
+					{isConnecting ? $L('Signing in...') : $L('Sign In')}
+				</SpottableButton>
+			</div>
+		</div>
+	);
+
+	const renderSignIn = () => (
+		<FocusArea className={`${css.card} ${css.cardCentered}`}>
+			<h1 className={css.title}>{$L('Sign In')}</h1>
+			<p className={css.signInSubtitle}>{$L('Connecting to {serverName}').replace('{serverName}', server?.name || '')}</p>
+
+			{supportsQuickConnect && (
+				<div className={css.buttonWrap}>
+					<SpottableButton
+						data-spotlight-id="qc-toggle-btn"
+						className={`${css.toggleButton} ${showQuickConnect ? css.toggleButtonSelected : ''}`}
+						onClick={selectQuickConnect}
+					>
+						{$L('Quick Connect')}
+					</SpottableButton>
+					<SpottableButton
+						data-spotlight-id="pw-toggle-btn"
+						className={`${css.toggleButton} ${showQuickConnect ? '' : css.toggleButtonSelected}`}
+						onClick={selectPassword}
+					>
+						{$L('Password')}
+					</SpottableButton>
+				</div>
+			)}
+
+			{supportsQuickConnect && showQuickConnect ? renderQuickConnect() : renderCredentials()}
+		</FocusArea>
+	);
+
+	const renderEmbyConnect = () => (
+		<FocusArea className={`${css.card} ${css.cardCentered}`}>
+			<h1 className={css.title}>{$L('Emby Connect')}</h1>
+			<p className={css.signInSubtitle}>{$L('Sign in with your Emby Connect account')}</p>
+			<div className={css.formBlock}>
+				<div className={css.field}>
+					<SpottableInput
+						data-spotlight-id="emby-username-input"
+						type="text"
+						purpose="email"
+						className={css.input}
+						placeholder={$L('Email or Username')}
+						value={username}
+						onChange={handleUsernameChange}
+						disabled={isConnecting}
+					/>
+				</div>
+				<div className={css.field}>
+					<SpottableInput
+						data-spotlight-id="emby-password-input"
+						type="password"
+						purpose="password"
+						className={css.input}
+						placeholder={$L('Password')}
+						value={password}
+						onChange={handlePasswordChange}
+						onKeyDown={handleEmbyPasswordKeyDown}
+						disabled={isConnecting}
+					/>
+				</div>
+				{error && <div className={css.fieldError}>{error}</div>}
+				<div className={css.buttonWrap}>
+					<SpottableButton
+						data-spotlight-id="emby-back-btn"
+						className={css.outlineButton}
+						onClick={handleBack}
+						disabled={isConnecting}
+					>
+						{$L('Back')}
+					</SpottableButton>
+					<SpottableButton
+						data-spotlight-id="emby-signin-btn"
+						className={css.outlineButton}
+						onClick={handleEmbyConnectSignIn}
+						disabled={isConnecting || !username.trim() || !password}
+					>
+						{isConnecting ? $L('Signing in...') : $L('Sign In')}
+					</SpottableButton>
+				</div>
+			</div>
+		</FocusArea>
+	);
+
+	const renderEmbyServers = () => (
+		<FocusArea className={css.card}>
+			<div className={css.sectionTitle}>{$L('Select a server')}</div>
+			{connectServers.map((entry, index) => renderTile({
+				key: entry.systemId || index,
+				spotlightId: `emby-server-${index}`,
+				serverType: 'emby',
+				name: entry.name,
+				detail: entry.candidateAddresses[0] || '',
+				'data-index': index,
+				onClick: handleEmbyServerClick
+			}))}
+			{error && <div className={css.errorText}>{error}</div>}
+			<div className={css.actionRow}>
+				<SpottableButton
+					data-spotlight-id="emby-servers-back-btn"
+					className={css.outlineButton}
+					onClick={handleBack}
+					disabled={isConnecting}
+				>
+					{$L('Back')}
+				</SpottableButton>
+			</div>
+		</FocusArea>
+	);
+
+	const renderDialog = () => {
+		if (dialog?.kind === 'add') {
+			return (
+				<div className={css.dialogScrim}>
+					<DialogArea className={css.dialog}>
+						<h2 className={css.dialogTitle}>{$L('Connect to Server')}</h2>
+						<div className={css.inputWithIcon}>
+							<MaterialIcon name="dns" className={css.inputIcon} />
+							<SpottableInput
+								data-spotlight-id="add-address-input"
+								type="text"
+								purpose="url"
+								recents={serverRecents}
+								className={css.input}
+								placeholder="https://your-server.example.com"
+								value={addressValue}
+								onChange={handleAddressChange}
+								onKeyDown={handleAddressKeyDown}
+								disabled={isConnecting}
+							/>
+						</div>
+						{dialogError && <div className={css.fieldError}>{dialogError}</div>}
+						{status && <div className={css.statusLine}>{status}</div>}
+						<div className={css.dialogActions}>
+							<SpottableButton
+								data-spotlight-id="add-cancel-btn"
+								className={`${css.outlineButton} ${css.dialogButton}`}
+								onClick={closeDialog}
+								disabled={isConnecting}
+							>
+								{$L('Cancel')}
+							</SpottableButton>
+							<SpottableButton
+								data-spotlight-id="add-connect-btn"
+								className={`${css.outlineButton} ${css.dialogButton}`}
+								onClick={submitAddress}
+								disabled={isConnecting}
+							>
+								{isConnecting ? $L('Connecting...') : $L('Connect')}
+							</SpottableButton>
+						</div>
+					</DialogArea>
+				</div>
+			);
+		}
+
+		if (dialog?.kind === 'remove') {
+			return (
+				<div className={css.dialogScrim}>
+					<DialogArea className={css.dialog}>
+						<h2 className={css.dialogTitle}>{$L('Remove Server')}</h2>
+						<p className={css.serverLabel}>
+							{$L('Remove "{serverName}" from your servers?').replace('{serverName}', dialog.server.name)}
+						</p>
+						<div className={css.dialogActions}>
+							<SpottableButton
+								data-spotlight-id="remove-cancel-btn"
+								className={`${css.outlineButton} ${css.dialogButton}`}
+								onClick={closeDialog}
+							>
+								{$L('Cancel')}
+							</SpottableButton>
+							<SpottableButton
+								data-spotlight-id="remove-confirm-btn"
+								className={`${css.outlineButton} ${css.dialogButton}`}
+								onClick={handleConfirmRemove}
+							>
+								{$L('Remove')}
+							</SpottableButton>
+						</div>
+					</DialogArea>
+				</div>
+			);
+		}
+
+		return null;
+	};
+
+	const isNarrow = step === 'signin' || step === 'embyconnect';
+
 	return (
 		<div className={css.page} ref={pageRef}>
-			<div className={css.container}>
+			<div className={css.spacerTop} />
+			<div className={`${css.frame} ${isNarrow ? css.frameNarrow : ''}`}>
 				<div className={css.logoSection}>
-					<img src="resources/banner-dark.png" alt="Moonfin" className={css.logo} />
+					<img
+						src="resources/banner-dark.png"
+						alt="Moonfin"
+						className={`${css.logo} ${isNarrow ? css.logoSmall : ''}`}
+					/>
 				</div>
 
-				{status && <div className={css.statusMessage}>{status}</div>}
-				{error && <div className={css.errorMessage}>{error}</div>}
+				{status && !dialog && <div className={css.statusMessage}>{status}</div>}
 
-				<div className={css.contentWrapper}>
-					{step === 'accounts' && (
-						<div className={css.section}>
-							<h1>{$L("Who's watching?")}</h1>
-							<UserGridContainer className={css.userGrid}>
-								{savedAccounts.map((account, index) => (
-									<SpottableDiv
-										key={`${account.serverId}-${account.userId}`}
-										data-spotlight-id={`account-${index}`}
-										data-server-id={account.serverId}
-										data-user-id={account.userId}
-										className={css.userCard}
-										onClick={handleAccountCardClick}
-										onKeyDown={handleAccountCardKeyDown}
-									>
-										{account.primaryImageTag ? (
-											<img
-												src={`${account.url}/Users/${account.userId}/Images/Primary?tag=${account.primaryImageTag}&quality=90&maxHeight=150`}
-												alt={account.username}
-												className={css.userAvatar}
-											/>
-										) : (
-											<div className={css.userAvatarPlaceholder}>
-												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#FFFFFF" className={css.placeholderIcon}>
-													<path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
-												</svg>
-											</div>
-										)}
-										<span className={css.userName}>{account.username}</span>
-									</SpottableDiv>
-								))}
-							</UserGridContainer>
-							<div className={css.buttonGroup}>
-								<SpottableButton
-									data-spotlight-id="add-account-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleAddAccount}
-								>
-									{$L('Add Account')}
-								</SpottableButton>
-							</div>
-						</div>
-					)}
+				{step === 'servers' && renderServers()}
+				{step === 'users' && renderUsers()}
+				{step === 'signin' && renderSignIn()}
+				{step === 'embyconnect' && renderEmbyConnect()}
+				{step === 'embyconnect-servers' && renderEmbyServers()}
 
-					{step === 'server' && (
-						<div className={css.section}>
-							<h2>{isAddingServer ? $L('Add New Server') : $L('Connect to Server')}</h2>
-							<div className={css.formGroup}>
-								<label>{$L('Server Address')}</label>
-								<SpottableInput
-									data-spotlight-id="server-input"
-									type="text"
-									purpose="url"
-									recents={serverRecents}
-									className={css.input}
-									placeholder="192.168.1.100 or jellyfin.example.com"
-									value={serverUrl}
-									onChange={handleServerUrlChange}
-									onKeyDown={handleServerInputKeyDown}
-									disabled={isConnecting}
-								/>
-								<div className={css.buttonGroup}>
-									<SpottableButton
-										data-spotlight-id="connect-btn"
-										className={`${css.btn} ${css.btnPrimary}`}
-										onClick={handleConnect}
-										disabled={isConnecting || !serverUrl.trim()}
-									>
-										{isConnecting ? $L('Connecting...') : $L('Connect')}
-									</SpottableButton>
-									<SpottableButton
-										data-spotlight-id="emby-connect-btn"
-										className={`${css.btn} ${css.btnSecondary}`}
-										onClick={handleEmbyConnectStart}
-										disabled={isConnecting}
-									>
-										{$L('Emby Connect')}
-									</SpottableButton>
-									{isAddingServer && (
-										<SpottableButton
-											data-spotlight-id="cancel-add-btn"
-											className={`${css.btn} ${css.btnSecondary}`}
-											onClick={handleBack}
-										>
-											{$L('Cancel')}
-										</SpottableButton>
-									)}
-								</div>
-							</div>
-						</div>
-					)}
+				{step === 'servers' && (
+					<div className={css.versionFooter}>
+						{$L('Moonfin version {version}').replace('{version}', process.env.REACT_APP_VERSION || '')}
+					</div>
+				)}
 
-					{step === 'users' && (
-						<div className={css.section}>
-							<p className={css.serverLabel}>{serverInfo?.ServerName || (serverType === 'emby' ? 'Emby' : 'Jellyfin')}</p>
-							<h1>{$L("Who's watching?")}</h1>
-							<UserGridContainer className={css.userGrid}>
-								{publicUsers.map((user, index) => (
-									<SpottableDiv
-										key={user.Id}
-										data-spotlight-id={`user-${index}`}
-										data-user-id={user.Id}
-										className={css.userCard}
-										onClick={handleUserCardClick}
-										onKeyDown={handleUserCardKeyDown}
-									>
-										{user.PrimaryImageTag ? (
-											<img
-												src={`${jellyfinApi.getServerUrl()}/Users/${user.Id}/Images/Primary?tag=${user.PrimaryImageTag}&quality=90&maxHeight=150`}
-												alt={user.Name}
-												className={css.userAvatar}
-											/>
-										) : (
-											<div className={css.userAvatarPlaceholder}>
-												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="#FFFFFF" className={css.placeholderIcon}>
-													<path d="M480-480q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 66-47 113t-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440q66 0 130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z" />
-												</svg>
-											</div>
-										)}
-										<span className={css.userName}>{user.Name}</span>
-									</SpottableDiv>
-								))}
-							</UserGridContainer>
-							<div className={css.buttonGroup}>
-								<SpottableButton
-									data-spotlight-id="manual-login-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleManualLogin}
-								>
-									{$L('Manual Login')}
-								</SpottableButton>
-								<SpottableButton
-									data-spotlight-id="back-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleBack}
-								>
-									{$L('Change Server')}
-								</SpottableButton>
-							</div>
-						</div>
-					)}
-
-					{step === 'password' && selectedUser && (
-						<div className={css.section}>
-							<h2>{$L('Sign In As {name}').replace('{name}', selectedUser.Name)}</h2>
-							<div className={css.selectedUserInfo}>
-								{selectedUser.PrimaryImageTag ? (
-									<img
-										src={`${jellyfinApi.getServerUrl()}/Users/${selectedUser.Id}/Images/Primary?tag=${selectedUser.PrimaryImageTag}&quality=90&maxHeight=150`}
-										alt={selectedUser.Name}
-										className={css.selectedAvatar}
-									/>
-								) : (
-									<div className={css.selectedAvatarPlaceholder}>
-										{selectedUser.Name.charAt(0).toUpperCase()}
-									</div>
-								)}
-								<span className={css.selectedName}>{selectedUser.Name}</span>
-							</div>
-							<div className={css.loginMethodButtons}>
-								{serverType !== 'emby' && (
-									<SpottableButton
-										data-spotlight-id="use-qc-btn"
-										className={`${css.btn} ${css.btnPrimary}`}
-										onClick={handleQuickConnectClick}
-									>
-										{$L('Quick Connect')}
-									</SpottableButton>
-								)}
-								<SpottableButton
-									data-spotlight-id="use-password-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handlePasswordMethodClick}
-								>
-									{$L('Password')}
-								</SpottableButton>
-							</div>
-							<div className={css.buttonGroup}>
-								<SpottableButton
-									data-spotlight-id="password-back-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleBack}
-								>
-									{$L('Back')}
-								</SpottableButton>
-							</div>
-						</div>
-					)}
-
-					{step === 'passwordform' && selectedUser && (
-						<div className={css.section}>
-							<h2>{$L('Enter Password')}</h2>
-							<div className={css.selectedUserInfo}>
-								{selectedUser.PrimaryImageTag ? (
-									<img
-										src={`${jellyfinApi.getServerUrl()}/Users/${selectedUser.Id}/Images/Primary?tag=${selectedUser.PrimaryImageTag}&quality=90&maxHeight=150`}
-										alt={selectedUser.Name}
-										className={css.selectedAvatar}
-									/>
-								) : (
-									<div className={css.selectedAvatarPlaceholder}>
-										{selectedUser.Name.charAt(0).toUpperCase()}
-									</div>
-								)}
-								<span className={css.selectedName}>{selectedUser.Name}</span>
-							</div>
-							<div className={css.formGroup}>
-								<SpottableInput
-									data-spotlight-id="password-input"
-									type="password"
-									purpose="password"
-									className={css.input}
-									placeholder={$L('Password (leave empty if none)')}
-									value={password}
-									onChange={handlePasswordChange}
-									onKeyDown={handlePasswordKeyDown}
-									disabled={isConnecting}
-								/>
-								<div className={css.buttonGroup}>
-									<SpottableButton
-										data-spotlight-id="login-btn"
-										className={`${css.btn} ${css.btnPrimary}`}
-										onClick={handleLogin}
-										disabled={isConnecting}
-									>
-										{isConnecting ? $L('Signing in...') : $L('Sign In')}
-									</SpottableButton>
-									<SpottableButton
-										data-spotlight-id="cancel-btn"
-										className={`${css.btn} ${css.btnSecondary}`}
-										onClick={handlePasswordFormCancel}
-									>
-										{$L('Back')}
-									</SpottableButton>
-								</div>
-							</div>
-						</div>
-					)}
-
-					{step === 'quickconnect' && selectedUser && (
-						<div className={css.section}>
-							<h2>{$L('Quick Connect')}</h2>
-							<div className={css.selectedUserInfo}>
-								{selectedUser.PrimaryImageTag ? (
-									<img
-										src={`${jellyfinApi.getServerUrl()}/Users/${selectedUser.Id}/Images/Primary?tag=${selectedUser.PrimaryImageTag}&quality=90&maxHeight=150`}
-										alt={selectedUser.Name}
-										className={css.selectedAvatar}
-									/>
-								) : (
-									<div className={css.selectedAvatarPlaceholder}>
-										{selectedUser.Name.charAt(0).toUpperCase()}
-									</div>
-								)}
-								<span className={css.selectedName}>{selectedUser.Name}</span>
-							</div>
-							<div className={css.quickConnectCodeDisplay}>
-								<div className={css.qcLabel}>{$L('Enter this code on another device or authorize in Jellyfin dashboard:')}</div>
-								<div className={css.qcCode}>{quickConnectCode}</div>
-								<div className={css.qcWaiting}>{$L('Waiting for authorization...')}</div>
-							</div>
-							<div className={css.buttonGroup}>
-								<SpottableButton
-									data-spotlight-id="use-password-instead-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleUsePasswordInstead}
-								>
-									{$L('Use Password Instead')}
-								</SpottableButton>
-								<SpottableButton
-									data-spotlight-id="qc-back-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={cancelQuickConnect}
-								>
-									{$L('Cancel')}
-								</SpottableButton>
-							</div>
-						</div>
-					)}
-
-					{step === 'manual' && (
-						<div className={css.section}>
-							<h2>{$L('Manual Login')}</h2>
-							{serverInfo && <div className={css.serverName}>{serverInfo.ServerName}</div>}
-							<div className={css.formGroup}>
-								<label>{$L('Username')}</label>
-								<SpottableInput
-									data-spotlight-id="username-input"
-									type="text"
-									purpose="username"
-									recents={usernameRecents}
-									className={css.input}
-									placeholder={$L('Username')}
-									value={username}
-									onChange={handleUsernameChange}
-									disabled={isConnecting}
-								/>
-							</div>
-							<div className={css.formGroup}>
-								<label>{$L('Password')}</label>
-								<SpottableInput
-									data-spotlight-id="manual-password-input"
-									type="password"
-									purpose="password"
-									className={css.input}
-									placeholder={$L('Password')}
-									value={password}
-									onChange={handlePasswordChange}
-									onKeyDown={handlePasswordKeyDown}
-									disabled={isConnecting}
-								/>
-							</div>
-							<div className={css.buttonGroup}>
-								{(username.trim() || serverType === 'emby') ? (
-									<SpottableButton
-										data-spotlight-id="manual-submit-btn"
-										className={`${css.btn} ${css.btnPrimary}`}
-										onClick={handleLogin}
-										disabled={isConnecting || !username.trim()}
-									>
-										{isConnecting ? $L('Signing in...') : $L('Sign In')}
-									</SpottableButton>
-								) : (
-									<SpottableButton
-										data-spotlight-id="manual-qc-btn"
-										className={`${css.btn} ${css.btnPrimary}`}
-										onClick={handleManualQuickConnect}
-										disabled={isConnecting}
-									>
-										{isConnecting ? $L('Connecting...') : $L('Quick Connect')}
-									</SpottableButton>
-								)}
-								<SpottableButton
-									data-spotlight-id="manual-back-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleBack}
-								>
-									{$L('Back')}
-								</SpottableButton>
-							</div>
-						</div>
-					)}
-
-					{step === 'quickconnect-manual' && (
-						<div className={css.section}>
-							<h2>{$L('Quick Connect')}</h2>
-							{serverInfo && <div className={css.serverName}>{serverInfo.ServerName}</div>}
-							<div className={css.quickConnectCodeDisplay}>
-								<div className={css.qcLabel}>{$L('Enter this code on another device or authorize in Jellyfin dashboard:')}</div>
-								<div className={css.qcCode}>{quickConnectCode}</div>
-								<div className={css.qcWaiting}>{$L('Waiting for authorization...')}</div>
-							</div>
-							<div className={css.buttonGroup}>
-								<SpottableButton
-									data-spotlight-id="qc-back-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleBack}
-								>
-									{$L('Cancel')}
-								</SpottableButton>
-							</div>
-						</div>
-					)}
-
-					{step === 'embyconnect' && (
-						<div className={css.section}>
-							<h2>{$L('Emby Connect')}</h2>
-							<p className={css.serverLabel}>{$L('Sign in with your Emby Connect account')}</p>
-							<div className={css.formGroup}>
-								<label>{$L('Email or Username')}</label>
-								<SpottableInput
-									data-spotlight-id="emby-username-input"
-									type="text"
-									purpose="email"
-									className={css.input}
-									placeholder={$L('Email or Username')}
-									value={username}
-									onChange={handleUsernameChange}
-									disabled={isConnecting}
-								/>
-							</div>
-							<div className={css.formGroup}>
-								<label>{$L('Password')}</label>
-								<SpottableInput
-									data-spotlight-id="emby-password-input"
-									type="password"
-									purpose="password"
-									className={css.input}
-									placeholder={$L('Password')}
-									value={password}
-									onChange={handlePasswordChange}
-									onKeyDown={handleEmbyPasswordKeyDown}
-									disabled={isConnecting}
-								/>
-							</div>
-							<div className={css.buttonGroup}>
-								<SpottableButton
-									data-spotlight-id="emby-signin-btn"
-									className={`${css.btn} ${css.btnPrimary}`}
-									onClick={handleEmbyConnectSignIn}
-									disabled={isConnecting || !username.trim() || !password}
-								>
-									{isConnecting ? $L('Signing in...') : $L('Sign In')}
-								</SpottableButton>
-								<SpottableButton
-									data-spotlight-id="emby-back-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleBack}
-									disabled={isConnecting}
-								>
-									{$L('Back')}
-								</SpottableButton>
-							</div>
-						</div>
-					)}
-
-					{step === 'embyconnect-servers' && (
-						<div className={css.section}>
-							<h2>{$L('Select a server')}</h2>
-							<UserGridContainer className={css.userGrid}>
-								{connectServers.map((server, index) => (
-									<SpottableDiv
-										key={server.systemId || index}
-										data-spotlight-id={`emby-server-${index}`}
-										data-server-index={index}
-										className={css.userCard}
-										onClick={handleEmbyServerCardClick}
-										onKeyDown={handleEmbyServerCardKeyDown}
-									>
-										<span className={css.userName}>{server.name}</span>
-										{server.candidateAddresses[0] && (
-											<span className={css.serverName}>{server.candidateAddresses[0]}</span>
-										)}
-									</SpottableDiv>
-								))}
-							</UserGridContainer>
-							<div className={css.buttonGroup}>
-								<SpottableButton
-									data-spotlight-id="emby-retry-btn"
-									className={`${css.btn} ${css.btnSecondary}`}
-									onClick={handleBack}
-									disabled={isConnecting}
-								>
-									{$L('Back')}
-								</SpottableButton>
-							</div>
-						</div>
-					)}
-				</div>
 				<div className={`${css.keyboardSpacer} ${keyboardOpen ? css.keyboardSpacerOpen : ''}`} />
 			</div>
+			<div className={css.spacerBottom} />
+			{renderDialog()}
 		</div>
 	);
 };

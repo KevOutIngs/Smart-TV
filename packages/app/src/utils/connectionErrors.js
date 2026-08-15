@@ -44,6 +44,26 @@ export function classifyError (err) {
 	return null;
 }
 
+/**
+ * Work out which media server answered. A server that names itself is taken at
+ * its word, and past that Emby is the only one that ships a four part version
+ * below 10. Null means the reply came from something else entirely.
+ *
+ * @param {string} [productName]
+ * @param {string} [version]
+ * @returns {string|null} 'jellyfin', 'emby', or null
+ */
+export function detectServerType (productName, version) {
+	const named = String(productName || '').toLowerCase();
+	if (named.indexOf('jellyfin') >= 0) return 'jellyfin';
+	if (named.indexOf('emby') >= 0) return 'emby';
+
+	const parts = String(version || '').split('.');
+	const major = parseInt(parts[0], 10);
+	if (!Number.isNaN(major) && parts.length >= 4 && major < 10) return 'emby';
+	return null;
+}
+
 export function isVersionSupported (versionString) {
 	if (!versionString) return false;
 	const parts = versionString.split('.').map(Number);
