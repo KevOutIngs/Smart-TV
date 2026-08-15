@@ -40,8 +40,8 @@ const DEFAULT_SEMANTIC = Object.freeze({
 	mediaTypeBadgeShow: '#FF8B5CF6'
 });
 
-// What the other clients fall back to when a theme carries no error color.
-const DEFAULT_ERROR_COLOR = '#FFCF6679';
+// What a theme falls back to when it carries no error color of its own.
+export const DEFAULT_ERROR_COLOR = '#FFCF6679';
 
 const DEFAULT_BOOK_COLORS = Object.freeze({
 	background: '#FF0F182A',
@@ -288,7 +288,7 @@ export const toRgbTriplet = (hex) => {
 	return `${red}, ${green}, ${blue}`;
 };
 
-const radiusToCss = (radius) => {
+export const radiusToCss = (radius) => {
 	if (!radius) return '0px';
 	const {topLeft, topRight, bottomRight, bottomLeft} = radius;
 	if (topLeft === topRight && topLeft === bottomRight && topLeft === bottomLeft) {
@@ -297,7 +297,7 @@ const radiusToCss = (radius) => {
 	return `${topLeft}px ${topRight}px ${bottomRight}px ${bottomLeft}px`;
 };
 
-const shadowToCss = (shadow) => {
+export const shadowToCss = (shadow) => {
 	const offsetX = shadow.offsetX || 0;
 	const offsetY = shadow.offsetY || 0;
 	const blur = shadow.blurRadius || 0;
@@ -392,13 +392,3 @@ export const buildThemeCssVars = (theme) => ({
 	'--theme-surface-variant-rgb': toRgbTriplet(theme.colors.surfaceVariant),
 	'--theme-scrim-rgb': toRgbTriplet(theme.colors.scrim)
 });
-
-export const toSafeCssColorWithAlpha = (hex, alphaMultiplier) => {
-	if (!isValidHexColor(hex)) return null;
-	return toCssColorWithAlpha(hex, alphaMultiplier);
-};
-
-export const toSafeRgbTriplet = (hex) => {
-	if (!isValidHexColor(hex)) return null;
-	return toRgbTriplet(hex);
-};

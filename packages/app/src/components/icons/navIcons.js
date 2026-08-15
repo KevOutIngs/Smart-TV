@@ -1,8 +1,8 @@
 // The nav icons drawn by both the top bar and the sidebar. Keeping the path
 // data in one place means the two navigations can't drift apart.
 
-const NavIcon = ({className, style, path}) => (
-	<svg className={className} style={style} viewBox="0 0 24 24">
+const NavIcon = ({className, path}) => (
+	<svg className={className} viewBox="0 0 24 24">
 		<path d={path} />
 	</svg>
 );
@@ -26,8 +26,3 @@ export const FavoritesIcon = (props) => <NavIcon {...props} path={PATHS.favorite
 export const LibrariesIcon = (props) => <NavIcon {...props} path={PATHS.libraries} />;
 export const SettingsIcon = (props) => <NavIcon {...props} path={PATHS.settings} />;
 export const ChevronDownIcon = (props) => <NavIcon {...props} path={PATHS.chevronDown} />;
-
-// Each nav entry gets its own accent, cycling through the 16 the theme exposes.
-export const navIconStyle = (slot) => ({
-	color: `var(--theme-nav-color-${((slot - 1) % 16) + 1}, currentColor)`
-});

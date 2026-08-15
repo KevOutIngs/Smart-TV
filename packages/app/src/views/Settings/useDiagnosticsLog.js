@@ -19,10 +19,12 @@ export const LOG_FILTERS = [
 // without the screen itself becoming the slow thing.
 export const LOG_RENDER_STEP = 50;
 
+// Fixed colors rather than theme tokens, since custom properties never survive
+// the build for the older sets and a log readout reads fine in any theme.
 export const logLevelColor = (level) => {
-	if (level === LOG_LEVELS.ERROR || level === LOG_LEVELS.FATAL) return 'var(--theme-recording-active, #ff6b6b)';
-	if (level === LOG_LEVELS.WARNING) return 'var(--theme-status-pending, #ffd166)';
-	return 'var(--theme-text-primary, #fff)';
+	if (level === LOG_LEVELS.ERROR || level === LOG_LEVELS.FATAL) return '#ff6b6b';
+	if (level === LOG_LEVELS.WARNING) return '#ffd166';
+	return '#fff';
 };
 
 const useDiagnosticsLog = ({currentViewName, pushView}) => {

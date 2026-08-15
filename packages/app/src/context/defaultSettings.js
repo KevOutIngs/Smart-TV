@@ -129,6 +129,8 @@ export const defaultSettings = {
 	featuredBarStyle: 'moonfin',
 	featuredTrailerPreview: true,
 	featuredTrailerMuted: false,
+	mediaBarOverlayColor: 'gray',
+	mediaBarOverlayOpacity: 50,
 	mediaBarSourceType: 'library',
 	mediaBarLibraryIds: [],
 	mediaBarCollectionIds: [],
@@ -247,8 +249,8 @@ export const defaultSettings = {
 	recommendationsApplyParentalRatingCap: null,
 	performanceMode: 'auto',
 	focusBorderColor: '',
-	navbarOpacity: 100,
-	navbarColor: '',
+	navbarOpacity: 50,
+	navbarColor: 'gray',
 	// webOS TLS proxy fallback: when the WebView rejects a server's certificate
 	// (net::ERR_INSECURE_RESPONSE), allow the bundled Node service to fetch with
 	// certificate validation disabled. Off by default; local-only (not synced).

@@ -507,6 +507,24 @@ export const getAccentColorOptions = () => [
 	{ value: '#ff2e92', label: $L('Neon Magenta') }
 ];
 
+// The color the navigation and media bar surfaces tint themselves with.
+export const getOverlayColorOptions = () => [
+	{ value: 'gray', label: $L('Gray') },
+	{ value: 'black', label: $L('Black') },
+	{ value: 'dark_blue', label: $L('Dark Blue') },
+	{ value: 'purple', label: $L('Purple') },
+	{ value: 'teal', label: $L('Teal') },
+	{ value: 'navy', label: $L('Navy') },
+	{ value: 'charcoal', label: $L('Charcoal') },
+	{ value: 'brown', label: $L('Brown') },
+	{ value: 'dark_red', label: $L('Dark Red') },
+	{ value: 'dark_green', label: $L('Dark Green') },
+	{ value: 'slate', label: $L('Slate') },
+	{ value: 'indigo', label: $L('Indigo') },
+	{ value: 'moonfinCyan', label: $L('Moonfin Cyan') },
+	{ value: 'neonPulseMagenta', label: $L('Neon Magenta') }
+];
+
 export const getAgeRatingOptions = () => [
 	{ value: 0, label: $L('G') },
 	{ value: 7, label: $L('PG') },

@@ -42,7 +42,9 @@ import ShuffleOverlay from '../components/ShuffleOverlay';
 import SpottableInput from '../components/SpottableInput/SpottableInput';
 import useInactivityTimer from '../hooks/useInactivityTimer';
 import {useThemeMusic} from '../hooks/useThemeMusic';
-import {buildThemeCssVars, toSafeRgbTriplet} from '../theme/themeSpec';
+import {buildThemeCssVars, toRgbTriplet} from '../theme/themeSpec';
+import {applyThemeOverrides} from '../theme/themeOverrides';
+import {resolveOverlayColor} from '../theme/overlayColors';
 import Login from '../views/Login';
 import Browse from '../views/Browse';
 import {isGameLibrary, refreshGameLibraries, resolveGameLibraryId} from '../utils/gameLibrary';
@@ -311,6 +313,16 @@ const AppContent = (props) => {
 		}
 	}, [activeTheme]);
 
+	// The custom properties above only reach the newer engines. The injected
+	// stylesheet carries the same theme as literal colors for everything older.
+	useEffect(() => {
+		applyThemeOverrides(activeTheme, {
+			focusBorderColor: settings.focusBorderColor,
+			mediaBarOverlayColor: settings.mediaBarOverlayColor,
+			mediaBarOverlayOpacity: settings.mediaBarOverlayOpacity
+		});
+	}, [activeTheme, settings.focusBorderColor, settings.mediaBarOverlayColor, settings.mediaBarOverlayOpacity]);
+
 	useEffect(() => {
 		applyPerfTier(settings.performanceMode === 'auto' ? null : settings.performanceMode);
 	}, [settings.performanceMode]);
@@ -328,14 +340,8 @@ const AppContent = (props) => {
 		if (settings.focusBorderColor) {
 			root.style.setProperty('--theme-focus-border-color', settings.focusBorderColor);
 		}
-		root.style.setProperty('--theme-navbar-opacity', ((settings.navbarOpacity ?? 100) / 100).toString());
-		const rgb = toSafeRgbTriplet(settings.navbarColor);
-		if (rgb) {
-			root.style.setProperty('--theme-navbar-color-rgb', rgb);
-		} else {
-			root.style.removeProperty('--theme-navbar-color-rgb');
-		}
-	}, [activeTheme, settings.focusBorderColor, settings.navbarOpacity, settings.navbarColor]);
+		root.style.setProperty('--theme-navbar-color-rgb', toRgbTriplet(resolveOverlayColor(settings.navbarColor)));
+	}, [activeTheme, settings.focusBorderColor, settings.navbarColor]);
 
 	useEffect(() => {
 		const scale = settings.uiScale || 1.0;

@@ -2,6 +2,7 @@ import {createContext, useContext, useState, useEffect, useCallback, useMemo, us
 import {getFromStorage, saveToStorage} from '../services/storage';
 import {getMoonfinSettings, getMoonfinThemes, saveMoonfinProfile, moonfinPing} from '../services/seerrApi';
 import {parseThemeSpec} from '../theme/themeSpec';
+import {normalizeOverlayColorKey} from '../theme/overlayColors';
 import {getAvailableThemeList, getAvailableThemes, isBuiltInThemeId, registerStoreTheme, removeStoreTheme, replaceCustomThemes, resolveThemeById} from '../theme/themeRegistry';
 import {applyOledMode} from '../utils/oledMode';
 import {
@@ -27,6 +28,7 @@ const SERVER_TO_LOCAL = {
 	mediaBarTrailerPreview: 'featuredTrailerPreview',
 	mediaBarAutoAdvance: 'autoAdvance',
 	mediaBarIntervalMs: 'autoAdvanceInterval',
+	mediaBarOpacity: 'mediaBarOverlayOpacity',
 	mediaBarContentType: 'featuredContentType',
 	mediaBarTrailerAudio: 'featuredTrailerMuted',
 	mediaBarExcludedGenres: 'excludedGenres',
@@ -207,6 +209,7 @@ export const SYNCABLE_KEYS = [
 	'replaceSkipOutroWithNextUp',
 	'backdropBlurHome', 'backdropBlurDetail',
 	'mediaBarSourceType', 'mediaBarLibraryIds', 'mediaBarCollectionIds',
+	'mediaBarOverlayColor', 'mediaBarOverlayOpacity',
 	'homeRows', 'homeRowsStyle', 'detailScreenStyle', 'detailExpandedTabs', 'fullScreenRows', 'homeRowsPosterSize', 'useSeriesThumbnails',
 	'useDetailedSubHeadings', 'showMediaDetailsOnLibraryPage', 'hideBackdropsInLibraries',
 	'syncplayEnabled', 'syncplayAutoOpen',
@@ -443,6 +446,12 @@ export function SettingsProvider({children}) {
 				if (typeof stored.homeRowOverlay === 'string') {
 					// Was an on and off picker stored as strings before it became a switch.
 					stored.homeRowOverlay = stored.homeRowOverlay === 'on';
+					migrated = true;
+				}
+				const navbarColorKey = normalizeOverlayColorKey(stored.navbarColor);
+				if (navbarColorKey !== stored.navbarColor) {
+					// Was stored as a hex before it became a named color.
+					stored.navbarColor = navbarColorKey;
 					migrated = true;
 				}
 				if (!Array.isArray(stored.pluginSections)) {

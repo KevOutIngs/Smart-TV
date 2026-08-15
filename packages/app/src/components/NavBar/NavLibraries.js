@@ -20,7 +20,7 @@ const FOCUS_DELAY = 50;
 
 // The libraries drop down. It closes once focus leaves the group, after a short
 // grace period so moving between its own buttons doesn't collapse it.
-const NavLibraries = ({libraries, activeView, onSelectLibrary, leftTargetId}) => {
+const NavLibraries = ({libraries, slot, activeView, onSelectLibrary, leftTargetId}) => {
 	const [expanded, setExpanded] = useState(false);
 	const blurTimeoutRef = useRef(null);
 
@@ -77,7 +77,7 @@ const NavLibraries = ({libraries, activeView, onSelectLibrary, leftTargetId}) =>
 		>
 			<NavPillButton
 				Icon={LibrariesIcon}
-				slot={8}
+				slot={slot}
 				label={$L('Libraries')}
 				onClick={handleToggle}
 				spotlightId="navbar-libraries"
@@ -85,12 +85,13 @@ const NavLibraries = ({libraries, activeView, onSelectLibrary, leftTargetId}) =>
 				onSpotlightLeft={handleSpotlightLeft}
 			/>
 			<div className={css.librariesList}>
-				{expanded && libraries.map((lib) => (
+				{expanded && libraries.map((lib, index) => (
 					<SpottableButton
 						key={lib.Id}
 						className={`${css.navBtn} ${css.libraryBtn} ${activeView === lib.Id ? css.active : ''}`}
 						onClick={handleLibraryClick}
 						data-library-id={lib.Id}
+						data-nav-slot={(index % 16) + 1}
 					>
 						<span className={css.navLabel}>{lib.Name}</span>
 					</SpottableButton>

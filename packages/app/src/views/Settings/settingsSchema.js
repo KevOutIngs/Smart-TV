@@ -28,6 +28,7 @@ import {
 	getNextUpCountdownStyleOptions,
 	getNextUpMaxDaysOptions,
 	getOledModeOptions,
+	getOverlayColorOptions,
 	getPassthroughModeOptions,
 	getPerformanceModeOptions,
 	getPlaybackTimeDisplayOptions,
@@ -262,7 +263,7 @@ export const SETTINGS_SCHEMA = [
 				rows: [
 					{kind: KIND.SECTION, id: 'navAppearance', label: () => $L('Appearance')},
 					{kind: KIND.OPTION, key: 'navbarPosition', label: () => $L('Navigation Style'), options: getNavPositionOptions, fallback: () => $L('Top Bar'), icon: 'browser'},
-					{kind: KIND.OPTION, key: 'navbarColor', label: () => $L('Navbar Color'), options: getAccentColorOptions, fallback: () => $L('Theme Default'), icon: 'colorpicker'},
+					{kind: KIND.OPTION, key: 'navbarColor', label: () => $L('Navbar Color'), options: getOverlayColorOptions, fallback: () => $L('Gray'), icon: 'colorpicker'},
 					{kind: KIND.SLIDER, key: 'navbarOpacity', label: () => $L('Navbar Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'opacity'},
 					{kind: KIND.TOGGLE, key: 'navbarAlwaysExpanded', label: () => $L('Always Expand Navbar Labels'), desc: () => $L('Show every button label instead of only the focused one'), icon: 'expandlabels', when: (ctx) => ctx.settings.navbarPosition !== 'left'},
 					{kind: KIND.SECTION, id: 'navButtons', label: () => $L('Buttons')},
@@ -390,6 +391,8 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'featuredBarStyle', label: () => $L('Media Bar Style'), desc: () => $L('Choose between various media bar styles, or turn the media bar off'), options: getFeaturedBarStyleOptions, fallback: () => $L('Moonfin'), icon: 'featured_play_list'},
 					{kind: KIND.OPTION, key: 'featuredContentType', label: () => $L('Content Type'), options: getContentTypeOptions, fallback: () => $L('Movies & TV Shows'), icon: 'category'},
 					{kind: KIND.OPTION, key: 'featuredItemCount', label: () => $L('Item Count'), options: getFeaturedItemCountOptions, fallback: () => $L('10 items'), icon: 'format_list_numbered'},
+					{kind: KIND.OPTION, key: 'mediaBarOverlayColor', label: () => $L('Overlay Color'), options: getOverlayColorOptions, fallback: () => $L('Gray'), icon: 'colorpicker'},
+					{kind: KIND.SLIDER, key: 'mediaBarOverlayOpacity', label: () => $L('Overlay Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'opacity'},
 					{kind: KIND.SECTION, id: 'mediaSources', label: () => $L('Media Sources')},
 					{
 						kind: KIND.NAV,

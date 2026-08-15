@@ -20,9 +20,10 @@
 	}
 }
 
+// The rail's own color arrives as an inline style, since it's mixed from the
+// navbar color and opacity settings.
 .sidebar.expanded {
 	width: @sidebar-expanded-width;
-	background: linear-gradient(to right, rgba(var(--theme-navbar-color-rgb, 0, 0, 0), 0.96), rgba(var(--theme-navbar-color-rgb, 0, 0, 0), 0.88), rgba(var(--theme-navbar-color-rgb, 0, 0, 0), 0.55), transparent);
 }
 
 .userSection {
@@ -242,21 +243,13 @@
 	opacity: 1;
 }
 
+// The item colors themselves come from the theme's nav color cycle, so this
+// block only carries the chrome the cycle can't express.
 :global(html[data-theme-id='neon_pulse']) {
 	.sidebar.expanded {
 		border-right: 1.2px solid var(--theme-accent, #ff2e92);
 		box-shadow: 2px 0 12px rgba(var(--theme-accent-rgb, 255, 46, 146), 0.4),
 			1px 0 10px rgba(var(--theme-on-surface-rgb, 0, 229, 255), 0.33);
-	}
-
-	.navSection .sidebarItem,
-	.navSection .libraryItem {
-		color: var(--theme-accent, #ff2e92);
-	}
-
-	.navSection .sidebarItem:nth-of-type(even),
-	.navSection .libraryItem:nth-of-type(even) {
-		color: var(--theme-on-surface, #00e5ff);
 	}
 
 	.clock {

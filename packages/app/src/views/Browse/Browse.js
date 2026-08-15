@@ -9,7 +9,7 @@ import SeerrTileRow from '../../components/SeerrTileRow';
 import LibraryButtonRow from '../../components/LibraryButtonRow';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {getImageUrl, getBackdropId} from '../../utils/helpers';
-import {toCssColor} from '../../theme/themeSpec';
+import {radiusToCss, shadowToCss, toCssColor} from '../../theme/themeSpec';
 import DetailSection from './DetailSection';
 import FeaturedBanner from './FeaturedBanner';
 import MakdBanner from './MakdBanner';
@@ -88,14 +88,16 @@ const Browse = ({
 	// the filter would flatten the frosted treatment the stylesheet applies.
 	const uiPanelStyle = useMemo(() => {
 		return {
-			boxShadow: 'var(--theme-focus-glow)'
+			boxShadow: activeTheme.borders.focusGlow.length
+				? activeTheme.borders.focusGlow.map(shadowToCss).join(', ')
+				: 'none'
 		};
-	}, []);
+	}, [activeTheme]);
 
 	const uiButtonStyle = useMemo(() => {
 		return {
 			color: toCssColor(activeTheme.colors.onButtonNormal),
-			borderRadius: 'var(--theme-chip-radius)'
+			borderRadius: radiusToCss(activeTheme.borders.chipRadius)
 		};
 	}, [activeTheme]);
 

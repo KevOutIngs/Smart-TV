@@ -27,10 +27,11 @@
 	justify-content: center;
 }
 
+// The pill's own color arrives as an inline style, mixed from the navbar color
+// and opacity settings. Fading the element itself would take the labels with it.
 .navPill {
 	display: flex;
 	align-items: center;
-	background: var(--theme-navbar-color-rgb, rgba(40, 40, 40, 0.85));
 	border: var(--theme-nav-border, none);
 	border-radius: 40px;
 	padding: 10px;
@@ -39,7 +40,6 @@
 	overflow-y: hidden;
 	scroll-behavior: smooth;
 	scrollbar-width: none;
-	opacity: var(--theme-navbar-opacity, 1);
 
 	&::-webkit-scrollbar {
 		display: none;
@@ -201,17 +201,11 @@
 	margin-left: 4px;
 }
 
+// The pill colors themselves come from the theme's nav color cycle, so this
+// block only carries the chrome the cycle can't express.
 :global(html[data-theme-id='neon_pulse']) {
 	.navPill {
 		box-shadow: 0 0 6px rgba(var(--theme-accent-rgb, 255, 46, 146), 0.35);
-	}
-
-	.navPill .navBtn {
-		color: var(--theme-accent, #ff2e92);
-	}
-
-	.navPill .navBtn:nth-of-type(even) {
-		color: var(--theme-on-surface, #00e5ff);
 	}
 
 	.clock {

@@ -8,7 +8,8 @@ import SeerrIcon from '../icons/SeerrIcon';
 import SyncPlayIcon from '../icons/SyncPlayIcon';
 import {FavoritesIcon, GenresIcon, HomeIcon, SearchIcon, SettingsIcon, ShuffleIcon} from '../icons/navIcons';
 import useClock from '../../hooks/useClock';
-import {toCssColor, toCssColorWithAlpha, toSafeCssColorWithAlpha} from '../../theme/themeSpec';
+import {shadowToCss, toCssColor, toCssColorWithAlpha} from '../../theme/themeSpec';
+import {resolveOverlayColor} from '../../theme/overlayColors';
 import {SIDEBAR_CONTENT_FOCUS_TARGETS, focusFirstContentTarget} from '../../utils/navFocusTargets';
 import {KEYS} from '../../utils/keys';
 import SidebarItem from './SidebarItem';
@@ -22,6 +23,10 @@ const SidebarContainer = SpotlightContainerDecorator({
 	enterTo: 'default-element',
 	preserveId: true
 }, 'nav');
+
+// The rail holds its color flat for all but its outer 16 pixels of 280, where it
+// blends out to nothing.
+const RAIL_SOLID_PERCENT = Math.round(((280 - 16) / 280) * 10000) / 100;
 
 // Up and down at the ends of the rail would otherwise leak out to whatever sits
 // behind it, so those two presses get swallowed.
@@ -64,23 +69,21 @@ const Sidebar = ({
 	const showLibraries = settings.showLibrariesInToolbar !== false && libraries.length > 0;
 
 	const navStyle = useMemo(() => {
-		let navbarColor = activeTheme.transparentNavbarSurface ? 'transparent' : `linear-gradient(to right, ${toCssColorWithAlpha(activeTheme.colors.surface, 0.96)}, ${toCssColorWithAlpha(activeTheme.colors.surface, 0.88)}, ${toCssColorWithAlpha(activeTheme.colors.surface, 0.66)}, transparent)`;
-		const c1 = toSafeCssColorWithAlpha(settings.navbarColor, settings.navbarOpacity/100);
-		const c2 = toSafeCssColorWithAlpha(settings.navbarColor, settings.navbarOpacity/105);
-		const c3 = toSafeCssColorWithAlpha(settings.navbarColor, settings.navbarOpacity/110);
-		const c4 = toSafeCssColorWithAlpha(settings.navbarColor, settings.navbarOpacity/115);
-		if (c1 && c2 && c3 && c4) {
-			navbarColor = `linear-gradient(to right, ${c1}, ${c1}, ${c2}, ${c3}, ${c4}, transparent)`;
-		}
+		// The rail paints the overlay color on every theme. Only the top bar clears
+		// itself for themes that ask for a transparent nav surface.
+		const overlay = toCssColorWithAlpha(resolveOverlayColor(settings.navbarColor), (settings.navbarOpacity ?? 50) / 100);
+		// The stop is a percentage rather than a pixel width so it holds its place
+		// when the interface scale stretches the rail.
+		const rail = `linear-gradient(to right, ${overlay} 0%, ${overlay} ${RAIL_SOLID_PERCENT}%, transparent 100%)`;
 		return {
-			background: expanded ? navbarColor : 'transparent',
+			background: expanded ? rail : 'transparent',
 			backdropFilter: 'none',
 			WebkitBackdropFilter: 'none',
 			borderBottom: activeTheme.borders.navBorder
 				? `${activeTheme.borders.navBorder.width}px solid ${toCssColor(activeTheme.borders.navBorder.color)}`
 				: 'none',
 			color: toCssColor(activeTheme.colors.onSurface),
-			textShadow: activeTheme.textGlow.length ? 'var(--theme-text-glow)' : 'none'
+			textShadow: activeTheme.textGlow.length ? activeTheme.textGlow.map(shadowToCss).join(', ') : 'none'
 		};
 	}, [activeTheme, settings.navbarColor, settings.navbarOpacity, expanded]);
 
@@ -93,6 +96,14 @@ const Sidebar = ({
 			trapVerticalEdges(e);
 		}
 	}, []);
+
+	// Slots hand out the theme's nav color cycle in the order items actually
+	// render, so hiding a button never doubles a color on its neighbours.
+	let slot = 0;
+	const nextSlot = () => {
+		slot += 1;
+		return slot;
+	};
 
 	return (
 		<SidebarContainer
@@ -111,39 +122,40 @@ const Sidebar = ({
 
 			<div className={css.navSection}>
 				<div className={css.navItems}>
-					<SidebarItem Icon={HomeIcon} slot={1} label={$L('Home')} onClick={onHome} spotlightId="navbar-home" className={spotlightDefaultClass} />
-					<SidebarItem Icon={SearchIcon} slot={2} label={$L('Search')} onClick={onSearch} />
+					<SidebarItem Icon={HomeIcon} slot={nextSlot()} label={$L('Home')} onClick={onHome} spotlightId="navbar-home" className={spotlightDefaultClass} />
+					<SidebarItem Icon={SearchIcon} slot={nextSlot()} label={$L('Search')} onClick={onSearch} />
 
 					{showShuffle && (
-						<SidebarItem Icon={ShuffleIcon} slot={3} label={$L('Shuffle')} onClick={onShuffle} />
+						<SidebarItem Icon={ShuffleIcon} slot={nextSlot()} label={$L('Shuffle')} onClick={onShuffle} />
 					)}
 
 					{showGenres && (
-						<SidebarItem Icon={GenresIcon} slot={4} label={$L('Genres')} onClick={onGenres} />
+						<SidebarItem Icon={GenresIcon} slot={nextSlot()} label={$L('Genres')} onClick={onGenres} />
 					)}
 
 					{showFavorites && (
-						<SidebarItem Icon={FavoritesIcon} slot={5} label={$L('Favorites')} onClick={onFavorites} />
+						<SidebarItem Icon={FavoritesIcon} slot={nextSlot()} label={$L('Favorites')} onClick={onFavorites} />
 					)}
 
 					{showSeerr && (
-						<SidebarItem Icon={SeerrIcon} slot={6} label={displayName} onClick={onDiscover} />
+						<SidebarItem Icon={SeerrIcon} slot={nextSlot()} label={displayName} onClick={onDiscover} />
 					)}
 
 					{showSyncPlay && (
-						<SidebarItem Icon={SyncPlayIcon} slot={7} label={$L('SyncPlay')} onClick={onSyncPlay} active={isInGroup} />
+						<SidebarItem Icon={SyncPlayIcon} slot={nextSlot()} label={$L('SyncPlay')} onClick={onSyncPlay} active={isInGroup} />
 					)}
 
 					{showLibraries && (
 						<SidebarLibraries
 							libraries={libraries}
+							slot={nextSlot()}
 							expanded={librariesExpanded}
 							onToggle={toggleLibraries}
 							onSelectLibrary={onSelectLibrary}
 						/>
 					)}
 
-					<SidebarItem Icon={SettingsIcon} slot={9} label={$L('Settings')} onClick={onSettings} spotlightId="navbar-settings" />
+					<SidebarItem Icon={SettingsIcon} slot={nextSlot()} label={$L('Settings')} onClick={onSettings} spotlightId="navbar-settings" />
 				</div>
 			</div>
 

@@ -8,7 +8,8 @@ import SeerrIcon from '../icons/SeerrIcon';
 import SyncPlayIcon from '../icons/SyncPlayIcon';
 import {FavoritesIcon, GenresIcon, HomeIcon, SearchIcon, SettingsIcon, ShuffleIcon} from '../icons/navIcons';
 import useClock from '../../hooks/useClock';
-import {toCssColor, toSafeCssColorWithAlpha} from '../../theme/themeSpec';
+import {shadowToCss, toCssColor, toCssColorWithAlpha} from '../../theme/themeSpec';
+import {resolveOverlayColor} from '../../theme/overlayColors';
 import {CONTENT_FOCUS_TARGETS, focusFirstContentTarget} from '../../utils/navFocusTargets';
 import {KEYS} from '../../utils/keys';
 import NavLibraries from './NavLibraries';
@@ -51,9 +52,11 @@ const NavBar = ({
 	const showLibraries = settings.showLibrariesInToolbar !== false && libraries.length > 0;
 
 	const navPillStyle = useMemo(() => {
-		let navbarColor = activeTheme.transparentNavbarSurface ? 'transparent' : toCssColor(activeTheme.colors.surface);
-		const safeColor = toSafeCssColorWithAlpha(settings.navbarColor, settings.navbarOpacity/100);
-		if (safeColor) navbarColor = safeColor;
+		// The pill wears the overlay color at the chosen opacity, and only a theme
+		// asking for a transparent nav surface clears it entirely.
+		const navbarColor = activeTheme.transparentNavbarSurface
+			? 'transparent'
+			: toCssColorWithAlpha(resolveOverlayColor(settings.navbarColor), (settings.navbarOpacity ?? 50) / 100);
 		return {
 			background: navbarColor,
 			backdropFilter: 'none',
@@ -62,7 +65,7 @@ const NavBar = ({
 				? `${activeTheme.borders.navBorder.width}px solid ${toCssColor(activeTheme.borders.navBorder.color)}`
 				: 'none',
 			color: toCssColor(activeTheme.colors.onSurface),
-			textShadow: activeTheme.textGlow.length ? 'var(--theme-text-glow)' : 'none'
+			textShadow: activeTheme.textGlow.length ? activeTheme.textGlow.map(shadowToCss).join(', ') : 'none'
 		};
 	}, [activeTheme, settings.navbarColor, settings.navbarOpacity]);
 
@@ -88,6 +91,14 @@ const NavBar = ({
 		focusFirstContentTarget(CONTENT_FOCUS_TARGETS, 'down');
 	}, []);
 
+	// Slots hand out the theme's nav color cycle in the order pills actually
+	// render, so hiding a button never doubles a color on its neighbours.
+	let slot = 0;
+	const nextSlot = () => {
+		slot += 1;
+		return slot;
+	};
+
 	return (
 		<NavContainer
 			className={settings.navbarAlwaysExpanded ? `${css.topNav} ${css.alwaysExpanded}` : css.topNav}
@@ -100,39 +111,40 @@ const NavBar = ({
 
 			<div className={css.navCenter}>
 				<div className={css.navPill} style={navPillStyle} onFocus={handlePillFocus}>
-					<NavPillButton Icon={HomeIcon} slot={1} label={$L('Home')} onClick={onHome} spotlightId="navbar-home" isDefault />
-					<NavPillButton Icon={SearchIcon} slot={2} label={$L('Search')} onClick={onSearch} spotlightId="navbar-search" />
+					<NavPillButton Icon={HomeIcon} slot={nextSlot()} label={$L('Home')} onClick={onHome} spotlightId="navbar-home" isDefault />
+					<NavPillButton Icon={SearchIcon} slot={nextSlot()} label={$L('Search')} onClick={onSearch} spotlightId="navbar-search" />
 
 					{showShuffle && (
-						<NavPillButton Icon={ShuffleIcon} slot={3} label={$L('Shuffle')} onClick={onShuffle} spotlightId="navbar-shuffle" />
+						<NavPillButton Icon={ShuffleIcon} slot={nextSlot()} label={$L('Shuffle')} onClick={onShuffle} spotlightId="navbar-shuffle" />
 					)}
 
 					{showGenres && (
-						<NavPillButton Icon={GenresIcon} slot={4} label={$L('Genres')} onClick={onGenres} spotlightId="navbar-genres" />
+						<NavPillButton Icon={GenresIcon} slot={nextSlot()} label={$L('Genres')} onClick={onGenres} spotlightId="navbar-genres" />
 					)}
 
 					{showFavorites && (
-						<NavPillButton Icon={FavoritesIcon} slot={5} label={$L('Favorites')} onClick={onFavorites} spotlightId="navbar-favorites" />
+						<NavPillButton Icon={FavoritesIcon} slot={nextSlot()} label={$L('Favorites')} onClick={onFavorites} spotlightId="navbar-favorites" />
 					)}
 
 					{showSeerr && (
-						<NavPillButton Icon={SeerrIcon} slot={6} label={displayName} onClick={onDiscover} spotlightId="navbar-discover" />
+						<NavPillButton Icon={SeerrIcon} slot={nextSlot()} label={displayName} onClick={onDiscover} spotlightId="navbar-discover" />
 					)}
 
 					{showSyncPlay && (
-						<NavPillButton Icon={SyncPlayIcon} slot={7} label={$L('SyncPlay')} onClick={onSyncPlay} spotlightId="navbar-syncplay" active={isInGroup} />
+						<NavPillButton Icon={SyncPlayIcon} slot={nextSlot()} label={$L('SyncPlay')} onClick={onSyncPlay} spotlightId="navbar-syncplay" active={isInGroup} />
 					)}
 
 					{showLibraries && (
 						<NavLibraries
 							libraries={libraries}
+							slot={nextSlot()}
 							activeView={activeView}
 							onSelectLibrary={onSelectLibrary}
 							leftTargetId={librariesLeftTargetId}
 						/>
 					)}
 
-					<NavPillButton Icon={SettingsIcon} slot={9} label={$L('Settings')} onClick={onSettings} spotlightId="navbar-settings" />
+					<NavPillButton Icon={SettingsIcon} slot={nextSlot()} label={$L('Settings')} onClick={onSettings} spotlightId="navbar-settings" />
 				</div>
 			</div>
 
