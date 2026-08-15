@@ -50,15 +50,21 @@ const ExpandableOverview = ({text, itemId, className, variant, backRef}) => {
 
 	const handleToggle = useCallback(() => setIsExpanded((prev) => !prev), []);
 
-	// While open, up and down page through the text instead of moving focus.
+	// While open, up and down page through the text instead of moving focus. Once
+	// the text has run out in that direction the press belongs to whatever sits
+	// above or below, otherwise the box holds focus and nothing can be reached.
 	const handleKeyDown = useCallback((ev) => {
 		if (!isExpanded) return;
-		if (ev.keyCode === KEYS.UP || ev.keyCode === KEYS.DOWN) {
-			const el = ev.currentTarget;
-			el.scrollTop += ev.keyCode === KEYS.DOWN ? SCROLL_STEP : -SCROLL_STEP;
-			ev.preventDefault();
-			ev.stopPropagation();
-		}
+		if (ev.keyCode !== KEYS.UP && ev.keyCode !== KEYS.DOWN) return;
+		const el = ev.currentTarget;
+		const down = ev.keyCode === KEYS.DOWN;
+		const room = down
+			? el.scrollHeight - el.clientHeight - el.scrollTop > 1
+			: el.scrollTop > 1;
+		if (!room) return;
+		el.scrollTop += down ? SCROLL_STEP : -SCROLL_STEP;
+		ev.preventDefault();
+		ev.stopPropagation();
 	}, [isExpanded]);
 
 	if (!text) return null;
