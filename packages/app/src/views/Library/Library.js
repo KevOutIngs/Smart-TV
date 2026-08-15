@@ -15,6 +15,7 @@ import {isMdblistEnabled} from '../../services/mdblistApi';
 import RatingsRow from '../../components/RatingsRow';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
 import {useStorage} from '../../hooks/useStorage';
+import {buildFilterParams} from '../../utils/libraryFilters';
 import {KEYS} from '../../utils/keys';
 import useSortSettingsPanels from '../../hooks/useSortSettingsPanels';
 import useStartLetter from '../../hooks/useStartLetter';
@@ -29,24 +30,32 @@ const GridContainer = SpotlightContainerDecorator({enterTo: 'last-focused', rest
 const SortPanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
 const SettingsPanelContainer = SpotlightContainerDecorator({enterTo: 'last-focused', restrict: 'self-only'}, 'div');
 
+// Every sort ends on SortName so items the server ranks equally keep a stable
+// order between pages, which a bare key leaves to whatever the database returns.
 const SORT_OPTIONS = [
 	{key: 'SortName', field: 'SortName', order: 'Ascending', label: $L('Name')},
-	{key: 'DateCreated', field: 'DateCreated', order: 'Descending', label: $L('Date Added')},
-	{key: 'PremiereDate', field: 'PremiereDate', order: 'Descending', label: $L('Premiere Date')},
-	{key: 'OfficialRating', field: 'OfficialRating', order: 'Ascending', label: $L('Rating')},
-	{key: 'CommunityRating', field: 'CommunityRating', order: 'Descending', label: $L('Community Rating')},
-	{key: 'CriticRating', field: 'CriticRating', order: 'Descending', label: $L('Critic Rating')},
-	{key: 'DatePlayed', field: 'DatePlayed', order: 'Descending', label: $L('Last Played')},
-	{key: 'Runtime', field: 'Runtime', order: 'Ascending', label: $L('Runtime')},
+	{key: 'DateCreated', field: 'DateCreated,SortName', order: 'Descending', label: $L('Date Added')},
+	{key: 'DateLastContentAdded', field: 'DateLastContentAdded,SortName', order: 'Descending', label: $L('Date Episode Added'), seriesOnly: true},
+	{key: 'PremiereDate', field: 'PremiereDate,SortName', order: 'Descending', label: $L('Premiere Date')},
+	{key: 'OfficialRating', field: 'OfficialRating,SortName', order: 'Ascending', label: $L('Rating')},
+	{key: 'CommunityRating', field: 'CommunityRating,SortName', order: 'Descending', label: $L('Community Rating')},
+	{key: 'CriticRating', field: 'CriticRating,SortName', order: 'Descending', label: $L('Critic Rating')},
+	{key: 'DatePlayed', field: 'DatePlayed,SortName', order: 'Descending', label: $L('Last Played')},
+	{key: 'PlayCount', field: 'PlayCount,SortName', order: 'Descending', label: $L('Play Count')},
+	{key: 'Runtime', field: 'Runtime,SortName', order: 'Ascending', label: $L('Runtime')},
 	{key: 'Random', field: 'Random', order: 'Ascending', label: $L('Random')}
 ];
 
 const MUSIC_SORT_OPTIONS = [
 	{key: 'SortName', field: 'SortName', order: 'Ascending', label: $L('Name')},
-	{key: 'DateCreated', field: 'DateCreated', order: 'Descending', label: $L('Date Added')},
-	{key: 'CommunityRating', field: 'CommunityRating', order: 'Descending', label: $L('Community Rating')},
-	{key: 'DatePlayed', field: 'DatePlayed', order: 'Descending', label: $L('Last Played')},
-	{key: 'AlbumArtist', field: 'AlbumArtist,SortName', order: 'Ascending', label: $L('Album Artist')}
+	{key: 'DateCreated', field: 'DateCreated,SortName', order: 'Descending', label: $L('Date Added')},
+	{key: 'CommunityRating', field: 'CommunityRating,SortName', order: 'Descending', label: $L('Community Rating')},
+	{key: 'DatePlayed', field: 'DatePlayed,SortName', order: 'Descending', label: $L('Last Played')},
+	{key: 'AlbumArtist', field: 'AlbumArtist,Album,SortName', order: 'Ascending', label: $L('Album Artist')},
+	{key: 'Album', field: 'Album,SortName', order: 'Ascending', label: $L('Album')},
+	{key: 'Artist', field: 'Artist,Album,SortName', order: 'Ascending', label: $L('Artist')},
+	{key: 'IndexNumber', field: 'IndexNumber,SortName', order: 'Ascending', label: $L('Number')},
+	{key: 'Random', field: 'Random', order: 'Ascending', label: $L('Random')}
 ];
 
 const MUSIC_CONTENT_TYPES = [
@@ -67,7 +76,33 @@ const MIN_ROW_GAP = 6;
 const PLAYED_FILTERS = [
 	{key: 'all', label: $L('All')},
 	{key: 'watched', label: $L('Watched')},
-	{key: 'unwatched', label: $L('Unwatched')}
+	{key: 'unwatched', label: $L('Unwatched')},
+	{key: 'inProgress', label: $L('In Progress')}
+];
+
+const FEATURE_FILTERS = [
+	{key: 'HasSubtitles', label: $L('Subtitles')},
+	{key: 'HasTrailer', label: $L('Trailers')},
+	{key: 'HasSpecialFeature', label: $L('Extras')},
+	{key: 'HasThemeSong', label: $L('Theme Songs')},
+	{key: 'HasThemeVideo', label: $L('Theme Videos')}
+];
+
+const QUALITY_FILTERS = [
+	{key: 'sd', label: $L('SD')},
+	{key: 'hd', label: $L('HD')},
+	{key: 'uhd', label: $L('4K'), jellyfinOnly: true},
+	{key: 'threeD', label: $L('3D')}
+];
+
+// A tag list can run to thousands of entries, and each one costs a focusable
+// row, so a facet opens on this many and grows a page at a time.
+const FACET_PAGE = 50;
+
+const VIDEO_SOURCE_FILTERS = [
+	{key: 'Dvd', label: $L('DVD')},
+	{key: 'BluRay', label: $L('Blu-ray')},
+	{key: 'Iso', label: $L('ISO')}
 ];
 
 const LIKED_FILTERS = [
@@ -79,8 +114,11 @@ const LIKED_FILTERS = [
 const SERIES_FILTERS = [
 	{key: 'all', label: $L('All')},
 	{key: 'continuing', label: $L('Continuing')},
-	{key: 'ended', label: $L('Ended')}
+	{key: 'ended', label: $L('Ended')},
+	{key: 'unreleased', label: $L('Unreleased'), jellyfinOnly: true}
 ];
+
+const SERIES_STATUS_BY_KEY = {continuing: 'Continuing', ended: 'Ended', unreleased: 'Unreleased'};
 
 // The line under a card's title. Detailed sub headings spell out the year, age
 // rating, runtime, resolution and score, while the plain setting keeps the year
@@ -121,7 +159,7 @@ const handleGridKeyDown = createGridKeyDown(css.grid, 'library-letter-hash');
 const handleGridKeyDownNoLetters = createGridKeyDown(css.grid, 'library-toolbar');
 
 const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto, onHome, backHandlerRef}) => {
-	const {api, serverUrl} = useAuth();
+	const {api, serverUrl, serverType} = useAuth();
 	const {settings} = useSettings();
 
 	const effectiveApi = useMemo(() => {
@@ -137,7 +175,9 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 
 	const isMusicLibrary = library?.CollectionType?.toLowerCase() === 'music';
 	const isSeriesLibrary = library?.CollectionType?.toLowerCase() === 'tvshows';
-	const activeSortOptions = isMusicLibrary ? MUSIC_SORT_OPTIONS : SORT_OPTIONS;
+	const activeSortOptions = isMusicLibrary
+		? MUSIC_SORT_OPTIONS
+		: SORT_OPTIONS.filter(o => !o.seriesOnly || isSeriesLibrary);
 	const isPlaylistLibrary = library?.CollectionType?.toLowerCase() === 'playlists';
 	const isSquareDefault = isMusicLibrary || isPlaylistLibrary;
 
@@ -148,6 +188,18 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	const [playedFilter, setPlayedFilter] = useState('all');
 	const [likedFilter, setLikedFilter] = useState('all');
 	const [seriesFilter, setSeriesFilter] = useState('all');
+	const [featureFilters, setFeatureFilters] = useState([]);
+	const [qualityFilters, setQualityFilters] = useState([]);
+	const [videoSourceFilters, setVideoSourceFilters] = useState([]);
+	const [genreFilters, setGenreFilters] = useState([]);
+	const [ratingFilters, setRatingFilters] = useState([]);
+	const [tagFilters, setTagFilters] = useState([]);
+	const [yearFilters, setYearFilters] = useState([]);
+	const [audioLanguageFilters, setAudioLanguageFilters] = useState([]);
+	const [subtitleLanguageFilters, setSubtitleLanguageFilters] = useState([]);
+	const [facetValues, setFacetValues] = useState(null);
+	const [expandedFacet, setExpandedFacet] = useState(null);
+	const [facetLimit, setFacetLimit] = useState(FACET_PAGE);
 	const [musicContentType, setMusicContentType] = useState('albums');
 	const [focusedItem, setFocusedItem] = useState(null);
 	const [musicGridView, setMusicGridView] = useState(null);
@@ -270,9 +322,23 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			if (favoritesOnly) filters.push('IsFavorite');
 			if (playedFilter === 'watched') filters.push('IsPlayed');
 			if (playedFilter === 'unwatched') filters.push('IsUnplayed');
+			if (playedFilter === 'inProgress') filters.push('IsResumable');
 			if (likedFilter === 'liked') filters.push('Likes');
 			if (likedFilter === 'disliked') filters.push('Dislikes');
-			const seriesStatusParam = seriesFilter === 'all' ? null : (seriesFilter === 'continuing' ? 'Continuing' : 'Ended');
+			const seriesStatusParam = SERIES_STATUS_BY_KEY[seriesFilter] || null;
+			const extraParams = buildFilterParams({
+				featureFilters,
+				qualityFilters,
+				videoSourceFilters,
+				// The genre being browsed owns the Genres parameter, so the facet
+				// stays out of it rather than replacing the list the user opened.
+				genreFilters: genreFilter ? [] : genreFilters,
+				ratingFilters,
+				tagFilters,
+				yearFilters,
+				audioLanguageFilters,
+				subtitleLanguageFilters
+			});
 
 			if (isFolderView) {
 				const params = {
@@ -285,6 +351,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 					Fields: 'PrimaryImageAspectRatio,SortName,Path,ChildCount,MediaSourceCount,ProductionYear,ImageTags,OfficialRating,CommunityRating,CriticRating,RunTimeTicks,UserData'
 				};
 				if (filters.length > 0) params.Filters = filters.join(',');
+				Object.assign(params, extraParams);
 				const result = await effectiveApi.getItems(params);
 				let newItems = result.Items || [];
 				if (currentFolderCollectionType === 'movies' || currentFolderCollectionType === 'tvshows') {
@@ -325,6 +392,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 
 				if (filters.length > 0) params.Filters = filters.join(',');
 				if (seriesStatusParam) params.SeriesStatus = seriesStatusParam;
+				Object.assign(params, extraParams);
 
 				// Playlists are not children of the music library, so they are fetched without
 				// a parent. Artists and album artists are different lists behind different
@@ -383,7 +451,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			setIsLoading(false);
 			loadingMoreRef.current = false;
 		}
-	}, [effectiveApi, library, genreFilter, studioFilter, sortKey, sortOrder, favoritesOnly, playedFilter, likedFilter, seriesFilter, isFolderView, currentFolderId, currentFolderCollectionType, isMusicLibrary, musicContentType, getItemTypeForLibrary, getExcludeItemTypes]);
+	}, [effectiveApi, library, genreFilter, studioFilter, sortKey, sortOrder, favoritesOnly, playedFilter, likedFilter, seriesFilter, featureFilters, qualityFilters, videoSourceFilters, genreFilters, ratingFilters, tagFilters, yearFilters, audioLanguageFilters, subtitleLanguageFilters, isFolderView, currentFolderId, currentFolderCollectionType, isMusicLibrary, musicContentType, getItemTypeForLibrary, getExcludeItemTypes]);
 
 	loadItemsRef.current = loadItems;
 
@@ -401,7 +469,23 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			initialFocusDoneRef.current = false;
 			loadItemsRef.current(0, false);
 		}
-	}, [library, sortKey, sortOrder, favoritesOnly, playedFilter, likedFilter, seriesFilter, musicContentType, isFolderView, currentFolderId, genreFilter, studioFilter, isMusicBrowseHome]);
+	}, [library, sortKey, sortOrder, favoritesOnly, playedFilter, likedFilter, seriesFilter, featureFilters, qualityFilters, videoSourceFilters, genreFilters, ratingFilters, tagFilters, yearFilters, audioLanguageFilters, subtitleLanguageFilters, musicContentType, isFolderView, currentFolderId, genreFilter, studioFilter, isMusicBrowseHome]);
+
+	// The values the library actually holds, read once per library so opening
+	// the filter panel does not wait on the network.
+	useEffect(() => {
+		let cancelled = false;
+		setFacetValues(null);
+		if (!effectiveApi?.getQueryFilters || isMusicBrowseHome) return undefined;
+		effectiveApi.getQueryFilters(library?.Id, getItemTypeForLibrary())
+			.then(values => {
+				if (!cancelled) setFacetValues(values);
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, [effectiveApi, library, isMusicBrowseHome, getItemTypeForLibrary]);
 
 	// Favorites is the albums grid with the filter on rather than a type of its own.
 	const handleOpenMusicGrid = useCallback((target) => {
@@ -545,6 +629,86 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 		handleCloseSortPanel();
 		setTimeout(() => Spotlight.focus('library-grid'), 100);
 	}, [handleCloseSortPanel]);
+
+	// The multi choice filters leave the panel open, since picking one of them
+	// is rarely the only thing the user came to do.
+	const toggleFilterValue = useCallback((setter, value) => {
+		setter(prev => (prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]));
+	}, []);
+
+	const handleFeatureToggle = useCallback((ev) => {
+		toggleFilterValue(setFeatureFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	const handleQualityToggle = useCallback((ev) => {
+		toggleFilterValue(setQualityFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	const handleVideoSourceToggle = useCallback((ev) => {
+		toggleFilterValue(setVideoSourceFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	const handleGenreToggle = useCallback((ev) => {
+		toggleFilterValue(setGenreFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	const handleRatingToggle = useCallback((ev) => {
+		toggleFilterValue(setRatingFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	const handleTagToggle = useCallback((ev) => {
+		toggleFilterValue(setTagFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	const handleYearToggle = useCallback((ev) => {
+		toggleFilterValue(setYearFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	const handleAudioLanguageToggle = useCallback((ev) => {
+		toggleFilterValue(setAudioLanguageFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	const handleSubtitleLanguageToggle = useCallback((ev) => {
+		toggleFilterValue(setSubtitleLanguageFilters, ev.currentTarget.dataset.filterValue);
+	}, [toggleFilterValue]);
+
+	// A library can hold hundreds of tags or years, so the facet sections start
+	// closed and only the one opened takes up the panel.
+	const handleFacetExpand = useCallback((ev) => {
+		const key = ev.currentTarget.dataset.facetKey;
+		setFacetLimit(FACET_PAGE);
+		setExpandedFacet(prev => (prev === key ? null : key));
+	}, []);
+
+	const handleFacetShowMore = useCallback(() => {
+		setFacetLimit(prev => prev + FACET_PAGE);
+	}, []);
+
+	const handleClearFilters = useCallback(() => {
+		setFavoritesOnly(false);
+		setPlayedFilter('all');
+		setLikedFilter('all');
+		setSeriesFilter('all');
+		setFeatureFilters([]);
+		setQualityFilters([]);
+		setVideoSourceFilters([]);
+		setGenreFilters([]);
+		setRatingFilters([]);
+		setTagFilters([]);
+		setYearFilters([]);
+		setAudioLanguageFilters([]);
+		setSubtitleLanguageFilters([]);
+		handleCloseSortPanel();
+		setTimeout(() => Spotlight.focus('library-grid'), 100);
+	}, [handleCloseSortPanel]);
+
+	// A facet left open on a raised limit would rebuild all of those rows the next
+	// time the panel comes up, so putting the panel away starts it over.
+	useEffect(() => {
+		if (showSortPanel) return;
+		setExpandedFacet(null);
+		setFacetLimit(FACET_PAGE);
+	}, [showSortPanel]);
 
 	const handleCycleImageSize = useCallback(() => {
 		setImageSize(cycleValue(IMAGE_SIZES, imageSize));
@@ -710,9 +874,94 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	if (favoritesOnly) filterParts.push($L('Favorites'));
 	if (playedFilter === 'watched') filterParts.push($L('Watched'));
 	if (playedFilter === 'unwatched') filterParts.push($L('Unwatched'));
+	if (playedFilter === 'inProgress') filterParts.push($L('In Progress'));
 	if (likedFilter === 'liked') filterParts.push($L('Liked'));
 	if (likedFilter === 'disliked') filterParts.push($L('Disliked'));
+	if (seriesFilter === 'unreleased') filterParts.push($L('Unreleased'));
+	FEATURE_FILTERS.forEach(option => {
+		if (featureFilters.includes(option.key)) filterParts.push(option.label);
+	});
+	QUALITY_FILTERS.forEach(option => {
+		if (qualityFilters.includes(option.key)) filterParts.push(option.label);
+	});
+	VIDEO_SOURCE_FILTERS.forEach(option => {
+		if (videoSourceFilters.includes(option.key)) filterParts.push(option.label);
+	});
+	if (!genreFilter) filterParts.push(...genreFilters);
+	filterParts.push(...ratingFilters, ...tagFilters, ...yearFilters);
+	// One collapsible group per facet, left out entirely when the library holds
+	// no values for it. Languages carry a display name beside the code the
+	// query takes, everything else is its own label.
+	const renderFacetSection = (facetKey, title, values, selected, onToggle) => {
+		if (!values || values.length === 0) return null;
+		const options = values.map(v => (typeof v === 'string' ? {name: v, value: v} : v));
+		// Tags and genres are whatever the library owner typed, and a spotlight
+		// id ends up in a CSS selector, so the position identifies the row.
+		const expanded = expandedFacet === facetKey;
+		const chosen = options.filter(o => selected.includes(o.value)).length;
+		// Anything already picked stays on screen however far down the list it
+		// sits, otherwise a page limit could hide the only way to clear it.
+		let room = facetLimit;
+		const visible = options.filter(option => {
+			if (selected.includes(option.value)) return true;
+			if (room <= 0) return false;
+			room -= 1;
+			return true;
+		});
+		const remaining = options.length - visible.length;
+		return (
+			<div className={css.filterSection}>
+				<SpottableButton
+					className={css.sortOption}
+					onClick={handleFacetExpand}
+					data-facet-key={facetKey}
+					spotlightId={`filter-facet-${facetKey}`}
+				>
+					<span className={css.sortOptionLabel}>
+						{chosen > 0 ? `${title} (${chosen})` : title}
+					</span>
+				</SpottableButton>
+				{expanded && visible.map((option, index) => (
+					<SpottableButton
+						key={option.value}
+						className={`${css.sortOption} ${selected.includes(option.value) ? css.sortOptionActive : ''}`}
+						onClick={onToggle}
+						data-filter-value={option.value}
+						spotlightId={`filter-${facetKey}-${index}`}
+					>
+						<span className={css.checkboxSquare}>
+							{selected.includes(option.value) && (
+								<svg viewBox="0 0 24 24" className={css.checkIcon}>
+									<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+								</svg>
+							)}
+						</span>
+						<span className={css.sortOptionLabel}>{option.name}</span>
+					</SpottableButton>
+				))}
+				{expanded && remaining > 0 && (
+					<SpottableButton
+						className={css.sortOption}
+						onClick={handleFacetShowMore}
+						spotlightId={`filter-${facetKey}-more`}
+					>
+						<span className={css.sortOptionLabel}>
+							{$L('Show more ({count} left)').replace('{count}', remaining)}
+						</span>
+					</SpottableButton>
+				)}
+			</div>
+		);
+	};
+
 	const filterLabel = filterParts.length > 0 ? filterParts.join(' & ') : $L('All items');
+	const hasActiveFilters = filterParts.length > 0 ||
+		audioLanguageFilters.length > 0 ||
+		subtitleLanguageFilters.length > 0;
+	const showVideoFilters = !isMusicLibrary && !isPlaylistLibrary;
+	// Emby's items query has no 4K flag and its series status holds only
+	// continuing and ended, so those options stay out of the panel there.
+	const supported = (options) => options.filter(o => !o.jellyfinOnly || serverType !== 'emby');
 	const folderName = folderStack.length > 0 ? folderStack[folderStack.length - 1].name : library?.Name;
 	const displayName = genreFilter || studioFilter || library?.Name || '';
 	const statusText = isFolderView
@@ -1051,7 +1300,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 						{isSeriesLibrary && (
 							<div className={css.filterSection}>
 								<div className={css.sortSectionLabel}>{$L('Series Status')}</div>
-								{SERIES_FILTERS.map((option) => (
+								{supported(SERIES_FILTERS).map((option) => (
 									<SpottableButton
 										key={option.key}
 										className={`${css.sortOption} ${seriesFilter === option.key ? css.sortOptionActive : ''}`}
@@ -1065,6 +1314,97 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 										<span className={css.sortOptionLabel}>{$L(option.label)}</span>
 									</SpottableButton>
 								))}
+							</div>
+						)}
+
+						{showVideoFilters && (
+							<div className={css.filterSection}>
+								<div className={css.sortSectionLabel}>{$L('Features')}</div>
+								{supported(FEATURE_FILTERS).map((option) => (
+									<SpottableButton
+										key={option.key}
+										className={`${css.sortOption} ${featureFilters.includes(option.key) ? css.sortOptionActive : ''}`}
+										onClick={handleFeatureToggle}
+										data-filter-value={option.key}
+										spotlightId={`filter-feature-${option.key}`}
+									>
+										<span className={css.checkboxSquare}>
+											{featureFilters.includes(option.key) && (
+												<svg viewBox="0 0 24 24" className={css.checkIcon}>
+													<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+												</svg>
+											)}
+										</span>
+										<span className={css.sortOptionLabel}>{$L(option.label)}</span>
+									</SpottableButton>
+								))}
+							</div>
+						)}
+
+						{showVideoFilters && (
+							<div className={css.filterSection}>
+								<div className={css.sortSectionLabel}>{$L('Quality')}</div>
+								{supported(QUALITY_FILTERS).map((option) => (
+									<SpottableButton
+										key={option.key}
+										className={`${css.sortOption} ${qualityFilters.includes(option.key) ? css.sortOptionActive : ''}`}
+										onClick={handleQualityToggle}
+										data-filter-value={option.key}
+										spotlightId={`filter-quality-${option.key}`}
+									>
+										<span className={css.checkboxSquare}>
+											{qualityFilters.includes(option.key) && (
+												<svg viewBox="0 0 24 24" className={css.checkIcon}>
+													<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+												</svg>
+											)}
+										</span>
+										<span className={css.sortOptionLabel}>{$L(option.label)}</span>
+									</SpottableButton>
+								))}
+							</div>
+						)}
+
+						{showVideoFilters && (
+							<div className={css.filterSection}>
+								<div className={css.sortSectionLabel}>{$L('Source')}</div>
+								{VIDEO_SOURCE_FILTERS.map((option) => (
+									<SpottableButton
+										key={option.key}
+										className={`${css.sortOption} ${videoSourceFilters.includes(option.key) ? css.sortOptionActive : ''}`}
+										onClick={handleVideoSourceToggle}
+										data-filter-value={option.key}
+										spotlightId={`filter-source-${option.key}`}
+									>
+										<span className={css.checkboxSquare}>
+											{videoSourceFilters.includes(option.key) && (
+												<svg viewBox="0 0 24 24" className={css.checkIcon}>
+													<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+												</svg>
+											)}
+										</span>
+										<span className={css.sortOptionLabel}>{$L(option.label)}</span>
+									</SpottableButton>
+								))}
+							</div>
+						)}
+
+						{!genreFilter && renderFacetSection('genres', $L('Genres'), facetValues?.genres, genreFilters, handleGenreToggle)}
+						{renderFacetSection('ratings', $L('Parental Rating'), facetValues?.officialRatings, ratingFilters, handleRatingToggle)}
+						{renderFacetSection('tags', $L('Tags'), facetValues?.tags, tagFilters, handleTagToggle)}
+						{renderFacetSection('years', $L('Years'), facetValues?.years?.map(String), yearFilters, handleYearToggle)}
+						{renderFacetSection('audio', $L('Audio Language'), facetValues?.audioLanguages, audioLanguageFilters, handleAudioLanguageToggle)}
+						{renderFacetSection('subtitles', $L('Subtitle Language'), facetValues?.subtitleLanguages, subtitleLanguageFilters, handleSubtitleLanguageToggle)}
+
+						{hasActiveFilters && (
+							<div className={css.filterSection}>
+								<SpottableButton
+									className={css.sortOption}
+									onClick={handleClearFilters}
+									spotlightId="filter-clear"
+								>
+									<span className={css.sortOptionLabel}>{$L('Clear Filters')}</span>
+								</SpottableButton>
 							</div>
 						)}
 					</SortPanelContainer>

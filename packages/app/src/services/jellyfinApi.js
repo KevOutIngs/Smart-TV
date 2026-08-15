@@ -112,6 +112,41 @@ const nextUpCutoffQuery = (seriesId, maxDays, type) => {
 	return `&NextUpDateCutoff=${encodeURIComponent(cutoff.toISOString())}`;
 };
 
+// Folds the two filter responses into one shape. Genres arrive as plain names
+// from the older endpoint and as objects from the newer one, and languages
+// carry a display name beside the code the query takes.
+const names = (list) => (Array.isArray(list) ? list : [])
+	.map(entry => (entry && typeof entry === 'object' ? entry.Name : entry))
+	.filter(Boolean);
+
+const languages = (list) => (Array.isArray(list) ? list : [])
+	.filter(entry => entry && entry.Value)
+	.map(entry => ({name: entry.Name || entry.Value, value: entry.Value}));
+
+const firstNonEmpty = (a, b) => (a.length ? a : b);
+
+const mergeQueryFilters = (legacy = {}, current = {}) => ({
+	genres: firstNonEmpty(names(legacy.Genres), names(current.Genres)),
+	officialRatings: names(legacy.OfficialRatings),
+	tags: firstNonEmpty(names(legacy.Tags), names(current.Tags)),
+	years: (Array.isArray(legacy.Years) ? legacy.Years : []).filter(y => typeof y === 'number'),
+	audioLanguages: languages(current.AudioLanguages),
+	subtitleLanguages: languages(current.SubtitleLanguages)
+});
+
+// Both api objects read the same two endpoints, differing only in how they
+// reach the server.
+const readQueryFilters = (send, userId, parentId, includeItemTypes) => {
+	const scope =
+		(parentId ? `&ParentId=${encodeURIComponent(parentId)}` : '') +
+		(includeItemTypes ? `&IncludeItemTypes=${encodeURIComponent(includeItemTypes)}` : '');
+	const safe = (path) => send(path).catch(() => ({}));
+	return Promise.all([
+		safe(`/Items/Filters?UserId=${userId}${scope}`),
+		safe(`/Items/Filters2?UserId=${userId}${scope}`)
+	]).then(([legacy, current]) => mergeQueryFilters(legacy, current));
+};
+
 // Routes through the webOS TLS proxy fallback (secureFetch) so Let's-Encrypt
 // servers work on old TVs whose CA store rejects them; native fetch elsewhere.
 const fetchWithTimeout = (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) =>
@@ -534,6 +569,11 @@ export const api = {
 	getRatingFilters: () =>
 		request(`/Items/Filters?UserId=${currentUser}&Recursive=true`),
 
+	// The values one library holds, so the filter panel only offers years,
+	// ratings, tags and languages that match something.
+	getQueryFilters: (parentId, includeItemTypes) =>
+		readQueryFilters(request, currentUser, parentId, includeItemTypes),
+
 	getAdditionalParts: (itemId) =>
 		request(`/Videos/${itemId}/AdditionalParts?UserId=${currentUser}`),
 
@@ -850,6 +890,9 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 			const params = libraryId ? `&ParentId=${libraryId}` : '';
 			return serverRequest(`/Genres?UserId=${userId}&SortBy=${encodeURIComponent(sortBy)}&SortOrder=${encodeURIComponent(sortOrder)}&Recursive=true&IncludeItemTypes=${encodeURIComponent(includeItemTypes)}${params}`);
 		},
+
+		getQueryFilters: (parentId, includeItemTypes) =>
+			readQueryFilters(serverRequest, userId, parentId, includeItemTypes),
 
 		getMusicGenres: (params = {}) => {
 			const merged = {UserId: userId, SortBy: 'SortName', SortOrder: 'Ascending', Recursive: 'true'};
