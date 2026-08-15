@@ -83,6 +83,7 @@ export const defaultSettings = {
 	displayAudioAlbums: true,
 	audioSortOption: 'name',
 	customHomeRows: [],
+	recentlyReleasedSeriesType: 'series',
 	mergeRadarrSonarrCalendars: false,
 	radarrCalendarShowCinema: true,
 	radarrCalendarShowDigital: true,

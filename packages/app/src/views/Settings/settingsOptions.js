@@ -553,3 +553,9 @@ export const getEnabledRatingSourcesSummary = (sources) => {
 		.map((option) => option.label)
 		.join(', ');
 };
+
+export const getRecentlyReleasedSeriesTypeOptions = () => [
+	{ value: 'series', label: $L('Series') },
+	{ value: 'season', label: $L('Season') },
+	{ value: 'episode', label: $L('Episode') }
+];
