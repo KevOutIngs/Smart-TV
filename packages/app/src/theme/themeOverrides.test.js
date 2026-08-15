@@ -1,5 +1,6 @@
 import {buildThemeOverrideCss} from './themeOverrides';
 import {resolveThemeById} from './themeRegistry';
+import {contrastRatio, inkOn, toCssColor, MIN_BUTTON_CONTRAST} from './themeSpec';
 
 describe('buildThemeOverrideCss', () => {
 	it('scopes every rule to the active theme id', () => {
@@ -56,5 +57,53 @@ describe('buildThemeOverrideCss', () => {
 		const theme = resolveThemeById('moonfin');
 		expect(buildThemeOverrideCss(theme, {focusBorderColor: '#ff0000'})).toContain('rgb(255, 0, 0)');
 		expect(buildThemeOverrideCss(theme, {focusBorderColor: 'nonsense'})).not.toContain('nonsense');
+	});
+});
+
+describe('ink on a focused row', () => {
+	it('picks dark text on a bright fill and light on a dim one', () => {
+		expect(inkOn('#FF00E5FF')).toBe('0, 0, 0');
+		expect(inkOn('#FFFFCD75')).toBe('0, 0, 0');
+		expect(inkOn('#FF00A4DC')).toBe('0, 0, 0');
+		expect(inkOn('#FF101010')).toBe('255, 255, 255');
+		expect(inkOn('#FF2A2A2A')).toBe('255, 255, 255');
+	});
+
+	it('writes every theme\'s focused rows in ink chosen against its own fill', () => {
+		for (const id of ['moonfin', 'neon_pulse', '8bit_hero']) {
+			const theme = resolveThemeById(id);
+			const ink = inkOn(theme.colors.buttonFocused);
+			const css = buildThemeOverrideCss(theme);
+			expect(css).toContain(`rgba(${ink}, 0.92)`);
+			expect(css).toContain(`rgba(${ink}, 0.75)`);
+		}
+	});
+
+	// The one rule that fills a button with the theme's focus colour and writes on it.
+	const focusedButtonRule = (id) => buildThemeOverrideCss(resolveThemeById(id))
+		.split('\n')
+		.find((line) => line.includes('.actionButton:focus'));
+
+	it('drops a button colour the theme asked for when it cannot be read on its own fill', () => {
+		// Neon Pulse asks for white on a bright cyan, which comes to 1.5 to 1.
+		const neon = resolveThemeById('neon_pulse');
+		expect(contrastRatio(neon.colors.buttonFocused, neon.colors.onButtonFocused)).toBeLessThan(MIN_BUTTON_CONTRAST);
+		expect(focusedButtonRule('neon_pulse')).toContain('color: rgba(0, 0, 0, 0.92)');
+	});
+
+	it('keeps a button colour the theme asked for when it holds up', () => {
+		// 8bit Hero pairs a dark ink with its own amber, which reads at 11 to 1.
+		const pixel = resolveThemeById('8bit_hero');
+		expect(contrastRatio(pixel.colors.buttonFocused, pixel.colors.onButtonFocused)).toBeGreaterThan(MIN_BUTTON_CONTRAST);
+		expect(focusedButtonRule('8bit_hero')).toContain(`color: ${toCssColor(pixel.colors.onButtonFocused)}`);
+	});
+
+	it('leaves every theme with readable text on a focused button', () => {
+		for (const id of ['moonfin', 'neon_pulse', '8bit_hero']) {
+			const theme = resolveThemeById(id);
+			const declared = contrastRatio(theme.colors.buttonFocused, theme.colors.onButtonFocused);
+			const fallback = contrastRatio(theme.colors.buttonFocused, inkOn(theme.colors.buttonFocused) === '0, 0, 0' ? '#FF000000' : '#FFFFFFFF');
+			expect(Math.max(declared, fallback)).toBeGreaterThanOrEqual(MIN_BUTTON_CONTRAST);
+		}
 	});
 });

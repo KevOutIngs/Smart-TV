@@ -10,7 +10,10 @@
 // backdrop scrim or the sidebar avatar gradient, stay in the stylesheets.
 
 import {
+	contrastRatio,
 	DEFAULT_ERROR_COLOR,
+	inkOn,
+	MIN_BUTTON_CONTRAST,
 	isValidHexColor,
 	radiusToCss,
 	shadowToCss,
@@ -104,8 +107,22 @@ export const buildThemeOverrideCss = (theme, options = {}) => {
 
 	// The glow a tile falls back to when the theme carries none of its own.
 	const tileGlow = glowOr(`0 0 14px 0.5px ${accentA(0.22)}`);
-	const invertedStrong = 'rgba(0, 0, 0, 0.87)';
-	const invertedSoft = 'rgba(0, 0, 0, 0.54)';
+	// A focused row fills with the theme's own colour, anything from near white to
+	// a saturated cyan, so its text is picked against that fill rather than assumed
+	// dark. The quieter line stays close behind the heading, since a caption at half
+	// strength on a bright fill is what turns unreadable from across a room.
+	const focusInk = inkOn(c.buttonFocused);
+	const invertedStrong = `rgba(${focusInk}, 0.92)`;
+	const invertedSoft = `rgba(${focusInk}, 0.75)`;
+	// The sidebar and nav fill with onSurface, which is a colour of its own.
+	const onSurfaceInk = `rgba(${inkOn(c.onSurface)}, 0.92)`;
+	// A theme names the colour it wants on a focused button, but some name one that
+	// cant be read against their own fill, white on a bright cyan being the worst
+	// of them. The named colour is kept where it holds up and dropped where it does
+	// not, which also leaves an imported theme legible whatever it asks for.
+	const buttonInk = contrastRatio(c.buttonFocused, c.onButtonFocused) >= MIN_BUTTON_CONTRAST
+		? onButtonFocused
+		: `rgba(${focusInk}, 0.92)`;
 
 	const rules = [];
 	// Doubling the attribute keeps these rules winning ties against stylesheets
@@ -145,7 +162,7 @@ export const buildThemeOverrideCss = (theme, options = {}) => {
 		}
 	}
 	rule(`.${sidebarCss.sidebarItem}:hover, .${sidebarCss.libraryItem}:hover, .${navBarCss.navBtn}:hover`, `color: ${onSurface}; background: ${os(0.14)};`);
-	rule(`.${sidebarCss.sidebarItem}:focus, .${sidebarCss.libraryItem}:focus, .${navBarCss.navBtn}:focus`, `color: ${invertedStrong}; background: ${onSurface}; border-color: transparent; box-shadow: ${glowOr('none')};`);
+	rule(`.${sidebarCss.sidebarItem}:focus, .${sidebarCss.libraryItem}:focus, .${navBarCss.navBtn}:focus`, `color: ${onSurfaceInk}; background: ${onSurface}; border-color: transparent; box-shadow: ${glowOr('none')};`);
 	rule(`.${sidebarCss.active}`, `color: ${onSurface}; background: ${accentA(0.24)};`);
 	rule(`.${navBarCss.active}`, `color: ${onSurface}; background: ${accentA(0.28)};`);
 	rule(`.${navBarCss.navPill}`, `border: ${b.navBorder ? `${b.navBorder.width}px solid ${toCssColor(b.navBorder.color)}` : 'none'};`);
@@ -186,7 +203,7 @@ export const buildThemeOverrideCss = (theme, options = {}) => {
 	rule(`.${settingsCss.input} input::-webkit-input-placeholder, .${settingsCss.searchInput} input::-webkit-input-placeholder`, `color: ${os(0.45)};`);
 	rule(`.${settingsCss.input} input::placeholder, .${settingsCss.searchInput} input::placeholder`, `color: ${os(0.45)};`);
 	rule(`.${settingsCss.actionButton}`, `background: ${buttonNormal}; color: ${onButtonNormal}; border-color: ${tileBorderColor};`);
-	rule(`.${settingsCss.actionButton}:focus`, `background: ${buttonFocused}; border-color: ${focusColor}; color: ${onButtonFocused};`);
+	rule(`.${settingsCss.actionButton}:focus`, `background: ${buttonFocused}; border-color: ${focusColor}; color: ${buttonInk};`);
 	rule(`.${settingsCss.dangerButton}:focus`, `background: ${recordingActive} !important; border-color: ${recordingActive} !important; color: #fff;`);
 	rule(`.${settingsCss.actionButtonActive}`, `background: ${buttonActive}; color: ${onButtonNormal};`);
 	rule(`.${settingsCss.statusMessage}, .${settingsCss.authHint}, .${settingsCss.viewDescription}, .${settingsCss.themeCardDescription}, .${settingsCss.themeStoreMessage}`, `color: ${os(0.7)};`);
@@ -212,7 +229,7 @@ export const buildThemeOverrideCss = (theme, options = {}) => {
 	rule(`.${detailsCss.btnAction}`, `background: ${buttonNormal};`);
 	rule(`.${detailsCss.btnIcon}`, `color: ${onButtonNormal};`);
 	rule(`.${detailsCss.btnWrapper}:focus .${detailsCss.btnAction}`, `background: ${buttonFocused}; border-color: ${focusColor};`);
-	rule(`.${detailsCss.btnWrapper}:focus .${detailsCss.btnAction} .${detailsCss.btnIcon}`, `color: ${onButtonFocused}; fill: ${onButtonFocused};`);
+	rule(`.${detailsCss.btnWrapper}:focus .${detailsCss.btnAction} .${detailsCss.btnIcon}`, `color: ${buttonInk}; fill: ${buttonInk};`);
 	rule(`.${detailsCss.favorited}, .${detailsCss.btnWrapper}:focus .${detailsCss.btnAction} .${detailsCss.favorited}`, `color: ${recordingActive}; fill: ${recordingActive};`);
 	rule(`.${detailsCss.watched}, .${detailsCss.btnWrapper}:focus .${detailsCss.btnAction} .${detailsCss.watched}`, `color: ${accent}; fill: ${accent};`);
 	rule(`.${detailsCss.btnDetail}`, `color: ${os(0.5)};`);
@@ -244,7 +261,7 @@ export const buildThemeOverrideCss = (theme, options = {}) => {
 	// Detail screens, modern layout
 	rule(`.${modernDetailCss.metaRow}, .${modernDetailCss.techSize}`, `color: ${os(0.75)};`);
 	rule(`.${modernDetailCss.actionPrimary}`, `background-color: ${accent}; color: ${onAccent};`);
-	rule(`.${modernDetailCss.actionBtn}:focus`, `background: ${buttonFocused}; border-color: ${focusColor}; color: ${onButtonFocused};`);
+	rule(`.${modernDetailCss.actionBtn}:focus`, `background: ${buttonFocused}; border-color: ${focusColor}; color: ${buttonInk};`);
 	rule(`.${modernDetailCss.upNextCard}`, `background-color: ${surfaceA(0.82)};`);
 	rule(`.${modernDetailCss.upNextCard}:focus`, `border-color: ${focusColor};`);
 	rule(`.${modernDetailCss.upNextLabel}`, `color: ${accent};`);

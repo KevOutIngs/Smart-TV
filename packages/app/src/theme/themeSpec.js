@@ -288,6 +288,47 @@ export const toRgbTriplet = (hex) => {
 	return `${red}, ${green}, ${blue}`;
 };
 
+// Whether text on a colour should be dark or light comes down to how bright that
+// colour is. The crossover sits where black and white read equally well against
+// it, so either side of that line picks the one that reads better.
+const INK_CROSSOVER = 0.179;
+
+// The least a button label has to differ from its fill to stay readable. Button
+// text is large and bold, which is the case that gets by on three rather than
+// the four and a half a paragraph needs.
+export const MIN_BUTTON_CONTRAST = 3;
+
+const relativeLuminance = (hex) => {
+	const channels = toRgbTriplet(hex).split(', ').map(Number);
+	const linear = channels.map((value) => {
+		const part = value / 255;
+		return part <= 0.03928 ? part / 12.92 : Math.pow((part + 0.055) / 1.055, 2.4);
+	});
+	return (0.2126 * linear[0]) + (0.7152 * linear[1]) + (0.0722 * linear[2]);
+};
+
+/**
+ * The rgb triplet to write on top of a colour, dark for a bright background and
+ * light for a dim one.
+ *
+ * @param {string} hex - the background the text sits on
+ * @returns {string} an rgb triplet ready for an rgba()
+ */
+export const inkOn = (hex) => (relativeLuminance(hex) > INK_CROSSOVER ? '0, 0, 0' : '255, 255, 255');
+
+/**
+ * How far apart two colours are to read, on the usual 1 to 21 scale.
+ *
+ * @param {string} hex
+ * @param {string} other
+ * @returns {number}
+ */
+export const contrastRatio = (hex, other) => {
+	const first = relativeLuminance(hex);
+	const second = relativeLuminance(other);
+	return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+};
+
 export const radiusToCss = (radius) => {
 	if (!radius) return '0px';
 	const {topLeft, topRight, bottomRight, bottomLeft} = radius;
