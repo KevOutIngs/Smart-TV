@@ -94,6 +94,7 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 
 	const debounceRef = useRef(null);
 	const requestIdRef = useRef(0);
+	const lastResultNamesRef = useRef([]);
 	const scrollerRefs = useRef({});
 	const gameLibrariesRef = useRef([]);
 	const hasLiveTvRef = useRef(false);
@@ -165,6 +166,7 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 			if (requestId !== requestIdRef.current) return;
 
 			const items = [...(libraryResult.Items || []), ...filterByName(channels, q)];
+			lastResultNamesRef.current = items.map((found) => found.Name).filter(Boolean);
 			setGroups(groupSearchResults(items));
 			setIsLoading(false);
 			rememberSearch(q);
@@ -213,6 +215,14 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 		if (debounceRef.current) clearTimeout(debounceRef.current);
 		debounceRef.current = setTimeout(() => doSearch(value), SEARCH_DEBOUNCE_MS);
 	}, [doSearch]);
+
+	// Titles for the keyboard's suggestion chips. These come out of the results the
+	// screen already loaded, so offering them costs no extra trip to the server.
+	const fetchKeyboardSuggestions = useCallback((text) => {
+		const typed = text.trim().toLowerCase();
+		if (!typed) return [];
+		return lastResultNamesRef.current.filter((name) => name.toLowerCase().indexOf(typed) >= 0);
+	}, []);
 
 	const handleClearSearch = useCallback(() => {
 		setQuery('');
@@ -499,6 +509,9 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 					<SearchIcon />
 					<SpottableInput
 						type="text"
+						purpose="search"
+						recents={recentSearches}
+						suggestionsBuilder={fetchKeyboardSuggestions}
 						className={css.searchInput}
 						placeholder={$L('Search movies, shows, music, and more...')}
 						value={query}

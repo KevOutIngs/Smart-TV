@@ -9,6 +9,7 @@ import SpottableInput from '../SpottableInput/SpottableInput';
 import SeerrStatusChip from '../SeerrStatusChip';
 import {ISSUE_STATUS, getIssueStatusInfo, getIssueTypeLabel} from '../../utils/seerrStatus';
 import {isBackKey} from '../../utils/keys';
+import {isTvKeyboardVisible} from '../TVKeyboard/keyboardBus';
 
 import css from './SeerrIssueThread.module.less';
 
@@ -60,6 +61,7 @@ const SeerrIssueThread = ({issue: initialIssue, canManage, myUserId, onClose, on
 
 	useEffect(() => {
 		const handleKey = (e) => {
+			if (isTvKeyboardVisible()) return;
 			if (isBackKey(e)) {
 				e.preventDefault();
 				e.stopPropagation();

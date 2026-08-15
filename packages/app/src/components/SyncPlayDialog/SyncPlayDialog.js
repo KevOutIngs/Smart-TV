@@ -5,6 +5,7 @@ import Spotlight from '@enact/spotlight';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import {useSyncPlay} from '../../context/SyncPlayContext';
 import {isBackKey} from '../../utils/keys';
+import {isTvKeyboardVisible} from '../TVKeyboard/keyboardBus';
 import SpottableInput from '../SpottableInput/SpottableInput';
 
 import css from './SyncPlayDialog.module.less';
@@ -81,6 +82,7 @@ const SyncPlayDialog = ({open, onClose}) => {
 	useEffect(() => {
 		if (!open) return;
 		const handleKey = (e) => {
+			if (isTvKeyboardVisible()) return;
 			if (isBackKey(e)) {
 				e.preventDefault();
 				e.stopPropagation();

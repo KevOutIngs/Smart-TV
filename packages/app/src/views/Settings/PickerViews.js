@@ -169,6 +169,7 @@ export const PinCodeView = ({pin, error, onPinChange, onCancel, onSave}) => (
 			<SpottableInput
 				className={css.input}
 				type='password'
+				purpose='numeric'
 				value={pin}
 				onChange={(e) => onPinChange(String(e.target.value || '').replace(/\D/g, '').slice(0, 4))}
 				placeholder={$L('4 digits')}

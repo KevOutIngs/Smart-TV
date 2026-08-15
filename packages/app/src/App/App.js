@@ -40,6 +40,8 @@ import ComicViewer from '../components/ComicViewer';
 import SettingsPanel from '../components/SettingsPanel';
 import ShuffleOverlay from '../components/ShuffleOverlay';
 import SpottableInput from '../components/SpottableInput/SpottableInput';
+import TVKeyboard from '../components/TVKeyboard/TVKeyboard';
+import {isTvKeyboardVisible} from '../components/TVKeyboard/keyboardBus';
 import useInactivityTimer from '../hooks/useInactivityTimer';
 import {useThemeMusic} from '../hooks/useThemeMusic';
 import {buildThemeCssVars, toRgbTriplet} from '../theme/themeSpec';
@@ -546,6 +548,9 @@ const AppContent = (props) => {
 			if (showShuffleOverlay) {
 				return;
 			}
+			if (isTvKeyboardVisible()) {
+				return;
+			}
 			if (e.keyCode === KEYS.BACKSPACE && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
 				return;
 			}
@@ -1029,6 +1034,7 @@ const AppContent = (props) => {
 						<SpottableInput
 							className={css.pinInput}
 							type='password'
+							purpose='numeric'
 							value={pinCodeInput}
 							onChange={handlePinInputChange}
 							onKeyDown={handlePinInputKeyDown}
@@ -1048,6 +1054,7 @@ const AppContent = (props) => {
 						</div>
 					</div>
 				</div>
+				<TVKeyboard />
 			</div>
 		);
 	}
@@ -1439,6 +1446,7 @@ const AppContent = (props) => {
 					onLibrariesChanged={fetchLibraries}
 				/>
 			)}
+			<TVKeyboard />
 		</div>
 	);
 };

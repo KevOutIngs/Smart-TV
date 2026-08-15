@@ -1,4 +1,4 @@
-import {useState, useCallback, useEffect} from 'react';
+import {useState, useCallback, useEffect, useMemo, useRef} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import Spotlight from '@enact/spotlight';
@@ -10,6 +10,7 @@ import {generateCandidates} from '../../utils/serverUrl';
 import {classifyError, getConnectionMessage, getLoginMessage, isVersionSupported, INVALID_ADDRESS, SERVER_NOT_JELLYFIN, VERSION_UNSUPPORTED, INSECURE_CERT, MIN_SERVER_VERSION} from '../../utils/connectionErrors';
 import {KEYS} from '../../utils/keys';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
+import {subscribeTvKeyboardVisibility} from '../../components/TVKeyboard/keyboardBus';
 
 import css from './Login.module.less';
 
@@ -72,6 +73,49 @@ const Login = ({
 	const [serverType, setServerType] = useState('jellyfin');
 	const [connectServers, setConnectServers] = useState([]);
 	const [connectSession, setConnectSession] = useState(null);
+	const pageRef = useRef(null);
+	const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+	// When a keyboard opens, a spacer grows under the card and the active field
+	// gets pulled toward the top so it stays visible above the keys. The scroll
+	// waits out the spacer growing, since before that there is no room to move.
+	useEffect(() => {
+		let scrollTimer = null;
+		const unsubscribe = subscribeTvKeyboardVisibility(({visible, anchor}) => {
+			setKeyboardOpen(visible);
+			if (!visible || !anchor) return;
+			clearTimeout(scrollTimer);
+			scrollTimer = setTimeout(() => {
+				const page = pageRef.current;
+				if (!page) return;
+				const field = anchor.getBoundingClientRect();
+				const view = page.getBoundingClientRect();
+				const delta = field.top - view.top - view.height * 0.12;
+				if (delta > 0) page.scrollTop += delta;
+			}, 200);
+		});
+		return () => {
+			clearTimeout(scrollTimer);
+			unsubscribe();
+		};
+	}, []);
+
+	const serverRecents = useMemo(() => {
+		const urls = [];
+		savedAccounts.forEach((account) => {
+			if (account.url && urls.indexOf(account.url) < 0) urls.push(account.url);
+		});
+		if (storedServerUrl && urls.indexOf(storedServerUrl) < 0) urls.push(storedServerUrl);
+		return urls;
+	}, [savedAccounts, storedServerUrl]);
+
+	const usernameRecents = useMemo(() => {
+		const names = [];
+		savedAccounts.forEach((account) => {
+			if (account.username && names.indexOf(account.username) < 0) names.push(account.username);
+		});
+		return names;
+	}, [savedAccounts]);
 
 	const handleConnect = useCallback(async () => {
 		if (!serverUrl.trim()) return;
@@ -665,7 +709,7 @@ const Login = ({
 	}
 
 	return (
-		<div className={css.page}>
+		<div className={css.page} ref={pageRef}>
 			<div className={css.container}>
 				<div className={css.logoSection}>
 					<img src="resources/banner-dark.png" alt="Moonfin" className={css.logo} />
@@ -726,6 +770,8 @@ const Login = ({
 								<SpottableInput
 									data-spotlight-id="server-input"
 									type="text"
+									purpose="url"
+									recents={serverRecents}
 									className={css.input}
 									placeholder="192.168.1.100 or jellyfin.example.com"
 									value={serverUrl}
@@ -882,6 +928,7 @@ const Login = ({
 								<SpottableInput
 									data-spotlight-id="password-input"
 									type="password"
+									purpose="password"
 									className={css.input}
 									placeholder={$L('Password (leave empty if none)')}
 									value={password}
@@ -960,6 +1007,8 @@ const Login = ({
 								<SpottableInput
 									data-spotlight-id="username-input"
 									type="text"
+									purpose="username"
+									recents={usernameRecents}
 									className={css.input}
 									placeholder={$L('Username')}
 									value={username}
@@ -972,6 +1021,7 @@ const Login = ({
 								<SpottableInput
 									data-spotlight-id="manual-password-input"
 									type="password"
+									purpose="password"
 									className={css.input}
 									placeholder={$L('Password')}
 									value={password}
@@ -1041,6 +1091,7 @@ const Login = ({
 								<SpottableInput
 									data-spotlight-id="emby-username-input"
 									type="text"
+									purpose="email"
 									className={css.input}
 									placeholder={$L('Email or Username')}
 									value={username}
@@ -1053,6 +1104,7 @@ const Login = ({
 								<SpottableInput
 									data-spotlight-id="emby-password-input"
 									type="password"
+									purpose="password"
 									className={css.input}
 									placeholder={$L('Password')}
 									value={password}
@@ -1115,6 +1167,7 @@ const Login = ({
 						</div>
 					)}
 				</div>
+				<div className={`${css.keyboardSpacer} ${keyboardOpen ? css.keyboardSpacerOpen : ''}`} />
 			</div>
 		</div>
 	);

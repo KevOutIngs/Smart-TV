@@ -1,9 +1,11 @@
-import {useState, useEffect, useCallback, useRef} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import $L from '@enact/i18n/$L';
 import {isBackKey} from '../../utils/keys';
+import SpottableInput from '../SpottableInput/SpottableInput';
+import {isTvKeyboardVisible} from '../TVKeyboard/keyboardBus';
 
 import css from './AddToPlaylistModal.module.less';
 
@@ -22,7 +24,6 @@ const AddToPlaylistModal = ({open, itemId, api, onClose, onSuccess}) => {
 	const [creating, setCreating] = useState(false);
 	const [newName, setNewName] = useState('');
 	const [adding, setAdding] = useState(false);
-	const inputRef = useRef(null);
 
 	useEffect(() => {
 		if (!open || !api) return;
@@ -46,14 +47,16 @@ const AddToPlaylistModal = ({open, itemId, api, onClose, onSuccess}) => {
 	}, [open, loading, creating]);
 
 	useEffect(() => {
-		if (creating && inputRef.current) {
-			inputRef.current.focus();
+		if (creating) {
+			const t = setTimeout(() => Spotlight.focus('playlist-name-input'), 100);
+			return () => clearTimeout(t);
 		}
 	}, [creating]);
 
 	useEffect(() => {
 		if (!open) return;
 		const handleKey = (e) => {
+			if (isTvKeyboardVisible()) return;
 			if (isBackKey(e)) {
 				e.preventDefault();
 				e.stopPropagation();
@@ -134,11 +137,11 @@ const AddToPlaylistModal = ({open, itemId, api, onClose, onSuccess}) => {
 
 				{creating && (
 					<div className={css.createForm}>
-						<input
-							ref={inputRef}
+						<SpottableInput
+							spotlightId="playlist-name-input"
 							className={css.input}
 							type="text"
-						placeholder={$L('Playlist name')}
+							placeholder={$L('Playlist name')}
 							value={newName}
 							onChange={handleInputChange}
 							onKeyDown={handleInputKeyDown}

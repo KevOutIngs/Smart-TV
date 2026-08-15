@@ -3,6 +3,8 @@ import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import {Pause} from '@enact/spotlight/Pause';
 
+import {useSettings} from '../../context/SettingsContext';
+import {openTvKeyboard, closeTvKeyboard, publishTvKeyboardVisibility} from '../TVKeyboard/keyboardBus';
 import css from './SpottableInput.module.less';
 
 const SpottableDiv = Spottable('div');
@@ -13,21 +15,41 @@ const SpottableInput = ({
 	'data-spotlight-id': dataSpotlightId,
 	onKeyDown,
 	disabled,
+	purpose,
+	recents,
+	suggestionsBuilder,
 	...inputProps
 }) => {
 	const inputRef = useRef(null);
 	const pauseRef = useRef(new Pause('SpottableInput'));
 	const [inputFocused, setInputFocused] = useState(false);
+	const [kbActive, setKbActive] = useState(false);
+	const kbActiveRef = useRef(false);
+	const {settings} = useSettings();
+	const preferSystemIme = settings.preferSystemImeKeyboard === true;
+
+	const valueRef = useRef(inputProps.value);
+	valueRef.current = inputProps.value;
+	const onChangeRef = useRef(inputProps.onChange);
+	onChangeRef.current = inputProps.onChange;
+	const onKeyDownRef = useRef(onKeyDown);
+	onKeyDownRef.current = onKeyDown;
 
 	useEffect(() => {
 		const p = pauseRef.current;
-		return () => p.resume();
+		return () => {
+			p.resume();
+			if (kbActiveRef.current) closeTvKeyboard();
+		};
 	}, []);
 
 	const activateInput = useCallback(() => {
 		if (!disabled && inputRef.current) {
 			pauseRef.current.pause();
 			inputRef.current.focus();
+			// The TV's own keyboard pops over the screen the same way ours does,
+			// so screens watching for a keyboard hear about this path too
+			publishTvKeyboardVisibility(true, inputRef.current.parentElement);
 		}
 	}, [disabled]);
 
@@ -36,20 +58,90 @@ const SpottableInput = ({
 		inputRef.current?.blur();
 	}, []);
 
+	const openKeyboard = useCallback(() => {
+		if (disabled || kbActiveRef.current) return;
+		const id = spotlightId || dataSpotlightId;
+		kbActiveRef.current = true;
+		setKbActive(true);
+		const opened = openTvKeyboard({
+			value: valueRef.current == null ? '' : String(valueRef.current),
+			purpose,
+			maxLength: inputProps.maxLength,
+			anchor: inputRef.current?.parentElement || null,
+			recents,
+			suggestionsBuilder,
+			onChange: (text, cursor) => {
+				onChangeRef.current?.({target: {value: text}});
+				window.requestAnimationFrame(() => {
+					try {
+						inputRef.current?.setSelectionRange(cursor, cursor);
+					} catch {
+						// Password fields on some engines refuse selection changes
+					}
+				});
+			},
+			onSystemKeyboard: activateInput,
+			onClose: ({submitted}) => {
+				kbActiveRef.current = false;
+				setKbActive(false);
+				inputRef.current?.blur();
+				if (id) Spotlight.focus(`[data-spotlight-id="${id}"]`);
+				if (submitted && onKeyDownRef.current) {
+					onKeyDownRef.current({
+						keyCode: 13,
+						which: 13,
+						key: 'Enter',
+						target: inputRef.current,
+						preventDefault: () => {},
+						stopPropagation: () => {}
+					});
+				}
+			}
+		});
+		// With no keyboard host mounted the device keyboard is all there is
+		if (!opened) {
+			kbActiveRef.current = false;
+			setKbActive(false);
+			activateInput();
+			return;
+		}
+		// Focusing the field while it cant be edited shows the caret without
+		// waking the TV's own keyboard
+		window.requestAnimationFrame(() => {
+			const node = inputRef.current;
+			if (!node || !kbActiveRef.current) return;
+			node.focus();
+			try {
+				const end = node.value.length;
+				node.setSelectionRange(end, end);
+			} catch {
+				// Same engines as above
+			}
+		});
+	}, [disabled, spotlightId, dataSpotlightId, purpose, recents, suggestionsBuilder, inputProps.maxLength, activateInput]);
+
+	const handleActivate = useCallback(() => {
+		if (preferSystemIme) activateInput();
+		else openKeyboard();
+	}, [preferSystemIme, activateInput, openKeyboard]);
+
 	const handleFocus = useCallback(() => setInputFocused(true), []);
 
 	const handleBlur = useCallback(() => {
 		setInputFocused(false);
 		pauseRef.current.resume();
+		if (!kbActiveRef.current) publishTvKeyboardVisibility(false, null);
 	}, []);
 
 	const handleKeyDown = useCallback((e) => {
 		const code = e.keyCode || e.which;
 		const isInputActive = document.activeElement === inputRef.current;
 
+		if (kbActiveRef.current) return;
+
 		if (!isInputActive && code === 13) {
 			e.preventDefault();
-			activateInput();
+			handleActivate();
 			return;
 		}
 
@@ -76,13 +168,13 @@ const SpottableInput = ({
 		if (onKeyDown) {
 			onKeyDown(e);
 		}
-	}, [onKeyDown, activateInput, deactivateInput, spotlightId, dataSpotlightId]);
+	}, [onKeyDown, handleActivate, deactivateInput, spotlightId, dataSpotlightId]);
 
 	return (
 		<SpottableDiv
 			spotlightId={spotlightId || dataSpotlightId}
 			className={className}
-			onClick={activateInput}
+			onClick={handleActivate}
 			onKeyDown={handleKeyDown}
 			spotlightDisabled={disabled}
 			data-focused={inputFocused || undefined}
@@ -91,6 +183,7 @@ const SpottableInput = ({
 				ref={inputRef}
 				disabled={disabled}
 				{...inputProps}
+				readOnly={kbActive || inputProps.readOnly}
 				className={css.innerInput}
 				onFocus={handleFocus}
 				onBlur={handleBlur}

@@ -217,6 +217,8 @@ export const SETTINGS_SCHEMA = [
 						action: (ctx) => ctx.actions.openThemeStore()
 					},
 					{kind: KIND.OPTION, key: 'focusBorderColor', label: () => $L('Focus Border Color'), options: getAccentColorOptions, fallback: () => $L('Theme Default'), icon: 'border_color'},
+					{kind: KIND.SECTION, id: 'keyboard', label: () => $L('Keyboard')},
+					{kind: KIND.TOGGLE, key: 'preferSystemImeKeyboard', label: () => $L('Prefer system keyboard'), desc: () => $L('Use your device input method by default for text entry'), icon: 'keyboard'},
 					{kind: KIND.SECTION, id: 'clock', label: () => $L('Clock')},
 					{kind: KIND.OPTION, key: 'clockDisplay', label: () => $L('Clock Display'), options: getClockDisplayOptions, fallback: () => $L('24-Hour'), icon: 'clock'},
 					{kind: KIND.SLIDER, key: 'timeOffsetHours', label: () => $L('Clock Offset'), desc: () => $L('Correct the clock when the TV reports the wrong time'), min: -12, max: 12, step: 1, format: hourOffset, icon: 'clock'},

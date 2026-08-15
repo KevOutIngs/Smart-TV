@@ -93,6 +93,7 @@ const SeerrAccountPanel = ({
 						<SpottableInput
 							className={css.input}
 							type='text'
+							purpose={authType === 'local' ? 'email' : 'username'}
 							value={username}
 							onChange={(e) => onUsernameChange(e.target.value)}
 							placeholder={authType === 'local' ? $L('Local username or email') : $L('Jellyfin username')}
@@ -107,6 +108,7 @@ const SeerrAccountPanel = ({
 						<SpottableInput
 							className={css.input}
 							type='password'
+							purpose='password'
 							value={password}
 							onChange={(e) => onPasswordChange(e.target.value)}
 							onKeyDown={onPasswordKeyDown}

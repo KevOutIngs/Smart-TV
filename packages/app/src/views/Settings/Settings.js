@@ -9,6 +9,7 @@ import {homeRowsFromProfile} from '../../utils/homeLayout';
 import {useSeerr} from '../../context/SeerrContext';
 import {useDeviceInfo} from '../../hooks/useDeviceInfo';
 import {isBackKey} from '../../utils/keys';
+import {isTvKeyboardVisible} from '../../components/TVKeyboard/keyboardBus';
 import {isWebOS} from '../../platform';
 import ClearDataDialog from '../../components/ClearDataDialog';
 import {clearAllStorage} from '../../services/storage';
@@ -231,6 +232,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 
 	useEffect(() => {
 		const handleKeyDown = (e) => {
+			if (isTvKeyboardVisible()) return;
 			if (!isBackKey(e)) return;
 			e.preventDefault();
 			e.stopPropagation();

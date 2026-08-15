@@ -223,6 +223,7 @@ export const ExternalCustomRowsView = ({
 					<SpottableInput
 						className={css.input}
 						type='text'
+						purpose='url'
 						value={url}
 						onChange={(e) => onUrlChange(e.target.value)}
 						placeholder={$L('Paste a TMDB, MDBList, or Letterboxd URL')}

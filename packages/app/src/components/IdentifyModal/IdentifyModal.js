@@ -1,9 +1,11 @@
-import {useState, useEffect, useCallback, useRef} from 'react';
+import {useState, useEffect, useCallback} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import $L from '@enact/i18n/$L';
 import {isBackKey} from '../../utils/keys';
+import SpottableInput from '../SpottableInput/SpottableInput';
+import {isTvKeyboardVisible} from '../TVKeyboard/keyboardBus';
 
 import css from './IdentifyModal.module.less';
 
@@ -27,7 +29,6 @@ const IdentifyModal = ({open, item, api, onClose, onApplied, onSuccess}) => {
 	const [results, setResults] = useState([]);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState(null);
-	const nameInputRef = useRef(null);
 
 	useEffect(() => {
 		if (!open) return;
@@ -47,12 +48,17 @@ const IdentifyModal = ({open, item, api, onClose, onApplied, onSuccess}) => {
 	}, [open, view]);
 
 	useEffect(() => {
-		if (view === 'search' && nameInputRef.current) nameInputRef.current.focus();
+		if (view === 'search') {
+			const t = setTimeout(() => Spotlight.focus('identify-name-input'), 100);
+			return () => clearTimeout(t);
+		}
+		return undefined;
 	}, [view]);
 
 	useEffect(() => {
 		if (!open) return undefined;
 		const handleKey = (e) => {
+			if (isTvKeyboardVisible()) return;
 			if (!isBackKey(e)) return;
 			e.preventDefault();
 			e.stopPropagation();
@@ -164,8 +170,8 @@ const IdentifyModal = ({open, item, api, onClose, onApplied, onSuccess}) => {
 
 				{view === 'search' && (
 					<div className={css.form}>
-						<input
-							ref={nameInputRef}
+						<SpottableInput
+							spotlightId="identify-name-input"
 							className={css.input}
 							type="text"
 							placeholder={$L('Name')}
@@ -174,9 +180,11 @@ const IdentifyModal = ({open, item, api, onClose, onApplied, onSuccess}) => {
 							onKeyDown={handleInputKeyDown}
 							maxLength={200}
 						/>
-						<input
+						<SpottableInput
+							spotlightId="identify-year-input"
 							className={css.input}
 							type="text"
+							purpose="numeric"
 							placeholder={$L('Year')}
 							value={year}
 							onChange={handleYearChange}
