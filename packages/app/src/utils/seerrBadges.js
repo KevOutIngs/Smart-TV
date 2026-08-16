@@ -80,12 +80,6 @@ export const getStatusPills = (hdStatus, status4k, hdDeclined, fourKDeclined) =>
 		});
 };
 
-// Anything past unknown is already requested, so it can't be requested again. Partially
-// available is the exception, since the seasons that are missing still can be.
-export const isStatusBlocked = (currentStatus) => {
-	return currentStatus != null && currentStatus >= 2 && currentStatus !== MEDIA_STATUS.PARTIALLY_AVAILABLE;
-};
-
 export const formatDate = (dateStr) => {
 	if (!dateStr) return null;
 	try {

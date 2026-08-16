@@ -750,6 +750,13 @@ export const getSettings = async () => {
 	return request('/settings/main');
 };
 
+// What Seerr tells every client about itself, including whether it has a 4K backend
+// standing by for each kind of media. Asking here rather than reading the server list
+// is what the other clients do, and it needs none of the rights that list does.
+export const getPublicSettings = async () => {
+	return request('/settings/public');
+};
+
 export const getBlacklist = async (page = 1) => {
 	return request(`/blacklist?take=20&skip=${(page - 1) * 20}`);
 };
@@ -1108,6 +1115,7 @@ export default {
 	canManageIssues,
 	canCreateIssues,
 	getSettings,
+	getPublicSettings,
 	getBlacklist,
 	getRadarrServers,
 	getRadarrServerDetails,

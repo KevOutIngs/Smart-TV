@@ -16,7 +16,12 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 	const [similar, setSimilar] = useState([]);
 	const [quota, setQuota] = useState(null);
 	const [userPermissions, setUserPermissions] = useState(null);
-	const [has4kServer, setHas4kServer] = useState(false);
+	// Seerr only lets someone take back their own request, so who is watching has to be known.
+	const [currentUserId, setCurrentUserId] = useState(null);
+	// Seerr only offers 4K for a kind of media when it has a 4K backend standing by for it,
+	// which it reports for everyone rather than only for those who can read the server list.
+	// Taken as offered until it says otherwise, the way the other clients read it.
+	const [is4kEnabled, setIs4kEnabled] = useState(true);
 	const [hasHdServer, setHasHdServer] = useState(false);
 	const [servers, setServers] = useState([]);
 
@@ -38,7 +43,7 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 			setLoading(true);
 			setError(null);
 			try {
-				const [data, userData, serversData] = await Promise.all([
+				const [data, userData, serversData, publicSettings] = await Promise.all([
 					mediaType === 'movie'
 						? seerrApi.getMovie(mediaId)
 						: seerrApi.getTv(mediaId),
@@ -46,11 +51,14 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 					(mediaType === 'movie'
 						? seerrApi.getRadarrServers()
 						: seerrApi.getSonarrServers()
-					).catch(() => [])
+					).catch(() => []),
+					seerrApi.getPublicSettings().catch(() => null)
 				]);
 
 				if (cancelled) return;
 				setDetails(data);
+
+				setCurrentUserId(userData?.id ?? contextUser?.id ?? null);
 
 				const apiPermissions = userData?.permissions;
 				const contextPermissions = contextUser?.permissions;
@@ -76,8 +84,11 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 					isRadarr: mediaType === 'movie'
 				}));
 				setServers(serversWithType);
-				setHas4kServer(serversList.some(s => s.is4k));
 				setHasHdServer(serversList.some(s => !s.is4k));
+				const offers4k = mediaType === 'movie'
+					? publicSettings?.movie4kEnabled
+					: publicSettings?.series4kEnabled;
+				setIs4kEnabled(offers4k !== false);
 
 				const loadMultiplePages = async (fetcher) => {
 					const allResults = [];
@@ -156,9 +167,10 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 		similar,
 		quota,
 		userPermissions,
+		currentUserId,
 		servers,
 		hasHdServer,
-		has4kServer,
+		is4kEnabled,
 		hdStatus,
 		status4k,
 		hdDownload,

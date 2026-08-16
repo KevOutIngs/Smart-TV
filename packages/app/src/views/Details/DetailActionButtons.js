@@ -71,13 +71,13 @@ const DetailActionButtons = ({
 		{id: 'seerrRequest', when: seerr.showsRequest, render: () => (
 			<>
 				{seerr.offersRequest && seerrButton(seerr.requestLabel, DETAIL_ICON_PATHS.request, seerr.onRequestPrimary)}
-				{seerr.hasOpenHdRequest && seerrButton($L('Cancel Request'), DETAIL_ICON_PATHS.cancelRequest, seerr.onCancel)}
+				{seerr.canCancelHd && seerrButton($L('Cancel Request'), DETAIL_ICON_PATHS.cancelRequest, seerr.onCancel)}
 			</>
 		)},
 		{id: 'seerrRequest4k', when: seerr.showsRequest4k, render: () => (
 			<>
 				{seerr.offersRequest4k && seerrButton(seerr.requestLabel4k, DETAIL_ICON_PATHS.request, seerr.onRequest4k)}
-				{seerr.hasOpenFourKRequest && seerrButton($L('Cancel 4K Request'), DETAIL_ICON_PATHS.cancelRequest, seerr.onCancel4k)}
+				{seerr.canCancel4k && seerrButton($L('Cancel 4K Request'), DETAIL_ICON_PATHS.cancelRequest, seerr.onCancel4k)}
 			</>
 		)},
 		{id: 'shuffle', when: isSeries || isSeason, render: () => (

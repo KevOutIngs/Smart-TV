@@ -567,7 +567,7 @@ const ModernDetailContent = (props) => {
 							onClick={seerr.onRequestPrimary}
 						/>
 					)}
-					{seerr.hasOpenHdRequest && (
+					{seerr.canCancelHd && (
 						<ActionButton
 							path={DETAIL_ICON_PATHS.cancelRequest}
 							label={$L('Cancel Request')}
@@ -585,7 +585,7 @@ const ModernDetailContent = (props) => {
 							onClick={seerr.onRequest4k}
 						/>
 					)}
-					{seerr.hasOpenFourKRequest && (
+					{seerr.canCancel4k && (
 						<ActionButton
 							path={DETAIL_ICON_PATHS.cancelRequest}
 							label={$L('Cancel 4K Request')}

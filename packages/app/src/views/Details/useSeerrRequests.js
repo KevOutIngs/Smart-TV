@@ -7,11 +7,14 @@ import $L from '@enact/i18n/$L';
 
 import seerrApi, {canRequestMovies, canRequestTv, canRequest4kMovies, canRequest4kTv, hasAdvancedRequestPermission, canCreateIssues, canManageRequests} from '../../services/seerrApi';
 import {MEDIA_STATUS, REQUEST_STATUS} from '../../utils/seerrStatus';
-import {getStatusPills, isSeasonRerequestable, isStatusBlocked, seasonMarkerStatus} from '../../utils/seerrBadges';
+import {getStatusPills, isSeasonRerequestable, seasonMarkerStatus} from '../../utils/seerrBadges';
+import {
+	cancelableRequests, isContinuingSeries, requestOfferFor, seasonNumbersOf, unavailableOrRequestedSeasons
+} from '../../utils/seerrRequestRules';
 
 const useSeerrRequests = ({
 	mediaId, mediaType, details, setDetails, setError, isAuthenticated,
-	userPermissions, hasHdServer, has4kServer, hdStatus, status4k
+	userPermissions, currentUserId, hasHdServer, is4kEnabled, hdStatus, status4k
 }) => {
 	const [requesting, setRequesting] = useState(false);
 	const [showQualityPopup, setShowQualityPopup] = useState(false);
@@ -128,25 +131,50 @@ const useSeerrRequests = ({
 		hdStatus === MEDIA_STATUS.BLOCKLISTED || status4k === MEDIA_STATUS.BLOCKLISTED,
 	[hdStatus, status4k]);
 
-	const canRequestHd = useMemo(() => {
-		if (!isAuthenticated || isBlacklisted) return false;
-		const blocked = isStatusBlocked(hdStatus) || hdDeclined;
-		if (blocked) return false;
-		const userCanHd = mediaType === 'movie'
-			? canRequestMovies(userPermissions)
-			: canRequestTv(userPermissions);
-		return userCanHd && hasHdServer;
-	}, [isAuthenticated, isBlacklisted, hdStatus, hdDeclined, userPermissions, hasHdServer, mediaType]);
+	const isTv = mediaType !== 'movie';
 
-	const canRequest4k = useMemo(() => {
-		if (!isAuthenticated || isBlacklisted) return false;
-		const blocked = isStatusBlocked(status4k) || fourKDeclined;
-		if (blocked) return false;
-		const userCan4k = mediaType === 'movie'
+	// A running series can always grow another season, so it never closes the way a film does.
+	const isContinuing = useMemo(() => isTv && isContinuingSeries(details?.status), [isTv, details]);
+
+	// Whether a season is still there for the asking, which is the one thing that reopens the
+	// button while a request on some other season is already running.
+	const unrequestedSeasons = useCallback((is4k) => {
+		if (!isTv) return false;
+		const taken = unavailableOrRequestedSeasons(
+			details?.mediaInfo?.seasons,
+			activeRequests.filter(r => Boolean(r.is4k) === is4k),
+			is4k
+		);
+		return seasonNumbersOf(details?.seasons, details?.numberOfSeasons ?? 0)
+			.some((season) => !taken.has(season));
+	}, [isTv, details, activeRequests]);
+
+	const hdOffer = useMemo(() => requestOfferFor({
+		status: hdStatus,
+		hasExistingRequest: hasOpenHdRequest,
+		allowed: isAuthenticated && !isBlacklisted && !hdDeclined && hasHdServer && (mediaType === 'movie'
+			? canRequestMovies(userPermissions)
+			: canRequestTv(userPermissions)),
+		isTv,
+		isContinuing,
+		hasUnrequestedSeasons: unrequestedSeasons(false)
+	}), [hdStatus, hasOpenHdRequest, isAuthenticated, isBlacklisted, hdDeclined, hasHdServer,
+		mediaType, userPermissions, isTv, isContinuing, unrequestedSeasons]);
+
+	const fourKOffer = useMemo(() => requestOfferFor({
+		status: status4k,
+		hasExistingRequest: hasOpenFourKRequest,
+		allowed: isAuthenticated && !isBlacklisted && !fourKDeclined && is4kEnabled && (mediaType === 'movie'
 			? canRequest4kMovies(userPermissions)
-			: canRequest4kTv(userPermissions);
-		return userCan4k && has4kServer;
-	}, [isAuthenticated, isBlacklisted, status4k, fourKDeclined, userPermissions, has4kServer, mediaType]);
+			: canRequest4kTv(userPermissions)),
+		isTv,
+		isContinuing,
+		hasUnrequestedSeasons: unrequestedSeasons(true)
+	}), [status4k, hasOpenFourKRequest, isAuthenticated, isBlacklisted, fourKDeclined, is4kEnabled,
+		mediaType, userPermissions, isTv, isContinuing, unrequestedSeasons]);
+
+	const canRequestHd = hdOffer.canRequest;
+	const canRequest4k = fourKOffer.canRequest;
 
 	const hasAdvanced = useMemo(() =>
 		hasAdvancedRequestPermission(userPermissions),
@@ -167,12 +195,12 @@ const useSeerrRequests = ({
 	// Each label speaks only for its own half, since asking and taking back are
 	// separate controls.
 	const requestLabel = useMemo(() =>
-		hdStatus === MEDIA_STATUS.PARTIALLY_AVAILABLE ? $L('Request More') : $L('Request'),
-	[hdStatus]);
+		hdOffer.wantsMore ? $L('Request More') : $L('Request'),
+	[hdOffer]);
 
 	const requestLabel4k = useMemo(() =>
-		status4k === MEDIA_STATUS.PARTIALLY_AVAILABLE ? $L('Request More 4K') : $L('Request 4K'),
-	[status4k]);
+		fourKOffer.wantsMore ? $L('Request More 4K') : $L('Request 4K'),
+	[fourKOffer]);
 
 	const handleRequest = useCallback(async (is4K = false, seasons = null, advancedOptions = null) => {
 		if (requesting) return;
@@ -247,10 +275,17 @@ const useSeerrRequests = ({
 		setShowCancelPopup(true);
 	}, []);
 
-	const cancelTargets = useMemo(
-		() => activeRequests.filter(r => Boolean(r.is4k) === cancelScope),
-		[activeRequests, cancelScope]
-	);
+	// Only what Seerr would actually let this viewer take back, so the button never leads to
+	// a refusal from the server.
+	const cancelable = useCallback((is4k) => cancelableRequests(
+		activeRequests.filter(r => Boolean(r.is4k) === is4k),
+		{canManageRequests: canManageRequests(userPermissions), currentUserId}
+	), [activeRequests, userPermissions, currentUserId]);
+
+	const canCancelHd = useMemo(() => cancelable(false).length > 0, [cancelable]);
+	const canCancel4k = useMemo(() => cancelable(true).length > 0, [cancelable]);
+
+	const cancelTargets = useMemo(() => cancelable(cancelScope), [cancelable, cancelScope]);
 
 	const handleCancelConfirm = useCallback(async () => {
 		setShowCancelPopup(false);
@@ -311,8 +346,8 @@ const useSeerrRequests = ({
 		handleResolveRequest,
 		handleSeasonConfirm,
 		hasAdvanced,
-		hasOpenHdRequest,
-		hasOpenFourKRequest,
+		canCancelHd,
+		canCancel4k,
 		hdDeclined,
 		pendingIs4k,
 		pendingRequests,
