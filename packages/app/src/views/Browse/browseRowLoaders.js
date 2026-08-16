@@ -77,8 +77,20 @@ const expandSeriesToEpisodes = async (api, items, limit) => {
 };
 
 const loadLatestAndRecentlyReleased = async (ctx) => {
-	const {api, appendRows, eligibleLibraries} = ctx;
+	const {api, appendRows, eligibleLibraries, settings} = ctx;
 	try {
+		let includeItemTypes = 'Movie,Series';
+		switch (settings.recentlyReleasedSeriesType) {
+			case 'season': {
+				includeItemTypes = 'Movie,Season';
+				break;
+			}
+			case 'episode': {
+				includeItemTypes = 'Movie,Episode';
+				break;
+			}
+		}
+
 		const [latestResults, recentlyReleasedResults] = await Promise.all([
 			Promise.all(
 				eligibleLibraries.map(lib =>
@@ -89,7 +101,7 @@ const loadLatestAndRecentlyReleased = async (ctx) => {
 			),
 			Promise.all(
 				eligibleLibraries.map(lib =>
-					api.getRecentlyReleased(lib.Id, 16)
+					api.getRecentlyReleased(lib.Id, 16, includeItemTypes)
 						.then(latest => ({lib, latest}))
 						.catch(() => null)
 				)
