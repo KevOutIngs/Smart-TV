@@ -67,10 +67,28 @@ describe('resolveInitialSubtitle', () => {
 		expect(picked).toBeNull();
 	});
 
-	test('a remembered item index wins over everything', async () => {
+	test('a remembered item index wins over the mode', async () => {
+		getItemSubtitlePref.mockResolvedValue(3);
+		const picked = await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBe(spa);
+	});
+
+	test('a track picked for this playback beats a remembered one', async () => {
 		getItemSubtitlePref.mockResolvedValue(3);
 		const picked = await resolveInitialSubtitle(result(), item, 1, {subtitleMode: 'forced'});
-		expect(picked).toBe(spa);
+		expect(picked).toBe(eng);
+	});
+
+	test('a track picked for this playback beats a remembered series language', async () => {
+		getSeriesSubtitlePref.mockResolvedValue({language: 'spa', title: '', relativeIndex: 0});
+		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, 1, {subtitleMode: 'forced'});
+		expect(picked).toBe(eng);
+	});
+
+	test('a series remembered as off still yields to a track picked for this playback', async () => {
+		getSeriesSubtitlePref.mockResolvedValue({language: 'none', title: '', relativeIndex: 0});
+		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, 1, {subtitleMode: 'forced'});
+		expect(picked).toBe(eng);
 	});
 
 	test('a remembered off choice means off', async () => {
@@ -86,13 +104,19 @@ describe('resolveInitialSubtitle', () => {
 	});
 
 	test('a remembered series language matches by language', async () => {
-		getSeriesSubtitlePref.mockResolvedValue('spa');
+		getSeriesSubtitlePref.mockResolvedValue({language: 'spa', title: '', relativeIndex: 0});
+		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBe(spa);
+	});
+
+	test('a remembered series language matches a differently spelled tag', async () => {
+		getSeriesSubtitlePref.mockResolvedValue({language: 'es', title: '', relativeIndex: 0});
 		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, undefined, {subtitleMode: 'forced'});
 		expect(picked).toBe(spa);
 	});
 
 	test('the series preference is only read for episodes of a series', async () => {
-		getSeriesSubtitlePref.mockResolvedValue('spa');
+		getSeriesSubtitlePref.mockResolvedValue({language: 'spa', title: '', relativeIndex: 0});
 		await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'forced'});
 		expect(getSeriesSubtitlePref).not.toHaveBeenCalled();
 	});

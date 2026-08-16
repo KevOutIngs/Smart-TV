@@ -217,6 +217,13 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		item.MediaSources?.length > 0 &&
 		item.MediaSources[0].Type !== 'Placeholder';
 
+	// Whether a track was picked on this screen. Both pickers start on something the
+	// viewer never chose, subtitles on None and audio on the file's first track, so
+	// passing those on regardless would read as a deliberate choice and the language
+	// preferences would never get a say.
+	const subtitleChosenRef = useRef(false);
+	const audioChosenRef = useRef(false);
+
 	// The version, audio and subtitle picks made on this screen, in the shape the
 	// player wants them. Shared with the advanced playback menu so both routes start
 	// from the same selection.
@@ -230,8 +237,8 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		const subtitleStream = selectedSubtitleIndex >= 0 ? subtitleStreamsList[selectedSubtitleIndex] : null;
 		return {
 			mediaSourceId: playMediaSource.Id,
-			audioStreamIndex: selectedAudio?.Index,
-			subtitleStreamIndex: subtitleStream?.Index ?? -1
+			...(audioChosenRef.current ? {audioStreamIndex: selectedAudio?.Index} : {}),
+			...(subtitleChosenRef.current ? {subtitleStreamIndex: subtitleStream?.Index ?? -1} : {})
 		};
 	}, [item, supportsStreamSelection, selectedVersionIndex, selectedAudioIndex, selectedSubtitleIndex]);
 
@@ -408,6 +415,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const handleSelectAudio = useCallback((e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index)) return;
+		audioChosenRef.current = true;
 		setSelectedAudioIndex(index);
 		closeModal();
 	}, [closeModal, setSelectedAudioIndex]);
@@ -415,6 +423,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const handleSelectSubtitle = useCallback((e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index)) return;
+		subtitleChosenRef.current = true;
 		setSelectedSubtitleIndex(index);
 		closeModal();
 	}, [closeModal, setSelectedSubtitleIndex]);
@@ -456,6 +465,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			const oldSubs = (item.MediaSources?.[selectedVersionIndex] || item.MediaSources?.[0])?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
 			if (newSubs.length > oldSubs.length) {
 				const newIdx = newSubs.length - 1;
+				subtitleChosenRef.current = true;
 				setSelectedSubtitleIndex(newIdx);
 			}
 		} catch { /* ignore */ }
@@ -475,6 +485,10 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		} else {
 			setSelectedAudioIndex(0);
 		}
+		// A different version brings its own tracks, so whatever was picked for the old
+		// one no longer stands.
+		subtitleChosenRef.current = false;
+		audioChosenRef.current = false;
 		if (ms.DefaultSubtitleStreamIndex != null) {
 			const idx = versionSubtitleStreams.findIndex(s => s.Index === ms.DefaultSubtitleStreamIndex);
 			setSelectedSubtitleIndex(idx >= 0 ? idx : -1);

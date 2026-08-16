@@ -1,5 +1,6 @@
 import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
 import {languageMatches, normalizeLanguageCode} from '../../utils/audioLanguage';
+import {matchSeriesTrackIndex} from '../../utils/seriesTrackPrefs';
 import {streamTitleText} from '../../utils/streamTitle';
 
 const SPECIAL = /\b(commentary|commentaries|jump\s*scare)\b/;
@@ -147,6 +148,14 @@ export const resolveInitialSubtitle = async (result, item, initialSubtitleIndex,
 		subtitleMode
 	});
 
+	// A track picked for this playback outranks anything remembered, the same way the
+	// other clients take an explicit index before they look at the series.
+	if (initialSubtitleIndex !== undefined && initialSubtitleIndex !== null) {
+		if (initialSubtitleIndex < 0) return null;
+		const explicit = streams.find((s) => s.index === initialSubtitleIndex);
+		if (explicit) return explicit;
+	}
+
 	const savedItemIndex = await getItemSubtitlePref(item.Id);
 	if (savedItemIndex !== undefined) {
 		if (savedItemIndex < 0) return null;
@@ -155,17 +164,13 @@ export const resolveInitialSubtitle = async (result, item, initialSubtitleIndex,
 	}
 
 	if (item.SeriesId) {
-		const savedLanguage = await getSeriesSubtitlePref(item.SeriesId);
-		if (savedLanguage !== undefined) {
-			if (!savedLanguage) return null;
-			const savedStream = streams.find((s) => s.language === savedLanguage);
+		const seriesPref = await getSeriesSubtitlePref(item.SeriesId);
+		const matched = seriesPref ? matchSeriesTrackIndex(streams, seriesPref) : null;
+		if (matched === -1) return null;
+		if (matched !== null) {
+			const savedStream = streams.find((s) => s.index === matched);
 			if (savedStream) return savedStream;
 		}
-	}
-
-	if (initialSubtitleIndex !== undefined && initialSubtitleIndex !== null) {
-		if (initialSubtitleIndex < 0) return null;
-		return streams.find((s) => s.index === initialSubtitleIndex);
 	}
 
 	if (settings.subtitleMode === 'none') {

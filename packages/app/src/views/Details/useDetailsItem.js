@@ -3,7 +3,8 @@ import $L from '@enact/i18n/$L';
 
 import * as playback from '../../services/playback';
 import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isRatingSourceAllowed} from '../../services/mdblistApi';
-import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitlePrefs';
+import {getItemSubtitlePref, getSeriesSubtitlePref, getSeriesAudioPref} from '../../services/subtitlePrefs';
+import {fromServerStream, matchSeriesTrackIndex} from '../../utils/seriesTrackPrefs';
 
 // Everything the screen shows about one item. The item itself is fetched first and rendered
 // on its own, then the rows that hang off it fill in behind, because waiting for all of them
@@ -94,7 +95,18 @@ const useDetailsItem = ({itemId, initialItem, effectiveApi, effectiveServerUrl, 
 			if (ms) {
 				const initAudioStreams = ms.MediaStreams?.filter(s => s.Type === 'Audio') || [];
 				const initSubtitleStreams = ms.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
-				if (ms.DefaultAudioStreamIndex != null) {
+				// A track remembered for the series shows as active, and only when there
+				// is none does the server's own default stand in.
+				const seriesAudioPref = data.SeriesId ? await getSeriesAudioPref(data.SeriesId) : undefined;
+				const matchedAudio = seriesAudioPref
+					? matchSeriesTrackIndex(initAudioStreams.map(fromServerStream), seriesAudioPref)
+					: null;
+				const rememberedAudioPos = matchedAudio !== null && matchedAudio >= 0
+					? initAudioStreams.findIndex(s => s.Index === matchedAudio)
+					: -1;
+				if (rememberedAudioPos >= 0) {
+					setSelectedAudioIndex(rememberedAudioPos);
+				} else if (ms.DefaultAudioStreamIndex != null) {
 					const idx = initAudioStreams.findIndex(s => s.Index === ms.DefaultAudioStreamIndex);
 					if (idx >= 0) setSelectedAudioIndex(idx);
 				}
@@ -112,14 +124,15 @@ const useDetailsItem = ({itemId, initialItem, effectiveApi, effectiveServerUrl, 
 					}
 				}
 				if (savedSubtitlePos === null && data.SeriesId) {
-					const savedLanguage = await getSeriesSubtitlePref(data.SeriesId);
-					if (savedLanguage !== undefined) {
-						if (!savedLanguage) {
-							savedSubtitlePos = -1;
-						} else {
-							const pos = initSubtitleStreams.findIndex(s => s.Language === savedLanguage);
-							if (pos >= 0) savedSubtitlePos = pos;
-						}
+					const seriesPref = await getSeriesSubtitlePref(data.SeriesId);
+					const matched = seriesPref
+						? matchSeriesTrackIndex(initSubtitleStreams.map(fromServerStream), seriesPref)
+						: null;
+					if (matched === -1) {
+						savedSubtitlePos = -1;
+					} else if (matched !== null) {
+						const pos = initSubtitleStreams.findIndex(s => s.Index === matched);
+						if (pos >= 0) savedSubtitlePos = pos;
 					}
 				}
 				if (savedSubtitlePos !== null) {

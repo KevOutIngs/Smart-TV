@@ -25,7 +25,8 @@ import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml, res
 import {isHdrOutput} from '../../utils/videoRange';
 import {selectPreferredAudioStream} from '../../utils/audioTrackSelection';
 import {applyResumeRewind, skipBackSeconds, skipForwardSeconds, zoomInternalFromSetting, zoomSettingFromInternal} from '../../utils/playbackTuning';
-import {saveSubtitlePref} from '../../services/subtitlePrefs';
+import {saveAudioPref, saveSubtitlePref} from '../../services/subtitlePrefs';
+import {resolveSeriesAudio} from './initialAudio';
 import {resolveInitialSubtitle} from './initialSubtitle';
 import {api as jellyfinApi, createApiForServer, getServerUrl} from '../../services/jellyfinApi';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
@@ -990,7 +991,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				// Handle initial audio selection. The local track preferences win,
 				// otherwise honor the Jellyfin user's preferred audio language via the
 				// server computed defaultAudioStreamIndex, then the file default.
-				const preferredAudio = selectPreferredAudioStream(result.audioStreams, settings);
+				// A track remembered for the series stands in front of the language
+				// preferences, the same order the other clients take these in.
+				const rememberedAudio = await resolveSeriesAudio(item, result.audioStreams);
+				const preferredAudio = rememberedAudio || selectPreferredAudioStream(result.audioStreams, settings);
 				const serverAudio = result.audioStreams?.find(s => s.index === result.defaultAudioStreamIndex);
 				const fileDefaultAudio = result.audioStreams?.find(s => s.isDefault);
 				const autoAudio = preferredAudio || serverAudio || fileDefaultAudio;
@@ -1727,6 +1731,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index)) return;
 		setSelectedAudioIndex(index);
+		// Saved here rather than after the switch, because switching leaves by several
+		// routes and the choice was made either way.
+		saveAudioPref(item, index, audioStreams || []);
 		closeModal();
 
 		try {
@@ -1774,7 +1781,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		} catch (err) {
 			console.error('[Player] Failed to change audio:', err);
 		}
-	}, [playMethod, closeModal, restartFromResult, audioStreams]);
+	}, [item, playMethod, closeModal, restartFromResult, audioStreams]);
 
 	const applySubtitleSelection = useCallback(async (index, streamList = subtitleStreams, shouldClose = true) => {
 		if (pgsRendererRef.current) {
@@ -1947,8 +1954,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		}
 
 		playback.updateCurrentSession({subtitleStreamIndex: index});
-		const chosenLanguage = index >= 0 ? streamList?.find(s => s.index === index)?.language : '';
-		saveSubtitlePref(item, index, chosenLanguage);
+		saveSubtitlePref(item, index, streamList || []);
 		if (shouldClose) {
 			closeModal();
 		}
