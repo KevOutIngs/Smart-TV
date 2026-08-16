@@ -130,8 +130,14 @@ const ModernDetailContent = (props) => {
 			}
 			return;
 		}
-		// The other edges stay put, so focus doesn't jump to the up next card or
-		// leak out of the row.
+		// The next up card sits beside the row with nothing else near it, so the end of the
+		// row is the way across. An edge that leads nowhere stays put rather than letting
+		// focus leak out of the row.
+		if (atRightEdge && Spotlight.focus('details-up-next')) {
+			ev.preventDefault();
+			ev.stopPropagation();
+			return;
+		}
 		if (atLeftEdge || atRightEdge) {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -699,7 +705,7 @@ const ModernDetailContent = (props) => {
 		return (
 			<RowContainer className={css.upNext}>
 				{/* eslint-disable-next-line react/jsx-no-bind */}
-				<SpottableDiv className={css.upNextCard} onClick={() => onSelectItem?.(ep)}>
+				<SpottableDiv className={css.upNextCard} spotlightId="details-up-next" onClick={() => onSelectItem?.(ep)}>
 					<div className={css.upNextLabel}>{`${$L('Next Up')} - ${code}${ep.Name}`}</div>
 					<div className={css.upNextBody}>
 						<div className={css.upNextText}>
