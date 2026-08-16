@@ -93,6 +93,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	const data = useDetailsItem({
 		itemId,
+		initialItem,
 		effectiveApi,
 		effectiveServerUrl,
 		settings,
@@ -100,7 +101,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		skip: seerrOnly
 	});
 	const {
-		setItem, isLoading: libraryLoading, seasons, episodes, similar, extras, cast, nextUp, nextEpisode,
+		setItem, isLoading: libraryLoading, isSeed, seasons, episodes, similar, extras, cast, nextUp, nextEpisode,
 		collectionItems, parentCollection, parentCollectionName, albumTracks, artistAlbums,
 		playlistItems, setPlaylistItems, episodeRatings, refreshItem,
 		selectedVersionIndex, setSelectedVersionIndex,
@@ -184,13 +185,26 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	// Keyed on the id rather than the item, because marking watched or favourite
 	// builds a new item object, which would otherwise yank focus back to Play.
 	const loadedItemId = item?.Id;
+	const autoFocusedRef = useRef(null);
 	useEffect(() => {
 		if (isLoading || !loadedItemId) return undefined;
 		const timer = setTimeout(() => {
 			Spotlight.focus(seerrOnly ? 'details-action-buttons' : 'details-primary-btn');
+			autoFocusedRef.current = Spotlight.getCurrent();
 		}, 150);
 		return () => clearTimeout(timer);
 	}, [isLoading, loadedItemId, seerrOnly]);
+
+	// The row a title is opened from doesn't carry everything the buttons are built from, so
+	// a Resume can appear once the full record lands and take the primary spot from under
+	// the focus, leaving it on Restart. Put it back, but only while it is still sitting where
+	// it was put, so a viewer who has already moved along the row is left where they are.
+	useEffect(() => {
+		if (isSeed || seerrOnly || !autoFocusedRef.current) return;
+		if (Spotlight.getCurrent() !== autoFocusedRef.current) return;
+		Spotlight.focus('details-primary-btn');
+		autoFocusedRef.current = Spotlight.getCurrent();
+	}, [isSeed, seerrOnly]);
 
 	const logoUrl = useMemo(
 			() => (item ? getLogoUrl(effectiveServerUrl, item, {maxWidth: 400, quality: 90}) : null),

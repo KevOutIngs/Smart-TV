@@ -162,8 +162,14 @@ const useBrowseData = ({
 		}
 	}, [api, unifiedMode, cacheOwner, settings.nextUpMaxDays]);
 
+	// Signing in as someone else has to throw the rows away. Leaving the home screen and
+	// coming back must not, and it used to, because an effect runs when it first mounts
+	// as well as when what it watches changes, and this screen is built again every time
+	// it is returned to. Comparing against who the rows belong to tells the two apart.
 	useEffect(() => {
+		if (memoryCache.owner === accessToken) return;
 		clearMemoryCache();
+		memoryCache.owner = accessToken;
 	}, [accessToken]);
 
 	useEffect(() => {
@@ -181,6 +187,21 @@ const useBrowseData = ({
 
 	useEffect(() => {
 		let cancelled = false;
+
+		// Loading cant clear until the media bar has something, or the first focus lands
+		// on a row rather than on the bar. Items we already remember do that on the spot
+		// and the fresh ones then arrive in their own time, so coming back to the home
+		// screen no longer waits on a request whose answer is already in hand. With
+		// nothing remembered there is still nothing to show until the request answers.
+		const primeFeaturedItems = async (remembered) => {
+			if (remembered?.length) {
+				dispatch({type: 'SET_FEATURED_ITEMS', items: remembered});
+				fetchFreshFeaturedItems(remembered);
+				return;
+			}
+			await fetchFreshFeaturedItems(remembered);
+		};
+
 		const loadData = async () => {
 			// Recommendation rows are only built by fetchAllData, so treat an enabled one
 			// as dynamic config. Otherwise enabling it shows nothing until the cache expires.
@@ -207,7 +228,7 @@ const useBrowseData = ({
 
 			if (memoryCache.rowData && memoryCache.libraries && memoryCache.featuredItems && isCacheValid(memoryCache.timestamp, CACHE_TTL_VOLATILE)) {
 				dispatch({type: 'SET_ROW_DATA', rowData: memoryCache.rowData});
-				await fetchFreshFeaturedItems(memoryCache.featuredItems);
+				await primeFeaturedItems(memoryCache.featuredItems);
 				dispatch({type: 'SET_LOADING', value: false});
 				return;
 			}
@@ -220,7 +241,7 @@ const useBrowseData = ({
 
 			if (hasValidPersistedCache) {
 				dispatch({type: 'SET_ROW_DATA', rowData: persistedCache.rowData});
-				await fetchFreshFeaturedItems(persistedCache.featuredItems);
+				await primeFeaturedItems(persistedCache.featuredItems);
 				memoryCache.libraries = persistedCache.libraries;
 				memoryCache.rowData = persistedCache.rowData;
 				memoryCache.timestamp = persistedCache.timestamp;
@@ -349,11 +370,11 @@ const useBrowseData = ({
 				dispatch({type: 'SET_ROW_DATA', rowData});
 				memoryCache.rowData = [...rowData];
 				// The Mediabar is populated only by the settings-aware loader so it can
-				// never show a library outside the selected sources. When it is enabled,
-				// wait for it before clearing loading so the initial focus lands on the
-				// media bar rather than the first row, matching the cache path.
+				// never show a library outside the selected sources. Rows that answer to
+				// a setting are rebuilt on every visit rather than read back, but the bar
+				// can still open on what it last held while the fresh set is on its way.
 				if (settingsRef.current.featuredBarStyle !== 'off') {
-					await fetchFreshFeaturedItems();
+					await primeFeaturedItems(memoryCache.featuredItems);
 				} else {
 					fetchFreshFeaturedItems();
 				}

@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useRef} from 'react';
 import $L from '@enact/i18n/$L';
 
 import * as playback from '../../services/playback';
@@ -8,8 +8,20 @@ import {getItemSubtitlePref, getSeriesSubtitlePref} from '../../services/subtitl
 // Everything the screen shows about one item. The item itself is fetched first and rendered
 // on its own, then the rows that hang off it fill in behind, because waiting for all of them
 // would leave the screen blank for as long as the slowest one takes.
-const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tagWithServerInfo, skip}) => {
-	const [item, setItem] = useState(null);
+// The row that opened this screen already carries the title, the artwork and the summary,
+// which is most of what the first look at it is. Drawing on that lets the screen go up at
+// once and the full record fill the rest in behind, rather than leaving it blank for as
+// long as the request takes.
+const seedFrom = (candidate, id) => (candidate && candidate.Id === id ? candidate : null);
+
+const useDetailsItem = ({itemId, initialItem, effectiveApi, effectiveServerUrl, settings, tagWithServerInfo, skip}) => {
+	const seedRef = useRef(initialItem);
+	seedRef.current = initialItem;
+
+	const [item, setItem] = useState(() => seedFrom(initialItem, itemId));
+	// Whether what is on screen is still the row it was opened from rather than the record
+	// the server holds, which is what the buttons are properly built from.
+	const [isSeed, setIsSeed] = useState(() => Boolean(seedFrom(initialItem, itemId)));
 	const [seasons, setSeasons] = useState([]);
 	const [episodes, setEpisodes] = useState([]);
 	const [similar, setSimilar] = useState([]);
@@ -23,7 +35,7 @@ const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tag
 	const [albumTracks, setAlbumTracks] = useState([]);
 	const [artistAlbums, setArtistAlbums] = useState([]);
 	const [playlistItems, setPlaylistItems] = useState([]);
-	const [isLoading, setIsLoading] = useState(true);
+	const [isLoading, setIsLoading] = useState(() => !seedFrom(initialItem, itemId));
 	const [episodeRatings, setEpisodeRatings] = useState({});
 
 	const [selectedVersionIndex, setSelectedVersionIndex] = useState(0);
@@ -55,18 +67,28 @@ const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tag
 		}
 
 		const loadItem = async () => {
-			setIsLoading(true);
+			const seed = seedFrom(seedRef.current, itemId);
+			if (seed) {
+				setItem(tagWithServerInfo(seed));
+				setIsSeed(true);
+				setIsLoading(false);
+			} else {
+				setIsSeed(false);
+				setIsLoading(true);
+			}
 
 			let data;
 			try {
 				data = await effectiveApi.getItemForDetail(itemId);
 			} catch (err) {
 				console.error('[Details] Error loading item', err);
+				setIsSeed(false);
 				setIsLoading(false);
 				return;
 			}
 
 			setItem(tagWithServerInfo(data));
+			setIsSeed(false);
 			setSelectedVersionIndex(0);
 			const ms = data.MediaSources?.[0];
 			if (ms) {
@@ -268,6 +290,7 @@ const useDetailsItem = ({itemId, effectiveApi, effectiveServerUrl, settings, tag
 	return {
 		item,
 		setItem,
+		isSeed,
 		isLoading,
 		seasons,
 		episodes,
