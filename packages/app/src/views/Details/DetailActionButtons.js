@@ -213,6 +213,13 @@ const DetailActionButtons = ({
 				<span className={css.btnLabel}>{$L('Delete')}</span>
 			</SpottableDiv>
 		)},
+		{id: 'seerrWatchlist', when: seerr.showsWatchlist, render: () => (
+			seerrButton(
+				seerr.onWatchlist ? $L('In Watchlist') : $L('Add to Watchlist'),
+				seerr.onWatchlist ? DETAIL_ICON_PATHS.watchlistOn : DETAIL_ICON_PATHS.watchlist,
+				seerr.toggleWatchlist
+			)
+		)},
 		{id: 'seerrReportIssue', when: seerr.showsReportIssue, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={seerr.handleReportIssueClick}>
 				<div className={css.btnAction}>

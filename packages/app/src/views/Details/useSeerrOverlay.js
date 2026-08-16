@@ -9,6 +9,7 @@ import {normalizeMediaItem} from '../../utils/seerrHomeRows';
 import {IDLE, seerrTargetFor} from '../../utils/seerrTarget';
 import useSeerrDetailsData from './useSeerrDetailsData';
 import useSeerrRequests from './useSeerrRequests';
+import useSeerrWatchlist from './useSeerrWatchlist';
 
 const useSeerrOverlay = ({item, seerrOnly}) => {
 	const {isEnabled, isAuthenticated, user, displayName} = useSeerr();
@@ -43,6 +44,12 @@ const useSeerrOverlay = ({item, seerrOnly}) => {
 		is4kEnabled: data.is4kEnabled,
 		hdStatus: data.hdStatus,
 		status4k: data.status4k
+	});
+
+	const watchlist = useSeerrWatchlist({
+		mediaId: target.mediaId,
+		mediaType: target.mediaType,
+		details: data.details
 	});
 
 	// Seerr's rows arrive in its own shape, and both detail styles draw their rows with the
@@ -90,7 +97,10 @@ const useSeerrOverlay = ({item, seerrOnly}) => {
 		showsRequest: isActive && (offersRequest || requests.canCancelHd),
 		showsRequest4k: isActive && (offersRequest4k || requests.canCancel4k),
 		showsReportIssue: isActive && requests.canReportIssue,
-		showsManage: isActive && requests.canManage && requests.pendingRequests.length > 0
+		showsManage: isActive && requests.canManage && requests.pendingRequests.length > 0,
+		showsWatchlist: isActive,
+		onWatchlist: watchlist.onWatchlist,
+		toggleWatchlist: watchlist.toggleWatchlist
 	};
 };
 

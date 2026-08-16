@@ -1004,6 +1004,16 @@ export const cancelRequest = async (requestId) => {
 	return request(`/request/${requestId}`, {method: 'DELETE'});
 };
 
+// Adding names the title in the body and removing names it in the path, which is how Seerr
+// takes each of them.
+export const addToWatchlist = async (tmdbId, mediaType) => {
+	return request('/watchlist', {method: 'POST', body: {tmdbId, mediaType}});
+};
+
+export const removeFromWatchlist = async (tmdbId, mediaType) => {
+	return request(`/watchlist/${tmdbId}?mediaType=${mediaType}`, {method: 'DELETE'});
+};
+
 export const getIssues = async (filter = 'open', take = 20, skip = 0) => {
 	return request(`/issue?filter=${filter}&take=${take}&skip=${skip}`);
 };
@@ -1156,6 +1166,8 @@ export default {
 	getMyRequests,
 	getRecentlyAdded,
 	getWatchlist,
+	addToWatchlist,
+	removeFromWatchlist,
 	REQUEST_STATUS,
 	getRequestStatusText,
 	requestMovie,
