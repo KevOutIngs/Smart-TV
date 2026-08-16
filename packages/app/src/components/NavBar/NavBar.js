@@ -73,12 +73,12 @@ const NavBar = ({
 	// many of the optional buttons are turned on.
 	const librariesLeftTargetId = useMemo(() => {
 		if (showSyncPlay) return 'navbar-syncplay';
-		if (seerrEnabled) return 'navbar-discover';
+		if (showSeerr) return 'navbar-discover';
 		if (showFavorites) return 'navbar-favorites';
 		if (showGenres) return 'navbar-genres';
 		if (showShuffle) return 'navbar-shuffle';
 		return 'navbar-search';
-	}, [showSyncPlay, seerrEnabled, showFavorites, showGenres, showShuffle]);
+	}, [showSyncPlay, showSeerr, showFavorites, showGenres, showShuffle]);
 
 	const handlePillFocus = useCallback((e) => {
 		e.target?.scrollIntoView?.({behavior: 'smooth', block: 'nearest', inline: 'nearest'});
