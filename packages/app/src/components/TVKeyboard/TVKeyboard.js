@@ -138,13 +138,13 @@ class TVKeyboardHost extends Component {
 		publishTvKeyboardVisibility(true, options.anchor || null);
 	};
 
-	close = (submitted) => {
+	close = (submitted, reason) => {
 		const {session} = this.state;
 		if (!session) return;
 		this.teardownSession();
 		this.setState({session: null});
 		publishTvKeyboardVisibility(false, null);
-		session.onClose?.({submitted: !!submitted});
+		session.onClose?.({submitted: !!submitted, reason});
 	};
 
 	teardownSession() {
@@ -372,6 +372,23 @@ class TVKeyboardHost extends Component {
 		return line[Math.min(col, line.length - 1)];
 	}
 
+	// Whether up has anywhere left to go inside the keyboard.
+	atTopRow() {
+		if (this.state.row === -1) return true;
+		return this.state.row === 0 && this.chips().length === 0;
+	}
+
+	// Up from the top row is a way out for screens that name somewhere to go, so
+	// the keyboard can be left without finding the done key. A screen with nowhere
+	// to send focus says so and the keyboard stays where it is.
+	exitTop() {
+		const {session} = this.state;
+		if (!session?.onExitTop) return false;
+		if (session.onExitTop() === false) return false;
+		this.close(true, 'exitTop');
+		return true;
+	}
+
 	move(dRow, dCol) {
 		const layout = this.layout();
 		const chips = this.chips();
@@ -459,7 +476,10 @@ class TVKeyboardHost extends Component {
 		}
 		if (code === 37) return this.move(0, -1);
 		if (code === 39) return this.move(0, 1);
-		if (code === 38) return this.move(-1, 0);
+		if (code === 38) {
+			if (this.atTopRow() && this.exitTop()) return;
+			return this.move(-1, 0);
+		}
 		if (code === 40) return this.move(1, 0);
 		if (isBack) {
 			this.pendingAlternate = false;

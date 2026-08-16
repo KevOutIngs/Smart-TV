@@ -289,27 +289,41 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 		(recentSearches?.length || 0) > 0;
 
 	// D-pad hand-offs between the input, the tabs and the content.
+	// Where leaving the field downward lands, which is also where the keyboard
+	// hands focus when it is dismissed upward. False when there is nothing below
+	// the field yet.
+	const focusBelowInput = useCallback(() => {
+		if (hasResults) {
+			focusAllTab();
+			return true;
+		}
+		if (showRecent) {
+			Spotlight.focus('search-recent');
+			return true;
+		}
+		return false;
+	}, [hasResults, showRecent, focusAllTab]);
+
 	const handleInputKeyDown = useCallback((e) => {
 		if (e.keyCode !== KEYS.DOWN) return;
-		if (hasResults) {
-			e.preventDefault();
-			focusAllTab();
-		} else if (showRecent) {
-			e.preventDefault();
-			Spotlight.focus('search-recent');
-		}
-	}, [hasResults, showRecent, focusAllTab]);
+		if (focusBelowInput()) e.preventDefault();
+	}, [focusBelowInput]);
 
 	const focusContent = useCallback(() => {
 		Spotlight.focus(activeTab === 'all' ? 'search-row-0' : 'search-grid');
 	}, [activeTab]);
 
+	// The press is stopped as well as prevented. Spotlight makes its own move once
+	// the event reaches the top, and it would make that move out of whatever was
+	// just focused here rather than out of the tabs.
 	const handleTabsKeyDown = useCallback((e) => {
 		if (e.keyCode === KEYS.UP) {
 			e.preventDefault();
+			e.stopPropagation();
 			Spotlight.focus('search-input');
 		} else if (e.keyCode === KEYS.DOWN) {
 			e.preventDefault();
+			e.stopPropagation();
 			focusContent();
 		}
 	}, [focusContent]);
@@ -517,6 +531,7 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 						value={query}
 						onChange={handleInputChange}
 						onKeyDown={handleInputKeyDown}
+						onExitTop={focusBelowInput}
 						spotlightId="search-input"
 						autoComplete="off"
 					/>

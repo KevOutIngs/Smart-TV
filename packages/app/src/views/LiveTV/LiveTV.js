@@ -691,12 +691,15 @@ const LiveTV = ({onPlayChannel, onRecordings, backHandlerRef}) => {
 		recordBusyRef.current = true;
 		try {
 			await api.createLiveTvSeriesTimer(program.Id);
+			// The series rule schedules this airing too, so re-reading turns the
+			// button for it into Cancel Recording.
+			await loadTimers();
 		} catch (err) {
 			console.error('Failed to create series timer:', err);
 		} finally {
 			recordBusyRef.current = false;
 		}
-	}, [api, selectedProgram]);
+	}, [api, selectedProgram, loadTimers]);
 
 	const handleToggleChannelFavorite = useCallback(async () => {
 		const channel = selectedProgram?.channel;

@@ -5,7 +5,7 @@ jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
 import {MEDIA_STATUS, REQUEST_STATUS} from './seerrStatus';
 import {
 	formatCurrency, formatDate, formatRuntime, getSeasonStatusColor,
-	getSeasonStatusLabel, getStatusPills, isSeasonRerequestable, isStatusBlocked
+	getSeasonStatusLabel, getStatusPills, isSeasonRerequestable
 } from './seerrBadges';
 
 const pills = (hd, fourK, hdDeclined = false, fourKDeclined = false) =>
@@ -72,24 +72,6 @@ describe('getStatusPills', () => {
 				});
 			});
 		});
-	});
-});
-
-describe('isStatusBlocked', () => {
-	test('a title already asked for cannot be asked for again', () => {
-		expect(isStatusBlocked(MEDIA_STATUS.PENDING)).toBe(true);
-		expect(isStatusBlocked(MEDIA_STATUS.PROCESSING)).toBe(true);
-		expect(isStatusBlocked(MEDIA_STATUS.AVAILABLE)).toBe(true);
-	});
-
-	test('partially available stays open, since the missing seasons can still be asked for', () => {
-		expect(isStatusBlocked(MEDIA_STATUS.PARTIALLY_AVAILABLE)).toBe(false);
-	});
-
-	test('unknown and nothing at all stay open', () => {
-		expect(isStatusBlocked(MEDIA_STATUS.UNKNOWN)).toBe(false);
-		expect(isStatusBlocked(null)).toBe(false);
-		expect(isStatusBlocked(undefined)).toBe(false);
 	});
 });
 

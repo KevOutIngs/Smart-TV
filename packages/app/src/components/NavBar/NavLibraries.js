@@ -9,8 +9,15 @@ import NavPillButton from './NavPillButton';
 
 import css from './NavBar.module.less';
 
+const PILL_ID = 'navbar-libraries';
+
+// Coming into the group lands on the pill rather than on whichever library button is
+// nearest, so arriving from the right doesn't drop you at the end of an open list with
+// the whole list to walk back through. enterTo does nothing without an element named
+// alongside it.
 const LibrariesContainer = SpotlightContainerDecorator({
-	enterTo: 'default-element'
+	enterTo: 'default-element',
+	defaultElement: `.${css.librariesBtn}`
 }, 'div');
 
 const SpottableButton = Spottable('button');
@@ -23,6 +30,7 @@ const FOCUS_DELAY = 50;
 const NavLibraries = ({libraries, slot, activeView, onSelectLibrary, leftTargetId}) => {
 	const [expanded, setExpanded] = useState(false);
 	const blurTimeoutRef = useRef(null);
+	const listRef = useRef(null);
 
 	useEffect(() => {
 		return () => {
@@ -33,7 +41,11 @@ const NavLibraries = ({libraries, slot, activeView, onSelectLibrary, leftTargetI
 	useEffect(() => {
 		if (!expanded) return undefined;
 		const timer = setTimeout(() => {
-			const firstLibBtn = document.querySelector(`.${css.libraryBtn}`);
+			// A press that beats this timer keeps whatever it landed on, rather than being
+			// undone by focus arriving late.
+			const current = Spotlight.getCurrent();
+			if (current && !current.classList.contains(css.librariesBtn)) return;
+			const firstLibBtn = listRef.current?.firstElementChild;
 			if (firstLibBtn) Spotlight.focus(firstLibBtn);
 		}, FOCUS_DELAY);
 		return () => clearTimeout(timer);
@@ -63,6 +75,14 @@ const NavLibraries = ({libraries, slot, activeView, onSelectLibrary, leftTargetI
 		if (!Spotlight.focus(leftTargetId)) Spotlight.move('left');
 	}, [leftTargetId]);
 
+	// The pill sits alongside the list rather than above it, so up has nothing to find
+	// on its own and gets sent back by hand.
+	const handleLibraryUp = useCallback((e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		Spotlight.focus(PILL_ID);
+	}, []);
+
 	const handleLibraryClick = useCallback((e) => {
 		const libId = e.currentTarget.dataset.libraryId;
 		const lib = libraries.find(l => l.Id === libId);
@@ -80,16 +100,17 @@ const NavLibraries = ({libraries, slot, activeView, onSelectLibrary, leftTargetI
 				slot={slot}
 				label={$L('Libraries')}
 				onClick={handleToggle}
-				spotlightId="navbar-libraries"
+				spotlightId={PILL_ID}
 				className={css.librariesBtn}
 				onSpotlightLeft={handleSpotlightLeft}
 			/>
-			<div className={css.librariesList}>
+			<div className={css.librariesList} ref={listRef}>
 				{expanded && libraries.map((lib, index) => (
 					<SpottableButton
 						key={lib.Id}
 						className={`${css.navBtn} ${css.libraryBtn} ${activeView === lib.Id ? css.active : ''}`}
 						onClick={handleLibraryClick}
+						onSpotlightUp={handleLibraryUp}
 						data-library-id={lib.Id}
 						data-nav-slot={(index % 16) + 1}
 					>

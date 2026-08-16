@@ -750,6 +750,13 @@ export const getSettings = async () => {
 	return request('/settings/main');
 };
 
+// What Seerr tells every client about itself, including whether it has a 4K backend
+// standing by for each kind of media. Asking here rather than reading the server list
+// is what the other clients do, and it needs none of the rights that list does.
+export const getPublicSettings = async () => {
+	return request('/settings/public');
+};
+
 export const getBlacklist = async (page = 1) => {
 	return request(`/blacklist?take=20&skip=${(page - 1) * 20}`);
 };
@@ -997,6 +1004,16 @@ export const cancelRequest = async (requestId) => {
 	return request(`/request/${requestId}`, {method: 'DELETE'});
 };
 
+// Adding names the title in the body and removing names it in the path, which is how Seerr
+// takes each of them.
+export const addToWatchlist = async (tmdbId, mediaType) => {
+	return request('/watchlist', {method: 'POST', body: {tmdbId, mediaType}});
+};
+
+export const removeFromWatchlist = async (tmdbId, mediaType) => {
+	return request(`/watchlist/${tmdbId}?mediaType=${mediaType}`, {method: 'DELETE'});
+};
+
 export const getIssues = async (filter = 'open', take = 20, skip = 0) => {
 	return request(`/issue?filter=${filter}&take=${take}&skip=${skip}`);
 };
@@ -1108,6 +1125,7 @@ export default {
 	canManageIssues,
 	canCreateIssues,
 	getSettings,
+	getPublicSettings,
 	getBlacklist,
 	getRadarrServers,
 	getRadarrServerDetails,
@@ -1148,6 +1166,8 @@ export default {
 	getMyRequests,
 	getRecentlyAdded,
 	getWatchlist,
+	addToWatchlist,
+	removeFromWatchlist,
 	REQUEST_STATUS,
 	getRequestStatusText,
 	requestMovie,

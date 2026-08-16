@@ -17,10 +17,30 @@ const LANGUAGE_ALIASES = {
 	tib: 'bod', wel: 'cym'
 };
 
+// Every ISO 639 code is two or three letters, so anything else is a placeholder
+// like the interface language's "system" rather than a language to match on.
+const ISO_CODE = /^[a-z]{2,3}$/;
+
 export const normalizeLanguageCode = (value) => {
 	if (!value || typeof value !== 'string') return '';
 	const normalized = value.trim().toLowerCase();
 	if (!normalized || normalized === 'unknown' || normalized === 'und') return '';
 	const primary = normalized.split(/[-_]/)[0];
+	if (!ISO_CODE.test(primary)) return '';
 	return LANGUAGE_ALIASES[primary] || primary;
+};
+
+/**
+ * Whether a track is in the language someone asked for. Both sides come down to
+ * the same three letter code first, so a track tagged de, deu or ger all answer
+ * a preference of German.
+ *
+ * @param {string} [streamLanguage] - the language tag on the track
+ * @param {string} [preferred] - the language that was asked for
+ * @returns {boolean}
+ */
+export const languageMatches = (streamLanguage, preferred) => {
+	const wanted = normalizeLanguageCode(preferred);
+	if (!wanted) return false;
+	return normalizeLanguageCode(streamLanguage) === wanted;
 };

@@ -10,7 +10,7 @@ import SubtitleSettingsOverlay from './SubtitleSettingsOverlay';
 import {isHdrVideoStream} from '../../utils/videoRange';
 import {getPlatform} from '../../platform';
 import {ModalContainer} from '../../utils/spotlightContainers';
-import {numberedTrackName, sortSubtitleStreams, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
+import {numberedTrackName, trackName, sortSubtitleStreams, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
 import {
 	SpottableButton, SpottableDiv,
 	formatTime, getQualityPresets,
@@ -458,7 +458,7 @@ const PlayerControls = ({
 									onClick={handleSelectSubtitle}
 									onKeyDown={handleSubtitleKeyDown}
 								>
-									<span className={css.trackName}>{numberedTrackName(i + 1, stream.displayTitle, $L('Subtitle'))}</span>
+									<span className={css.trackName}>{trackName(i + 1, stream.displayTitle, $L('Subtitle'))}</span>
 									<span className={css.trackInfo}>{subtitleTrackDetail({name: stream.displayTitle, codec: stream.codec, language: stream.language, isExternal: stream.isExternal, deliveryMethod: stream.deliveryMethod, isForced: stream.isForced, isHearingImpaired: stream.isHearingImpaired})}</span>
 								</SpottableButton>
 							))}

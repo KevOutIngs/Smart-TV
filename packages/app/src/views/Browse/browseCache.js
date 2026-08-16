@@ -17,7 +17,12 @@ export const memoryCache = {
 	rowData: null,
 	libraries: null,
 	featuredItems: null,
-	timestamp: null
+	timestamp: null,
+	// Whose rows these are. Kept so a fresh mount can tell an account change, which has to
+	// throw the rows away, apart from an ordinary return to the home screen, which is the
+	// whole reason the cache is here. Emptying the rows leaves it alone, since a refresh
+	// still belongs to the same account.
+	owner: null
 };
 
 export const clearMemoryCache = () => {
@@ -79,7 +84,11 @@ const stripItemForCache = (item) => ({
 	UserData: item.UserData ? {
 		PlayedPercentage: item.UserData.PlayedPercentage,
 		Played: item.UserData.Played,
-		LastPlayedDate: item.UserData.LastPlayedDate
+		LastPlayedDate: item.UserData.LastPlayedDate,
+		// How far in the viewer got is what decides whether a title offers Resume, and the
+		// detail screen opens on the row it was reached from, so dropping this would have it
+		// open without one and grow a Resume a moment later.
+		PlaybackPositionTicks: item.UserData.PlaybackPositionTicks
 	} : undefined,
 	_serverUrl: item._serverUrl,
 	_serverType: item._serverType,

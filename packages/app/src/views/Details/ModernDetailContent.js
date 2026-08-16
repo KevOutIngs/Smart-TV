@@ -12,7 +12,7 @@ import {SeerrChips, SeerrFacts, SeerrCollectionBanner} from '../../components/se
 import RatingsRow from '../../components/RatingsRow';
 import DetailsTabBar from '../../components/DetailsTabBar';
 import {getImageUrl, formatDuration} from '../../utils/helpers';
-import {castPhotoUrl} from './detailsMedia';
+import {castPhotoUrl, hidesMediaDescription} from './detailsMedia';
 import ExpandableOverview from './ExpandableOverview';
 import {KEYS} from '../../utils/keys';
 import {DETAIL_ICON_PATHS} from './detailIcons';
@@ -30,6 +30,12 @@ const hasSpottableAbove = (container, active) => {
 	const top = active.getBoundingClientRect().top + 1;
 	return Array.from(container.querySelectorAll('.spottable'))
 		.some((el) => el !== active && el.getBoundingClientRect().bottom <= top);
+};
+
+const hasSpottableBelow = (container, active) => {
+	const bottom = active.getBoundingClientRect().bottom - 1;
+	return Array.from(container.querySelectorAll('.spottable'))
+		.some((el) => el !== active && el.getBoundingClientRect().top >= bottom);
 };
 
 const Icon = ({path}) => (
@@ -91,6 +97,7 @@ const ModernDetailContent = (props) => {
 	const hasTrailer = item.LocalTrailerCount > 0 || (item.RemoteTrailers?.length > 0) || isSeries;
 	const played = item.UserData?.Played;
 	const isFavorite = item.UserData?.IsFavorite;
+	const hideMediaDescription = hidesMediaDescription(item, settings);
 
 	const scrollToRef = useRef(null);
 	const handleScrollTo = useCallback((fn) => {
@@ -124,8 +131,14 @@ const ModernDetailContent = (props) => {
 			}
 			return;
 		}
-		// The other edges stay put, so focus doesn't jump to the up next card or
-		// leak out of the row.
+		// The next up card sits beside the row with nothing else near it, so the end of the
+		// row is the way across. An edge that leads nowhere stays put rather than letting
+		// focus leak out of the row.
+		if (atRightEdge && Spotlight.focus('details-up-next')) {
+			ev.preventDefault();
+			ev.stopPropagation();
+			return;
+		}
 		if (atLeftEdge || atRightEdge) {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -278,6 +291,22 @@ const ModernDetailContent = (props) => {
 		}
 		setActiveTab((prev) => (prev === id ? null : id));
 	}, [expanded]);
+
+	// Leaving the hero downwards arrives at the tab bar. Left to itself Spotlight
+	// picks the pill nearest the overview, which is a wide box whose middle sits well
+	// past the first tab, so a collection would open on Studios rather than Items.
+	// The press lands on the tab that is already open instead.
+	const handleHeroKeyDown = useCallback((ev) => {
+		if (ev.keyCode !== KEYS.DOWN) return;
+		const hero = ev.currentTarget;
+		const active = document.activeElement;
+		if (!active || !hero.contains(active) || hasSpottableBelow(hero, active)) return;
+		const pill = document.querySelector(`[data-spotlight-id="details-tab-bar"] [data-id="${currentTab || tabs[0]?.id}"]`);
+		if (pill && Spotlight.focus(pill)) {
+			ev.preventDefault();
+			ev.stopPropagation();
+		}
+	}, [currentTab, tabs]);
 
 	const handleTabsKeyDown = useCallback((ev) => {
 		if (ev.keyCode !== KEYS.DOWN && ev.keyCode !== KEYS.UP) return;
@@ -539,7 +568,7 @@ const ModernDetailContent = (props) => {
 							onClick={seerr.onRequestPrimary}
 						/>
 					)}
-					{seerr.hasOpenHdRequest && (
+					{seerr.canCancelHd && (
 						<ActionButton
 							path={DETAIL_ICON_PATHS.cancelRequest}
 							label={$L('Cancel Request')}
@@ -557,7 +586,7 @@ const ModernDetailContent = (props) => {
 							onClick={seerr.onRequest4k}
 						/>
 					)}
-					{seerr.hasOpenFourKRequest && (
+					{seerr.canCancel4k && (
 						<ActionButton
 							path={DETAIL_ICON_PATHS.cancelRequest}
 							label={$L('Cancel 4K Request')}
@@ -579,6 +608,7 @@ const ModernDetailContent = (props) => {
 			{id: 'collection', when: Boolean(handleOpenCollectionModal), render: () => <ActionButton path={DETAIL_ICON_PATHS.collection} label={$L('Add to Collection')} onClick={handleOpenCollectionModal} />},
 			{id: 'deleteFiles', when: item.CanDelete, render: () => <ActionButton path={DETAIL_ICON_PATHS.delete} label={$L('Delete')} onClick={handleOpenDeleteDialog} />},
 			{id: 'artwork', when: canChangeArtwork, render: () => <ActionButton path={DETAIL_ICON_PATHS.artwork} label={$L('Change Artwork')} onClick={handleOpenArtworkModal} spotlightId="details-artwork-btn" />},
+			{id: 'seerrWatchlist', when: seerr.showsWatchlist, render: () => <ActionButton path={seerr.onWatchlist ? DETAIL_ICON_PATHS.watchlistOn : DETAIL_ICON_PATHS.watchlist} label={seerr.onWatchlist ? $L('In Watchlist') : $L('Add to Watchlist')} active={seerr.onWatchlist} onClick={seerr.toggleWatchlist} />},
 			{id: 'seerrReportIssue', when: seerr.showsReportIssue, render: () => <ActionButton path={DETAIL_ICON_PATHS.reportIssue} label={$L('Report Issue')} onClick={seerr.handleReportIssueClick} />},
 			{id: 'seerrManage', when: seerr.showsManage, render: () => <ActionButton path={DETAIL_ICON_PATHS.manageRequests} label={$L('Manage Requests')} onClick={seerr.handleManageRequestsClick} />},
 			{id: 'admin', when: Boolean(handleOpenIdentifyModal), render: () => <ActionButton path={DETAIL_ICON_PATHS.admin} label={$L('Admin Controls')} onClick={handleOpenIdentifyModal} />}
@@ -677,7 +707,7 @@ const ModernDetailContent = (props) => {
 		return (
 			<RowContainer className={css.upNext}>
 				{/* eslint-disable-next-line react/jsx-no-bind */}
-				<SpottableDiv className={css.upNextCard} onClick={() => onSelectItem?.(ep)}>
+				<SpottableDiv className={css.upNextCard} spotlightId="details-up-next" onClick={() => onSelectItem?.(ep)}>
 					<div className={css.upNextLabel}>{`${$L('Next Up')} - ${code}${ep.Name}`}</div>
 					<div className={css.upNextBody}>
 						<div className={css.upNextText}>
@@ -705,11 +735,15 @@ const ModernDetailContent = (props) => {
 			<Scroller cbScrollTo={handleScrollTo} onScroll={handleScroll} className={css.scroller} direction="vertical" horizontalScrollbar="hidden" verticalScrollbar="hidden">
 				<div className={`${css.content} ${settings.navbarPosition === 'left' ? css.sidebarOffset : ''}`} ref={contentRef} onKeyDown={handleContentKeyDown}>
 					{hasUpNext && <div className={css.aboveHero}>{renderTitleBlock()}</div>}
-					<div className={`${css.hero} ${hasUpNext ? css.hasUpNext : ''}`}>
+					<div className={`${css.hero} ${hasUpNext ? css.hasUpNext : ''}`} onKeyDown={handleHeroKeyDown}>
 						<div className={`${css.heroMain} ${isPerson ? css.heroPerson : ''}`}>
 							{!hasUpNext && renderTitleBlock()}
-							{tagline && <div className={css.tagline}>{tagline}</div>}
-							<ExpandableOverview text={item.Overview} itemId={item.Id} className={css.descriptionSlot} backRef={overviewBackRef} />
+							{!hideMediaDescription && (
+								<>
+									{tagline && <div className={css.tagline}>{tagline}</div>}
+									<ExpandableOverview text={item.Overview} itemId={item.Id} className={css.descriptionSlot} backRef={overviewBackRef} />
+								</>
+							)}
 							{!isBoxSet && !isPerson && renderActionButtons()}
 						</div>
 						{renderUpNext()}

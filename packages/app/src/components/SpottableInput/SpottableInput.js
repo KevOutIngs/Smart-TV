@@ -18,6 +18,7 @@ const SpottableInput = ({
 	purpose,
 	recents,
 	suggestionsBuilder,
+	onExitTop,
 	...inputProps
 }) => {
 	const inputRef = useRef(null);
@@ -58,6 +59,9 @@ const SpottableInput = ({
 		inputRef.current?.blur();
 	}, []);
 
+	const onExitTopRef = useRef(onExitTop);
+	onExitTopRef.current = onExitTop;
+
 	const openKeyboard = useCallback(() => {
 		if (disabled || kbActiveRef.current) return;
 		const id = spotlightId || dataSpotlightId;
@@ -81,11 +85,14 @@ const SpottableInput = ({
 				});
 			},
 			onSystemKeyboard: activateInput,
-			onClose: ({submitted}) => {
+			onExitTop: onExitTopRef.current ? () => onExitTopRef.current() : undefined,
+			onClose: ({submitted, reason}) => {
 				kbActiveRef.current = false;
 				setKbActive(false);
 				inputRef.current?.blur();
-				if (id) Spotlight.focus(`[data-spotlight-id="${id}"]`);
+				// Leaving through the top has already put focus where the screen
+				// wanted it, so taking it back here would undo that.
+				if (id && reason !== 'exitTop') Spotlight.focus(`[data-spotlight-id="${id}"]`);
 				if (submitted && onKeyDownRef.current) {
 					onKeyDownRef.current({
 						keyCode: 13,

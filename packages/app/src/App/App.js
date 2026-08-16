@@ -19,6 +19,7 @@ import {OLED_TUNING} from '../utils/oledMode';
 import {isTizen, isWebOS} from '../platform';
 import {initVideo, cleanupVideoElement, setupVisibilityHandler, setupPlatformLifecycle} from '../services/video';
 import {SettingsProvider} from '../context/SettingsContext';
+import {seedLanguagePreferences} from '../utils/languagePrefSeed';
 import {SeerrProvider, useSeerr} from '../context/SeerrContext';
 import {SyncPlayProvider, useSyncPlay} from '../context/SyncPlayContext';
 import {useVersionCheck} from '../hooks/useVersionCheck';
@@ -134,7 +135,7 @@ const PANELS = {
 
 const AppContent = (props) => {
 	const {isAuthenticated, isLoading, logout, serverUrl, serverName, api, user, hasMultipleServers, accessToken, connectionState, revalidateSession} = useAuth();
-	const {settings, activeTheme, syncOnLogin, loaded: settingsLoaded} = useSettings();
+	const {settings, activeTheme, syncOnLogin, updateSettings, loaded: settingsLoaded} = useSettings();
 	const {streamNotification, dismissStreamNotification, adminMessage, dismissAdminMessage} = useSeerr();
 	const themeMusic = useThemeMusic();
 	const {openDialog: openSyncPlay, closeDialog: closeSyncPlay, isDialogOpen: syncPlayDialogOpen, playQueueItem, clearPlayQueueItem, isInGroup: isSyncPlayInGroup, setNewQueue: syncPlaySetNewQueue, displayMessage: syncPlayMessage, clearDisplayMessage: clearSyncPlayMessage} = useSyncPlay();
@@ -262,6 +263,12 @@ const AppContent = (props) => {
 			});
 		}
 	}, [isAuthenticated, serverUrl, accessToken, syncOnLogin]);
+
+	useEffect(() => {
+		if (!isAuthenticated || !user?.Configuration) return;
+		const seeded = seedLanguagePreferences(settings, user.Configuration, settings.uiLanguage, window.navigator?.language);
+		if (Object.keys(seeded).length > 0) updateSettings(seeded);
+	}, [isAuthenticated, user, settings, updateSettings]);
 
 	useEffect(() => {
 		if (!isPinGateActive) return;

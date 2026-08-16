@@ -17,7 +17,7 @@ import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 
 import {isSeerrOnlyItem} from '../../utils/seerrTarget';
 import {buildSeerrDetailItem} from '../../utils/seerrDetailItem';
-import {COLLECTION_ITEM_TYPES, IDENTIFIABLE_TYPES, getMediaBadges, shuffleArray, splitCastAndCrew} from './detailsMedia';
+import {COLLECTION_ITEM_TYPES, IDENTIFIABLE_TYPES, getMediaBadges, seriesThumbUrl, shuffleArray, splitCastAndCrew} from './detailsMedia';
 import useDetailsItem from './useDetailsItem';
 import useDetailsModals from './useDetailsModals';
 import useDetailsTrailer from './useDetailsTrailer';
@@ -93,6 +93,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 
 	const data = useDetailsItem({
 		itemId,
+		initialItem,
 		effectiveApi,
 		effectiveServerUrl,
 		settings,
@@ -100,7 +101,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		skip: seerrOnly
 	});
 	const {
-		setItem, isLoading: libraryLoading, seasons, episodes, similar, extras, cast, nextUp, nextEpisode,
+		setItem, isLoading: libraryLoading, isSeed, seasons, episodes, similar, extras, cast, nextUp, nextEpisode,
 		collectionItems, parentCollection, parentCollectionName, albumTracks, artistAlbums,
 		playlistItems, setPlaylistItems, episodeRatings, refreshItem,
 		selectedVersionIndex, setSelectedVersionIndex,
@@ -184,13 +185,26 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	// Keyed on the id rather than the item, because marking watched or favourite
 	// builds a new item object, which would otherwise yank focus back to Play.
 	const loadedItemId = item?.Id;
+	const autoFocusedRef = useRef(null);
 	useEffect(() => {
 		if (isLoading || !loadedItemId) return undefined;
 		const timer = setTimeout(() => {
 			Spotlight.focus(seerrOnly ? 'details-action-buttons' : 'details-primary-btn');
+			autoFocusedRef.current = Spotlight.getCurrent();
 		}, 150);
 		return () => clearTimeout(timer);
 	}, [isLoading, loadedItemId, seerrOnly]);
+
+	// The row a title is opened from doesn't carry everything the buttons are built from, so
+	// a Resume can appear once the full record lands and take the primary spot from under
+	// the focus, leaving it on Restart. Put it back, but only while it is still sitting where
+	// it was put, so a viewer who has already moved along the row is left where they are.
+	useEffect(() => {
+		if (isSeed || seerrOnly || !autoFocusedRef.current) return;
+		if (Spotlight.getCurrent() !== autoFocusedRef.current) return;
+		Spotlight.focus('details-primary-btn');
+		autoFocusedRef.current = Spotlight.getCurrent();
+	}, [isSeed, seerrOnly]);
 
 	const logoUrl = useMemo(
 			() => (item ? getLogoUrl(effectiveServerUrl, item, {maxWidth: 400, quality: 90}) : null),
@@ -202,6 +216,13 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const supportsStreamSelection = item?.MediaType === 'Video' &&
 		item.MediaSources?.length > 0 &&
 		item.MediaSources[0].Type !== 'Placeholder';
+
+	// Whether a track was picked on this screen. Both pickers start on something the
+	// viewer never chose, subtitles on None and audio on the file's first track, so
+	// passing those on regardless would read as a deliberate choice and the language
+	// preferences would never get a say.
+	const subtitleChosenRef = useRef(false);
+	const audioChosenRef = useRef(false);
 
 	// The version, audio and subtitle picks made on this screen, in the shape the
 	// player wants them. Shared with the advanced playback menu so both routes start
@@ -216,8 +237,8 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		const subtitleStream = selectedSubtitleIndex >= 0 ? subtitleStreamsList[selectedSubtitleIndex] : null;
 		return {
 			mediaSourceId: playMediaSource.Id,
-			audioStreamIndex: selectedAudio?.Index,
-			subtitleStreamIndex: subtitleStream?.Index ?? -1
+			...(audioChosenRef.current ? {audioStreamIndex: selectedAudio?.Index} : {}),
+			...(subtitleChosenRef.current ? {subtitleStreamIndex: subtitleStream?.Index ?? -1} : {})
 		};
 	}, [item, supportsStreamSelection, selectedVersionIndex, selectedAudioIndex, selectedSubtitleIndex]);
 
@@ -394,6 +415,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const handleSelectAudio = useCallback((e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index)) return;
+		audioChosenRef.current = true;
 		setSelectedAudioIndex(index);
 		closeModal();
 	}, [closeModal, setSelectedAudioIndex]);
@@ -401,6 +423,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const handleSelectSubtitle = useCallback((e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index)) return;
+		subtitleChosenRef.current = true;
 		setSelectedSubtitleIndex(index);
 		closeModal();
 	}, [closeModal, setSelectedSubtitleIndex]);
@@ -442,6 +465,7 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 			const oldSubs = (item.MediaSources?.[selectedVersionIndex] || item.MediaSources?.[0])?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
 			if (newSubs.length > oldSubs.length) {
 				const newIdx = newSubs.length - 1;
+				subtitleChosenRef.current = true;
 				setSelectedSubtitleIndex(newIdx);
 			}
 		} catch { /* ignore */ }
@@ -461,6 +485,10 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 		} else {
 			setSelectedAudioIndex(0);
 		}
+		// A different version brings its own tracks, so whatever was picked for the old
+		// one no longer stands.
+		subtitleChosenRef.current = false;
+		audioChosenRef.current = false;
 		if (ms.DefaultSubtitleStreamIndex != null) {
 			const idx = versionSubtitleStreams.findIndex(s => s.Index === ms.DefaultSubtitleStreamIndex);
 			setSelectedSubtitleIndex(idx >= 0 ? idx : -1);
@@ -705,7 +733,14 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	let posterUrl = item._externalPosterUrl || null;
 	if (!posterUrl) {
 		if (isEpisode) {
-			if (item.ImageTags?.Thumb) {
+			// The classic layout is the only one that offers this, so the modern one
+			// keeps the episode's own still whatever the setting says.
+			const seriesPoster = settings.detailUseSeriesThumbnails && settings.detailScreenStyle === 'v1'
+				? seriesThumbUrl(effectiveServerUrl, item, {maxWidth: 500, quality: 90})
+				: null;
+			if (seriesPoster) {
+				posterUrl = seriesPoster;
+			} else if (item.ImageTags?.Thumb) {
 				posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Thumb', {maxWidth: 500, quality: 90});
 			} else if (item.ImageTags?.Primary) {
 				posterUrl = getImageUrl(effectiveServerUrl, item.Id, 'Primary', {maxWidth: 500, quality: 90});

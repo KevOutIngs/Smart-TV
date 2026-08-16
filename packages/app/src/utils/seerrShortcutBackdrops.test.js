@@ -1,4 +1,16 @@
-import {pickShortcutBackdrops, SEERR_SHORTCUTS} from './seerrHomeRows';
+// $L reaches for ilib, which a plain unit test has no way to load. Every key is its
+// own English source string, so handing it straight back is faithful enough.
+jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
+
+jest.mock('../services/seerrApi', () => ({
+	__esModule: true,
+	default: {
+		getImageUrl: (path, size) => `https://image.tmdb.org/t/p/${size}${path}`,
+		getGenreSliderMovies: () => Promise.resolve([{id: 28, name: 'Action', backdrops: ['/a.jpg']}])
+	}
+}));
+
+import {pickShortcutBackdrops, SEERR_SHORTCUTS, fetchSeerrHomeRow} from './seerrHomeRows';
 
 const results = [
 	{id: 1, media_type: 'movie', backdrop_path: '/m1.jpg'},
@@ -41,5 +53,13 @@ describe('seerr shortcut backdrops', () => {
 	it('leaves every tile bare when nothing carries artwork', () => {
 		const picked = pickShortcutBackdrops(SEERR_SHORTCUTS, [{id: 1, media_type: 'movie'}]);
 		expect(Object.values(picked).every((value) => value === null)).toBe(true);
+	});
+});
+
+describe('genre tiles', () => {
+	it('asks for a still the size of the tile and one the size of the screen', async () => {
+		const [genre] = await fetchSeerrHomeRow('genreMovies');
+		expect(genre._externalTileUrl).toBe('https://image.tmdb.org/t/p/w300/a.jpg');
+		expect(genre._externalBackdropUrl).toBe('https://image.tmdb.org/t/p/w780/a.jpg');
 	});
 });

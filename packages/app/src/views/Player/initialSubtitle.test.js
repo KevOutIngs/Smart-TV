@@ -67,10 +67,28 @@ describe('resolveInitialSubtitle', () => {
 		expect(picked).toBeNull();
 	});
 
-	test('a remembered item index wins over everything', async () => {
+	test('a remembered item index wins over the mode', async () => {
+		getItemSubtitlePref.mockResolvedValue(3);
+		const picked = await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBe(spa);
+	});
+
+	test('a track picked for this playback beats a remembered one', async () => {
 		getItemSubtitlePref.mockResolvedValue(3);
 		const picked = await resolveInitialSubtitle(result(), item, 1, {subtitleMode: 'forced'});
-		expect(picked).toBe(spa);
+		expect(picked).toBe(eng);
+	});
+
+	test('a track picked for this playback beats a remembered series language', async () => {
+		getSeriesSubtitlePref.mockResolvedValue({language: 'spa', title: '', relativeIndex: 0});
+		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, 1, {subtitleMode: 'forced'});
+		expect(picked).toBe(eng);
+	});
+
+	test('a series remembered as off still yields to a track picked for this playback', async () => {
+		getSeriesSubtitlePref.mockResolvedValue({language: 'none', title: '', relativeIndex: 0});
+		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, 1, {subtitleMode: 'forced'});
+		expect(picked).toBe(eng);
 	});
 
 	test('a remembered off choice means off', async () => {
@@ -86,13 +104,19 @@ describe('resolveInitialSubtitle', () => {
 	});
 
 	test('a remembered series language matches by language', async () => {
-		getSeriesSubtitlePref.mockResolvedValue('spa');
+		getSeriesSubtitlePref.mockResolvedValue({language: 'spa', title: '', relativeIndex: 0});
+		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBe(spa);
+	});
+
+	test('a remembered series language matches a differently spelled tag', async () => {
+		getSeriesSubtitlePref.mockResolvedValue({language: 'es', title: '', relativeIndex: 0});
 		const picked = await resolveInitialSubtitle(result(), {...item, SeriesId: 's1'}, undefined, {subtitleMode: 'forced'});
 		expect(picked).toBe(spa);
 	});
 
 	test('the series preference is only read for episodes of a series', async () => {
-		getSeriesSubtitlePref.mockResolvedValue('spa');
+		getSeriesSubtitlePref.mockResolvedValue({language: 'spa', title: '', relativeIndex: 0});
 		await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'forced'});
 		expect(getSeriesSubtitlePref).not.toHaveBeenCalled();
 	});
@@ -163,5 +187,45 @@ describe('bestSubtitle', () => {
 
 	test('an empty list has no answer', () => {
 		expect(bestSubtitle([], 'eng')).toBeUndefined();
+	});
+
+	test('a format the player renders itself wins a tie', () => {
+		const list = [{index: 1, language: 'eng', codec: 'subrip'}, {index: 2, language: 'eng', codec: 'ass'}];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+		expect(bestSubtitle(list, 'eng', {assDirectPlay: false})).toBe(list[0]);
+	});
+
+	test('hearing impaired rises to the top when it is asked for', () => {
+		const list = [{index: 1, language: 'eng'}, {index: 2, language: 'eng', isHearingImpaired: true}];
+		expect(bestSubtitle(list, 'eng', {preferSdh: true})).toBe(list[1]);
+		expect(bestSubtitle(list, 'eng')).toBe(list[0]);
+	});
+
+	test('a track delivered externally counts as external', () => {
+		const list = [{index: 1, language: 'eng', deliveryMethod: 'External'}, {index: 2, language: 'eng'}];
+		expect(bestSubtitle(list, 'eng')).toBe(list[1]);
+	});
+});
+
+describe('flagged candidates', () => {
+	const flagged = (streams, preferred, extra) => bestSubtitle(streams, preferred, {subtitleMode: 'flagged', ...extra});
+
+	test('only flagged tracks are on the table', () => {
+		const list = [{index: 1, language: 'spa'}, {index: 2, language: 'spa', isDefault: true}];
+		expect(flagged(list, 'spa')).toBe(list[1]);
+	});
+
+	test('nothing flagged and nothing to fall back on leaves it alone', () => {
+		expect(flagged([{index: 1, language: 'spa'}], 'spa')).toBeUndefined();
+	});
+
+	test('English joins in when neither chosen language is in the file', () => {
+		const list = [{index: 1, language: 'spa'}, {index: 2, language: 'eng'}];
+		expect(flagged(list, 'jpn', {fallbackLanguage: 'kor'})).toBe(list[1]);
+	});
+
+	test('English stays out when the chosen language is there to be flagged', () => {
+		const list = [{index: 1, language: 'eng'}, {index: 2, language: 'jpn'}];
+		expect(flagged(list, 'jpn')).toBeUndefined();
 	});
 });

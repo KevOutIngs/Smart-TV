@@ -31,8 +31,9 @@ import {getSubtitleOverlayStyle, getSubtitleTextStyle, sanitizeSubtitleHtml, res
 import {isHdrOutput} from '../../utils/videoRange';
 import {selectPreferredAudioStream} from '../../utils/audioTrackSelection';
 import {applyResumeRewind, skipBackSeconds, skipForwardSeconds, zoomInternalFromSetting, zoomSettingFromInternal} from '../../utils/playbackTuning';
-import {saveSubtitlePref} from '../../services/subtitlePrefs';
+import {saveAudioPref, saveSubtitlePref} from '../../services/subtitlePrefs';
 import serverLogger from '../../services/serverLogger';
+import {resolveSeriesAudio} from './initialAudio';
 import {resolveInitialSubtitle} from './initialSubtitle';
 import PlayerControls, {usePlayerButtons} from './PlayerControls';
 import useLiveProgram from './useLiveProgram';
@@ -655,9 +656,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				// (#186), then the file's default track. Renegotiation below never
 				// changes the audio streams, so this is safe to settle first.
 				const defaultAudio = result.audioStreams?.find(s => s.isDefault);
+				// A track remembered for the series stands in front of the language
+				// preferences, the same order the other clients take these in.
+				const rememberedAudio = await resolveSeriesAudio(item, result.audioStreams);
 				const preferredAudio = selectPreferredAudioStream(result.audioStreams, settings);
 				const serverAudio = result.audioStreams?.find(s => s.index === result.defaultAudioStreamIndex);
-				const autoAudio = preferredAudio || serverAudio || defaultAudio;
+				const autoAudio = rememberedAudio || preferredAudio || serverAudio || defaultAudio;
 				const startingAudio = initialAudioIndex != null
 					? result.audioStreams?.find(s => s.index === initialAudioIndex)
 					: autoAudio;
@@ -1852,8 +1856,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			setCurrentSubtitleText(null);
 		}
 
-		const chosenLanguage = index >= 0 ? streamList?.find(s => s.index === index)?.language : '';
-		saveSubtitlePref(item, index, chosenLanguage);
+		saveSubtitlePref(item, index, streamList || []);
 
 		if (shouldClose) {
 			closeModal();
@@ -1927,6 +1930,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index)) return;
 		setSelectedAudioIndex(index);
+		// Saved here rather than after the switch, because switching leaves by several
+		// routes and the choice was made either way.
+		saveAudioPref(item, index, audioStreams || []);
 		closeModal();
 
 		setHasTriedTranscode(false);
@@ -1982,7 +1988,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		} catch (err) {
 			console.error('[Player] Failed to change audio:', err);
 		}
-	}, [playMethod, closeModal, audioStreams]);
+	}, [item, playMethod, closeModal, audioStreams]);
 
 	const handleSelectSubtitle = useCallback(async (e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);

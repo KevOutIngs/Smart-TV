@@ -416,7 +416,11 @@
 	transition: border-color 0.15s ease;
 }
 
+// A colour change alone on a panel this size is easy to miss, so it takes the same
+// weight the buttons beside it do. The width stays out of the transition above, since
+// animating a border on a panel with artwork in it repaints the lot every frame.
 .upNextCard:focus {
+	border-width: 4px;
 	border-color: var(--theme-focus-border-color, #ffffff);
 }
 

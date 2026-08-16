@@ -18,8 +18,7 @@ export const OSD_HIDDEN_KEY = 'hiddenOsdButtonsTv';
 // The two request buttons lead the list, so for anyone who arranged this row before Seerr was
 // offered here they land right after the primary button. HD and 4K get a slot each because
 // they are tracked separately, and on a title already in the library the HD one is filled and
-// only 4K is left to ask for. The other clients also offer a watchlist toggle, which this app
-// has no call for, so that id is absent and rides through a save untouched.
+// only 4K is left to ask for.
 export const DETAIL_BUTTONS = [
 	{id: 'seerrRequest', label: 'Request'},
 	{id: 'seerrRequest4k', label: 'Request 4K'},
@@ -36,6 +35,7 @@ export const DETAIL_BUTTONS = [
 	{id: 'collection', label: 'Add to Collection'},
 	{id: 'deleteFiles', label: 'Delete'},
 	{id: 'artwork', label: 'Change Artwork'},
+	{id: 'seerrWatchlist', label: 'Watchlist'},
 	{id: 'seerrReportIssue', label: 'Report Issue'},
 	{id: 'seerrManage', label: 'Manage Requests'},
 	{id: 'admin', label: 'Admin Controls'}
