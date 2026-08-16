@@ -383,7 +383,9 @@ const Browse = ({
 				onOpenSeerrShortcut?.(raw.shortcut);
 				break;
 			default:
-				onSelectSeerrItem?.(raw);
+				// This is all the handler is given, so the library id has to travel with the
+				// pick or a title the server already holds cant be told from one it has not.
+				onSelectSeerrItem?.({...raw, libraryId: item._seerrLibraryId});
 				break;
 		}
 	}, [onSelectSeerrItem, onSelectSeerrGenre, onSelectSeerrStudio, onSelectSeerrNetwork, onOpenSeerrShortcut]);
