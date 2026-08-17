@@ -59,6 +59,7 @@ const localStorageRemove = (key) => {
 const ls2WithTimeout = (LS2, options, timeoutMs) => {
 	return new Promise((resolve) => {
 		let settled = false;
+		let timer = null;
 		const settle = (val) => {
 			if (!settled) {
 				settled = true;
@@ -66,7 +67,7 @@ const ls2WithTimeout = (LS2, options, timeoutMs) => {
 				resolve(val);
 			}
 		};
-		const timer = setTimeout(() => {
+		timer = setTimeout(() => {
 			console.warn('[storage] LS2 timeout (' + timeoutMs + 'ms): ' + options.method);
 			if (storageInitialized && !useLocalStorage) {
 				console.warn('[storage] Switching to localStorage for remaining session');
@@ -265,14 +266,14 @@ export const clearAllStorage = async () => {
 	}
 
 	try {
-		var keysToRemove = [];
-		for (var i = 0; i < localStorage.length; i++) {
-			var key = localStorage.key(i);
+		const keysToRemove = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
 			if (key && key.indexOf(LS_PREFIX) === 0) {
 				keysToRemove.push(key);
 			}
 		}
-		for (var j = 0; j < keysToRemove.length; j++) {
+		for (let j = 0; j < keysToRemove.length; j++) {
 			localStorage.removeItem(keysToRemove[j]);
 		}
 	} catch (e) { /* ignore */ }

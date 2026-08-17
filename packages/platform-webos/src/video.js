@@ -172,12 +172,13 @@ export const getPlayMethod = (mediaSource, capabilities, options = {}, passthrou
 		return !codec || supportedAudioCodecs.includes(codec);
 	});
 
+	const containerParts = container.split(',').map(c => c.trim());
+
 	if (isAudioOnly) {
 		const supportedAudioContainers = ['mp3', 'aac', 'm4a', 'm4b', 'flac', 'ogg', 'oga', 'opus', 'wav', 'wma', 'webma'];
-		const containerParts = container.split(',').map(c => c.trim());
-		const containerOk = !container || containerParts.some(c => supportedAudioContainers.includes(c));
+		const audioContainerOk = !container || containerParts.some(c => supportedAudioContainers.includes(c));
 
-		if (mediaSource.SupportsDirectPlay && hasCompatibleAudio && containerOk) {
+		if (mediaSource.SupportsDirectPlay && hasCompatibleAudio && audioContainerOk) {
 			return 'DirectPlay';
 		}
 
@@ -190,7 +191,6 @@ export const getPlayMethod = (mediaSource, capabilities, options = {}, passthrou
 
 	// Containers webOS cannot play at all - force transcode regardless of codec
 	const unsupportedContainers = ['rmvb', 'rm', 'flv', 'swf'];
-	const containerParts = container.split(',').map(c => c.trim());
 	if (containerParts.some(c => unsupportedContainers.includes(c))) {
 		console.log('[webosVideo] Unsupported container, forcing transcode:', container);
 		return 'Transcode';
@@ -485,7 +485,9 @@ export const keepScreenOn = async (enable) => {
 						}
 					});
 				});
-			} catch {}
+			} catch {
+				// onFailure already logs, and keeping the screen awake is best effort
+			}
 		}
 	} else if (_keepScreenActivityId != null && typeof window.webOS?.service?.request === 'function') {
 		try {
@@ -495,7 +497,9 @@ export const keepScreenOn = async (enable) => {
 				onSuccess: () => console.log('[webosVideo] Screen keep-on activity canceled'),
 				onFailure: () => {}
 			});
-		} catch {}
+		} catch {
+			// Swallowed so the activity id below still gets cleared
+		}
 		_keepScreenActivityId = null;
 	}
 	return true;
@@ -553,7 +557,7 @@ export const getSharedVideoElement = () => {
  * Does NOT remove from DOM or call load().
  */
 
-export const cleanupVideoElement = async (videoElement, options = {}) => {
+export const cleanupVideoElement = async (videoElement) => {
 	if (!videoElement) {
 		console.log('[webosVideo] No video element to cleanup');
 		return false;

@@ -24,6 +24,7 @@ const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const {LINT_DIRS, runLintGate} = require('../../../scripts/lint-gate');
 
 const ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(ROOT, '..', '..');
@@ -93,21 +94,6 @@ function run(cmd, options = {}) {
 	} catch (e) {
 		return false;
 	}
-}
-
-function runLintGate(cwd) {
-	log('Running: npx enact lint .');
-	const result = spawnSync('npx', ['enact', 'lint', '.'], {
-		cwd,
-		env: process.env,
-		encoding: 'utf8',
-		shell: true
-	});
-	if (result.stdout) process.stdout.write(result.stdout);
-	if (result.stderr) process.stderr.write(result.stderr);
-	const output = `${result.stdout || ''}\n${result.stderr || ''}`;
-	const hasWarnings = /\bwarning\b/i.test(output);
-	return result.status === 0 && !hasWarnings;
 }
 
 let crcTable = null;
@@ -383,9 +369,11 @@ async function main() {
 	// Step 3: Build Enact app
 	if (!skipLint) {
 		log('Running lint checks...');
-		if (!runLintGate(APP_DIR)) {
-			error('Lint check failed!');
-			process.exit(1);
+		for (const dir of LINT_DIRS) {
+			if (!runLintGate(dir, (msg) => log(`Running: ${msg}`))) {
+				error('Lint check failed!');
+				process.exit(1);
+			}
 		}
 		// enact lint is ESLint only and never sees .less.
 		log('Checking CSS against the browser targets...');

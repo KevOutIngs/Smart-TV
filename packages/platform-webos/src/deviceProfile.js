@@ -489,9 +489,6 @@ const buildDirectPlayProfiles = (caps) => {
 	const webmAudioCodecs = ['vorbis'];
 	if (caps.opus) webmAudioCodecs.push('opus');
 
-	
-	
-
 	if (caps.webm) {
 		profiles.push({
 			Container: 'webm',
@@ -520,7 +517,6 @@ const buildDirectPlayProfiles = (caps) => {
 	}
 
 	if (caps.ts) {
-		
 		const tsVideoCodecs = buildTsVideoCodecs(caps);
 
 		profiles.push({

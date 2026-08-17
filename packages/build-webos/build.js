@@ -2,6 +2,7 @@
 const {execSync, spawnSync} = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const {LINT_DIRS, runLintGate} = require('../../scripts/lint-gate');
 
 const APP_DIR = path.resolve(__dirname, '..', 'app');
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
@@ -10,27 +11,6 @@ const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const run = (cmd, options = {}) => {
 	console.log(`> ${cmd}`);
 	execSync(cmd, {stdio: 'inherit', ...options});
-};
-
-const runLintGate = (cwd) => {
-	const cmd = 'npx enact lint .';
-	console.log(`> ${cmd}`);
-	// Windows neeeds shell
-	const result = spawnSync('npx', ['enact', 'lint', '.'], {
-		cwd,
-		env: process.env,
-		encoding: 'utf8',
-		shell: true
-	});
-	if (result.stdout) process.stdout.write(result.stdout);
-	if (result.stderr) process.stderr.write(result.stderr);
-	if (result.error) {
-		console.error(`Could not run the lint gate: ${result.error.message}`);
-		return false;
-	}
-	const output = `${result.stdout || ''}\n${result.stderr || ''}`;
-	const hasWarnings = /\bwarning\b/i.test(output);
-	return result.status === 0 && !hasWarnings;
 };
 
 // Recursively remove a directory (cross-platform alternative to rm -rf)
@@ -111,9 +91,11 @@ try {
 
 	// Lint gate: fail build on any lint warning/error
 	console.log('\n Running lint checks...');
-	if (!runLintGate(APP_DIR)) {
-		console.error('Lint check failed: warnings/errors detected.');
-		process.exit(1);
+	for (const dir of LINT_DIRS) {
+		if (!runLintGate(dir, (msg) => console.log(`> ${msg}`))) {
+			console.error('Lint check failed: warnings/errors detected.');
+			process.exit(1);
+		}
 	}
 
 	// enact lint is ESLint only and never sees .less.

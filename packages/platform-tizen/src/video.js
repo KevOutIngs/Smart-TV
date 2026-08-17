@@ -1,7 +1,7 @@
 /**
  * Tizen Video Service - Hardware-accelerated video playback using AVPlay APIs
  */
-/* global webapis */
+/* global webapis, XMLHttpRequest */
 import {detectTizenVersion as _detectTizenVersion} from './deviceProfile';
 import {isExperimentalTruehdEnabled, probeTruehdCodecSupport} from './truehd';
 
@@ -137,7 +137,7 @@ export const getMediaCapabilities = async () => {
 /**
  * Get the list of audio codecs supported by the TV hardware.
  */
-export const getSupportedAudioCodecs = (capabilities, _container = '', passthroughOptions = {}) => {
+export const getSupportedAudioCodecs = (capabilities, _container, passthroughOptions = {}) => {
 	const passthrough = resolvePassthroughSettings(passthroughOptions);
 	const passthroughAllowed = passthrough.passthroughEnabled;
 	const codecs = ['aac', 'mp3', 'flac', 'vorbis', 'pcm', 'wav'];
@@ -187,7 +187,7 @@ export const findCompatibleAudioStreamIndex = (mediaSource, capabilities, passth
 	return -1;
 };
 
-export const getPlayMethod = (mediaSource, capabilities, _options = {}, passthroughOptions = {}) => {
+export const getPlayMethod = (mediaSource, capabilities, _options, passthroughOptions = {}) => {
 	if (!mediaSource) return 'Transcode';
 
 	const container = (mediaSource.Container || '').toLowerCase();
@@ -389,7 +389,9 @@ export const keepScreenOn = async (enable) => {
 						if (typeof webapis !== 'undefined' && webapis.appcommon) {
 							webapis.appcommon.setScreenSaver(webapis.appcommon.AppCommonScreenSaverState.SCREEN_SAVER_OFF);
 						}
-					} catch {}
+					} catch {
+						// Swallowed because suppressing the screen saver is best effort
+					}
 				};
 				suppressScreenSaver();
 				_keepScreenInterval = setInterval(suppressScreenSaver, 30000);
@@ -403,7 +405,9 @@ export const keepScreenOn = async (enable) => {
 				if (typeof webapis !== 'undefined' && webapis.appcommon) {
 					webapis.appcommon.setScreenSaver(webapis.appcommon.AppCommonScreenSaverState.SCREEN_SAVER_ON);
 				}
-			} catch {}
+			} catch {
+				// Swallowed so the power release below still runs
+			}
 			if (typeof window.tizen !== 'undefined' && window.tizen.power) {
 				window.tizen.power.release('SCREEN');
 				console.log('[tizenVideo] Screen keep-on released');
@@ -496,6 +500,44 @@ export const avplaySetBufferingParams = (opts = {}) => {
 	} catch (e) { /* ignore */ }
 
 	return applied;
+};
+
+// Samsung forbids issuing any other AVPlay call while a seekTo is still in flight.
+// Overlapping calls are what leave the playhead stuck or throw INVALID_OPERATION,
+// so play, pause, and further seeks are queued here until the active seek lands.
+let seekInFlight = false;
+let queuedSeek = null;
+let activeSeekSettlers = null;
+let pendingOpAfterSeek = null;
+let postSeekHook = null;
+let expectPlayingAfterSeek = false;
+let seekSafetyTimer = null;
+let seekRetryTimer = null;
+// bumped on stop, close, suspend, and restore so callbacks and retry timers
+// from a torn down session cant fire into the next one
+let seekEpoch = 0;
+
+const resetSeekState = () => {
+	seekEpoch += 1;
+	if (seekSafetyTimer) {
+		clearTimeout(seekSafetyTimer);
+		seekSafetyTimer = null;
+	}
+	if (seekRetryTimer) {
+		clearTimeout(seekRetryTimer);
+		seekRetryTimer = null;
+	}
+	if (activeSeekSettlers) {
+		activeSeekSettlers.forEach((s) => s.resolve());
+		activeSeekSettlers = null;
+	}
+	if (queuedSeek) {
+		queuedSeek.settlers.forEach((s) => s.resolve());
+		queuedSeek = null;
+	}
+	pendingOpAfterSeek = null;
+	seekInFlight = false;
+	expectPlayingAfterSeek = false;
 };
 
 export const avplaySuspend = () => {
@@ -602,44 +644,6 @@ export const avplayPrepare = () => {
 		}
 		webapis.avplay.prepareAsync(resolve, reject);
 	});
-};
-
-// Samsung forbids issuing any other AVPlay call while a seekTo is still in flight.
-// Overlapping calls are what leave the playhead stuck or throw INVALID_OPERATION,
-// so play, pause, and further seeks are queued here until the active seek lands.
-let seekInFlight = false;
-let queuedSeek = null;
-let activeSeekSettlers = null;
-let pendingOpAfterSeek = null;
-let postSeekHook = null;
-let expectPlayingAfterSeek = false;
-let seekSafetyTimer = null;
-let seekRetryTimer = null;
-// bumped on stop, close, suspend, and restore so callbacks and retry timers
-// from a torn down session cant fire into the next one
-let seekEpoch = 0;
-
-const resetSeekState = () => {
-	seekEpoch += 1;
-	if (seekSafetyTimer) {
-		clearTimeout(seekSafetyTimer);
-		seekSafetyTimer = null;
-	}
-	if (seekRetryTimer) {
-		clearTimeout(seekRetryTimer);
-		seekRetryTimer = null;
-	}
-	if (activeSeekSettlers) {
-		activeSeekSettlers.forEach((s) => s.resolve());
-		activeSeekSettlers = null;
-	}
-	if (queuedSeek) {
-		queuedSeek.settlers.forEach((s) => s.resolve());
-		queuedSeek = null;
-	}
-	pendingOpAfterSeek = null;
-	seekInFlight = false;
-	expectPlayingAfterSeek = false;
 };
 
 export const avplaySetPostSeekHook = (fn) => {

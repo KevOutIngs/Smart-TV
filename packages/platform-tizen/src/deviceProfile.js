@@ -30,46 +30,6 @@ const resolvePassthroughSettings = (options = {}) => ({
 	...(options?.passthroughSettings || {})
 });
 
-const probeTizenAudioCodecSupport = () => {
-	const support = {
-		ac3: testAc3Support(),
-		eac3: testEac3Support(),
-		truehd: testTruehdSupport(),
-		dts: testDtsSupport(),
-		dtshd: false
-	};
-
-	if (typeof webapis === 'undefined' || !webapis.systeminfo || typeof webapis.systeminfo.isSupportedAudioCodec !== 'function') {
-		return support;
-	}
-
-	const codecAliases = {
-		ac3: ['AC3'],
-		eac3: ['E-AC3'],
-		truehd: ['TrueHD'],
-		dts: ['DTS'],
-		dtshd: ['DTS-HD', 'DTSHD']
-	};
-
-	for (const [key, aliases] of Object.entries(codecAliases)) {
-		for (const alias of aliases) {
-			try {
-				if (webapis.systeminfo.isSupportedAudioCodec(alias) === true) {
-					support[key] = true;
-					break;
-				}
-			} catch (e) {
-				// Ignore unsupported alias errors and continue probing because yeet haw
-			}
-		}
-	}
-
-	if (support.dtshd) support.dts = true;
-
-	console.log('[deviceProfile] Tizen audio codec probe:', support);
-	return support;
-};
-
 const applyPassthroughSettings = (caps, options = {}) => {
 	const prefs = resolvePassthroughSettings(options);
 	const passthroughAllowed = prefs.passthroughEnabled;
@@ -355,6 +315,46 @@ export const testTruehdSupport = (truehdCodecSupported = probeTruehdCodecSupport
 	return truehdCodecSupported === true;
 };
 
+const probeTizenAudioCodecSupport = () => {
+	const support = {
+		ac3: testAc3Support(),
+		eac3: testEac3Support(),
+		truehd: testTruehdSupport(),
+		dts: testDtsSupport(),
+		dtshd: false
+	};
+
+	if (typeof webapis === 'undefined' || !webapis.systeminfo || typeof webapis.systeminfo.isSupportedAudioCodec !== 'function') {
+		return support;
+	}
+
+	const codecAliases = {
+		ac3: ['AC3'],
+		eac3: ['E-AC3'],
+		truehd: ['TrueHD'],
+		dts: ['DTS'],
+		dtshd: ['DTS-HD', 'DTSHD']
+	};
+
+	for (const [key, aliases] of Object.entries(codecAliases)) {
+		for (const alias of aliases) {
+			try {
+				if (webapis.systeminfo.isSupportedAudioCodec(alias) === true) {
+					support[key] = true;
+					break;
+				}
+			} catch (e) {
+				// Ignore unsupported alias errors and continue probing
+			}
+		}
+	}
+
+	if (support.dtshd) support.dts = true;
+
+	console.log('[deviceProfile] Tizen audio codec probe:', support);
+	return support;
+};
+
 export const getDeviceCapabilities = async () => {
 	if (cachedCapabilities) return cachedCapabilities;
 
@@ -365,7 +365,6 @@ export const getDeviceCapabilities = async () => {
 	let modelName = 'Samsung TV';
 	let serialNumber = '';
 	let deviceId = '';
-	const truehdCodecSupported = probeTruehdCodecSupport();
 	let uhd = true;
 	let uhd8K = false;
 	// HDR10: Available on premium/standard UHD models from 2018+
@@ -460,9 +459,9 @@ export const getDeviceCapabilities = async () => {
 	return cachedCapabilities;
 };
 
-export const getJellyfinDeviceProfile = async () => {
+export const getJellyfinDeviceProfile = async (options = {}) => {
 	const baseCaps = await getDeviceCapabilities();
-	const caps = applyPassthroughSettings(baseCaps, arguments[0]);
+	const caps = applyPassthroughSettings(baseCaps, options);
 
 	// --- Video codecs per Samsung spec tables ---
 	// Samsung specs officially list VP9/AV1 as WebM-only, but in practice
@@ -745,7 +744,7 @@ export const getJellyfinDeviceProfile = async () => {
 		});
 	}
 
-	// Force any kind of DTS to be transcoded to E-AC3 
+	// Force any kind of DTS to be transcoded to E-AC3
 	codecProfiles.push({
 		Type: 'VideoAudio',
 		Codec: 'dts,dca,dts-hd,dtshd,dts-ma,dtsma,dts-x,dtsx',
