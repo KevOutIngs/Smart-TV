@@ -647,13 +647,17 @@ export const getJellyfinDeviceProfile = async () => {
 
 	// Dual layer Dolby Vision files carry a compatible base layer, so an HDR10
 	// panel can direct play them as HDR10 while the server strips the DV boxes.
-	// Raw single layer DOVI stays out unless the panel really supports it,
-	// advertising it makes the server hand over streams AVPlay cant parse
+	//
+	// A bare DOVI goes the same way. The server reports it when it cant tell
+	// which base layer the file sits on, and AVPlay falls back to the HEVC base
+	// layer when it cant decode the Dolby Vision on top. Holding it back to
+	// panels that carry Dolby Vision outright is what sent an HDR10 set off to
+	// transcode a file it can play.
 	const hevcRangeTypes = ['SDR', 'DOVIWithSDR'];
 	if (caps.hdr10) hevcRangeTypes.push('HDR10', 'DOVIWithHDR10', 'DOVIWithEL', 'DOVIInvalid');
 	if (caps.hdr10Plus) hevcRangeTypes.push('HDR10Plus', 'DOVIWithHDR10Plus', 'DOVIWithELHDR10Plus');
 	if (caps.hlg) hevcRangeTypes.push('HLG', 'DOVIWithHLG');
-	if (caps.dolbyVision) hevcRangeTypes.push('DOVI');
+	if (caps.dolbyVision || caps.hdr10) hevcRangeTypes.push('DOVI');
 
 	const codecProfiles = [
 		{
