@@ -333,18 +333,33 @@ let pendingPush = null;
 // between would otherwise put the old value straight back.
 const unpushedKeys = new Set();
 
+let inFlightPush = null;
+
 const flushTvProfile = () => {
-	pushTimer = null;
-	if (!pendingPush) return;
+	if (pushTimer) {
+		clearTimeout(pushTimer);
+		pushTimer = null;
+	}
+	if (!pendingPush) return inFlightPush || Promise.resolve();
 	const {updated, serverUrl, token} = pendingPush;
 	pendingPush = null;
 	const sent = [...unpushedKeys];
-	saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).then(() => {
+	inFlightPush = saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).then(() => {
 		for (const key of sent) unpushedKeys.delete(key);
 	}).catch(e =>
 		console.warn('[Settings] Failed to push TV profile:', e.message)
 	);
+	return inFlightPush;
 };
+
+// A screen about to reload can wait for the queued change to reach the server,
+// since the reload would otherwise drop it and the next pull would hand back the
+// value it replaced. This always settles, so whatever comes next still happens
+// when the server is unreachable or the send throws.
+export const flushSettingsPush = (timeoutMs = 2000) => Promise.race([
+	Promise.resolve().then(flushTvProfile),
+	new Promise((resolve) => { setTimeout(resolve, timeoutMs); })
+]).catch(() => {});
 
 const pushTvProfile = (updated, credsRef, keys) => {
 	for (const key of keys) unpushedKeys.add(key);

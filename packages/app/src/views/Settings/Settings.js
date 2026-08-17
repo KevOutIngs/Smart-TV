@@ -3,7 +3,7 @@ import $L from '@enact/i18n/$L';
 import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import {useAuth} from '../../context/AuthContext';
-import {useSettings, defaultSettings, profileToLocal, localToProfile} from '../../context/SettingsContext';
+import {useSettings, defaultSettings, profileToLocal, localToProfile, flushSettingsPush} from '../../context/SettingsContext';
 import {getMoonfinResolvedProfile, deleteMoonfinProfile, saveMoonfinProfile} from '../../services/seerrApi';
 import {homeRowsFromProfile} from '../../utils/homeLayout';
 import {useSeerr} from '../../context/SeerrContext';
@@ -68,7 +68,9 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	useEffect(() => {
 		if (settings.uiLanguage !== bootLocaleRef.current &&
 			typeof window !== 'undefined' && window.location) {
-			window.location.reload();
+			// The language reaches the server on a debounce, so reloading straight
+			// away drops it and the next pull hands English back.
+			flushSettingsPush().then(() => window.location.reload());
 		}
 	}, [settings.uiLanguage]);
 	const seerrLabel = isSeerr ? seerr.displayName || $L('Seerr') : $L('Seerr');
