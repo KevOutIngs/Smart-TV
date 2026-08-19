@@ -2,6 +2,7 @@
 // straight to appendRows, so a slow one only holds up its own row rather than the screen.
 
 import $L from '@enact/i18n/$L';
+import {genericCollectionLabel, mergeRecentRows} from '../../utils/mergeRecentRows';
 
 import {HOME_ROW_ITEM_FIELDS} from '../../services/jellyfinApi';
 import {loadSinceYouWatchedRows, loadRewatchItems} from '../../services/homeRecommendations';
@@ -109,6 +110,34 @@ const loadLatestAndRecentlyReleased = async (ctx) => {
 		]);
 
 		const rows = [];
+		if (settings.mergeRecentRowsByType) {
+			const latestEntries = latestResults
+				.filter((r) => r && r.latest?.length > 0)
+				.map((r) => ({lib: r.lib, items: r.latest}));
+			for (const merged of mergeRecentRows(latestEntries, 'DateCreated')) {
+				rows.push({
+					id: `latest-merged-${merged.collectionType}`,
+					title: $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', genericCollectionLabel(merged.collectionType)),
+					items: merged.items,
+					type: merged.cardType,
+					isLatestRow: true
+				});
+			}
+			const releasedEntries = recentlyReleasedResults
+				.filter((r) => r && r.latest?.Items?.length > 0)
+				.map((r) => ({lib: r.lib, items: r.latest.Items}));
+			for (const merged of mergeRecentRows(releasedEntries, 'PremiereDate')) {
+				rows.push({
+					id: `recently-released-merged-${merged.collectionType}`,
+					title: $L('Recently Released in {libraryTitle}').replace('{libraryTitle}', genericCollectionLabel(merged.collectionType)),
+					items: merged.items,
+					type: merged.cardType,
+					isRecentlyReleasedRow: true
+				});
+			}
+			appendRows(rows);
+			return;
+		}
 		for (const result of latestResults) {
 			if (result && result.latest?.length > 0) {
 				const libraryTitle = result.lib.Name;

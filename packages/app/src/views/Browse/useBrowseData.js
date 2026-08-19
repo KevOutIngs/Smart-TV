@@ -6,6 +6,7 @@ import * as connectionPool from '../../services/connectionPool';
 import * as seerrApi from '../../services/seerrApi';
 import browseReducer, {browseInitialState, mergeRowsById} from './browseReducer';
 import {BROWSE_ROW_LOADERS, buildLoaderContext} from './browseRowLoaders';
+import {genericCollectionLabel, mergeRecentRows} from '../../utils/mergeRecentRows';
 import {EXCLUDED_COLLECTION_TYPES, filterItemsByExcludedGenres} from './browseFilters';
 import {
 	CACHE_TTL_LIBRARIES, CACHE_TTL_VOLATILE, VOLATILE_REFRESH_COOLDOWN_MS,
@@ -220,13 +221,18 @@ const useBrowseData = ({
 				hasEnabledMediaSectionRow ||
 				(settings.pluginSections || []).some((section) => section?.enabled);
 
+			// The recent rows come out per library or merged by type, and a cache of
+			// one shape must not answer for the other.
+			const rowConfigKey = settings.mergeRecentRowsByType ? 'merged-recent' : 'per-library';
+
 			if (hasDynamicRowConfig || unifiedMode) {
+				memoryCache.rowConfigKey = rowConfigKey;
 				dispatch({type: 'SET_LOADING', value: true});
 				await fetchAllData(); // eslint-disable-line no-use-before-define
 				return;
 			}
 
-			if (memoryCache.rowData && memoryCache.libraries && memoryCache.featuredItems && isCacheValid(memoryCache.timestamp, CACHE_TTL_VOLATILE)) {
+			if (memoryCache.rowConfigKey === rowConfigKey && memoryCache.rowData && memoryCache.libraries && memoryCache.featuredItems && isCacheValid(memoryCache.timestamp, CACHE_TTL_VOLATILE)) {
 				dispatch({type: 'SET_ROW_DATA', rowData: memoryCache.rowData});
 				await primeFeaturedItems(memoryCache.featuredItems);
 				dispatch({type: 'SET_LOADING', value: false});
@@ -235,6 +241,7 @@ const useBrowseData = ({
 
 			const persistedCache = await loadBrowseCache(cacheOwner.serverUrl, cacheOwner.userId);
 			const hasValidPersistedCache = persistedCache &&
+				(persistedCache.rowConfigKey || 'per-library') === rowConfigKey &&
 				isCacheValid(persistedCache.timestamp, CACHE_TTL_LIBRARIES) &&
 				Array.isArray(persistedCache.libraries) &&
 				persistedCache.libraries.length > 0;
@@ -245,6 +252,7 @@ const useBrowseData = ({
 				memoryCache.libraries = persistedCache.libraries;
 				memoryCache.rowData = persistedCache.rowData;
 				memoryCache.timestamp = persistedCache.timestamp;
+				memoryCache.rowConfigKey = rowConfigKey;
 				dispatch({type: 'SET_LOADING', value: false});
 
 				if (!isCacheValid(persistedCache.timestamp, CACHE_TTL_VOLATILE)) {
@@ -253,6 +261,7 @@ const useBrowseData = ({
 				return;
 			}
 
+			memoryCache.rowConfigKey = rowConfigKey;
 			dispatch({type: 'SET_LOADING', value: true});
 			await fetchAllData(); // eslint-disable-line no-use-before-define
 		};
@@ -396,21 +405,36 @@ const useBrowseData = ({
 						EXCLUDED_COLLECTION_TYPES
 					);
 					const newRows = [];
-					for (const result of latestResults) {
-						if (result && result.latest?.length > 0) {
-							const libraryTitle = result.lib._serverName
-								? `${result.lib.Name} (${result.lib._serverName})`
-								: result.lib.Name;
-							const rowId = `latest-${result.lib.Id}${result.lib._serverName ? '-' + result.lib._serverName : ''}`;
-
+					if (settings.mergeRecentRowsByType) {
+						const entries = latestResults
+							.filter((r) => r && r.latest?.length > 0)
+							.map((r) => ({lib: r.lib, items: r.latest}));
+						for (const merged of mergeRecentRows(entries, 'DateCreated')) {
 							newRows.push({
-								id: rowId,
-								title: $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', libraryTitle),
-								items: result.latest,
-								library: result.lib,
-								type: result.lib.CollectionType?.toLowerCase() === 'music' ? 'square' : 'portrait',
+								id: `latest-merged-${merged.collectionType}`,
+								title: $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', genericCollectionLabel(merged.collectionType)),
+								items: merged.items,
+								type: merged.cardType,
 								isLatestRow: true
 							});
+						}
+					} else {
+						for (const result of latestResults) {
+							if (result && result.latest?.length > 0) {
+								const libraryTitle = result.lib._serverName
+									? `${result.lib.Name} (${result.lib._serverName})`
+									: result.lib.Name;
+								const rowId = `latest-${result.lib.Id}${result.lib._serverName ? '-' + result.lib._serverName : ''}`;
+
+								newRows.push({
+									id: rowId,
+									title: $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', libraryTitle),
+									items: result.latest,
+									library: result.lib,
+									type: result.lib.CollectionType?.toLowerCase() === 'music' ? 'square' : 'portrait',
+									isLatestRow: true
+								});
+							}
 						}
 					}
 					dispatch({type: 'APPEND_ROWS', rows: newRows});
@@ -483,6 +507,7 @@ const useBrowseData = ({
 		settings.collectionsRowShowEpisodes,
 		settings.uiLanguage,
 		settings.pluginSections,
+		settings.mergeRecentRowsByType,
 		settings.mergeContinueWatchingNextUp,
 		settings.nextUpMaxDays,
 		settings.sinceYouWatchedSource,

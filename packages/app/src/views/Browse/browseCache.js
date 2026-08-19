@@ -18,6 +18,9 @@ export const memoryCache = {
 	libraries: null,
 	featuredItems: null,
 	timestamp: null,
+	// Which shape of the recent rows these were built for, since a cache of per
+	// library rows says nothing about the merged ones and the other way round.
+	rowConfigKey: null,
 	// Whose rows these are. Kept so a fresh mount can tell an account change, which has to
 	// throw the rows away, apart from an ordinary return to the home screen, which is the
 	// whole reason the cache is here. Emptying the rows leaves it alone, since a refresh
@@ -30,6 +33,7 @@ export const clearMemoryCache = () => {
 	memoryCache.libraries = null;
 	memoryCache.featuredItems = null;
 	memoryCache.timestamp = null;
+	memoryCache.rowConfigKey = null;
 };
 
 export const isCacheValid = (timestamp, ttl) => {
@@ -139,7 +143,8 @@ export const saveBrowseCache = (rowData, libraries, featuredItems, {serverUrl, u
 				featuredItems,
 				timestamp: Date.now(),
 				serverUrl,
-				userId
+				userId,
+				rowConfigKey: memoryCache.rowConfigKey
 			});
 			lastSignature = signature;
 		} catch (e) {
