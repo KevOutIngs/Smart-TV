@@ -4,6 +4,7 @@ import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import Spotlight from '@enact/spotlight';
 import {VirtualGridList} from '@enact/sandstone/VirtualList';
+import useQuickReturnGrid from '../../hooks/useQuickReturnGrid';
 import {useAuth} from '../../context/AuthContext';
 import {useSettings} from '../../context/SettingsContext';
 import * as connectionPool from '../../services/connectionPool';
@@ -58,6 +59,8 @@ const Favorites = ({onSelectItem, onSelectPerson, onHome, backHandlerRef}) => {
 	const [imageType, setImageType] = useStorage('favorites_imageType', 'poster');
 	const [gridDirection, setGridDirection] = useStorage('favorites_gridDirection', 'vertical');
 
+	const {getScrollTo: getGridScrollTo, quickReturn} = useQuickReturnGrid('favorites-grid');
+
 	const {
 		showSortPanel, showSettingsPanel,
 		handleToggleSortPanel, handleCloseSortPanel,
@@ -65,7 +68,8 @@ const Favorites = ({onSelectItem, onSelectPerson, onHome, backHandlerRef}) => {
 	} = useSortSettingsPanels({
 		backHandlerRef,
 		sortFocusId: 'fav-sort-option-0',
-		settingsFocusId: 'fav-settings-image-size'
+		settingsFocusId: 'fav-settings-image-size',
+		onBack: quickReturn
 	});
 
 	const loadingMoreRef = useRef(false);
@@ -352,6 +356,7 @@ const Favorites = ({onSelectItem, onSelectPerson, onHome, backHandlerRef}) => {
 						<div className={css.gridWrapper}>
 							<VirtualGridList
 								className={css.grid}
+								cbScrollTo={getGridScrollTo}
 								dataSize={items.length}
 								itemRenderer={renderItem}
 								itemSize={gridItemSize}

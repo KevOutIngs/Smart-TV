@@ -11,6 +11,7 @@ import {KEYS} from '../../utils/keys';
 import hydrateRequestMediaItems from '../../utils/seerrHydration';
 import {STREAMING_NETWORKS, MOVIE_STUDIOS, SEERR_SHORTCUTS, pickShortcutBackdrops} from '../../utils/seerrHomeRows';
 import {libraryIdOf} from '../../utils/seerrTarget';
+import {isScrolledAway} from '../../utils/quickReturn';
 
 import css from './SeerrDiscover.module.less';
 
@@ -370,7 +371,7 @@ const DiscoverRow = memo(function DiscoverRow({
 let cachedBadge = {count: 0, at: 0};
 const BADGE_TTL_MS = 60000;
 
-const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectStudio, onOpenRequests, onOpenShortcut}) => {
+const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectStudio, onOpenRequests, onOpenShortcut, backHandlerRef}) => {
 	const {isAuthenticated, isEnabled, user: contextUser} = useSeerr();
 	const {settings} = useSettings();
 	const [rows, setRows] = useState({});
@@ -382,6 +383,23 @@ const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectSt
 	const [focusedItem, setFocusedItem] = useState(null);
 	const [requestsBadge, setRequestsBadge] = useState(cachedBadge.count);
 	const backdropTimeoutRef = useRef(null);
+	const rowsContainerRef = useRef(null);
+
+	// Back on a scrolled discover list returns it to the first row before it leaves
+	useEffect(() => {
+		if (!backHandlerRef) return undefined;
+		const handler = () => {
+			const container = rowsContainerRef.current;
+			if (!isScrolledAway(container)) return false;
+			container.scrollTop = 0;
+			Spotlight.focus('discover-row-0');
+			return true;
+		};
+		backHandlerRef.current = handler;
+		return () => {
+			if (backHandlerRef.current === handler) backHandlerRef.current = null;
+		};
+	}, [backHandlerRef]);
 
 	useEffect(() => {
 		if (!isAuthenticated) return;
@@ -714,7 +732,7 @@ const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectSt
 							<h2 className={css.detailTitle}>{$L('Discover')}</h2>
 						)}
 					</div>
-					<div className={css.rowsContainer}>
+					<div className={css.rowsContainer} ref={rowsContainerRef}>
 						{visibleRows.map((config, index) => (
 							<DiscoverRow
 								key={config.id}

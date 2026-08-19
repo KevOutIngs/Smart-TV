@@ -9,6 +9,7 @@ import SeerrTileRow from '../../components/SeerrTileRow';
 import LibraryButtonRow from '../../components/LibraryButtonRow';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {getImageUrl, getBackdropId} from '../../utils/helpers';
+import {isScrolledAway} from '../../utils/quickReturn';
 import {radiusToCss, shadowToCss, toCssColor} from '../../theme/themeSpec';
 import DetailSection from './DetailSection';
 import FeaturedBanner from './FeaturedBanner';
@@ -43,7 +44,8 @@ const Browse = ({
 	isVisible = true,
 	onFocusItemThemeMusic,
 	onBlurItemThemeMusic,
-	onLeaveThemeMusic
+	onLeaveThemeMusic,
+	backHandlerRef
 }) => {
 	const {api, serverUrl, accessToken, hasMultipleServers, user} = useAuth();
 	const {settings, activeTheme, loaded: settingsLoaded} = useSettings();
@@ -406,6 +408,21 @@ const Browse = ({
 			scrollToRow(0, true);
 		}, TRANSITION_DELAY_MS);
 	}, [scrollToRow, setBrowseMode]);
+
+	// Back on a scrolled row list returns it to the top row rather than leaving,
+	// so the exit prompt only shows from the top of the screen.
+	useEffect(() => {
+		if (!backHandlerRef || !isVisible) return undefined;
+		const handler = () => {
+			if (browseMode === 'featured' || !isScrolledAway(contentRowsRef.current)) return false;
+			scrollToRow(0, true);
+			return true;
+		};
+		backHandlerRef.current = handler;
+		return () => {
+			if (backHandlerRef.current === handler) backHandlerRef.current = null;
+		};
+	}, [backHandlerRef, isVisible, browseMode, scrollToRow]);
 
 	const handleFeaturedFocusCallback = useCallback(() => {
 		setBrowseMode('featured');

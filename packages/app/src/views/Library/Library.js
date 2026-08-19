@@ -10,6 +10,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import MusicBrowse from '../MusicBrowse';
 import BackdropLayer from '../Browse/BackdropLayer';
 import {getImageUrl, getPrimaryImageId, formatDuration} from '../../utils/helpers';
+import useQuickReturnGrid from '../../hooks/useQuickReturnGrid';
 import {useSettings} from '../../context/SettingsContext';
 import {isMdblistEnabled} from '../../services/mdblistApi';
 import RatingsRow from '../../components/RatingsRow';
@@ -526,6 +527,8 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 		}
 	}, [isFolderView, onSelectItem, onViewPhoto]);
 
+	const {getScrollTo: getGridScrollTo, quickReturn} = useQuickReturnGrid('library-grid');
+
 	const handleScrollStop = useCallback(() => {
 		if (apiFetchIndexRef.current < totalCount && !isLoading && !loadingMoreRef.current) {
 			loadItems(apiFetchIndexRef.current, true);
@@ -574,8 +577,8 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			setFolderStack(prev => prev.slice(0, -1));
 			return true;
 		}
-		return false;
-	}, [musicGridView, isFolderView, folderStack]);
+		return quickReturn();
+	}, [musicGridView, isFolderView, folderStack, quickReturn]);
 
 	// There is one back slot, and the music browse screen claims it while it's up. Nothing
 	// here would be true there anyway, since it only shows with no grid, panel or folder stack.
@@ -1169,6 +1172,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 						<div className={css.gridWrapper}>
 							<VirtualGridList
 								className={css.grid}
+								cbScrollTo={getGridScrollTo}
 								dataSize={items.length}
 								itemRenderer={renderItem}
 								itemSize={gridItemSize}

@@ -583,8 +583,9 @@ const AppContent = (props) => {
 				}
 
 				if (panelIndex === PANELS.BROWSE || panelIndex === PANELS.LOGIN) {
-					// Sign-in walks its own screens and dialogs before back means exit
-					if (panelIndex === PANELS.LOGIN && backHandlerRef.current?.()) return;
+					// Sign-in walks its own screens, and home returns a scrolled row
+					// list to the top, before back means exit
+					if (backHandlerRef.current?.()) return;
 					if (settings.exitConfirmation === false) {
 						performAppCleanup();
 					} else {
@@ -1177,6 +1178,7 @@ const AppContent = (props) => {
 							onSelectSeerrNetwork={handleSelectSeerrNetwork}
 							onOpenSeerrShortcut={handleOpenSeerrShortcut}
 							isVisible={panelIndex === PANELS.BROWSE && !showSettingsPanel}
+							backHandlerRef={backHandlerRef}
 							onFocusItemThemeMusic={themeMusic.playThemeMusicDelayed}
 							onBlurItemThemeMusic={themeMusic.cancelDelayed}
 							onLeaveThemeMusic={themeMusic.stopThemeMusic}
@@ -1265,6 +1267,7 @@ const AppContent = (props) => {
 					<Panel>
 						{panelIndex === PANELS.SEERR_DISCOVER && (
 							<SeerrDiscover
+								backHandlerRef={backHandlerRef}
 								onSelectItem={handleSelectSeerrItem}
 								onSelectGenre={handleSelectSeerrGenre}
 								onSelectStudio={handleSelectSeerrStudio}
