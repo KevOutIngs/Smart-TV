@@ -118,6 +118,7 @@ export const defaultSettings = {
 	showLibrariesInToolbar: true,
 	mergeContinueWatchingNextUp: true,
 	mergeRecentRowsByType: false,
+	playlistsGroupByType: true,
 	nextUpMaxDays: 365,
 	hiddenContinueWatchingItems: null,
 	hiddenNextUpSeries: null,

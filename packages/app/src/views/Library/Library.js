@@ -15,6 +15,7 @@ import {useSettings} from '../../context/SettingsContext';
 import {isMdblistEnabled} from '../../services/mdblistApi';
 import MediaRow from '../../components/MediaRow';
 import {LIBRARY_GROUP_OPTIONS, groupLibraryItems} from '../../utils/libraryGroupBy';
+import {groupPlaylists, playlistCategoryFromItems, playlistNeedsItemCheck} from '../../utils/playlistGrouping';
 import {isScrolledAway} from '../../utils/quickReturn';
 import RatingsRow from '../../components/RatingsRow';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
@@ -174,7 +175,7 @@ const handleGridKeyDownNoLetters = createGridKeyDown(css.grid, 'library-toolbar'
 
 const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto, onHome, backHandlerRef}) => {
 	const {api, serverUrl, serverType} = useAuth();
-	const {settings} = useSettings();
+	const {settings, updateSetting} = useSettings();
 
 	const effectiveApi = useMemo(() => {
 		if (library?._serverUrl && library?._serverAccessToken) {
@@ -256,7 +257,9 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	const canGroup = (isMovieLibrary || isSeriesLibrary) && !isFolderView;
 	// A stored value the options no longer carry falls back to the plain grid
 	const groupBy = LIBRARY_GROUP_OPTIONS.indexOf(storedGroupBy) !== -1 ? storedGroupBy : 'none';
-	const groupedActive = canGroup && groupBy !== 'none';
+	const playlistGroupingOn = settings.playlistsGroupByType !== false;
+	const playlistGrouped = isPlaylistLibrary && playlistGroupingOn && !isFolderView;
+	const groupedActive = (canGroup && groupBy !== 'none') || playlistGrouped;
 
 	// The header search narrows the items already loaded. It reads the sort name
 	// the server orders by, so a title held as "Matrix, The" still answers to
@@ -276,12 +279,16 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	const itemsRef = useRef(items);
 	itemsRef.current = items;
 
+	const [playlistCategories, setPlaylistCategories] = useState({});
+	const playlistResolveRef = useRef({});
+
 	// Grouped over what the search left, so it narrows the categories the same
 	// way it narrows the plain grid.
-	const groups = useMemo(
-		() => (groupedActive ? groupLibraryItems(searchedItems, groupBy) : null),
-		[groupedActive, searchedItems, groupBy]
-	);
+	const groups = useMemo(() => {
+		if (playlistGrouped) return groupPlaylists(searchedItems, playlistCategories);
+		if (groupedActive) return groupLibraryItems(searchedItems, groupBy);
+		return null;
+	}, [playlistGrouped, playlistCategories, groupedActive, searchedItems, groupBy]);
 	const groupCountRef = useRef(0);
 	groupCountRef.current = groups ? groups.length : 0;
 
@@ -407,6 +414,8 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 					Fields: 'SortName,ProductionYear,ImageTags,OfficialRating,CommunityRating,CriticRating,RunTimeTicks,ProviderIds,UserData,Genres,Studios'
 				};
 
+				if (isPlaylistLibrary) params.Fields += ',ChildCount,RecursiveItemCount';
+
 				if (library?.Id) params.ParentId = library.Id;
 				if (genreFilter) params.Genres = genreFilter;
 				if (studioFilter) params.Studios = studioFilter;
@@ -481,7 +490,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			setIsLoading(false);
 			loadingMoreRef.current = false;
 		}
-	}, [effectiveApi, library, genreFilter, studioFilter, sortKey, sortOrder, favoritesOnly, playedFilter, likedFilter, seriesFilter, featureFilters, qualityFilters, videoSourceFilters, genreFilters, ratingFilters, tagFilters, yearFilters, audioLanguageFilters, subtitleLanguageFilters, isFolderView, currentFolderId, currentFolderCollectionType, isMusicLibrary, musicContentType, getItemTypeForLibrary, getExcludeItemTypes]);
+	}, [isPlaylistLibrary, effectiveApi, library, genreFilter, studioFilter, sortKey, sortOrder, favoritesOnly, playedFilter, likedFilter, seriesFilter, featureFilters, qualityFilters, videoSourceFilters, genreFilters, ratingFilters, tagFilters, yearFilters, audioLanguageFilters, subtitleLanguageFilters, isFolderView, currentFolderId, currentFolderCollectionType, isMusicLibrary, musicContentType, getItemTypeForLibrary, getExcludeItemTypes]);
 
 	loadItemsRef.current = loadItems;
 
@@ -493,6 +502,39 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			loadItemsRef.current?.(apiFetchIndexRef.current, true);
 		}
 	}, [groupedActive, isLoading, totalCount, allItems.length]);
+
+	// The summary cant tell music from audiobooks, so those playlists are read
+	// once and remembered. A small batch at a time keeps the requests gentle.
+	useEffect(() => {
+		if (!playlistGrouped || isLoading) return undefined;
+		const pending = allItems.filter((item) => playlistNeedsItemCheck(item) && !playlistResolveRef.current[item.Id]);
+		if (!pending.length) return undefined;
+		let cancelled = false;
+		const run = async () => {
+			for (let i = 0; i < pending.length && !cancelled; i += 3) {
+				const chunk = pending.slice(i, i + 3);
+				const resolved = await Promise.all(chunk.map(async (item) => {
+					playlistResolveRef.current[item.Id] = true;
+					try {
+						const res = await effectiveApi.getPlaylistItems(item.Id);
+						return [item.Id, playlistCategoryFromItems(res?.Items)];
+					} catch {
+						return [item.Id, 'Mixed'];
+					}
+				}));
+				if (cancelled) return;
+				setPlaylistCategories((prev) => {
+					const next = {...prev};
+					for (let j = 0; j < resolved.length; j++) next[resolved[j][0]] = resolved[j][1];
+					return next;
+				});
+			}
+		};
+		run();
+		return () => {
+			cancelled = true;
+		};
+	}, [playlistGrouped, isLoading, allItems, effectiveApi]);
 
 	const groupRowsRef = useRef(null);
 	const groupRowRefs = useRef(new Map());
@@ -800,6 +842,10 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	const handleCycleGroupBy = useCallback(() => {
 		setGroupBy(cycleValue(LIBRARY_GROUP_OPTIONS, groupBy));
 	}, [groupBy, setGroupBy]);
+
+	const handleTogglePlaylistGrouping = useCallback(() => {
+		updateSetting('playlistsGroupByType', !playlistGroupingOn);
+	}, [playlistGroupingOn, updateSetting]);
 
 	const handleToggleFolderView = useCallback(() => {
 		if (folderViewMode !== 'local') return;
@@ -1253,7 +1299,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 									title={group.name}
 									items={group.items}
 									serverUrl={serverUrl}
-									cardType="portrait"
+									cardType={playlistGrouped ? 'square' : 'portrait'}
 									rowIndex={index}
 									onSelectItem={onSelectItem}
 									onFocusItem={setFocusedItem}
@@ -1560,6 +1606,17 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 							>
 								<div className={css.settingLabel}>{$L('Group by')}</div>
 								<div className={css.settingValue}>{GROUP_BY_LABELS[groupBy]()}</div>
+							</SpottableButton>
+						)}
+
+						{isPlaylistLibrary && (
+							<SpottableButton
+								className={css.settingRow}
+								onClick={handleTogglePlaylistGrouping}
+								spotlightId="settings-playlist-grouping"
+							>
+								<div className={css.settingLabel}>{$L('Group by type')}</div>
+								<div className={css.settingValue}>{playlistGroupingOn ? $L('On') : $L('Off')}</div>
 							</SpottableButton>
 						)}
 
