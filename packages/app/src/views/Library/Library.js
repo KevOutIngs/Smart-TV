@@ -13,6 +13,9 @@ import {getImageUrl, getPrimaryImageId, formatDuration} from '../../utils/helper
 import useQuickReturnGrid from '../../hooks/useQuickReturnGrid';
 import {useSettings} from '../../context/SettingsContext';
 import {isMdblistEnabled} from '../../services/mdblistApi';
+import MediaRow from '../../components/MediaRow';
+import {LIBRARY_GROUP_OPTIONS, groupLibraryItems} from '../../utils/libraryGroupBy';
+import {isScrolledAway} from '../../utils/quickReturn';
 import RatingsRow from '../../components/RatingsRow';
 import SpottableInput from '../../components/SpottableInput/SpottableInput';
 import {useStorage} from '../../hooks/useStorage';
@@ -154,7 +157,16 @@ const cardSubtitle = (item, isFolder, detailed) => {
 	return parts.length ? parts.join('  ') : null;
 };
 
+const GROUP_BY_LABELS = {
+	none: () => $L('None'),
+	genre: () => $L('Genre'),
+	parentalRating: () => $L('Parental Rating'),
+	decade: () => $L('Decade'),
+	studio: () => $L('Studio')
+};
+
 const handleToolbarKeyDown = createToolbarKeyDown('library-grid');
+const handleToolbarKeyDownGrouped = createToolbarKeyDown('library-group-row-0');
 // Up out of the grid goes to the first letter, or to the toolbar when the
 // alphabet bar is switched off and that letter is not there to land on.
 const handleGridKeyDown = createGridKeyDown(css.grid, 'library-letter-hash');
@@ -209,6 +221,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	const [imageSize, setImageSize] = useStorage(`library_imageSize_${libraryId}`, 'medium');
 	const [imageType, setImageType] = useStorage(`library_imageType_${libraryId}`, isSquareDefault ? 'square' : 'poster');
 	const [gridDirection, setGridDirection] = useStorage(`library_gridDirection_${libraryId}`, 'vertical');
+	const [storedGroupBy, setGroupBy] = useStorage(`library_groupBy_${libraryId}`, 'none');
 	const [folderView, setFolderView] = useStorage(`library_folderView_${libraryId}`, 'off');
 	const [sortKey, setSortKey] = useStorage(`library_sortKey_${libraryId}`, 'SortName');
 	const [sortOrder, setSortOrder] = useStorage(`library_sortOrder_${libraryId}`, '');
@@ -239,6 +252,12 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 
 	const isMusicBrowseHome = isMusicLibrary && !isFilterMode && !isFolderView && !musicGridView;
 
+	const isMovieLibrary = library?.CollectionType?.toLowerCase() === 'movies';
+	const canGroup = (isMovieLibrary || isSeriesLibrary) && !isFolderView;
+	// A stored value the options no longer carry falls back to the plain grid
+	const groupBy = LIBRARY_GROUP_OPTIONS.indexOf(storedGroupBy) !== -1 ? storedGroupBy : 'none';
+	const groupedActive = canGroup && groupBy !== 'none';
+
 	// The header search narrows the items already loaded. It reads the sort name
 	// the server orders by, so a title held as "Matrix, The" still answers to
 	// "matrix".
@@ -256,6 +275,15 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 
 	const itemsRef = useRef(items);
 	itemsRef.current = items;
+
+	// Grouped over what the search left, so it narrows the categories the same
+	// way it narrows the plain grid.
+	const groups = useMemo(
+		() => (groupedActive ? groupLibraryItems(searchedItems, groupBy) : null),
+		[groupedActive, searchedItems, groupBy]
+	);
+	const groupCountRef = useRef(0);
+	groupCountRef.current = groups ? groups.length : 0;
 
 	const getItemTypeForLibrary = useCallback(() => {
 		if (!library) return 'Movie,Series';
@@ -376,7 +404,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 					SortOrder: effectiveOrder,
 					Recursive: true,
 					EnableTotalRecordCount: true,
-					Fields: 'SortName,ProductionYear,ImageTags,OfficialRating,CommunityRating,CriticRating,RunTimeTicks,ProviderIds,UserData'
+					Fields: 'SortName,ProductionYear,ImageTags,OfficialRating,CommunityRating,CriticRating,RunTimeTicks,ProviderIds,UserData,Genres,Studios'
 				};
 
 				if (library?.Id) params.ParentId = library.Id;
@@ -457,6 +485,42 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 
 	loadItemsRef.current = loadItems;
 
+	// Grouping covers the whole library, so the rest of it loads in the
+	// background the way scrolling to the end would have.
+	useEffect(() => {
+		if (!groupedActive || isLoading || loadingMoreRef.current) return;
+		if (apiFetchIndexRef.current < totalCount) {
+			loadItemsRef.current?.(apiFetchIndexRef.current, true);
+		}
+	}, [groupedActive, isLoading, totalCount, allItems.length]);
+
+	const groupRowsRef = useRef(null);
+	const groupRowRefs = useRef(new Map());
+	const registerGroupRowRef = useCallback((rowIndex, el) => {
+		if (el) groupRowRefs.current.set(rowIndex, el);
+		else groupRowRefs.current.delete(rowIndex);
+	}, []);
+
+	const scrollToGroupRow = useCallback((rowIndex) => {
+		const row = groupRowRefs.current.get(rowIndex);
+		const container = groupRowsRef.current;
+		if (row && container) container.scrollTop = Math.max(0, row.offsetTop - 10);
+		Spotlight.focus(`library-group-row-${rowIndex}`);
+	}, []);
+
+	const handleGroupNavigateUp = useCallback((rowIndex) => {
+		if (rowIndex === 0) {
+			Spotlight.focus('library-toolbar');
+			return;
+		}
+		scrollToGroupRow(rowIndex - 1);
+	}, [scrollToGroupRow]);
+
+	const handleGroupNavigateDown = useCallback((rowIndex) => {
+		if (rowIndex >= groupCountRef.current - 1) return;
+		scrollToGroupRow(rowIndex + 1);
+	}, [scrollToGroupRow]);
+
 	useEffect(() => {
 		if (isMusicBrowseHome) {
 			setIsLoading(false);
@@ -503,11 +567,11 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	useEffect(() => {
 		if (items.length > 0 && !isLoading && !initialFocusDoneRef.current) {
 			setTimeout(() => {
-				Spotlight.focus('library-grid');
+				Spotlight.focus(groupedActive ? 'library-group-row-0' : 'library-grid');
 				initialFocusDoneRef.current = true;
 			}, 100);
 		}
-	}, [items.length, isLoading]);
+	}, [items.length, isLoading, groupedActive]);
 
 	const handleItemClick = useCallback((ev) => {
 		const itemIndex = ev.currentTarget?.dataset?.index;
@@ -577,8 +641,15 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 			setFolderStack(prev => prev.slice(0, -1));
 			return true;
 		}
+		if (groupedActive) {
+			if (isScrolledAway(groupRowsRef.current)) {
+				scrollToGroupRow(0);
+				return true;
+			}
+			return false;
+		}
 		return quickReturn();
-	}, [musicGridView, isFolderView, folderStack, quickReturn]);
+	}, [musicGridView, isFolderView, folderStack, quickReturn, groupedActive, scrollToGroupRow]);
 
 	// There is one back slot, and the music browse screen claims it while it's up. Nothing
 	// here would be true there anyway, since it only shows with no grid, panel or folder stack.
@@ -725,6 +796,10 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 	const handleCycleGridDirection = useCallback(() => {
 		setGridDirection(cycleValue(GRID_DIRECTIONS, gridDirection));
 	}, [gridDirection, setGridDirection]);
+
+	const handleCycleGroupBy = useCallback(() => {
+		setGroupBy(cycleValue(LIBRARY_GROUP_OPTIONS, groupBy));
+	}, [groupBy, setGroupBy]);
 
 	const handleToggleFolderView = useCallback(() => {
 		if (folderViewMode !== 'local') return;
@@ -1113,7 +1188,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 					</div>
 				)}
 
-				<ToolbarContainer className={css.toolbar} spotlightId="library-toolbar" onKeyDown={handleToolbarKeyDown}>
+				<ToolbarContainer className={css.toolbar} spotlightId="library-toolbar" onKeyDown={groupedActive ? handleToolbarKeyDownGrouped : handleToolbarKeyDown}>
 					<SpottableButton
 						className={css.toolbarBtn}
 						onClick={onHome}
@@ -1144,7 +1219,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 						</svg>
 					</SpottableButton>
 
-					{showLetterNav && (
+					{showLetterNav && !groupedActive && (
 						<div className={css.letterNav}>
 							{LETTERS.map((letter, index) => (
 								<SpottableButton
@@ -1168,6 +1243,26 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 						</div>
 					) : items.length === 0 ? (
 						<div className={css.empty}>{$L('No items found')}</div>
+					) : groupedActive ? (
+						<div className={css.groupRows} ref={groupRowsRef}>
+							{groups.map((group, index) => (
+								<MediaRow
+									key={group.name}
+									rowId={`library-group-${group.name}`}
+									spotlightId={`library-group-row-${index}`}
+									title={group.name}
+									items={group.items}
+									serverUrl={serverUrl}
+									cardType="portrait"
+									rowIndex={index}
+									onSelectItem={onSelectItem}
+									onFocusItem={setFocusedItem}
+									onNavigateUp={handleGroupNavigateUp}
+									onNavigateDown={handleGroupNavigateDown}
+									registerRowRef={registerGroupRowRef}
+								/>
+							))}
+						</div>
 					) : (
 						<div className={css.gridWrapper}>
 							<VirtualGridList
@@ -1456,6 +1551,17 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 							<div className={css.settingLabel}>{$L('Grid direction')}</div>
 							<div className={css.settingValue}>{$L(capitalize(gridDirection))}</div>
 						</SpottableButton>
+
+						{canGroup && (
+							<SpottableButton
+								className={css.settingRow}
+								onClick={handleCycleGroupBy}
+								spotlightId="settings-group-by"
+							>
+								<div className={css.settingLabel}>{$L('Group by')}</div>
+								<div className={css.settingValue}>{GROUP_BY_LABELS[groupBy]()}</div>
+							</SpottableButton>
+						)}
 
 						<SpottableButton
 							className={css.settingRow}

@@ -313,6 +313,24 @@
 	}
 }
 
+.groupRows {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	/* room below the last row so it can scroll up under the toolbar */
+	padding: 10px 0 60vh;
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
 .gridWrapper {
 	position: absolute;
 	top: 0;
