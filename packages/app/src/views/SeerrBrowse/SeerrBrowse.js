@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback, useRef} from 'react';
+import {useState, useEffect, useCallback, useRef, useMemo} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
 import {VirtualGridList} from '@enact/sandstone/VirtualList';
 import Popup from '@enact/sandstone/Popup';
@@ -9,6 +9,7 @@ import {useSettings} from '../../context/SettingsContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import * as seerrApi from '../../services/seerrApi';
 import {buildSeerrDiscoverParams, getSeerrSortOptions, getSeerrTvStatusOptions, getSeerrMinRatingOptions, getSeerrMinVoteOptions, getSeerrRuntimeOptions, getSeerrReleaseOptions, hasSeerrDiscoverFilters} from '../../utils/seerrBrowseFilters';
+import {browseStateKey, readBrowseState, writeBrowseState} from './seerrBrowseState';
 
 import css from './SeerrBrowse.module.less';
 
@@ -37,25 +38,34 @@ const MAX_PAGES = 25;
 const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectItem, backHandlerRef}) => {
 	const {isEnabled} = useSeerr();
 	const {settings} = useSettings();
+	const stateKey = useMemo(
+		() => browseStateKey(browseType, item, initialMediaType),
+		[browseType, item, initialMediaType]
+	);
+	// Read once on mount. Later writes must not feed back into what seeded them.
+	const savedRef = useRef(readBrowseState(stateKey));
+	const saved = savedRef.current;
 	const [items, setItems] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [totalCount, setTotalCount] = useState(0);
 	const [mediaType, setMediaType] = useState(() => {
+		if (saved?.mediaType) return saved.mediaType;
 		// Studios are movies only, networks are TV only
 		if (browseType === 'studio') return 'movie';
 		if (browseType === 'network') return 'tv';
 		return initialMediaType || 'movie';
 	});
+	const [initialLoadDone, setInitialLoadDone] = useState(false);
 	const [backdropUrl, setBackdropUrl] = useState('');
 	const [showFilterModal, setShowFilterModal] = useState(false);
-	const [sortBy, setSortBy] = useState('popularity.desc');
-	const [genreIds, setGenreIds] = useState([]);
-	const [tvStatuses, setTvStatuses] = useState([]);
-	const [language, setLanguage] = useState('');
-	const [minRating, setMinRating] = useState('');
-	const [minVotes, setMinVotes] = useState('');
-	const [runtime, setRuntime] = useState('');
-	const [released, setReleased] = useState('');
+	const [sortBy, setSortBy] = useState(saved?.sortBy || 'popularity.desc');
+	const [genreIds, setGenreIds] = useState(saved?.genreIds || []);
+	const [tvStatuses, setTvStatuses] = useState(saved?.tvStatuses || []);
+	const [language, setLanguage] = useState(saved?.language || '');
+	const [minRating, setMinRating] = useState(saved?.minRating || '');
+	const [minVotes, setMinVotes] = useState(saved?.minVotes || '');
+	const [runtime, setRuntime] = useState(saved?.runtime || '');
+	const [released, setReleased] = useState(saved?.released || '');
 	const [filterGenres, setFilterGenres] = useState([]);
 	const [filterLanguages, setFilterLanguages] = useState([]);
 	const [languagesExpanded, setLanguagesExpanded] = useState(false);
@@ -68,6 +78,11 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 	const itemsRef = useRef([]);
 	const totalPagesRef = useRef(1);
 	const currentPageRef = useRef(1);
+	const scrollToRef = useRef(null);
+	const restoredRef = useRef(false);
+	const getScrollTo = useCallback((fn) => {
+		scrollToRef.current = fn;
+	}, []);
 
 	const loadItems = useCallback(async (page = 1, append = false) => {
 		if (!item || !isEnabled) return;
@@ -130,6 +145,12 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 	}, [item, isEnabled, browseType, mediaType, sortBy, genreIds, tvStatuses, language, minRating, minVotes, runtime, released]);
 
 	useEffect(() => {
+		writeBrowseState(stateKey, {
+			mediaType, sortBy, genreIds, tvStatuses, language, minRating, minVotes, runtime, released
+		});
+	}, [stateKey, mediaType, sortBy, genreIds, tvStatuses, language, minRating, minVotes, runtime, released]);
+
+	useEffect(() => {
 		if (item && isEnabled) {
 			setIsLoading(true);
 			setItems([]);
@@ -138,15 +159,34 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 			loadingMoreRef.current = false;
 			currentPageRef.current = 1;
 
+			// Coming back to a screen that had been paged through reloads as far as
+			// it had reached, otherwise the item it was left on is not there to
+			// return to.
+			const lastPage = restoredRef.current ? 3 : Math.min(savedRef.current?.pagesLoaded || 3, MAX_PAGES);
+
 			const loadInitialPages = async () => {
-				for (let page = 1; page <= 3; page++) {
+				for (let page = 1; page <= lastPage; page++) {
 					await loadItems(page, page > 1);
 					if (page >= totalPagesRef.current) break;
 				}
+				setInitialLoadDone(true);
 			};
+			setInitialLoadDone(false);
 			loadInitialPages();
 		}
 	}, [item, isEnabled, mediaType, loadItems]);
+
+	// Once the list is back, put focus on the item that was opened. Scrolling to
+	// it is what brings the grid back to where it was left.
+	useEffect(() => {
+		if (restoredRef.current || !initialLoadDone) return;
+		restoredRef.current = true;
+		const focusedId = savedRef.current?.focusedId;
+		if (!focusedId) return;
+		const index = itemsRef.current.findIndex((i) => i.id === focusedId);
+		if (index < 0 || !scrollToRef.current) return;
+		scrollToRef.current({index, animate: false, focus: true});
+	}, [initialLoadDone]);
 
 	const updateBackdrop = useCallback((ev) => {
 		const itemIndex = ev.currentTarget?.dataset?.index;
@@ -174,12 +214,16 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 		const mediaItem = itemsRef.current[parseInt(itemIndex, 10)];
 		if (mediaItem) {
 			const type = mediaItem.media_type || mediaItem.mediaType || (mediaItem.title ? 'movie' : 'tv');
+			writeBrowseState(stateKey, {
+				focusedId: mediaItem.id,
+				pagesLoaded: currentPageRef.current
+			});
 			onSelectItem?.({
 				mediaId: mediaItem.id,
 				mediaType: type
 			});
 		}
-	}, [onSelectItem]);
+	}, [onSelectItem, stateKey]);
 
 	const handleCloseModal = useCallback(() => {
 		setShowFilterModal(false);
@@ -455,6 +499,7 @@ const SeerrBrowse = ({browseType, item, mediaType: initialMediaType, onSelectIte
 						<div className={css.gridWrapper}>
 						<VirtualGridList
 							className={css.grid}
+							cbScrollTo={getScrollTo}
 							dataSize={items.length}
 							itemRenderer={renderItem}
 							itemSize={{minWidth: 180, minHeight: 340}}
