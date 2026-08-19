@@ -1,5 +1,6 @@
 import $L from '@enact/i18n/$L';
 import * as gamesApi from '../services/gamesApi';
+import {deduplicateMediaItems} from './mediaDedup';
 
 const RESULT_CAP = 24;
 
@@ -28,7 +29,8 @@ const getSearchGroups = () => [
 	{key: 'folders', title: $L('Folders'), types: ['Folder', 'CollectionFolder', 'UserView']}
 ];
 
-// Buckets items into the group order, caps each group, and drops the empty ones.
+// Buckets items into the group order, collapses duplicate copies of the same
+// title inside each group, caps each group, and drops the empty ones.
 export const groupSearchResults = (items) => {
 	const groups = getSearchGroups();
 	const groupForType = new Map();
@@ -38,11 +40,11 @@ export const groupSearchResults = (items) => {
 		const group = groupForType.get(item.Type);
 		if (!group) return;
 		if (!buckets[group.key]) buckets[group.key] = [];
-		if (buckets[group.key].length < RESULT_CAP) buckets[group.key].push(item);
+		buckets[group.key].push(item);
 	});
 	return groups
 		.filter((g) => buckets[g.key] && buckets[g.key].length > 0)
-		.map((g) => ({...g, items: buckets[g.key]}));
+		.map((g) => ({...g, items: deduplicateMediaItems(buckets[g.key]).slice(0, RESULT_CAP)}));
 };
 
 // Card shape by item type: 16/9 for video-like, square for music and people,

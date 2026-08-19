@@ -6,6 +6,7 @@
 
 import * as multiServerManager from './multiServerManager';
 import {createApiForServer} from './jellyfinApi';
+import {deduplicateMediaItems} from '../utils/mediaDedup';
 
 /**
  * Execute a request to all servers and aggregate results
@@ -75,9 +76,11 @@ export const executeAll = async (apiFn, options = {}) => {
 		results.push(...serverResults);
 	});
 
-	// Deduplicate if requested (by item Id or custom field)
+	// Deduplicate if requested, by provider identity or a plain field
 	let processedResults = results;
-	if (dedupe) {
+	if (dedupe === 'provider') {
+		processedResults = deduplicateMediaItems(results);
+	} else if (dedupe) {
 		const seen = new Set();
 		processedResults = results.filter(item => {
 			const key = item[dedupe];
@@ -116,7 +119,7 @@ export const getResumeItemsFromAllServers = async () => {
 				const dateB = new Date(b.UserData?.LastPlayedDate || 0);
 				return dateB - dateA;
 			},
-			dedupe: 'Id'
+			dedupe: 'provider'
 		}
 	);
 };
@@ -141,7 +144,7 @@ export const getNextUpFromAllServers = async (maxDays = 0) => {
 				}
 				return (a.IndexNumber || 0) - (b.IndexNumber || 0);
 			},
-			dedupe: 'Id'
+			dedupe: 'provider'
 		}
 	);
 };
@@ -310,7 +313,7 @@ export const getRandomItemsFromAllServers = async (contentType = 'both', limit =
 		{
 			sortBy: () => Math.random() - 0.5,
 			limit: limit, // Respect the total limit setting
-			dedupe: 'Id'
+			dedupe: 'provider'
 		}
 	);
 };
@@ -345,7 +348,7 @@ export const searchAllServers = async (query, limit = 20) => {
 
 				return aName.localeCompare(bName);
 			},
-			dedupe: 'Id',
+			dedupe: 'provider',
 			limit: limit // Respect the total limit setting
 		}
 	);
@@ -364,13 +367,13 @@ export const getFavoritesFromAllServers = async () => {
 				IncludeItemTypes: 'Movie,Series,Episode,Person',
 				SortBy: 'SortName',
 				SortOrder: 'Ascending',
-				Fields: 'PrimaryImageAspectRatio,ProductionYear,ParentIndexNumber,IndexNumber,SeriesName'
+				Fields: 'PrimaryImageAspectRatio,ProductionYear,ParentIndexNumber,IndexNumber,SeriesName,ProviderIds,UserData'
 			});
 			return fetchResult.Items || [];
 		},
 		{
 			sortBy: (a, b) => (a.Name || '').localeCompare(b.Name || ''),
-			dedupe: 'Id'
+			dedupe: 'provider'
 		}
 	);
 };
