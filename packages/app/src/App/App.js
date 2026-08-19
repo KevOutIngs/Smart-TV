@@ -1212,7 +1212,7 @@ const AppContent = (props) => {
 					</Panel>
 					<Panel>
 						{panelIndex === PANELS.SEARCH && (
-							<Search onSelectItem={handleSelectItem} onSelectPerson={handleSelectPerson} onSelectGame={handleSelectGame} onPlayChannel={handlePlayChannel} />
+							<Search onSelectItem={handleSelectItem} onSelectSeerrItem={handleSelectSeerrItem} onSelectPerson={handleSelectPerson} onSelectGame={handleSelectGame} onPlayChannel={handlePlayChannel} />
 						)}
 					</Panel>
 					<Panel>

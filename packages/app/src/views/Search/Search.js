@@ -71,7 +71,7 @@ const jellyfinSubtitle = (item) => {
 	}
 };
 
-const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => {
+const Search = ({onSelectItem, onSelectSeerrItem, onSelectPerson, onSelectGame, onPlayChannel}) => {
 	const {api, serverUrl, hasMultipleServers} = useAuth();
 	const {settings} = useSettings();
 	const unifiedMode = settings.unifiedLibraryMode && hasMultipleServers;
@@ -364,33 +364,23 @@ const Search = ({onSelectItem, onSelectPerson, onSelectGame, onPlayChannel}) => 
 		}
 	}, [onSelectItem, onSelectPerson, onPlayChannel]);
 
-	const handleSelectSeerr = useCallback((item) => {
-		const mediaType = item.mediaType || item.media_type || (item.title ? 'movie' : 'tv');
-		onSelectItem?.({
-			...item,
-			isSeerr: true,
-			mediaId: item.mediaId || item.tmdbId || item.id || item.Id,
-			mediaType,
-			Id: item.id,
-			Name: item.title || item.name,
-			Type: mediaType === 'movie' ? 'Movie' : 'Series'
-		});
-	}, [onSelectItem]);
-
 	// One click handler for every card keeps a stable reference across the grid
 	// instead of a closure per card.
 	const handleCardClick = useCallback((e) => {
 		const {kind, id} = e.currentTarget.dataset;
 		if (kind === 'seerr') {
+			// The route the discover and browse rows take. It opens the real library
+			// item when Seerr already has one for the title, and the screen that can
+			// request it when it does not.
 			const item = seerrResults.find((i) => String(i.id) === id);
-			if (item) handleSelectSeerr(item);
+			if (item) onSelectSeerrItem?.(item);
 			return;
 		}
 		for (const group of groups) {
 			const item = group.items.find((i) => i.Id === id);
 			if (item) { handleSelectJellyfin(item); return; }
 		}
-	}, [groups, seerrResults, handleSelectSeerr, handleSelectJellyfin]);
+	}, [groups, seerrResults, onSelectSeerrItem, handleSelectJellyfin]);
 
 	const handleGameSelect = useCallback((game) => onSelectGame?.(game._library, game), [onSelectGame]);
 
