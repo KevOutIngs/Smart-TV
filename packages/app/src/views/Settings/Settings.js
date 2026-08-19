@@ -6,6 +6,7 @@ import {useAuth} from '../../context/AuthContext';
 import {useSettings, defaultSettings, profileToLocal, localToProfile, flushSettingsPush} from '../../context/SettingsContext';
 import {getMoonfinResolvedProfile, deleteMoonfinProfile, saveMoonfinProfile} from '../../services/seerrApi';
 import {homeRowsFromProfile} from '../../utils/homeLayout';
+import {seedLanguagePreferences} from '../../utils/languagePrefSeed';
 import {useSeerr} from '../../context/SeerrContext';
 import {useDeviceInfo} from '../../hooks/useDeviceInfo';
 import {isBackKey} from '../../utils/keys';
@@ -59,8 +60,8 @@ const PROFILE_CHIPS = [
 
 
 const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
-	const { api, serverUrl, accessToken, hasMultipleServers, logoutAll, activeServerInfo } = useAuth();
-	const { settings, updateSetting, updateSettings, resetSettings, availableThemes, activeThemeId, selectThemeById, saveStoreTheme, deleteStoreTheme } = useSettings();
+	const { api, serverUrl, accessToken, hasMultipleServers, logoutAll, activeServerInfo, user } = useAuth();
+	const { settings, updateSetting, updateSettings, resetSettings, restoreSyncedDefaults, availableThemes, activeThemeId, selectThemeById, saveStoreTheme, deleteStoreTheme } = useSettings();
 	const { capabilities } = useDeviceInfo();
 	const seerr = useSeerr();
 	const isSeerr = seerr.isMoonfin && seerr.variant === 'seerr';
@@ -126,6 +127,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	const [profileSyncMessage, setProfileSyncMessage] = useState('');
 	// Reset asks for a second press instead of raising a dialog.
 	const [profileResetArmed, setProfileResetArmed] = useState(false);
+	const [ratingsResetArmed, setRatingsResetArmed] = useState(false);
 	const [tempRatingSources, setTempRatingSources] = useState([]);
 	const [tempExcludedGenresText, setTempExcludedGenresText] = useState('');
 	const [customRowUrl, setCustomRowUrl] = useState('');
@@ -393,13 +395,33 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		setProfileResetArmed(false);
 		try {
 			await deleteMoonfinProfile(selectedSyncProfile, serverUrl, accessToken);
+			// What still stands on the server, admin defaults plus global when a device
+			// profile was reset, is what this device should show from here on.
+			let remaining = {};
+			try {
+				const resolved = await getMoonfinResolvedProfile(selectedSyncProfile, serverUrl, accessToken);
+				if (resolved) {
+					remaining = profileToLocal(resolved);
+					const homeRows = homeRowsFromProfile(resolved);
+					if (homeRows !== undefined) remaining.homeRows = homeRows;
+				}
+			} catch (e) {
+				void e;
+			}
+			// The language seeder refills an empty audio or subtitle preference the
+			// moment settings change, and that write pushes the whole profile back to
+			// the server, recreating what was just deleted. Seeding here instead means
+			// the reset lands already filled and nothing follows it up.
+			const afterReset = {...defaultSettings, ...remaining};
+			Object.assign(remaining, seedLanguagePreferences(afterReset, user?.Configuration || {}, afterReset.uiLanguage, window.navigator?.language));
+			restoreSyncedDefaults(remaining);
 			setProfileSyncMessage($L('Profile reset'));
 		} catch (e) {
 			void e;
 			setProfileSyncMessage($L('Could not reach the server'));
 		}
 		setProfileSyncBusy(false);
-	}, [profileSyncBusy, profileResetArmed, selectedSyncProfile, serverUrl, accessToken]);
+	}, [profileSyncBusy, profileResetArmed, selectedSyncProfile, serverUrl, accessToken, restoreSyncedDefaults, user]);
 
 	const renderProfileSync = () => (
 		<div className={css.profileSyncBlock}>
@@ -505,6 +527,29 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 	const resetRatingSources = useCallback(() => {
 		setTempRatingSources([...defaultSettings.mdblistRatingSources]);
 	}, []);
+
+	// Covers every ratings setting, not just the source list, so one action puts the
+	// whole integration back the way it shipped. Asks for a second press the same way
+	// the profile reset does.
+	const resetRatingsSettings = useCallback(() => {
+		if (!ratingsResetArmed) {
+			setRatingsResetArmed(true);
+			return;
+		}
+		setRatingsResetArmed(false);
+		updateSettings({
+			mdblistEnabled: defaultSettings.mdblistEnabled,
+			mdblistRatingSources: [...defaultSettings.mdblistRatingSources],
+			tmdbEpisodeRatingsEnabled: defaultSettings.tmdbEpisodeRatingsEnabled,
+			showRatingLabels: defaultSettings.showRatingLabels,
+			showRatingBadges: defaultSettings.showRatingBadges
+		});
+	}, [ratingsResetArmed, updateSettings]);
+
+	// An armed reset left behind shouldnt fire from a later visit
+	useEffect(() => {
+		setRatingsResetArmed(false);
+	}, [currentView]);
 
 	const saveRatingSources = useCallback(() => {
 		updateSetting('mdblistRatingSources', tempRatingSources);
@@ -841,6 +886,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		serverVersion,
 		availableThemes,
 		activeThemeId,
+		ratingsResetArmed,
 		actions: {
 			openThemes,
 			openThemeStore,
@@ -863,10 +909,11 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			openExternalCustomRows,
 			openSeerrHomeRows,
 			openScreen,
-			handleMoonfinToggle
+			handleMoonfinToggle,
+			resetRatingsSettings
 		}
 	}), [
-		settings, capabilities, seerr, seerrLabel, isSeerr, serverUrl,
+		settings, capabilities, seerr, seerrLabel, isSeerr, serverUrl, ratingsResetArmed, resetRatingsSettings,
 		serverVersion, availableThemes, activeThemeId, openThemes, openThemeStore, openHomeRows,
 		openDetailButtons, openOsdButtons, openDiagnostics,
 		openPinCode, openLibraries, openParentalControls, openQrLink, openRatingSources, openRowImageTypes, openExcludedGenres, openMediaBarLibraries,

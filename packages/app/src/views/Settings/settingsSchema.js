@@ -728,7 +728,17 @@ export const SETTINGS_SCHEMA = [
 					},
 					{kind: KIND.TOGGLE, key: 'tmdbEpisodeRatingsEnabled', label: () => $L('Episode Ratings'), desc: () => $L('Show ratings on individual episodes'), icon: 'stars'},
 					{kind: KIND.TOGGLE, key: 'showRatingLabels', label: () => $L('Rating Labels'), desc: () => $L('Show labels next to rating icons'), icon: 'label'},
-					{kind: KIND.TOGGLE, key: 'showRatingBadges', label: () => $L('Rating Badges'), desc: () => $L('Show decorative badges behind ratings'), icon: 'style'}
+					{kind: KIND.TOGGLE, key: 'showRatingBadges', label: () => $L('Rating Badges'), desc: () => $L('Show decorative badges behind ratings'), icon: 'style'},
+					{
+						kind: KIND.NAV,
+						id: 'resetRatings',
+						label: () => $L('Reset Ratings'),
+						desc: (ctx) => (ctx.ratingsResetArmed
+							? $L('Press again to put every ratings setting back to its default')
+							: $L('Restores the sources, their order, and the ratings toggles')),
+						icon: 'history',
+						action: (ctx) => ctx.actions.resetRatingsSettings()
+					}
 				]
 			},
 			{

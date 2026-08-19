@@ -682,6 +682,32 @@ export function SettingsProvider({children}) {
 		saveToStorage('settings', defaultSettings);
 	}, []);
 
+	// The profile reset path. Puts every synced setting back to its default, then lays
+	// the server's resolved profile on top, all without pushing. A push here would
+	// recreate the profile that was just deleted, and a push queued by an earlier edit
+	// would put the old settings back moments after, so that one is dropped too.
+	const restoreSyncedDefaults = useCallback((resolved = {}) => {
+		if (pushTimer) {
+			clearTimeout(pushTimer);
+			pushTimer = null;
+		}
+		pendingPush = null;
+		unpushedKeys.clear();
+		setSettings(prev => {
+			const updated = {...prev};
+			for (const key of SYNCABLE_KEYS) {
+				// A synced key with no local default reads its built in value when the
+				// stored one is gone, so removing it is what a reset means there
+				if (key in defaultSettings) updated[key] = defaultSettings[key];
+				else delete updated[key];
+			}
+			Object.assign(updated, resolved);
+			persistBootLocale(updated.uiLanguage);
+			saveToStorage('settings', updated);
+			return updated;
+		});
+	}, []);
+
 	// Validate + register + persist a theme saved from the Theme Store. Stores
 	// the raw theme JSON so it round-trips through parseThemeSpec on reload.
 	const saveStoreTheme = useCallback(async (rawTheme) => {
@@ -879,6 +905,7 @@ export function SettingsProvider({children}) {
 			updateSettings,
 			selectThemeById,
 			resetSettings,
+			restoreSyncedDefaults,
 			syncFromServer,
 			syncOnLogin,
 			saveStoreTheme,
