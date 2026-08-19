@@ -7,17 +7,20 @@ import {genericCollectionLabel, mergeRecentRows} from '../../utils/mergeRecentRo
 import {HOME_ROW_ITEM_FIELDS} from '../../services/jellyfinApi';
 import {loadSinceYouWatchedRows, loadRewatchItems} from '../../services/homeRecommendations';
 import {FAVORITE_ROW_CONFIGS, getItemGenreNames, parsePluginSpec, stableIndex} from './browseFilters';
-import {getGenresIncludeTypes, resolveSortOrder} from '../../utils/homeRowSorting';
+import {apiSortBy, getGenresIncludeTypes, isPlaylistOrder, resolveSortOrder} from '../../utils/homeRowSorting';
 
 // The sort settings and enabled flags every loader reads, worked out once rather than by each
 // of them. Everything here is a plain function of the settings and the row list.
 export const buildLoaderContext = ({api, settings, homeRowsConfig, eligibleLibraries, seerrEnabled, seerrAuthenticated, appendRows}) => {
 	const rowEnabled = (id) => homeRowsConfig.some((row) => row.enabled && row.id === id);
-	const favoriteSortBy = settings.favoritesRowSortBy || 'SortName';
-	const collectionsSortBy = settings.collectionsRowSortBy || 'SortName';
-	const genresSortBy = settings.genresRowSortBy || 'SortName';
-	const playlistsSortBy = settings.playlistsRowSortBy || 'SortName';
-	const audioRowsSortBy = settings.audioRowsSortBy || 'SortName';
+	// Playlist order is not a server sort field, so every row hands the server
+	// the fallback and the rows that honor the arrangement check the setting
+	// itself.
+	const favoriteSortBy = apiSortBy(settings.favoritesRowSortBy || 'SortName');
+	const collectionsSortBy = apiSortBy(settings.collectionsRowSortBy || 'SortName');
+	const genresSortBy = apiSortBy(settings.genresRowSortBy || 'SortName');
+	const playlistsSortBy = apiSortBy(settings.playlistsRowSortBy || 'SortName');
+	const audioRowsSortBy = apiSortBy(settings.audioRowsSortBy || 'SortName');
 
 	return {
 		api,
@@ -72,6 +75,24 @@ const expandSeriesToEpisodes = async (api, items, limit) => {
 			return episodes.length ? episodes : [item];
 		} catch (_error) {
 			return [item];
+		}
+	}));
+	return [].concat(...expanded).slice(0, limit);
+};
+
+// A playlist opens into the things it holds. Playlist order comes from the
+// dedicated endpoint, which returns them exactly as they were arranged.
+const expandPlaylistsToItems = async (api, playlists, limit, usePlaylistOrder, sortBy, sortOrder) => {
+	const expanded = await Promise.all(playlists.map(async (playlist) => {
+		if (playlist?.Type !== 'Playlist') return [playlist];
+		try {
+			const result = usePlaylistOrder
+				? await api.getPlaylistItems(playlist.Id, limit)
+				: await api.getItems({ParentId: playlist.Id, SortBy: sortBy, SortOrder: sortOrder, Limit: limit, Fields: HOME_ROW_ITEM_FIELDS});
+			const items = result?.Items || [];
+			return items.length ? items : [playlist];
+		} catch (_error) {
+			return [playlist];
 		}
 	}));
 	return [].concat(...expanded).slice(0, limit);
@@ -193,7 +214,7 @@ const loadCollections = async (ctx) => {
 const loadStudios = async (ctx) => {
 	const {api, appendRows, studiosEnabled, settings} = ctx;
 	if (!studiosEnabled) return;
-	const sortBy = settings.studiosRowSortBy || 'SortName';
+	const sortBy = apiSortBy(settings.studiosRowSortBy || 'SortName');
 	try {
 		const result = await api.getStudios(20, sortBy, resolveSortOrder(sortBy, settings.studiosRowSortOrder)).catch(() => null);
 		if (result?.Items?.length > 0) {
@@ -365,7 +386,7 @@ const loadPlaylistsAndMusic = async (ctx) => {
 		const rows = [];
 		if (playlistsResult?.Items?.length > 0) {
 			const playlistItems = settings.playlistsRowShowEpisodes
-				? await expandSeriesToEpisodes(api, playlistsResult.Items, 20)
+				? await expandPlaylistsToItems(api, playlistsResult.Items, 20, isPlaylistOrder(settings.playlistsRowSortBy), playlistsSortBy, playlistsSortOrder)
 				: playlistsResult.Items;
 			rows.push({
 				id: 'playlists',
@@ -424,7 +445,7 @@ const loadPlaylistsAndMusic = async (ctx) => {
 };
 
 const loadPluginsAndRecos = async (ctx) => {
-	const {api, appendRows, enabledPluginSections, rewatchEnabled, seerrAuthenticated, seerrEnabled, settings, sinceYouWatchedIndexes} = ctx;
+	const {api, appendRows, collectionsSortBy, collectionsSortOrder, enabledPluginSections, rewatchEnabled, seerrAuthenticated, seerrEnabled, settings, sinceYouWatchedIndexes} = ctx;
 	const fetchPluginSectionRow = async (section) => {
 		if (!section?.enabled) return null;
 		const spec = parsePluginSpec(section.specJson);
@@ -517,7 +538,13 @@ const loadPluginsAndRecos = async (ctx) => {
 						items = [];
 						break;
 					}
-					const result = await api.getCollectionItems(collectionId, limit);
+					const usesArrangement = isPlaylistOrder(settings.collectionsRowSortBy);
+					const result = await api.getCollectionItems(
+						collectionId,
+						limit,
+						usesArrangement ? null : collectionsSortBy,
+						collectionsSortOrder
+					);
 					items = result?.Items || [];
 					if (settings.collectionsRowShowEpisodes) {
 						items = await expandSeriesToEpisodes(api, items, limit);

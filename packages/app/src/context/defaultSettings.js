@@ -92,10 +92,10 @@ export const defaultSettings = {
 	sonarrCalendarShowDate: true,
 	sonarrCalendarShowEpisodeInfo: true,
 	favoritesRowSortBy: 'SortName',
-	collectionsRowSortBy: 'SortName',
+	collectionsRowSortBy: 'PlaylistOrder',
 	genresRowSortBy: 'SortName',
 	genresRowItemFilter: 'all',
-	playlistsRowSortBy: 'SortName',
+	playlistsRowSortBy: 'PlaylistOrder',
 	audioRowsSortBy: 'SortName',
 	// Auto keeps the direction each sort field always implied.
 	favoritesRowSortOrder: 'auto',

@@ -208,6 +208,12 @@ export const getHomeRowSortOptions = () => [
 	{ value: 'CommunityRating', label: $L('Community Rating') }
 ];
 
+// Playlist and collection rows can also follow the curated arrangement
+export const getPlaylistCollectionSortOptions = () => [
+	{ value: 'PlaylistOrder', label: $L('Playlist Order') },
+	...getHomeRowSortOptions()
+];
+
 export const getGenresRowItemFilterOptions = () => [
 	{ value: 'all', label: $L('Movies & TV Shows') },
 	{ value: 'Movie', label: $L('Movies') },
