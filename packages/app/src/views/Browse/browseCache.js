@@ -71,6 +71,7 @@ const stripItemForCache = (item) => ({
 	IndexNumber: item.IndexNumber,
 	ParentThumbItemId: item.ParentThumbItemId,
 	ParentBackdropItemId: item.ParentBackdropItemId,
+	ParentBackdropImageTags: item.ParentBackdropImageTags,
 	CommunityRating: item.CommunityRating,
 	Genres: item.Genres,
 	GenreItems: item.GenreItems,

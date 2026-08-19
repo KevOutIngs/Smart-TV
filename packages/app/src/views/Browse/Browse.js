@@ -424,13 +424,18 @@ const Browse = ({
 	const handleFocusItem = useCallback((item) => {
 		if (showTopInfoArea) {
 			detailSectionRef.current?.handleFocusItem(item);
+		} else if (!useModernRows) {
+			// The info overlay used to be the only feed into the backdrop, so
+			// turning it off silently killed backdrops with it. Classic rows hand
+			// the item over directly when the overlay is not there to do it.
+			setFocusedItemForBackdrop(item);
 		}
 		if (item?.Id && (item.Type === 'Movie' || item.Type === 'Series')) {
 			onFocusItemThemeMusic?.(item.Id);
 		} else {
 			onBlurItemThemeMusic?.();
 		}
-	}, [onFocusItemThemeMusic, onBlurItemThemeMusic, showTopInfoArea]);
+	}, [onFocusItemThemeMusic, onBlurItemThemeMusic, showTopInfoArea, useModernRows]);
 
 	if (isLoading) {
 		return (
