@@ -68,6 +68,31 @@ const requestedArtwork = (item, imageType, serverUrl) => {
 	return null;
 };
 
+// The artwork an episode can show, each one carrying whether it is wide so the
+// card can take its shape from the picture it ended up with. An episode still is
+// its Primary image, episodes carry no Thumb tag of their own.
+const episodeArtwork = (item, serverUrl, imageType, useSeriesArt) => {
+	const wide = (url) => (url ? {url, wide: true} : null);
+	const seriesWide = item.ParentThumbItemId
+		? wide(getImageUrl(serverUrl, item.ParentThumbItemId, 'Thumb', {maxWidth: 400, quality: 80}))
+		: item.ParentBackdropItemId
+			? wide(getImageUrl(serverUrl, item.ParentBackdropItemId, 'Backdrop', {maxWidth: 400, quality: 80}))
+			: null;
+	const seriesPoster = item.SeriesId && item.SeriesPrimaryImageTag
+		? {url: getImageUrl(serverUrl, item.SeriesId, 'Primary', {maxHeight: 300, quality: 80}), wide: false}
+		: null;
+	const still = wide(item.ImageTags?.Primary
+		? getImageUrl(serverUrl, item.Id, 'Primary', {maxWidth: 400, quality: 80})
+		: null);
+
+	if (!useSeriesArt) return still || seriesWide || seriesPoster;
+	// A poster row wants the series poster, anything wider wants the series thumb.
+	const preferred = imageType === 'poster'
+		? (seriesPoster || seriesWide)
+		: (seriesWide || seriesPoster);
+	return preferred || still;
+};
+
 const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'poster', onSelect, onFocusItem, showServerBadge = false, eagerLoad = false, seerrSeasonStatus, spotlightId, onSpotlightLeft, onSpotlightRight}) => {
 	const {settings} = useSettings();
 	const focusTimeoutRef = useRef(null);
@@ -90,7 +115,16 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 	const artworkItem = (item.Type === 'Genre' && item._representative) || item;
 	const rowArtwork = requestedArtwork(artworkItem, imageType, itemServerUrl);
 	const isBanner = imageType === 'banner' && cardType !== 'square' && cardType !== 'circle';
-	const isLandscape = !isBanner && (cardType === 'landscape' || (cardType === 'portrait' && Boolean(rowArtwork)));
+	// An episode is the one item the series switch speaks for, so its picture is
+	// picked here instead of taking whatever wide art the row asked for. A banner
+	// row is left alone because that artwork is the row's own shape.
+	const episodeArt = (item.Type === 'Episode' && !isBanner)
+		? episodeArtwork(item, itemServerUrl, imageType, settings.useSeriesThumbnails)
+		: null;
+	// The url rather than the object, so the memo below still holds between renders.
+	const episodeArtUrl = episodeArt?.url || null;
+	const wideArtwork = episodeArt ? episodeArt.wide : Boolean(rowArtwork);
+	const isLandscape = !isBanner && (cardType === 'landscape' || (cardType === 'portrait' && wideArtwork));
 	// Artists read as circles in the music library. It rides on the square path
 	// since the art is the same 1:1 either way, only the radius differs.
 	const isCircle = cardType === 'circle';
@@ -109,6 +143,8 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 			return toAbsoluteImageUrl(externalPoster, itemServerUrl);
 		}
 
+		if (episodeArtUrl) return episodeArtUrl;
+
 		if (rowArtwork) return rowArtwork;
 
 		if (item.Type === 'Genre' && item._representative && item._representative.ImageTags?.Primary) {
@@ -116,46 +152,20 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 		}
 
 		if (isLandscape) {
-			if (item.Type === 'Episode') {
-				// A parent thumb id only arrives when the series really has one, so it is
-				// the series image an episode can ask for without guessing.
-				if (settings.useSeriesThumbnails && item.ParentThumbItemId) {
-					return getImageUrl(itemServerUrl, item.ParentThumbItemId, 'Thumb', {maxWidth: 400, quality: 80});
-				}
-				if (item.ImageTags?.Thumb) {
-					return getImageUrl(itemServerUrl, item.Id, 'Thumb', {maxWidth: 400, quality: 80});
-				}
-				if (item.ParentThumbItemId) {
-					return getImageUrl(itemServerUrl, item.ParentThumbItemId, 'Thumb', {maxWidth: 400, quality: 80});
-				}
-				if (item.BackdropImageTags?.length > 0) {
-					return getImageUrl(itemServerUrl, item.Id, 'Backdrop', {maxWidth: 400, quality: 80});
-				}
-				if (item.ParentBackdropItemId) {
-					return getImageUrl(itemServerUrl, item.ParentBackdropItemId, 'Backdrop', {maxWidth: 400, quality: 80});
-				}
-				if (item.ImageTags?.Primary) {
-					return getImageUrl(itemServerUrl, item.Id, 'Primary', {maxWidth: 400, quality: 80});
-				}
-				if (item.SeriesId && item.SeriesPrimaryImageTag) {
-					return getImageUrl(itemServerUrl, item.SeriesId, 'Primary', {maxHeight: 300, quality: 80});
-				}
-			} else {
-				if (item.ImageTags?.Thumb) {
-					return getImageUrl(itemServerUrl, item.Id, 'Thumb', {maxWidth: 400, quality: 80});
-				}
-				if (item.ParentThumbItemId) {
-					return getImageUrl(itemServerUrl, item.ParentThumbItemId, 'Thumb', {maxWidth: 400, quality: 80});
-				}
-				if (item.BackdropImageTags?.length > 0) {
-					return getImageUrl(itemServerUrl, item.Id, 'Backdrop', {maxWidth: 400, quality: 80});
-				}
-				if (item.ParentBackdropItemId) {
-					return getImageUrl(itemServerUrl, item.ParentBackdropItemId, 'Backdrop', {maxWidth: 400, quality: 80});
-				}
-				if (item.ImageTags?.Primary) {
-					return getImageUrl(itemServerUrl, item.Id, 'Primary', {maxHeight: 300, quality: 80});
-				}
+			if (item.ImageTags?.Thumb) {
+				return getImageUrl(itemServerUrl, item.Id, 'Thumb', {maxWidth: 400, quality: 80});
+			}
+			if (item.ParentThumbItemId) {
+				return getImageUrl(itemServerUrl, item.ParentThumbItemId, 'Thumb', {maxWidth: 400, quality: 80});
+			}
+			if (item.BackdropImageTags?.length > 0) {
+				return getImageUrl(itemServerUrl, item.Id, 'Backdrop', {maxWidth: 400, quality: 80});
+			}
+			if (item.ParentBackdropItemId) {
+				return getImageUrl(itemServerUrl, item.ParentBackdropItemId, 'Backdrop', {maxWidth: 400, quality: 80});
+			}
+			if (item.ImageTags?.Primary) {
+				return getImageUrl(itemServerUrl, item.Id, 'Primary', {maxHeight: 300, quality: 80});
 			}
 		}
 
@@ -174,7 +184,7 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 		// The card shows its lettered placeholder rather than guessing at a url the
 		// item already said it has nothing behind.
 		return null;
-	}, [isLandscape, item, itemServerUrl, rowArtwork, settings.useSeriesThumbnails]);
+	}, [isLandscape, item, itemServerUrl, rowArtwork, episodeArtUrl]);
 
 	const handleClick = useCallback(() => {
 		onSelect?.(item);
