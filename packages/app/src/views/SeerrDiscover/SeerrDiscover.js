@@ -678,7 +678,7 @@ const SeerrDiscover = ({onSelectItem, onSelectGenre, onSelectNetwork, onSelectSt
 			)}
 			{!isLoading && isAuthenticated && onOpenRequests && (
 				<SpottableDiv
-					className={css.requestsPill}
+					className={`${css.requestsPill} ${settings.navbarPosition === 'left' ? '' : css.requestsPillBelowNav}`}
 					spotlightId="discover-requests-pill"
 					onClick={onOpenRequests}
 					onKeyDown={handleRequestsPillKeyDown}

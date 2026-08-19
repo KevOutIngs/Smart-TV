@@ -100,7 +100,7 @@ const TabPill = memo(function TabPill({label, count, selected, onSelect, value})
 	);
 });
 
-const RequestItem = memo(function RequestItem({request, index, canManage, myUserId, onSelect, onAction}) {
+const RequestItem = memo(function RequestItem({request, index, canManage, myUserId, onSelect, onAction, ...rest}) {
 	const media = request.media;
 	const posterUrl = media?.posterPath
 		? seerrApi.getImageUrl(media.posterPath, 'w185')
@@ -145,6 +145,7 @@ const RequestItem = memo(function RequestItem({request, index, canManage, myUser
 
 	return (
 		<SpottableDiv
+			{...rest}
 			className={css.requestItem}
 			data-spotlight-id={`request-${index}`}
 			onClick={handleClick}
@@ -199,7 +200,7 @@ const RequestItem = memo(function RequestItem({request, index, canManage, myUser
 	);
 });
 
-const IssueItem = memo(function IssueItem({issue, index, canManage, myUserId, onOpen, onToggleStatus}) {
+const IssueItem = memo(function IssueItem({issue, index, canManage, myUserId, onOpen, onToggleStatus, ...rest}) {
 	const media = issue.media;
 	const posterUrl = media?.posterPath
 		? seerrApi.getImageUrl(media.posterPath, 'w185')
@@ -227,6 +228,7 @@ const IssueItem = memo(function IssueItem({issue, index, canManage, myUserId, on
 
 	return (
 		<SpottableDiv
+			{...rest}
 			className={css.requestItem}
 			data-spotlight-id={`issue-${index}`}
 			onClick={handleClick}
@@ -528,7 +530,9 @@ const SeerrRequests = ({onSelectItem, onClose, initialTab = 'requests', backHand
 
 	const items = tab === 'requests' ? requests : issues;
 
-	const renderItem = useCallback(({index}) => {
+	// The list tags each item with a data-index and reads it back off whatever
+	// gains focus to work out how far to scroll, so it has to reach the element.
+	const renderItem = useCallback(({index, ...itemProps}) => {
 		if (index >= items.length - 5 && hasMore && !loadingMoreRef.current) {
 			loadMore();
 		}
@@ -538,6 +542,7 @@ const SeerrRequests = ({onSelectItem, onClose, initialTab = 'requests', backHand
 		if (tab === 'requests') {
 			return (
 				<RequestItem
+					{...itemProps}
 					key={item.id}
 					request={item}
 					index={index}
@@ -550,6 +555,7 @@ const SeerrRequests = ({onSelectItem, onClose, initialTab = 'requests', backHand
 		}
 		return (
 			<IssueItem
+				{...itemProps}
 				key={item.id}
 				issue={item}
 				index={index}
@@ -609,6 +615,7 @@ const SeerrRequests = ({onSelectItem, onClose, initialTab = 'requests', backHand
 	return (
 		<Panel {...rest}>
 			<Header
+				className={settings.navbarPosition === 'left' ? undefined : css.headerBesideNav}
 				title={$L('Requests')}
 				onClose={onClose}
 				type="compact"

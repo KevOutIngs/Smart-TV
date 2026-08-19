@@ -20,6 +20,7 @@ export const CONTENT_FOCUS_TARGETS = [
 	'person-grid',
 	'discover-row-0',
 	'seerr-browse-grid',
+	'hub-tabs',
 	'action-buttons',
 	'details-primary-btn',
 	'details-favorite-btn',
