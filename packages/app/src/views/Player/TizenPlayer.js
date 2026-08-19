@@ -15,7 +15,7 @@ import {useSettings} from '../../context/SettingsContext';
 import {useSyncPlay} from '../../context/SyncPlayContext';
 import * as syncPlayService from '../../services/syncPlay';
 import {KEYS, isBackKey} from '../../utils/keys';
-import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
+import {isPreroll, nextInQueue, shouldAutoAdvance} from '../../utils/cinemaMode';
 import {driftAction, driftMs, needsSeek, correctionOptions, DRIFT_CHECK_MS} from '../../utils/syncDrift';
 import {createReadyGate} from '../../utils/syncReady';
 import {getImageUrl} from '../../utils/helpers';
@@ -1516,12 +1516,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			onPlayNext(step.track);
 			return;
 		}
-		if (nextEpisode && onPlayNext) {
+		if (nextEpisode && onPlayNext && shouldAutoAdvance(settings.autoPlay, item)) {
 			onPlayNext(nextEpisode);
 		} else {
 			onEnded?.();
 		}
-	}, [onEnded, onPlayNext, nextEpisode, stopTimeUpdatePolling, audioPlaylist, repeatMode, restartCurrent, getNextStep]);
+	}, [onEnded, onPlayNext, nextEpisode, stopTimeUpdatePolling, audioPlaylist, repeatMode, restartCurrent, getNextStep, settings.autoPlay, item]);
 
 	const handleError = useCallback(async () => {
 		console.error('[Player] Playback error');

@@ -1,4 +1,4 @@
-import {fetchPrerolls, isPreroll, nextInQueue} from './cinemaMode';
+import {fetchPrerolls, isPreroll, nextInQueue, shouldAutoAdvance} from './cinemaMode';
 
 const movie = {Id: 'movie-1', Type: 'Movie'};
 const enabled = {cinemaModeEnabled: true};
@@ -72,5 +72,22 @@ describe('isPreroll', () => {
 		expect(isPreroll({_preroll: 1})).toBe(false);
 		expect(isPreroll({})).toBe(false);
 		expect(isPreroll(null)).toBe(false);
+	});
+});
+
+describe('shouldAutoAdvance', () => {
+	const episode = {Id: 'e1', Type: 'Episode'};
+
+	it('advances only while the setting is on', () => {
+		expect(shouldAutoAdvance(true, episode)).toBe(true);
+		expect(shouldAutoAdvance(false, episode)).toBe(false);
+	});
+
+	it('runs a pre-roll into the feature whatever the setting says', () => {
+		expect(shouldAutoAdvance(false, {_preroll: true})).toBe(true);
+	});
+
+	it('treats an absent setting as on', () => {
+		expect(shouldAutoAdvance(undefined, episode)).toBe(true);
 	});
 });

@@ -4,6 +4,10 @@
 
 export const isPreroll = (item) => item?._preroll === true;
 
+// Anything but a pre-roll only advances when the viewer asked for it to. An
+// absent setting counts as on, the way the app defaults it.
+export const shouldAutoAdvance = (autoPlayEnabled, item) => autoPlayEnabled !== false || isPreroll(item);
+
 export const nextInQueue = (videoQueue, item) => {
 	if (!videoQueue?.length || !item?.Id) return null;
 	const idx = videoQueue.findIndex((entry) => String(entry.Id) === String(item.Id));

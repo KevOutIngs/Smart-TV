@@ -42,7 +42,7 @@ import SkipSegmentOverlay from './SkipSegmentOverlay';
 import StillWatchingDialog from './StillWatchingDialog';
 import useSleepTimer from './useSleepTimer';
 import useSegmentPopups from './useSegmentPopups';
-import {isPreroll, nextInQueue} from '../../utils/cinemaMode';
+import {isPreroll, nextInQueue, shouldAutoAdvance} from '../../utils/cinemaMode';
 import {driftAction, driftMs, needsSeek, correctionOptions, DRIFT_CHECK_MS} from '../../utils/syncDrift';
 import {createReadyGate} from '../../utils/syncReady';
 import {
@@ -1435,12 +1435,12 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			onPlayNext(step.track);
 			return;
 		}
-		if (nextEpisode && onPlayNext) {
+		if (nextEpisode && onPlayNext && shouldAutoAdvance(settings.autoPlay, item)) {
 			onPlayNext(nextEpisode);
 		} else {
 			onEnded?.();
 		}
-	}, [onEnded, onPlayNext, nextEpisode, audioPlaylist, repeatMode, restartCurrent, getNextStep]);
+	}, [onEnded, onPlayNext, nextEpisode, audioPlaylist, repeatMode, restartCurrent, getNextStep, settings.autoPlay, item]);
 
 	const handleError = useCallback(async () => {
 		const startFailure = playbackStartTimedOutRef.current && !isPaused;
