@@ -1448,12 +1448,21 @@
 	flex: 1;
 	overflow-y: auto;
 	overflow-x: hidden;
-	padding: 0 0 60vh 0;
+	padding: 0;
 	scrollbar-width: none;
 	position: relative;
 
 	&::-webkit-scrollbar {
 		display: none;
+	}
+
+	/* Scroll past the last row. As box padding this would set a floor under the
+	   element height and push it past the bottom of the screen, so the room is
+	   scroll content instead. */
+	&::after {
+		content: '';
+		display: block;
+		height: 60vh;
 	}
 }
 
@@ -1463,7 +1472,6 @@
 
 .topbarOffset .contentRows {
 	padding-top: 130px;
-	padding-bottom: 60vh;
 	scroll-padding-top: 130px;
 }
 
@@ -1493,6 +1501,15 @@
 
 .topbarOffset .contentRows.rowsMode {
 	padding-top: 130px;
+}
+
+/* Without the info overlay there is nothing covering the top of the screen, so
+   scrolled rows would slide under the floating navbar. Starting the clip edge
+   below the navbar keeps them out from under it. */
+.topbarOffset .contentRows.rowsMode.rowsClipTop {
+	margin-top: 130px;
+	padding-top: 0;
+	scroll-padding-top: 0;
 }
 
 .empty {

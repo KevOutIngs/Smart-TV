@@ -62,6 +62,17 @@ const Browse = ({
 	const isLegacy = typeof document !== 'undefined' && (' ' + document.documentElement.className + ' ').indexOf(' legacy ') >= 0;
 	const [focusedItemForBackdrop, setFocusedItemForBackdrop] = useState(null);
 	const mainContentRef = useRef(null);
+
+	// Moving focus scrolls every scrollable ancestor, overflow hidden included,
+	// and this one holds the info overlay, which ends up clipped at the top of
+	// the screen and under the navbar. The engine emits no scroll event for it,
+	// so the focus handlers put it back rather than a listener.
+	const pinMainScroll = useCallback(() => {
+		const node = mainContentRef.current;
+		if (!node) return;
+		if (node.scrollTop !== 0) node.scrollTop = 0;
+		if (node.scrollLeft !== 0) node.scrollLeft = 0;
+	}, []);
 	const detailSectionRef = useRef(null);
 	const lastFocusedRowRef = useRef(null);
 	const wasVisibleRef = useRef(true);
@@ -198,6 +209,24 @@ const Browse = ({
 		return false;
 	}, []);
 
+	// With the info overlay above the rows the row pins right under the overlay,
+	// leaving a tall row its room below at every UI scale. Without the overlay
+	// the scroller itself starts under the navbar, so the row pins at its top.
+	const restRowScroll = useCallback((rowIndex) => {
+		const container = contentRowsRef.current;
+		if (!container) return;
+		// The ref a row hands over is the spotlight container component rather
+		// than its div, so the real node is looked up by the index stamped on it.
+		const registered = rowRefsMap.current.get(rowIndex);
+		const targetRow = registered && typeof registered.offsetTop === 'number'
+			? registered
+			: container.querySelector(`[data-row-index="${rowIndex}"]`);
+		if (!targetRow) return;
+		const topbarOffset = showTopInfoArea && settings.navbarPosition !== 'left' ? 20 : 0;
+		const top = Math.max(0, targetRow.offsetTop - topbarOffset);
+		if (Math.abs(container.scrollTop - top) > 1) container.scrollTop = top;
+	}, [settings.navbarPosition, showTopInfoArea]);
+
 	const scrollToRow = useCallback((rowIndex, thenFocus) => {
 		if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
 
@@ -208,13 +237,11 @@ const Browse = ({
 			return;
 		}
 
-		const topbarOffset = settings.navbarPosition !== 'left' ? 130 : 0;
 		// A row is only measured once it renders, so landing on one that was still
 		// standing in at a guessed height leaves it above the screen with its cards
 		// cut off. Settling once it is real puts it where it was asked to go.
 		const settle = (passes) => {
-			const top = Math.max(0, targetRow.offsetTop - topbarOffset);
-			if (Math.abs(container.scrollTop - top) > 1) container.scrollTop = top;
+			restRowScroll(rowIndex);
 			if (passes > 0) window.requestAnimationFrame(() => settle(passes - 1));
 		};
 		settle(2);
@@ -232,7 +259,7 @@ const Browse = ({
 			};
 			scrollTimeoutRef.current = setTimeout(tryFocus, 0);
 		}
-	}, [focusRow, settings.navbarPosition]);
+	}, [focusRow, restRowScroll]);
 
 	const handleNavigateUp = useCallback((fromRowIndex) => {
 		if (fromRowIndex === 0) {
@@ -430,15 +457,23 @@ const Browse = ({
 	}, [setBrowseMode]);
 
 	const handleRowFocus = useCallback((rowIndex) => {
+		pinMainScroll();
 		if (browseMode !== 'rows') {
 			setBrowseMode('rows');
 		}
 		if (typeof rowIndex === 'number') {
 			lastFocusedRowRef.current = rowIndex;
+			// Focus scrolling lands wherever the engine likes, sometimes with the
+			// row's bottom past the screen, and it lands after this handler, so the
+			// focused row is put back at its resting spot on the frames behind it.
+			restRowScroll(rowIndex);
+			window.requestAnimationFrame(() => restRowScroll(rowIndex));
+			window.requestAnimationFrame(() => window.requestAnimationFrame(() => restRowScroll(rowIndex)));
 		}
-	}, [browseMode, setBrowseMode]);
+	}, [browseMode, setBrowseMode, pinMainScroll, restRowScroll]);
 
 	const handleFocusItem = useCallback((item) => {
+		pinMainScroll();
 		if (showTopInfoArea) {
 			detailSectionRef.current?.handleFocusItem(item);
 		} else if (!useModernRows) {
@@ -452,7 +487,7 @@ const Browse = ({
 		} else {
 			onBlurItemThemeMusic?.();
 		}
-	}, [onFocusItemThemeMusic, onBlurItemThemeMusic, showTopInfoArea, useModernRows]);
+	}, [onFocusItemThemeMusic, onBlurItemThemeMusic, showTopInfoArea, useModernRows, pinMainScroll]);
 
 	if (isLoading) {
 		return (
@@ -553,7 +588,7 @@ const Browse = ({
 
 				<div
 					ref={contentRowsRef}
-					className={`${css.contentRows} ${browseMode === 'rows' ? css.rowsMode : ''}`}
+					className={`${css.contentRows} ${browseMode === 'rows' ? css.rowsMode : ''} ${showTopInfoArea ? '' : css.rowsClipTop}`}
 				>
 					{filteredRows.map((row, index) => {
 						if (row.isButtonRow) {
