@@ -1,4 +1,4 @@
-import {seerrTargetFor, seerrDetailStub, isSeerrOnlyItem} from './seerrTarget';
+import {seerrTargetFor, seerrDetailStub, isSeerrOnlyItem, bestSearchMatch} from './seerrTarget';
 
 const movie = (providerIds) => ({Type: 'Movie', ProviderIds: providerIds});
 
@@ -32,7 +32,18 @@ describe('seerrDetailStub', () => {
 	it('carries the Seerr identity that seerrTargetFor reads back out', () => {
 		const stub = seerrDetailStub({mediaId: 603, mediaType: 'movie'});
 		expect(isSeerrOnlyItem(stub)).toBe(true);
-		expect(seerrTargetFor(stub)).toEqual({mediaId: 603, mediaType: 'movie'});
+		expect(seerrTargetFor(stub)).toEqual({mediaId: 603, mediaType: 'movie', imdbId: null, title: null});
+	});
+
+	it('carries an IMDb id and title when there is no TMDB id yet', () => {
+		const stub = seerrDetailStub({mediaType: 'movie', imdbId: 'tt0111161', title: 'The Shawshank Redemption'});
+		expect(isSeerrOnlyItem(stub)).toBe(true);
+		expect(seerrTargetFor(stub)).toEqual({
+			mediaId: null,
+			mediaType: 'movie',
+			imdbId: 'tt0111161',
+			title: 'The Shawshank Redemption'
+		});
 	});
 
 	it('calls a series a Series, so the screen lays it out as one', () => {
@@ -42,5 +53,27 @@ describe('seerrDetailStub', () => {
 
 	it('leaves a library item alone', () => {
 		expect(isSeerrOnlyItem({Type: 'Movie', ProviderIds: {Tmdb: '603'}})).toBe(false);
+	});
+});
+
+describe('bestSearchMatch', () => {
+	it('picks the first hit of the kind that was asked for', () => {
+		const results = [
+			{id: 1, mediaType: 'tv'},
+			{id: 2, mediaType: 'movie'},
+			{id: 3, mediaType: 'movie'}
+		];
+		expect(bestSearchMatch(results, 'movie').id).toBe(2);
+		expect(bestSearchMatch(results, 'tv').id).toBe(1);
+	});
+
+	it('falls back to the top hit when no kind matches', () => {
+		const results = [{id: 7, mediaType: 'person'}];
+		expect(bestSearchMatch(results, 'movie').id).toBe(7);
+	});
+
+	it('hands back nothing for an empty search', () => {
+		expect(bestSearchMatch([], 'movie')).toBe(null);
+		expect(bestSearchMatch(null, 'movie')).toBe(null);
 	});
 });

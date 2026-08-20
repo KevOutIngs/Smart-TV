@@ -9,14 +9,28 @@
 export const IDLE = {mediaId: null, mediaType: null};
 
 // How a Seerr title reaches the detail screen when the library has nothing to open for it.
-export const seerrDetailStub = ({mediaId, mediaType}) => ({
-	Id: `seerr-${mediaType}-${mediaId}`,
+// External rows key some titles by IMDb id alone, so the stub can carry that instead of a
+// TMDB id, along with the title for a search fallback.
+export const seerrDetailStub = ({mediaId, mediaType, imdbId, title}) => ({
+	Id: `seerr-${mediaType}-${mediaId ?? imdbId}`,
 	Type: mediaType === 'tv' ? 'Series' : 'Movie',
-	_seerrMediaId: mediaId,
-	_seerrMediaType: mediaType
+	_seerrMediaId: mediaId ?? null,
+	_seerrMediaType: mediaType,
+	_seerrImdbId: imdbId || null,
+	_seerrTitle: title || null
 });
 
-export const isSeerrOnlyItem = (item) => item?._seerrMediaId != null;
+export const isSeerrOnlyItem = (item) => item?._seerrMediaId != null || item?._seerrImdbId != null;
+
+// The search hit of the kind that was asked for. Seerr ranks a search by popularity across
+// every kind of media, so the first hit for a film can easily be a series of the same name.
+export const bestSearchMatch = (results, mediaType) => {
+	if (!Array.isArray(results) || results.length === 0) return null;
+	for (const result of results) {
+		if (result.mediaType === mediaType) return result;
+	}
+	return results[0];
+};
 
 // Seerr hands back the media server's own id for a title it knows is already in
 // the library. Opening that instead of the stand-in is what gives the screen its
@@ -25,7 +39,12 @@ export const libraryIdOf = (media) => media?.jellyfinMediaId || media?.jellyfinM
 
 export const seerrTargetFor = (item) => {
 	if (isSeerrOnlyItem(item)) {
-		return {mediaId: Number(item._seerrMediaId), mediaType: item._seerrMediaType === 'tv' ? 'tv' : 'movie'};
+		return {
+			mediaId: item._seerrMediaId != null ? Number(item._seerrMediaId) : null,
+			mediaType: item._seerrMediaType === 'tv' ? 'tv' : 'movie',
+			imdbId: item._seerrImdbId || null,
+			title: item._seerrTitle || null
+		};
 	}
 	if (item?.Type !== 'Movie' && item?.Type !== 'Series') return IDLE;
 	const tmdbId = Number(item.ProviderIds?.Tmdb);

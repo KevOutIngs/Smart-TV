@@ -2,11 +2,12 @@
 // anything that doesn't resolve leaves the overlay idle, so the screen renders exactly as it
 // did before.
 
-import {useCallback, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import {useSeerr} from '../../context/SeerrContext';
+import seerrApi from '../../services/seerrApi';
 import {normalizeMediaItem} from '../../utils/seerrHomeRows';
-import {IDLE, seerrTargetFor} from '../../utils/seerrTarget';
+import {IDLE, bestSearchMatch, seerrTargetFor} from '../../utils/seerrTarget';
 import useSeerrDetailsData from './useSeerrDetailsData';
 import useSeerrRequests from './useSeerrRequests';
 import useSeerrWatchlist from './useSeerrWatchlist';
@@ -14,9 +15,47 @@ import useSeerrWatchlist from './useSeerrWatchlist';
 const useSeerrOverlay = ({item, seerrOnly}) => {
 	const {isEnabled, isAuthenticated, user, displayName} = useSeerr();
 
-	const target = useMemo(
+	const rawTarget = useMemo(
 		() => (isEnabled && isAuthenticated ? seerrTargetFor(item) : IDLE),
 		[isEnabled, isAuthenticated, item]
+	);
+
+	// A title known only by IMDb id has to become a TMDB id before Seerr can say anything
+	// about it. The id is searched first since it names exactly one title, and the title
+	// search only stands in when the id turns up nothing.
+	const [imdbLookup, setImdbLookup] = useState({match: null, done: false});
+	useEffect(() => {
+		setImdbLookup({match: null, done: false});
+		if (!rawTarget.imdbId || rawTarget.mediaId) return undefined;
+		let cancelled = false;
+		(async () => {
+			let page = null;
+			try {
+				page = await seerrApi.search(rawTarget.imdbId);
+			} catch (e) {
+				void e;
+			}
+			if (!page?.results?.length && rawTarget.title) {
+				try {
+					page = await seerrApi.search(rawTarget.title);
+				} catch (e) {
+					void e;
+				}
+			}
+			if (cancelled) return;
+			const match = bestSearchMatch(page?.results || [], rawTarget.mediaType);
+			const matchType = match?.mediaType === 'tv' || match?.mediaType === 'movie' ? match.mediaType : rawTarget.mediaType;
+			setImdbLookup({match: match ? {mediaId: match.id, mediaType: matchType} : null, done: true});
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [rawTarget]);
+
+	const resolvingImdb = Boolean(rawTarget.imdbId) && !rawTarget.mediaId && !imdbLookup.done;
+	const target = useMemo(
+		() => (!rawTarget.mediaId && imdbLookup.match ? {...rawTarget, ...imdbLookup.match} : rawTarget),
+		[rawTarget, imdbLookup.match]
 	);
 
 	// A lookup that comes back empty is the ordinary case for a title Seerr has never heard of,
@@ -73,6 +112,9 @@ const useSeerrOverlay = ({item, seerrOnly}) => {
 	return {
 		...data,
 		...requests,
+		// The screen must keep its loading state up while the IMDb id is still becoming
+		// a TMDB id, or it renders empty for the wait.
+		loading: data.loading || resolvingImdb,
 		similarCards,
 		recommendationCards,
 		displayName,

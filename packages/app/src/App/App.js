@@ -92,12 +92,15 @@ const normalizeSeerrSelection = (item) => {
 				: 'tv';
 
 	const mediaId = item.mediaId || item.tmdbId || item.id || item.Id || item.media?.tmdbId || item.media?.id;
-	if (mediaId == null) return null;
+	// External rows key some titles by IMDb id alone, which the detail screen
+	// resolves through a Seerr search.
+	const imdbId = item.imdbId || null;
+	if (mediaId == null && !imdbId) return null;
 
 	const libraryId = item.libraryId || item._seerrLibraryId ||
 		libraryIdOf(item.mediaInfo) || libraryIdOf(item.media);
 
-	return {mediaId, mediaType, libraryId};
+	return {mediaId, mediaType, libraryId, imdbId, title: item.title || null};
 };
 
 const PanelLoader = () => (

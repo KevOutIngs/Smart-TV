@@ -59,6 +59,15 @@ const getSourceName = (source, rowId) => {
 	return source || rowId || '';
 };
 
+// What a tap on the item hands to Seerr. A TMDB id names the title directly, an
+// IMDb id needs the detail screen to resolve it by search, so the title rides
+// along as the fallback query.
+const seerrRawFor = (tmdbId, imdbId, title, mediaType) => {
+	if (tmdbId) return {mediaId: Number(tmdbId), mediaType};
+	if (imdbId) return {imdbId, title, mediaType};
+	return null;
+};
+
 // Maps a plugin CustomRows item into a pseudo Jellyfin item. It carries
 // ProviderIds so it can be resolved to a real library item, and _seerr markers
 // so unresolved items fall back to the Seerr request detail.
@@ -83,7 +92,7 @@ const normalizeExternalItem = (item, rowId, source) => {
 		_seerr: true,
 		_seerrType: 'item',
 		_seerrMediaType: mediaType,
-		_seerrRaw: tmdbId ? {mediaId: Number(tmdbId), mediaType} : null
+		_seerrRaw: seerrRawFor(tmdbId, imdbId, item.name, mediaType)
 	};
 };
 
@@ -259,6 +268,7 @@ const fetchRadarrItems = async (settings) => {
 		if (!upcoming.length) continue;
 		const soonest = upcoming.sort((a, b) => a - b)[0];
 		const tmdbId = m.tmdbId ? String(m.tmdbId) : null;
+		const imdbId = m.imdbId || null;
 
 		let releaseType = '';
 		const soonestTime = soonest.getTime();
@@ -291,7 +301,7 @@ const fetchRadarrItems = async (settings) => {
 			_seerr: true,
 			_seerrType: 'item',
 			_seerrMediaType: 'movie',
-			_seerrRaw: tmdbId ? {mediaId: Number(tmdbId), mediaType: 'movie'} : null
+			_seerrRaw: seerrRawFor(tmdbId, imdbId, m.title, 'movie')
 		});
 	}
 	return results;
@@ -328,6 +338,7 @@ const fetchSonarrItems = async (settings) => {
 
 	return Object.values(bySeries).map(({ep, series, air}) => {
 		const tmdbId = series.tmdbId ? String(series.tmdbId) : null;
+		const imdbId = series.imdbId || null;
 		const epInfo = settings.sonarrCalendarShowEpisodeInfo && ep.seasonNumber != null && ep.episodeNumber != null
 			? `S${ep.seasonNumber}E${ep.episodeNumber}` : '';
 		const dateStr = settings.sonarrCalendarShowDate ? formatCalendarDate(air) : '';
@@ -351,7 +362,7 @@ const fetchSonarrItems = async (settings) => {
 			_seerr: true,
 			_seerrType: 'item',
 			_seerrMediaType: 'tv',
-			_seerrRaw: tmdbId ? {mediaId: Number(tmdbId), mediaType: 'tv'} : null
+			_seerrRaw: seerrRawFor(tmdbId, imdbId, series.title, 'tv')
 		};
 	});
 };

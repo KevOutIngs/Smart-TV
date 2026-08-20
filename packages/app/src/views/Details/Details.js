@@ -15,7 +15,7 @@ import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubt
 import useLongPress from '../../utils/longPress';
 import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 
-import {isSeerrOnlyItem} from '../../utils/seerrTarget';
+import {isSeerrOnlyItem, libraryIdOf} from '../../utils/seerrTarget';
 import {buildSeerrDetailItem} from '../../utils/seerrDetailItem';
 import {COLLECTION_ITEM_TYPES, IDENTIFIABLE_TYPES, getMediaBadges, seriesThumbUrl, shuffleArray, splitCastAndCrew} from './detailsMedia';
 import useDetailsItem from './useDetailsItem';
@@ -41,7 +41,7 @@ import AudioTrackScreen from './AudioTrackScreen';
 
 import css from './Details.module.less';
 
-const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onSelectStudio, onItemDeleted, seerrNav, backHandlerRef}) => {
+const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelectPerson, onSelectStudio, onItemDeleted, seerrNav, backHandlerRef}) => {
 	const {api, serverUrl, user} = useAuth();
 	const {settings} = useSettings();
 	const {isInGroup: isSyncPlayInGroup} = useSyncPlay();
@@ -84,12 +84,19 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	const pageScrollerRef = useRef(null);
 	const pageScrollToRef = useRef(null);
 
+	// Seerr hands back the media server's own id for a title it knows is already in the
+	// library. The screen swaps itself for the real item, which has playback and everything
+	// else a synthetic one has none of.
+	const [seerrLibraryId, setSeerrLibraryId] = useState(null);
+	useEffect(() => setSeerrLibraryId(null), [itemIdProp]);
+	const itemId = seerrLibraryId || itemIdProp;
+
 	// A new item brings its own artwork, so a logo that failed for the last one must not
 	// keep its title hidden behind the fallback.
 	useEffect(() => setLogoFailed(false), [itemId]);
 
 	// Seerr supplies the whole screen for a title the library doesn't have.
-	const seerrOnly = isSeerrOnlyItem(initialItem);
+	const seerrOnly = isSeerrOnlyItem(initialItem) && !seerrLibraryId;
 
 	const data = useDetailsItem({
 		itemId,
@@ -110,6 +117,14 @@ const Details = ({itemId, initialItem, onPlay, onSelectItem, onSelectPerson, onS
 	} = data;
 
 	const seerr = useSeerrOverlay({item: seerrOnly ? initialItem : data.item, seerrOnly});
+
+	// A tap that came in as a bare TMDB or IMDb id can turn out to be a title the
+	// library holds, which only Seerr's answer reveals.
+	useEffect(() => {
+		if (!seerrOnly) return;
+		const ownedId = libraryIdOf(seerr.details?.mediaInfo);
+		if (ownedId) setSeerrLibraryId(ownedId);
+	}, [seerrOnly, seerr.details]);
 
 	const seerrItem = useMemo(
 		() => (seerrOnly ? buildSeerrDetailItem(seerr.details, seerr.mediaType) : null),
