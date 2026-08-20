@@ -187,7 +187,7 @@ export const SYNCABLE_KEYS = [
 	'sinceYouWatchedSource', 'sinceYouWatchedSourceItem', 'sinceYouWatchedSourceType', 'sinceYouWatchedIncludeWatched',
 	'rewatchIncludeMovies', 'rewatchIncludeShows', 'rewatchIncludeCollections', 'rewatchSortBy',
 	'navbarPosition', 'featuredBarStyle', 'featuredContentType', 'featuredItemCount',
-	'featuredTrailerPreview', 'featuredTrailerMuted', 'unifiedLibraryMode', 'seasonalTheme',
+	'featuredTrailerPreview', 'featuredTrailerMuted', 'mediaBarTrailerCaptions', 'unifiedLibraryMode', 'seasonalTheme',
 	'visualTheme', 'customThemeId',
 	'showRatingLabels',
 	'showRatingBadges',

@@ -52,6 +52,8 @@ const FeaturedBanner = memo(({
 		isVisible: isVisible && browseVisible,
 		enabled: settingsLoaded && settings.featuredTrailerPreview,
 		preferMuted: settings.featuredTrailerMuted,
+		showCaptions: settings.mediaBarTrailerCaptions,
+		captionLanguage: settings.uiLanguage,
 		api,
 		getItemServerUrl,
 		onEnded: handleTrailerEnded

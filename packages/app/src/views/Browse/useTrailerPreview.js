@@ -14,7 +14,7 @@ const LOCAL_TRAILER_STREAM_PARAMS = {
 // Shared trailer preview engine for the home banners. Resolves a local or
 // youtube trailer for the current item, plays a muted preview into a container
 // the caller renders, and reveals it after a short delay.
-export default function useTrailerPreview({currentItem, isVisible, enabled, preferMuted, api, getItemServerUrl, onEnded}) {
+export default function useTrailerPreview({currentItem, isVisible, enabled, preferMuted, showCaptions = false, captionLanguage = '', api, getItemServerUrl, onEnded}) {
 	const [trailerActive, setTrailerActive] = useState(false);
 	const [screensaverActive, setScreensaverActive] = useState(false);
 
@@ -32,6 +32,29 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 	const trailerVideoIdRef = useRef(null);
 	const trailerRevealTimerRef = useRef(null);
 	const sponsorSegmentsRef = useRef([]);
+	const trailerCaptionBlobRef = useRef(null);
+	const trailerCaptionBoxRef = useRef(null);
+
+	// The video element is shared, so a caption track left behind would show its
+	// cues over whatever plays it next.
+	const removeCaptionTrack = useCallback((video) => {
+		if (video) {
+			const tracks = video.querySelectorAll('track');
+			for (let i = 0; i < tracks.length; i++) {
+				if (tracks[i].track) tracks[i].track.oncuechange = null;
+				video.removeChild(tracks[i]);
+			}
+		}
+		if (trailerCaptionBoxRef.current) {
+			const box = trailerCaptionBoxRef.current;
+			if (box.parentNode) box.parentNode.removeChild(box);
+			trailerCaptionBoxRef.current = null;
+		}
+		if (trailerCaptionBlobRef.current) {
+			try { URL.revokeObjectURL(trailerCaptionBlobRef.current); } catch (e) { /* ignore */ }
+			trailerCaptionBlobRef.current = null;
+		}
+	}, []);
 
 	const stopTrailer = useCallback(() => {
 		if (trailerRevealTimerRef.current) {
@@ -57,10 +80,11 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 			video.onended = null;
 			video.onerror = null;
 		}
+		removeCaptionTrack(video);
 		trailerStateRef.current = 'idle';
 		trailerVideoIdRef.current = null;
 		sponsorSegmentsRef.current = [];
-	}, []);
+	}, [removeCaptionTrack]);
 
 	const getRemoteTrailersForItem = useCallback(async (item) => {
 		if (!item?.Id) return [];
@@ -114,7 +138,7 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 		trailerVideoIdRef.current = requestId;
 		await stopPlaybackForTrailer(trailerVideoRef.current);
 
-		const [{fetchSponsorSegments, fetchVideoStreamUrl, getTrailerStartTime}, {getSharedVideoElement}] = await Promise.all([
+		const [{fetchSponsorSegments, fetchVideoStream, getTrailerStartTime}, {getSharedVideoElement}] = await Promise.all([
 			import('../../services/youtubeTrailer'),
 			import('@moonfin/platform-webos/video')
 		]);
@@ -154,15 +178,21 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 		// The bar fills the screen, so ask for the best stream rather than the
 		// balanced pick a small preview would take
 		const resolveStream = async (attempt) => {
-			if (attempt.url) return {streamUrl: attempt.url, segments: [], startTime: 0};
+			if (attempt.url) return {streamUrl: attempt.url, captionsUrl: null, segments: [], startTime: 0};
 			try {
 				const results = await Promise.all([
 					fetchSponsorSegments(attempt.id).catch(() => []),
-					fetchVideoStreamUrl(attempt.id, true)
+					fetchVideoStream(attempt.id, true, captionLanguage)
 				]);
-				return {streamUrl: results[1], segments: results[0], startTime: getTrailerStartTime(results[0])};
+				const stream = results[1];
+				return {
+					streamUrl: stream ? stream.url : null,
+					captionsUrl: stream ? stream.captionsUrl : null,
+					segments: results[0],
+					startTime: getTrailerStartTime(results[0])
+				};
 			} catch (e) {
-				return {streamUrl: null, segments: [], startTime: 0};
+				return {streamUrl: null, captionsUrl: null, segments: [], startTime: 0};
 			}
 		};
 
@@ -185,13 +215,49 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 				return;
 			}
 
-			const {streamUrl, segments, startTime} = await resolveStream(attempts[index]);
+			const {streamUrl, captionsUrl, segments, startTime} = await resolveStream(attempts[index]);
 			if (isStale()) return;
 			if (!streamUrl) {
 				tryAttempt(index + 1);
 				return;
 			}
 			sponsorSegmentsRef.current = segments;
+
+			// The caption text is fetched here and handed over as a blob, since the
+			// track element cant load it straight from YouTube across origins.
+			removeCaptionTrack(video);
+			if (showCaptions && captionsUrl) {
+				fetch(captionsUrl)
+					.then((res) => (res.ok ? res.text() : null))
+					.then((vtt) => {
+						if (!vtt || trailerVideoIdRef.current !== requestId) return;
+						const blobUrl = URL.createObjectURL(new Blob([vtt], {type: 'text/vtt'}));
+						trailerCaptionBlobRef.current = blobUrl;
+						const track = document.createElement('track');
+						track.kind = 'subtitles';
+						track.default = true;
+						track.src = blobUrl;
+						video.appendChild(track);
+						// The engine would draw the cues inside the scaled video box, where
+						// they come out huge and off center, so the track stays hidden and
+						// its text lands in a styled box under the video instead.
+						const textTrack = track.track;
+						textTrack.mode = 'hidden';
+						const box = document.createElement('div');
+						box.className = css.trailerCaptionBox;
+						container.appendChild(box);
+						trailerCaptionBoxRef.current = box;
+						textTrack.oncuechange = () => {
+							const cues = textTrack.activeCues;
+							let text = '';
+							for (let i = 0; i < (cues ? cues.length : 0); i++) {
+								text += (text ? '\n' : '') + cues[i].text;
+							}
+							box.textContent = text.replace(/<[^>]*>/g, '');
+						};
+					})
+					.catch(() => {});
+			}
 
 			clearSkipInterval();
 			if (segments.length > 0) {
@@ -256,7 +322,7 @@ export default function useTrailerPreview({currentItem, isVisible, enabled, pref
 		};
 
 		tryAttempt(0);
-	}, [stopTrailer, preferMuted]);
+	}, [stopTrailer, preferMuted, showCaptions, captionLanguage, removeCaptionTrack]);
 
 	useEffect(() => {
 		if (!enabled || !isVisible || !currentItem || screensaverActive) {

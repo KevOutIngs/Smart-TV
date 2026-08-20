@@ -232,6 +232,26 @@ function extractInnertubeStream (playerResponse, preferHighQuality) {
 	return null;
 }
 
+// The caption track for the viewer's language, as a WebVTT url. Machine
+// generated tracks are marked asr and only stand in when nothing was written
+// by hand. English backs an unmatched language, the way YouTube itself does.
+function pickCaptionTrackUrl (playerResponse, language) {
+	const tracks = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+	if (!Array.isArray(tracks) || tracks.length === 0) return null;
+	const lang = (language || 'en').toLowerCase().split('-')[0];
+	const written = tracks.filter(function (t) { return t && t.baseUrl && t.kind !== 'asr'; });
+	const pool = written.length > 0 ? written : tracks.filter(function (t) { return t && t.baseUrl; });
+	if (pool.length === 0) return null;
+	const codeOf = function (t) { return (t.languageCode || '').toLowerCase(); };
+	const track = pool.find(function (t) { return codeOf(t).indexOf(lang) === 0; }) ||
+		pool.find(function (t) { return codeOf(t).indexOf('en') === 0; }) ||
+		pool[0];
+	// The track url pins its own format, which outranks an appended one, so it
+	// has to go before vtt is asked for.
+	const base = track.baseUrl.replace(/([?&])fmt=[^&]*&?/g, '$1').replace(/[?&]$/, '');
+	return base + (base.indexOf('?') === -1 ? '?' : '&') + 'fmt=vtt';
+}
+
 function buildInnertubePayload (videoId, client) {
 	const payload = {
 		videoId: videoId,
@@ -259,7 +279,7 @@ function buildInnertubePayload (videoId, client) {
 // The first client to answer usually only carries a 360p muxed format, so in
 // high quality mode the search keeps going until a client offers 720p or
 // better, keeping the best answer so far as the fallback.
-async function tryInnertube (videoId, preferHighQuality) {
+async function tryInnertube (videoId, preferHighQuality, captionLanguage) {
 	let best = null;
 
 	// Browser environments cannot set User-Agent/Origin/Referer headers.
@@ -289,18 +309,19 @@ async function tryInnertube (videoId, preferHighQuality) {
 		const stream = extractInnertubeStream(data, preferHighQuality);
 		if (!stream) continue;
 
+		const captionsUrl = pickCaptionTrackUrl(data, captionLanguage);
 		debugLog('innertube resolved stream', client.name, stream.quality + 'p');
 		if (!preferHighQuality || stream.quality >= HIGH_QUALITY_FLOOR) {
-			return stream.url;
+			return {url: stream.url, captionsUrl};
 		}
 		if (!best || stream.quality > best.quality) {
-			best = stream;
+			best = {url: stream.url, quality: stream.quality, captionsUrl};
 		}
 	}
 
 	if (best) {
 		debugLog('innertube settled for', best.quality + 'p');
-		return best.url;
+		return {url: best.url, captionsUrl: best.captionsUrl};
 	}
 
 	debugLog('innertube exhausted without stream');
@@ -351,24 +372,25 @@ async function tryInvidious (videoId, baseUrl, preferHighQuality) {
 	return pickBestUrl(formatStreams, preferHighQuality);
 }
 
-async function doResolve (videoId, preferHighQuality) {
-	const innertubeUrl = await tryInnertube(videoId, preferHighQuality);
-	if (innertubeUrl) return innertubeUrl;
+async function doResolve (videoId, preferHighQuality, captionLanguage) {
+	const innertubeStream = await tryInnertube(videoId, preferHighQuality, captionLanguage);
+	if (innertubeStream) return innertubeStream;
 
+	// The fallback services answer with a bare stream, so no captions ride along.
 	for (let i = 0; i < PIPED_BASES.length; i++) {
 		const pipedUrl = await tryPiped(videoId, PIPED_BASES[i], preferHighQuality);
-		if (pipedUrl) return pipedUrl;
+		if (pipedUrl) return {url: pipedUrl, captionsUrl: null};
 	}
 
 	for (let i = 0; i < INVIDIOUS_BASES.length; i++) {
 		const invidiousUrl = await tryInvidious(videoId, INVIDIOUS_BASES[i], preferHighQuality);
-		if (invidiousUrl) return invidiousUrl;
+		if (invidiousUrl) return {url: invidiousUrl, captionsUrl: null};
 	}
 
 	return null;
 }
 
-export function fetchVideoStreamUrl (videoId, preferHighQuality = false) {
+export function fetchVideoStream (videoId, preferHighQuality = false, captionLanguage = '') {
 	if (!videoId) return Promise.resolve(null);
 
 	return new Promise(function (resolve) {
@@ -384,9 +406,15 @@ export function fetchVideoStreamUrl (videoId, preferHighQuality = false) {
 
 		timer = setTimeout(function () { finish(null); }, RESOLVE_TIMEOUT_MS);
 
-		doResolve(videoId, !!preferHighQuality)
-			.then(function (url) { finish(url); })
+		doResolve(videoId, !!preferHighQuality, captionLanguage)
+			.then(function (stream) { finish(stream); })
 			.catch(function () { finish(null); });
+	});
+}
+
+export function fetchVideoStreamUrl (videoId, preferHighQuality = false) {
+	return fetchVideoStream(videoId, preferHighQuality).then(function (stream) {
+		return stream ? stream.url : null;
 	});
 }
 

@@ -146,6 +146,30 @@
 	opacity: 1;
 }
 
+/* The engine draws cues inside the scaled cover fit video box, where they come
+   out huge, off center, and stacked on top of each other. The track stays
+   hidden and its text is drawn here instead. */
+.trailerCaptionBox {
+	position: absolute;
+	left: 10%;
+	right: 10%;
+	bottom: 7%;
+	z-index: 2;
+	text-align: center;
+	font-size: 32px;
+	line-height: 1.4;
+	color: #fff;
+	text-shadow: 0 0 6px rgba(0, 0, 0, 0.9), 0 2px 4px rgba(0, 0, 0, 0.9);
+	white-space: pre-line;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.3s ease;
+}
+
+.trailerVisible ~ .trailerCaptionBox {
+	opacity: 1;
+}
+
 .trailerActive .featuredBackdrop {
 	opacity: 0;
 	transition: opacity 0.25s ease;

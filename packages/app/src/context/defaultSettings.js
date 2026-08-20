@@ -132,6 +132,7 @@ export const defaultSettings = {
 	featuredBarStyle: 'moonfin',
 	featuredTrailerPreview: true,
 	featuredTrailerMuted: false,
+	mediaBarTrailerCaptions: false,
 	mediaBarOverlayColor: 'gray',
 	mediaBarOverlayOpacity: 50,
 	mediaBarSourceType: 'library',

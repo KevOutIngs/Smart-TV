@@ -451,7 +451,8 @@ export const SETTINGS_SCHEMA = [
 				description: () => $L('Configure trailer previews'),
 				rows: [
 					{kind: KIND.TOGGLE, key: 'featuredTrailerPreview', label: () => $L('Trailer Preview'), desc: () => $L('Auto-play trailers in the media bar after 3 seconds'), icon: 'movies'},
-					{kind: KIND.TOGGLE, key: 'featuredTrailerMuted', label: () => $L('Mute Trailer Audio'), desc: () => $L('Mute trailer previews in the featured media bar and details screen trailer overlay'), icon: 'sound', when: (ctx) => ctx.settings.featuredTrailerPreview}
+					{kind: KIND.TOGGLE, key: 'featuredTrailerMuted', label: () => $L('Mute Trailer Audio'), desc: () => $L('Mute trailer previews in the featured media bar and details screen trailer overlay'), icon: 'sound', when: (ctx) => ctx.settings.featuredTrailerPreview},
+					{kind: KIND.TOGGLE, key: 'mediaBarTrailerCaptions', label: () => $L('Trailer Captions'), desc: () => $L('Show captions on media bar trailer previews when YouTube has them'), icon: 'subtitles', when: (ctx) => ctx.settings.featuredTrailerPreview}
 				]
 			},
 			{
