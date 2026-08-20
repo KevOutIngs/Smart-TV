@@ -478,8 +478,8 @@ export const api = {
 	getSeasons: (seriesId) =>
 		request(`/Shows/${seriesId}/Seasons?UserId=${currentUser}&Fields=PrimaryImageAspectRatio`),
 
-	getEpisodes: (seriesId, seasonId) =>
-		request(`/Shows/${seriesId}/Episodes?UserId=${currentUser}&SeasonId=${seasonId}&Fields=PrimaryImageAspectRatio,Overview,LocationType`),
+	getEpisodes: (seriesId, seasonId = null) =>
+		request(`/Shows/${seriesId}/Episodes?UserId=${currentUser}${seasonId ? `&SeasonId=${seasonId}` : ''}&Fields=PrimaryImageAspectRatio,Overview,LocationType`),
 
 	getSimilar: (itemId, limit = 15) =>
 		request(`/Items/${itemId}/Similar?UserId=${currentUser}&Limit=${limit}&Fields=PrimaryImageAspectRatio,ProductionYear,OfficialRating`),
@@ -949,8 +949,8 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 		getSeasons: (seriesId) =>
 			serverRequest(`/Shows/${seriesId}/Seasons?UserId=${userId}&Fields=Overview,PrimaryImageAspectRatio`),
 
-		getEpisodes: (seriesId, seasonId) =>
-			serverRequest(`/Shows/${seriesId}/Episodes?UserId=${userId}&SeasonId=${seasonId}&Fields=Overview,PrimaryImageAspectRatio,MediaSources,MediaStreams`),
+		getEpisodes: (seriesId, seasonId = null) =>
+			serverRequest(`/Shows/${seriesId}/Episodes?UserId=${userId}${seasonId ? `&SeasonId=${seasonId}` : ''}&Fields=Overview,PrimaryImageAspectRatio,MediaSources,MediaStreams,LocationType`),
 
 		getPlaybackInfo: (itemId) =>
 			serverRequest(`/Items/${itemId}/PlaybackInfo?UserId=${userId}`, {timeoutMs: PLAYBACK_TIMEOUT_MS}),

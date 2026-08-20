@@ -14,6 +14,7 @@ import {fetchPrerolls} from '../../utils/cinemaMode';
 import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
 import useLongPress from '../../utils/longPress';
 import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
+import {pickEpisodePlayTarget, shouldResumeTarget} from '../../utils/episodePlayTarget';
 
 import {isSeerrOnlyItem, libraryIdOf} from '../../utils/seerrTarget';
 import {buildSeerrDetailItem} from '../../utils/seerrDetailItem';
@@ -263,15 +264,20 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 		const playbackOptions = buildPlaybackOptions();
 
 		if (item.Type === 'Series') {
-			if (nextUp.length > 0) {
-				onPlay?.(nextUp[0], false, {});
+			// The season list under a series only carries seasons, so the episodes are
+			// fetched here where the pick actually needs their watch state.
+			const episodesData = await effectiveApi.getEpisodes(item.Id).catch(() => null);
+			const allEpisodes = tagWithServerInfo(episodesData?.Items || []);
+			const target = pickEpisodePlayTarget(allEpisodes, nextUp[0] || null);
+			if (target) {
+				onPlay?.(target, shouldResumeTarget(target), {});
 			} else if (seasons.length > 0) {
 				onSelectItem?.(seasons[0]);
 			}
 		} else if (item.Type === 'Season') {
 			if (episodes.length > 0) {
-				const unwatched = episodes.find(ep => !ep.UserData?.Played);
-				onPlay?.(unwatched || episodes[0], false, {});
+				const target = pickEpisodePlayTarget(episodes) || episodes[0];
+				onPlay?.(target, shouldResumeTarget(target), {});
 			}
 		} else if (item.Type === 'MusicAlbum') {
 			if (albumTracks.length > 0) {
