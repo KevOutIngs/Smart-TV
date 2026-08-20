@@ -408,27 +408,29 @@ let _screenSaverBlocked = false;
 let _screenSaverRegistered = false;
 
 const respondScreenSaver = (timestamp) => {
-	if (typeof window.webOS?.service?.request !== 'function') return;
-	try {
-		const ack = !_screenSaverBlocked;
-		console.log('[webosVideo] Responding to screensaver request - timestamp:', timestamp, 'ack (allow screensaver):', ack);
-		window.webOS.service.request('luna://com.webos.service.tvpower/power', {
-			method: 'responseScreenSaverRequest',
-			parameters: {clientName: SCREENSAVER_CLIENT, ack, timestamp}
-		});
-	} catch (e) {
-		console.warn('[webosVideo] Failed to respond to screensaver request:', e);
-	}
+	const ack = !_screenSaverBlocked;
+	console.log('[webosVideo] Responding to screensaver request - timestamp:', timestamp, 'ack (allow screensaver):', ack);
+	lunaCall('com.webos.service.tvpower', 'power/responseScreenSaverRequest', {
+		clientName: SCREENSAVER_CLIENT,
+		ack,
+		timestamp
+	}).catch((e) => console.warn('[webosVideo] Failed to respond to screensaver request:', e.message));
 };
 
+// window.webOS.service only exists when LG's webOSTV.js is loaded, and this app
+// never ships it, so calls through it bailed at the gate and the guard never
+// registered. LS2Request rides the service bridge directly, the way the rest of
+// this file already talks to Luna.
 const registerScreenSaverGuard = () => {
 	if (_screenSaverRegistered) return;
-	if (typeof window.webOS?.service?.request !== 'function') return;
+	if (!isLunaAvailable) return;
 	try {
 		console.log('[webosVideo] Registering screensaver guard with TV power service');
-		window.webOS.service.request('luna://com.webos.service.tvpower/power', {
-			method: 'registerScreenSaverRequest',
-			parameters: {subscribe: true, clientName: SCREENSAVER_CLIENT},
+		// eslint-disable-next-line @babel/new-cap
+		new lunaClient().send({
+			service: 'luna://com.webos.service.tvpower',
+			method: 'power/registerScreenSaverRequest',
+			parameters: {clientName: SCREENSAVER_CLIENT},
 			subscribe: true,
 			onSuccess: (res) => {
 				console.log('[webosVideo] Screensaver request event received:', res);
@@ -454,52 +456,34 @@ export const keepScreenOn = async (enable) => {
 	if (enable) {
 		registerScreenSaverGuard();
 		// https://webostv.developer.lge.com/develop/references/activity-manager#type
-		if (typeof window.webOS?.service?.request === 'function') {
-			try {
-				await new Promise((resolve, reject) => {
-					window.webOS.service.request('luna://com.palm.activitymanager', {
-						method: 'create',
-						parameters: {
-							activity: {
-								name: 'moonfin-playback-keepalive',
-								description: 'Keep screen on during video playback',
-								type: {
-									foreground: true,
-									continuous: true,
-									power: true,
-									powerDebounce: true
-								}
-							},
-							start: true,
-							replace: true,
-							subscribe: false
-						},
-						onSuccess: (res) => {
-							_keepScreenActivityId = res.activityId || null;
-							console.log('[webosVideo] Screen keep-on activity created, id:', _keepScreenActivityId);
-							resolve(res);
-						},
-						onFailure: (err) => {
-							console.warn('[webosVideo] Failed to create keep-screen activity:', err.errorText);
-							reject(err);
-						}
-					});
-				});
-			} catch {
-				// onFailure already logs, and keeping the screen awake is best effort
-			}
-		}
-	} else if (_keepScreenActivityId != null && typeof window.webOS?.service?.request === 'function') {
 		try {
-			window.webOS.service.request('luna://com.palm.activitymanager', {
-				method: 'cancel',
-				parameters: {activityId: _keepScreenActivityId},
-				onSuccess: () => console.log('[webosVideo] Screen keep-on activity canceled'),
-				onFailure: () => {}
+			const res = await lunaCall('com.palm.activitymanager', 'create', {
+				activity: {
+					name: 'moonfin-playback-keepalive',
+					description: 'Keep screen on during video playback',
+					type: {
+						foreground: true,
+						continuous: true,
+						power: true,
+						powerDebounce: true
+					}
+				},
+				start: true,
+				replace: true,
+				subscribe: false
 			});
-		} catch {
-			// Swallowed so the activity id below still gets cleared
+			_keepScreenActivityId = res.activityId || null;
+			console.log('[webosVideo] Screen keep-on activity created, id:', _keepScreenActivityId);
+		} catch (e) {
+			// keeping the screen awake is best effort
+			console.warn('[webosVideo] Failed to create keep-screen activity:', e.message);
 		}
+	} else if (_keepScreenActivityId != null) {
+		lunaCall('com.palm.activitymanager', 'cancel', {activityId: _keepScreenActivityId})
+			.then(() => console.log('[webosVideo] Screen keep-on activity canceled'))
+			.catch(() => {
+				// the activity dies with the app anyway
+			});
 		_keepScreenActivityId = null;
 	}
 	return true;
