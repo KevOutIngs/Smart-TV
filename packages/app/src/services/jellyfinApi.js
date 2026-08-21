@@ -530,6 +530,14 @@ export const api = {
 		return request(`/Users/${currentUser}/Items?IncludeItemTypes=${includeTypes}&Recursive=true&SortBy=Random&Limit=${limit}&Fields=${encodeURIComponent(fields)}&HasBackdrop=true&ExcludeItemTypes=BoxSet${parentParam}${genreParam}`);
 	},
 
+	// Items for the setup wizard previews, which ask for no backdrop. The
+	// random pull above requires one, and a library whose titles carry only
+	// posters answers it with nothing however often it is asked, leaving the
+	// previews on their drawn stand ins. The previews draw posters and logos
+	// happily, so anything real beats nothing.
+	getPreviewItems: (limit = 10, fields = 'PrimaryImageAspectRatio,Overview,Genres,ProviderIds,RemoteTrailers') =>
+		request(`/Users/${currentUser}/Items?IncludeItemTypes=Movie,Series&Recursive=true&SortBy=DateCreated&SortOrder=Descending&Limit=${limit}&Fields=${encodeURIComponent(fields)}&ExcludeItemTypes=BoxSet`),
+
 	// With no sort the server hands back the arrangement the collection keeps
 	getCollectionItems: (collectionId, limit = 50, sortBy = null, sortOrder = 'Ascending') =>
 		request(`/Users/${currentUser}/Items?ParentId=${collectionId}&Limit=${limit}&Recursive=true&Fields=PrimaryImageAspectRatio,Overview,Genres,ProviderIds,RemoteTrailers&HasBackdrop=true${sortBy ? `&SortBy=${encodeURIComponent(sortBy)}&SortOrder=${encodeURIComponent(sortOrder)}` : ''}`),

@@ -52,6 +52,14 @@ const adaptItem = (item) => {
 // first fetch can fail or come back empty, so a single early miss retries
 // with a growing delay rather than leaving every preview on the drawn stand
 // ins for the whole wizard.
+const applyFetched = (result) => {
+	const fetched = (result?.Items || []).filter((item) => item.Type !== 'BoxSet');
+	if (fetched.length === 0) return false;
+	items = fetched.map(adaptItem);
+	notify();
+	return true;
+};
+
 export const ensurePreviewItemsLoaded = async (api) => {
 	if (items.length > 0 || loading || !api) return;
 	loading = true;
@@ -60,13 +68,7 @@ export const ensurePreviewItemsLoaded = async (api) => {
 		let delay = 2000;
 		for (let attempt = 0; attempt < attempts; attempt++) {
 			try {
-				const result = await api.getRandomItems('both', 10);
-				const fetched = (result?.Items || []).filter((item) => item.Type !== 'BoxSet');
-				if (fetched.length > 0) {
-					items = fetched.map(adaptItem);
-					notify();
-					return;
-				}
+				if (applyFetched(await api.getRandomItems('both', 10))) return;
 			} catch (e) {
 				console.warn('[SetupWizard] Preview fetch failed:', e?.message || e);
 			}
@@ -74,6 +76,16 @@ export const ensurePreviewItemsLoaded = async (api) => {
 				await new Promise((resolve) => setTimeout(resolve, delay));
 				delay *= 2;
 			}
+		}
+		// The pull above only takes titles that carry a backdrop, so a library
+		// without one has been answering the same empty list every time. Ask
+		// again without that requirement before giving up on real artwork.
+		try {
+			if (typeof api.getPreviewItems === 'function') {
+				applyFetched(await api.getPreviewItems(10));
+			}
+		} catch (e) {
+			console.warn('[SetupWizard] Preview fallback fetch failed:', e?.message || e);
 		}
 	} finally {
 		loading = false;
