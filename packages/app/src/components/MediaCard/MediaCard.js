@@ -235,6 +235,9 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 	const shapeKey = isBanner ? 'banner' : isLandscape ? 'landscape' : isSquare ? 'square' : 'portrait';
 	const [baseW, baseH] = BASE_SIZES[shapeKey];
 	const cardWidth = Math.round(baseW * sizeMultiplier);
+	// The genre name grows with the card so it reads on a poster and on a
+	// focused thumbnail alike, and the seerr genre cards use the same scale.
+	const genreLabelSize = Math.min(24, Math.max(14, cardWidth * (14 / 200)));
 	const cardHeight = Math.round(baseH * sizeMultiplier);
 	const sizeStyle = sizeMultiplier !== 1 ? {width: cardWidth + 'px'} : undefined;
 	const imgSizeStyle = sizeMultiplier !== 1 ? {height: cardHeight + 'px'} : undefined;
@@ -260,8 +263,13 @@ const MediaCard = ({item, serverUrl, cardType = 'portrait', rowImageType = 'post
 						/>
 						{(item?.Type === 'Genre' || item?.Type === 'MusicGenre') && (
 							<>
-								<div className={css.genreOverlay} />
-								<div className={css.genreTitle}>{item.Name?.toUpperCase()}</div>
+								<div className={`${css.genreOverlay} ${item._seerr ? css.genreOverlaySeerr : ''}`} />
+								<div
+									className={css.genreTitle}
+									style={{fontSize: `${genreLabelSize}px`, letterSpacing: `${genreLabelSize * 0.18}px`}}
+								>
+									{item.Name?.toUpperCase()}
+								</div>
 							</>
 						)}
 					</>

@@ -57,9 +57,10 @@ describe('seerr shortcut backdrops', () => {
 });
 
 describe('genre tiles', () => {
-	it('asks for a still the size of the tile and one the size of the screen', async () => {
+	it('colors the tile through the duotone filter for its genre', async () => {
 		const [genre] = await fetchSeerrHomeRow('genreMovies');
-		expect(genre._externalTileUrl).toBe('https://image.tmdb.org/t/p/w300/a.jpg');
-		expect(genre._externalBackdropUrl).toBe('https://image.tmdb.org/t/p/w780/a.jpg');
+		expect(genre._externalTileUrl).toBe('https://image.tmdb.org/t/p/w1280_filter(duotone,991B1B,FCA5A5)/a.jpg');
+		expect(genre._externalBackdropUrl).toBe(genre._externalTileUrl);
+		expect(genre.Type).toBe('Genre');
 	});
 });

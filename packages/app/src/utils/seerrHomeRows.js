@@ -1,5 +1,6 @@
 import $L from '@enact/i18n/$L';
 import seerrApi from '../services/seerrApi';
+import {seerrGenreBackdrop} from './seerrGenreArt';
 import hydrateRequestMediaItems from './seerrHydration';
 import {libraryIdOf} from './seerrTarget';
 
@@ -182,16 +183,23 @@ export const pickShortcutBackdrops = (shortcuts, results) => {
 	return picked;
 };
 
-const normalizeGenreItem = (genre, mediaType) => ({
-	Id: `seerr-genre-${mediaType}-${genre.id}`,
-	Name: genre.name,
-	_externalTileUrl: genre.backdrops?.[0] ? seerrApi.getImageUrl(genre.backdrops[0], TILE_STILL) : null,
-	_externalBackdropUrl: genre.backdrops?.[0] ? seerrApi.getImageUrl(genre.backdrops[0], BACKDROP_STILL) : null,
-	_seerr: true,
-	_seerrType: 'genre',
-	_seerrMediaType: mediaType,
-	_seerrRaw: {genreId: genre.id, genreName: genre.name, mediaType}
-});
+const normalizeGenreItem = (genre, mediaType) => {
+	// The duotone art gives every genre its own color, and the Genre type puts
+	// the name across the card the way the library genre row draws it.
+	const art = seerrGenreBackdrop(genre.id, genre.backdrops);
+	const artUrl = art ? seerrApi.getImageUrl(art.path, art.size) : null;
+	return {
+		Id: `seerr-genre-${mediaType}-${genre.id}`,
+		Name: genre.name,
+		Type: 'Genre',
+		_externalTileUrl: artUrl,
+		_externalBackdropUrl: artUrl,
+		_seerr: true,
+		_seerrType: 'genre',
+		_seerrMediaType: mediaType,
+		_seerrRaw: {genreId: genre.id, genreName: genre.name, mediaType}
+	};
+};
 
 const normalizeStudioItem = (studio) => ({
 	Id: `seerr-studio-${studio.id}`,

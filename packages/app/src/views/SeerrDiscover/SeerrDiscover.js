@@ -6,6 +6,7 @@ import $L from '@enact/i18n/$L';
 import {useSeerr} from '../../context/SeerrContext';
 import {useSettings} from '../../context/SettingsContext';
 import seerrApi from '../../services/seerrApi';
+import {seerrGenreBackdrop} from '../../utils/seerrGenreArt';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {KEYS} from '../../utils/keys';
 import hydrateRequestMediaItems from '../../utils/seerrHydration';
@@ -107,8 +108,8 @@ const ShortcutCard = memo(function ShortcutCard({shortcut, onSelect}) {
 });
 
 const GenreCard = memo(function GenreCard({genre, mediaType, onSelect, onFocus}) {
-	const backdropPath = genre.backdrops?.[0] || '';
-	const backdropUrl = backdropPath ? seerrApi.getImageUrl(backdropPath, 'w780') : '';
+	const art = seerrGenreBackdrop(genre.id, genre.backdrops);
+	const backdropUrl = art ? seerrApi.getImageUrl(art.path, art.size) : '';
 
 	const handleClick = useCallback(() => {
 		onSelect?.(genre.id, genre.name, mediaType);
@@ -121,8 +122,8 @@ const GenreCard = memo(function GenreCard({genre, mediaType, onSelect, onFocus})
 	return (
 		<SpottableDiv className={css.genreCard} onClick={handleClick} onFocus={handleFocus}>
 			{backdropUrl && <img className={css.genreBackdrop} src={backdropUrl} alt={genre.name} loading="lazy" />}
-			<div className={css.genreOverlay}>
-				<span className={css.genreTitle}>{genre.name}</span>
+			<div className={css.genreOverlayFlat}>
+				<span className={css.genreTitleSeerr}>{genre.name}</span>
 			</div>
 		</SpottableDiv>
 	);
