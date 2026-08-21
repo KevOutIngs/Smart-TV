@@ -15,6 +15,7 @@ import DetailSection from './DetailSection';
 import FeaturedBanner from './FeaturedBanner';
 import MakdBanner from './MakdBanner';
 import GalleryBanner from './GalleryBanner';
+import AyaBanner from './AyaBanner';
 import BannerBar from './BannerBar';
 import BookshelfBar from './BookshelfBar';
 import BackdropLayer from './BackdropLayer';
@@ -339,7 +340,9 @@ const Browse = ({
 	}, [accessToken]);
 
 	const targetBackdropUrl = useMemo(() => {
-		if (browseMode === 'featured') return '';
+		// The aya frame floats inside the page, so its ambient backdrop stays up
+		// in featured mode where the full screen bars blank it.
+		if (browseMode === 'featured' && settings.featuredBarStyle !== 'aya') return '';
 		if (!focusedItemForBackdrop || isLegacy || settings.showHomeBackdrop === false) return '';
 
 		if (focusedItemForBackdrop._externalBackdropUrl) {
@@ -355,7 +358,7 @@ const Browse = ({
 		if (!backdropId) return '';
 		const itemUrl = getItemServerUrl(targetItem);
 		return getImageUrl(itemUrl, backdropId, 'Backdrop', {maxWidth: 1280, quality: 80});
-	}, [browseMode, focusedItemForBackdrop, isLegacy, settings.showHomeBackdrop, getItemServerUrl]);
+	}, [browseMode, focusedItemForBackdrop, isLegacy, settings.showHomeBackdrop, getItemServerUrl, settings.featuredBarStyle]);
 
 	const handleSelectItem = useCallback((item) => {
 		onBlurItemThemeMusic?.();
@@ -509,7 +512,21 @@ const Browse = ({
 				/>
 
 				{featuredItems.length > 0 && showFeaturedBar !== false && (
-					settings.featuredBarStyle === 'gallery' ? (
+					settings.featuredBarStyle === 'aya' ? (
+						<AyaBanner
+							isVisible={browseMode === 'featured'}
+							browseVisible={isVisible}
+							featuredItems={featuredItems}
+							api={api}
+							settings={settings}
+							settingsLoaded={settingsLoaded}
+							getItemServerUrl={getItemServerUrl}
+							onSelectItem={handleSelectItem}
+							onNavigateDown={handleNavigateDownFromFeatured}
+							onFeaturedFocus={handleFeaturedFocusCallback}
+							onAmbientItemChange={setFocusedItemForBackdrop}
+						/>
+					) : settings.featuredBarStyle === 'gallery' ? (
 						<GalleryBanner
 							isVisible={browseMode === 'featured'}
 							browseVisible={isVisible}

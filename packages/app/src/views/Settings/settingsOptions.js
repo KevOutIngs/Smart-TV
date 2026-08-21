@@ -28,6 +28,7 @@ export const getFeaturedBarStyleOptions = () => [
 	{ value: 'bookshelf', label: $L('Bookshelf') },
 	{ value: 'gallery', label: $L('Gallery') },
 	{ value: 'banner', label: $L('Banner') },
+	{ value: 'aya', label: $L('Aya') },
 	{ value: 'off', label: $L('Off') }
 ];
 

@@ -279,6 +279,11 @@ export const buildThemeOverrideCss = (theme, options = {}) => {
 
 	// Home screen chrome
 	rule(`.${browseCss.page}`, `background: ${background};`);
+	rule(`.${browseCss.ayaFrame}`, `background: ${background};`);
+	rule(`.${browseCss.ayaFocusRing}`, `border-color: ${focusColor}; box-shadow: ${glowOr(`0 0 18px 1px ${accentA(0.3)}`)};`);
+	rule(`.${browseCss.ayaTitle}`, `color: ${onSurface}; text-shadow: 0 0 20px ${scrim(0.72)};`);
+	rule(`.${browseCss.ayaIndicator}`, `background: ${os(0.3)};`);
+	rule(`.${browseCss.ayaIndicatorActive}`, `background: ${onSurface};`);
 	rule(`.${browseCss.globalBackdropOverlay}`, `background: ${toCssColor(c.scrim)};`);
 	rule(`.${browseCss.featuredGradient}`, `background: -webkit-linear-gradient(top, ${scrim(0.3)} 0%, ${scrim(0.1)} 40%, ${scrim(0.8)} 100%); background: linear-gradient(to bottom, ${scrim(0.3)} 0%, ${scrim(0.1)} 40%, ${scrim(0.8)} 100%);`);
 	rule(`.${browseCss.loadingContainer} p, .${browseCss.detailPlaceholder} p, .${browseCss.empty}`, `color: ${os(0.7)};`);
