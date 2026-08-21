@@ -59,7 +59,7 @@ const PROFILE_CHIPS = [
 ];
 
 
-const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
+const Settings = ({ onBack, onLibrariesChanged, onRunSetupWizard, panelMode }) => {
 	const { api, serverUrl, accessToken, hasMultipleServers, logoutAll, activeServerInfo, user } = useAuth();
 	const { settings, updateSetting, updateSettings, resetSettings, restoreSyncedDefaults, availableThemes, activeThemeId, selectThemeById, saveStoreTheme, deleteStoreTheme } = useSettings();
 	const { capabilities } = useDeviceInfo();
@@ -910,7 +910,8 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 			openSeerrHomeRows,
 			openScreen,
 			handleMoonfinToggle,
-			resetRatingsSettings
+			resetRatingsSettings,
+			runSetupAgain: onRunSetupWizard
 		}
 	}), [
 		settings, capabilities, seerr, seerrLabel, isSeerr, serverUrl, ratingsResetArmed, resetRatingsSettings,
@@ -918,7 +919,7 @@ const Settings = ({ onBack, onLibrariesChanged, panelMode }) => {
 		openDetailButtons, openOsdButtons, openDiagnostics,
 		openPinCode, openLibraries, openParentalControls, openQrLink, openRatingSources, openRowImageTypes, openExcludedGenres, openMediaBarLibraries,
 		openMediaBarCollections, openImdbLists, openExternalTmdbLists, openExternalCalendars,
-		openExternalCustomRows, openSeerrHomeRows, openScreen, handleMoonfinToggle
+		openExternalCustomRows, openSeerrHomeRows, openScreen, handleMoonfinToggle, onRunSetupWizard
 	]);
 
 	const openCategory = useCallback((id) => {

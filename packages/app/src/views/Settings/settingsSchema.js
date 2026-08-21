@@ -811,6 +811,7 @@ export const SETTINGS_SCHEMA = [
 					},
 					{kind: KIND.TOGGLE, key: 'updateNotificationsEnabled', label: () => $L('Update Notifications'), desc: () => $L('Show app update notifications when a new release is available'), icon: 'system_update_alt'},
 					{kind: KIND.CUSTOM, id: 'checkForUpdates', render: 'checkForUpdates'},
+					{kind: KIND.NAV, id: 'runSetupAgain', label: () => $L('Run setup again'), desc: () => $L('Walk through the first run questions once more'), icon: 'star_shine', when: (ctx) => !!ctx.actions.runSetupAgain, action: (ctx) => ctx.actions.runSetupAgain()},
 					{kind: KIND.SECTION, id: 'links', label: () => $L('Links')},
 					{kind: KIND.NAV, id: 'sourceCode', label: () => $L('Source Code'), desc: () => 'github.com/Moonfin-Client/Smart-TV', icon: 'code', action: (ctx) => ctx.actions.openQrLink($L('Source Code'), 'https://github.com/Moonfin-Client/Smart-TV', 'setting-sourceCode')},
 					{kind: KIND.NAV, id: 'reportIssue', label: () => $L('Report an Issue'), desc: () => $L('File a bug or feature request on GitHub'), icon: 'bug_report', action: (ctx) => ctx.actions.openQrLink($L('Report an Issue'), 'https://github.com/Moonfin-Client/Smart-TV/issues', 'setting-reportIssue')},

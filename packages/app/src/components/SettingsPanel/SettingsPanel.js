@@ -10,7 +10,7 @@ const PanelContainer = SpotlightContainerDecorator({
 	leaveFor: {left: '', right: '', up: '', down: ''}
 }, 'div');
 
-const SettingsPanel = ({onClose, onLibrariesChanged}) => {
+const SettingsPanel = ({onClose, onLibrariesChanged, onRunSetupWizard}) => {
 	const handleScrimClick = useCallback(() => {
 		onClose?.();
 	}, [onClose]);
@@ -19,7 +19,7 @@ const SettingsPanel = ({onClose, onLibrariesChanged}) => {
 		<div className={css.overlay}>
 			<div className={css.scrim} onClick={handleScrimClick} />
 			<PanelContainer className={css.panel} spotlightId="settings-panel-container">
-				<Settings panelMode onBack={onClose} onLibrariesChanged={onLibrariesChanged} />
+				<Settings panelMode onBack={onClose} onLibrariesChanged={onLibrariesChanged} onRunSetupWizard={onRunSetupWizard} />
 			</PanelContainer>
 		</div>
 	);

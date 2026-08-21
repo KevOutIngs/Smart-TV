@@ -20,6 +20,8 @@ import {isTizen, isWebOS} from '../platform';
 import {initVideo, cleanupVideoElement, setupVisibilityHandler, setupPlatformLifecycle} from '../services/video';
 import {SettingsProvider} from '../context/SettingsContext';
 import {seedLanguagePreferences} from '../utils/languagePrefSeed';
+import {shouldRun as shouldRunSetupWizard, beginRerun as beginSetupWizardRerun} from '../utils/setupWizardGate';
+import {getActiveServer} from '../services/multiServerManager';
 import {SeerrProvider, useSeerr} from '../context/SeerrContext';
 import {SyncPlayProvider, useSyncPlay} from '../context/SyncPlayContext';
 import {useVersionCheck} from '../hooks/useVersionCheck';
@@ -72,6 +74,7 @@ const Games = lazy(() => import('../views/Games'));
 const GameSystem = lazy(() => import('../views/GameSystem'));
 const GameDetails = lazy(() => import('../views/GameDetails'));
 const GamePlayer = lazy(() => import('../views/GamePlayer'));
+const SetupWizard = lazy(() => import('../views/SetupWizard'));
 
 import '../styles/perf-overrides.less';
 import css from './App.module.less';
@@ -180,6 +183,8 @@ const AppContent = (props) => {
 	const [pinCodeInput, setPinCodeInput] = useState('');
 	const [pinCodeError, setPinCodeError] = useState('');
 	const [isPinUnlocked, setIsPinUnlocked] = useState(false);
+	const [setupWizardActive, setSetupWizardActive] = useState(false);
+	const setupWizardBackRef = useRef(null);
 	const cleanupHandlersRef = useRef(null);
 	const backHandlerRef = useRef(null);
 	const detailsItemStackRef = useRef([]);
@@ -266,6 +271,28 @@ const AppContent = (props) => {
 			});
 		}
 	}, [isAuthenticated, serverUrl, accessToken, syncOnLogin]);
+
+	// The setup wizard asks its questions once per server and user, so this
+	// only flips the flag for a pair that has never finished it. A server that
+	// cant be reached cant serve the previews or resolve the settings the
+	// wizard would otherwise overwrite, so that launch leaves the flag alone
+	// and a later one, on a better network, still gets the chance.
+	useEffect(() => {
+		if (!isAuthenticated) {
+			setSetupWizardActive(false);
+			return undefined;
+		}
+		if (!settingsLoaded || !user?.Id || connectionState === 'disconnected') return undefined;
+		let cancelled = false;
+		(async () => {
+			const activeServer = await getActiveServer().catch(() => null);
+			const run = await shouldRunSetupWizard(activeServer?.id, serverUrl, user.Id);
+			if (!cancelled && run) setSetupWizardActive(true);
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [isAuthenticated, settingsLoaded, user?.Id, serverUrl, connectionState]);
 
 	useEffect(() => {
 		if (!isAuthenticated || !user?.Configuration) return;
@@ -572,6 +599,11 @@ const AppContent = (props) => {
 					return;
 				}
 
+				if (setupWizardActive) {
+					setupWizardBackRef.current?.();
+					return;
+				}
+
 				if (showExitDialog) {
 					return;
 				}
@@ -611,12 +643,26 @@ const AppContent = (props) => {
 
 		window.addEventListener('keydown', handleKeyDown, true);
 		return () => window.removeEventListener('keydown', handleKeyDown, true);
-	}, [panelIndex, handleBack, performAppCleanup, settings.exitConfirmation, showAccountModal, showExitDialog, showSettingsPanel, showShuffleOverlay, isPinGateActive]);
+	}, [panelIndex, handleBack, performAppCleanup, settings.exitConfirmation, showAccountModal, showExitDialog, showSettingsPanel, showShuffleOverlay, isPinGateActive, setupWizardActive]);
 
 	const handleLoggedIn = useCallback(() => {
 		setPanelHistory([]);
 		navigateTo(PANELS.BROWSE, false);
 	}, [navigateTo]);
+
+	// Every way out of the wizard lands on home, whether it was the first run
+	// or a re run started from Settings.
+	const handleSetupWizardDone = useCallback(() => {
+		setSetupWizardActive(false);
+		setShowSettingsPanel(false);
+		setPanelHistory([]);
+		navigateTo(PANELS.BROWSE, false);
+	}, [navigateTo]);
+
+	const handleRunSetupWizard = useCallback(() => {
+		beginSetupWizardRerun();
+		setSetupWizardActive(true);
+	}, []);
 
 	const handleShuffle = useCallback(() => {
 		const current = Spotlight.getCurrent();
@@ -1100,6 +1146,18 @@ const AppContent = (props) => {
 		);
 	}
 
+	// The wizard owns the whole screen the way the PIN gate does, so nothing
+	// behind it can take focus until it finishes.
+	if (setupWizardActive) {
+		return (
+			<div className={css.app} {...props}>
+				<Suspense fallback={<div className={css.loading}><LoadingSpinner /></div>}>
+					<SetupWizard onDone={handleSetupWizardDone} backHandlerRef={setupWizardBackRef} />
+				</Suspense>
+			</div>
+		);
+	}
+
 	const getActiveView = () => {
 		switch (panelIndex) {
 			case PANELS.BROWSE: return 'home';
@@ -1222,7 +1280,7 @@ const AppContent = (props) => {
 					</Panel>
 					<Panel>
 						{panelIndex === PANELS.SETTINGS && (
-							<Settings onBack={handleBack} onLibrariesChanged={fetchLibraries} />
+							<Settings onBack={handleBack} onLibrariesChanged={fetchLibraries} onRunSetupWizard={handleRunSetupWizard} />
 						)}
 					</Panel>
 					<Panel>
@@ -1491,6 +1549,7 @@ const AppContent = (props) => {
 				<SettingsPanel
 					onClose={handleCloseSettingsPanel}
 					onLibrariesChanged={fetchLibraries}
+					onRunSetupWizard={handleRunSetupWizard}
 				/>
 			)}
 			<TVKeyboard />

@@ -3,6 +3,7 @@ import {getFromStorage, saveToStorage} from '../services/storage';
 import {getMoonfinSettings, getMoonfinThemes, saveMoonfinProfile, moonfinPing} from '../services/seerrApi';
 import {parseThemeSpec} from '../theme/themeSpec';
 import {normalizeOverlayColorKey} from '../theme/overlayColors';
+import {noteAnsweredSettings, SETUP_QUESTION_KEYS} from '../utils/setupWizardGate';
 import {getAvailableThemeList, getAvailableThemes, isBuiltInThemeId, registerStoreTheme, removeStoreTheme, replaceCustomThemes, resolveThemeById} from '../theme/themeRegistry';
 import {applyOledMode} from '../utils/oledMode';
 import {
@@ -335,6 +336,12 @@ const unpushedKeys = new Set();
 
 let inFlightPush = null;
 
+// Set while the login sync is resolving. A push sent in that window would carry
+// a fresh install's defaults for every key the viewer never touched and lay
+// them over the profile the pull is about to hand back, so the push waits and
+// goes out with the merged result instead.
+let holdPushesForLoginSync = false;
+
 const flushTvProfile = () => {
 	if (pushTimer) {
 		clearTimeout(pushTimer);
@@ -368,6 +375,7 @@ const pushTvProfile = (updated, credsRef, keys) => {
 	if (!credsRef.current) return;
 	const {serverUrl, token} = credsRef.current;
 	pendingPush = {updated, serverUrl, token};
+	if (holdPushesForLoginSync) return;
 	if (pushTimer) clearTimeout(pushTimer);
 	pushTimer = setTimeout(flushTvProfile, PUSH_DEBOUNCE_MS);
 };
@@ -393,7 +401,7 @@ const normalizeServerKey = (serverUrl) => (serverUrl || '')
 	.replace(/^https?:\/\//i, '')
 	.replace(/\/+$/, '')
 	.toLowerCase();
-const isServerSyncInitialized = async (serverUrl) => {
+export const isServerSyncInitialized = async (serverUrl) => {
 	const key = normalizeServerKey(serverUrl);
 	if (!key) return false;
 	const map = await getFromStorage(PLUGIN_SYNC_INIT_KEY);
@@ -422,6 +430,10 @@ const persistBootLocale = (locale) => {
 export function SettingsProvider({children}) {
 	const [settings, setSettings] = useState(defaultSettings);
 	const [loaded, setLoaded] = useState(false);
+	// True once the login sync has finished, whichever way it went. The setup
+	// wizard waits on this so the answers it collects dont get overwritten by a
+	// profile that lands a moment later.
+	const [initialSyncSettled, setInitialSyncSettled] = useState(false);
 	const [themeCatalogVersion, setThemeCatalogVersion] = useState(0);
 	const serverCredsRef = useRef(null);
 	// Set once a sync has replaced the custom themes with a fresh set from the
@@ -436,6 +448,12 @@ export function SettingsProvider({children}) {
 	useEffect(() => {
 		getFromStorage('settings').then((stored) => {
 			if (stored) {
+				// Read off the raw blob before any migration fills keys in, because a
+				// key that is present here is one somebody or some sync actually wrote.
+				// The setup wizard skips the questions these keys answer.
+				noteAnsweredSettings(SETUP_QUESTION_KEYS.filter(
+					(key) => Object.prototype.hasOwnProperty.call(stored, key)
+				));
 				let migrated = false;
 				const hasExplicitHomeRowsStyle = Object.prototype.hasOwnProperty.call(stored, 'homeRowsStyle');
 				const mergedHomeRows = mergeHomeRows(stored.homeRows);
@@ -644,6 +662,7 @@ export function SettingsProvider({children}) {
 
 	const updateSetting = useCallback((key, value) => {
 		if (key === 'uiLanguage') persistBootLocale(value);
+		noteAnsweredSettings([key]);
 		setSettings(prev => {
 			const updated = {...prev, [key]: value};
 			saveToStorage('settings', updated);
@@ -654,6 +673,7 @@ export function SettingsProvider({children}) {
 
 	const updateSettings = useCallback((newSettings) => {
 		if ('uiLanguage' in newSettings) persistBootLocale(newSettings.uiLanguage);
+		noteAnsweredSettings(Object.keys(newSettings));
 		setSettings(prev => {
 			const updated = {...prev, ...newSettings};
 			saveToStorage('settings', updated);
@@ -795,6 +815,9 @@ export function SettingsProvider({children}) {
 
 			const hasServerValues = resolved.tmdbApiKey !== undefined || SYNCABLE_KEYS.some(key => resolved[key] !== undefined);
 			if (!hasServerValues) return 'empty';
+			// A value the profile carries was chosen somewhere, on this device or
+			// another, so the setup wizard has nothing left to ask about it.
+			noteAnsweredSettings(SETUP_QUESTION_KEYS.filter((key) => resolved[key] !== undefined));
 			// Synced profiles can still contain the old `rtAudience`/`popcorn` ids,
 			// which would never match the `tomatoes_audience` key the ratings row
 			// filters on.
@@ -849,8 +872,12 @@ export function SettingsProvider({children}) {
 						visualTheme
 					};
 					saveToStorage('settings', updated);
+					// A push queued before this pull holds a pre pull snapshot, so
+					// point it at the merged result before it goes out.
+					if (pendingPush) pendingPush.updated = updated;
 					return updated;
 				}
+				if (pendingPush) pendingPush.updated = prev;
 				return prev;
 			});
 			return 'applied';
@@ -875,6 +902,7 @@ export function SettingsProvider({children}) {
 		const key = normalizeServerKey(serverUrl);
 		if (!key || syncOnLoginRef.current[key]) return;
 		syncOnLoginRef.current[key] = true;
+		holdPushesForLoginSync = true;
 		try {
 			if (await isServerSyncInitialized(serverUrl)) {
 				if (settingsRef.current.useMoonfinPlugin) {
@@ -891,6 +919,13 @@ export function SettingsProvider({children}) {
 			}
 		} finally {
 			syncOnLoginRef.current[key] = false;
+			holdPushesForLoginSync = false;
+			// Anything queued while the sync ran goes out now, carrying the
+			// merged settings rather than the snapshot it was queued with.
+			if (pendingPush && !pushTimer) {
+				pushTimer = setTimeout(flushTvProfile, PUSH_DEBOUNCE_MS);
+			}
+			setInitialSyncSettled(true);
 		}
 	}, [syncFromServer, updateSetting]);
 
@@ -898,6 +933,7 @@ export function SettingsProvider({children}) {
 		<SettingsContext.Provider value={{
 			settings,
 			loaded,
+			initialSyncSettled,
 			availableThemes,
 			activeThemeId,
 			activeTheme,
