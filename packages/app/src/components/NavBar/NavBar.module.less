@@ -44,6 +44,16 @@
 	&::-webkit-scrollbar {
 		display: none;
 	}
+
+	// The glass theme frosts the pill over whatever scrolls behind it. The color
+	// arrives inline, so the frosted fill has to outrank it, and engines without
+	// backdrop-filter simply keep the translucent fill.
+	:global(html[data-theme-id='glass']) & {
+		background: rgba(255, 255, 255, 0.08) !important;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		backdrop-filter: blur(24px) saturate(1.4);
+		-webkit-backdrop-filter: blur(24px) saturate(1.4);
+	}
 }
 
 .navRight {

@@ -8,6 +8,14 @@ right: 0;
 bottom: 0;
 overflow: hidden;
 background: var(--theme-background, #000);
+
+// The glass theme's background is translucent, so the screen behind shows
+// through and gets frosted here. Engines without backdrop-filter keep the
+// plain translucent surface.
+:global(html[data-theme-id='glass']) & {
+backdrop-filter: blur(24px) saturate(1.4);
+-webkit-backdrop-filter: blur(24px) saturate(1.4);
+}
 }
 
 .pagePanel {

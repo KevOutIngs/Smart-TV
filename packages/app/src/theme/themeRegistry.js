@@ -101,6 +101,69 @@ const neonPulseTheme = parseThemeSpec({
 	}
 });
 
+// Frosted translucent theme over whatever sits behind it, matching the other
+// clients token for token. The frosted blur itself is stylesheet work scoped to
+// this theme id, so engines without backdrop-filter keep the translucent look.
+const glassTheme = parseThemeSpec({
+	schemaVersion: 1,
+	id: 'glass',
+	displayName: 'Glass',
+	transparentNavbarSurface: true,
+	semantic: {
+		statusAvailable: '#FF30D158',
+		statusRequested: '#FFBF5AF2',
+		statusPending: '#FFFFD60A',
+		statusDownloading: '#FF0A84FF',
+		statusError: '#FFFF453A',
+		mediaTypeBadgeMovie: '#FF0A84FF',
+		mediaTypeBadgeShow: '#FFBF5AF2'
+	},
+	colors: {
+		background: '#CC07090F',
+		onBackground: '#FFFFFFFF',
+		surface: '#D90E1117',
+		onSurface: '#FFFFFFFF',
+		surfaceVariant: '#29FFFFFF',
+		scrim: '#99060810',
+		accent: '#FF0A84FF',
+		onAccent: '#FFFFFFFF',
+		buttonNormal: '#1FFFFFFF',
+		buttonFocused: '#F2FFFFFF',
+		buttonDisabled: '#14FFFFFF',
+		buttonActive: '#3DFFFFFF',
+		onButtonNormal: '#FFFFFFFF',
+		onButtonFocused: '#FF0A0A12',
+		onButtonDisabled: '#66FFFFFF',
+		inputBackground: '#1FFFFFFF',
+		inputFocused: '#33FFFFFF',
+		inputBorder: '#33FFFFFF',
+		inputBorderFocused: '#FF0A84FF',
+		rangeTrack: '#33FFFFFF',
+		rangeProgress: '#FF0A84FF',
+		rangeThumb: '#FFFFFFFF',
+		seekbarBuffered: '#80FFFFFF',
+		badgeBackground: '#CC0A84FF',
+		onBadge: '#FFFFFFFF',
+		badgeUnplayed: '#FF0A84FF',
+		badgeWatched: '#FF30D158',
+		recordingActive: '#FFFF453A',
+		recordingScheduled: '#FFFF9F0A'
+	},
+	borders: {
+		cardBorder: {color: '#29FFFFFF', width: 1},
+		chipBorder: {color: '#3DFFFFFF', width: 1},
+		focusBorder: {color: '#FFFFFFFF', width: 2},
+		navBorder: {color: '#1FFFFFFF', width: 1},
+		cardRadius: 14,
+		chipRadius: 999,
+		chipBackground: '#1FFFFFFF',
+		focusGlow: [
+			{color: '#40FFFFFF', blurRadius: 12, spreadRadius: 0, offsetX: 0, offsetY: 0},
+			{color: '#330A84FF', blurRadius: 22, spreadRadius: 1, offsetX: 0, offsetY: 0}
+		]
+	}
+});
+
 // Retro 8-bit theme on the "Sweetie 16" pixel-art palette, matching the other
 // clients token for token.
 const eightbitHeroTheme = parseThemeSpec({
@@ -167,6 +230,7 @@ const eightbitHeroTheme = parseThemeSpec({
 const builtInThemes = Object.freeze({
 	moonfin: moonfinTheme,
 	neon_pulse: neonPulseTheme,
+	glass: glassTheme,
 	'8bit_hero': eightbitHeroTheme
 });
 

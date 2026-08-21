@@ -184,6 +184,9 @@ export const buildThemeOverrideCss = (theme, options = {}) => {
 	rule(`.${settingsCss.listItem}:focus .${settingsCss.listItemHeading}`, `color: ${invertedStrong};`);
 	rule(`.${settingsCss.sliderContainer}:focus-within .${settingsCss.sliderTitle}`, `color: ${invertedStrong};`);
 	rule(`.${settingsCss.listItem}:focus .${settingsCss.listItemCaption}, .${settingsCss.listItem}:focus .${settingsCss.listItemValue}, .${settingsCss.listItem}:focus .${settingsCss.chevronIcon}`, `color: ${invertedSoft};`);
+	// The theme cards fill the same way the rows do, so their text flips with them
+	rule(`.${settingsCss.themeCard}:focus .${settingsCss.themeCardName}`, `color: ${invertedStrong};`);
+	rule(`.${settingsCss.themeCard}:focus .${settingsCss.themeCardDescription}`, `color: ${invertedSoft};`);
 	rule(`.${settingsCss.sliderContainer}:focus-within .${settingsCss.sliderValue}`, `color: ${invertedSoft};`);
 	rule(`.${settingsCss.listItemIcon}`, `background: ${accentA(0.14)}; border: 1px solid ${accentA(0.42)}; box-sizing: border-box; color: ${os(0.78)};`);
 	rule(`.${settingsCss.listItem}:focus .${settingsCss.listItemIcon}`, `background: ${accentA(0.22)}; border-color: ${accentA(0.64)}; color: ${invertedSoft};`);
