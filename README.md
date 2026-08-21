@@ -24,13 +24,16 @@ Moonfin is a premium Jellyfin and Emby client built with the **Enact/Sandstone f
 - **Hardware-accelerated playback** through Samsung AVPlay and webOS Starfish, with direct play first and a transcode fallback only when needed.
 - **Lossless audio passthrough** for DTS, DTS-HD, and Dolby TrueHD to a capable receiver.
 - **Multi-server and Emby support**, including Emby Connect, Quick Connect, and a unified library view across all your Jellyfin servers.
-- **Native Seerr integration** for browsing, discovering, and requesting content in HD or 4K from your TV, plus issue reporting, collections, and request management.
+- **A setup wizard on first run** that walks you through the navigation, media bar, home row and detail screen styles with live previews built from your own artwork, and skips anything you have already chosen.
+- **A proper on-screen keyboard** with layouts that follow your language, plus sign in that finds servers on your network by itself.
+- **Personal ratings** as a like, stars or a score out of ten, shown alongside the other rating sources and usable as a library filter.
+- **Native Seerr integration** for browsing, discovering, and requesting content in HD or 4K from your TV, with requests, issue reporting and a watchlist button built into the detail screen itself, plus collections and request management.
 - **Retro games** browsed and played right on the TV from a server game library, with save states synced through the server. Needs webOS 5 or Tizen 5 and newer. See [Retro Games](https://github.com/Moonfin-Client/Plugin/wiki/Retro-Games).
-- **Live TV and DVR** with a simplified program guide and recording playback.
+- **Live TV and DVR** with a full program guide, genre color coding, filters, channel sorting and a date picker, plus recording management.
 - **Advanced subtitles** including PGS image subtitles and styled ASS/SSA through libass, plus in-app subtitle downloads.
 - **SyncPlay** for watching together in sync with others.
-- **Themes** with built-in options, a Theme Store, custom themes, and accent color customization.
-- **Media bar styles** with five layouts to showcase featured content on the home screen.
+- **Themes** with four built-in looks including Glass and 8-Bit Hero, a Theme Store for community themes, custom themes, and accent color customization.
+- **Media bar styles** with six layouts to showcase featured content on the home screen, including the rounded Aya hero.
 - **Automatic performance tuning** that matches visual effects to how capable your TV is, with a manual override.
 - **Wide device support**, from Samsung 2016 sets (Tizen 2.4) and LG webOS 3.0 through the latest models, including Let's Encrypt support on older webOS models whose built in certificate stores are out of date.
 
