@@ -24,6 +24,13 @@ const SpottableDiv = Spottable('div');
 
 const MEDIA_BAR_MODES = ['moonfin', 'makd', 'bookshelf', 'gallery', 'banner', 'aya', 'off'];
 
+// Seven styles in one line would leave each too small to judge, so they sit
+// four across and wrap onto a second row.
+const MEDIA_BAR_COLUMNS = 4;
+
+// What each card adds to its own width, from the margin the card carries.
+const CARD_GUTTER = 24;
+
 const mediaBarLabel = (mode) => {
 	switch (mode) {
 		case 'makd': return $L('MakD');
@@ -396,7 +403,7 @@ const SetupWizard = ({onDone, backHandlerRef}) => {
 	// labelAllowance is the room the text under the preview needs.
 	const cardWidthFor = useCallback((columns, rows, labelAllowance) => {
 		if (!bodySize.width) return 240;
-		const byWidth = (bodySize.width - 24 * columns) / columns;
+		const byWidth = (bodySize.width - CARD_GUTTER * columns) / columns;
 		const byHeight = ((bodySize.height / rows) - labelAllowance - 24) * (16 / 9);
 		return Math.min(840, Math.max(160, Math.min(byWidth, byHeight)));
 	}, [bodySize]);
@@ -423,11 +430,15 @@ const SetupWizard = ({onDone, backHandlerRef}) => {
 		}
 		if (step === 'mediaBar') {
 			const selected = selectedFor('featuredBarStyle');
-			// Seven styles in one line would leave each too small to judge, so
-			// they sit four across and wrap onto a second row.
-			const width = cardWidthFor(4, 2, 60);
+			const width = cardWidthFor(MEDIA_BAR_COLUMNS, 2, 60);
+			// Capping the row keeps the wrap at four. A card sized down to fit
+			// the height would otherwise let a fifth slip onto the line.
+			const rowStyle = {
+				maxWidth: MEDIA_BAR_COLUMNS * (width + CARD_GUTTER),
+				margin: '0 auto'
+			};
 			return (
-				<div className={css.optionRow}>
+				<div className={css.optionRow} style={rowStyle}>
 					{MEDIA_BAR_MODES.map((mode) => (
 						<OptionCard
 							key={mode}
