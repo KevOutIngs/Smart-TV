@@ -582,6 +582,14 @@ const AppContent = (props) => {
 
 	useEffect(() => {
 		const handleKeyDown = (e) => {
+			// An arrow press means the user is done pointing. Spotlight flips
+			// this itself, but its window listener sits behind components that
+			// stop propagation, and a set pointer flag makes every programmatic
+			// focus move a no op. This runs in capture, so the flag is down
+			// before any component handles the key.
+			if ((e.keyCode === KEYS.UP || e.keyCode === KEYS.DOWN || e.keyCode === KEYS.LEFT || e.keyCode === KEYS.RIGHT) && Spotlight.getPointerMode()) {
+				Spotlight.setPointerMode(false);
+			}
 			if (showShuffleOverlay) {
 				return;
 			}

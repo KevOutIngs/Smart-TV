@@ -69,6 +69,10 @@ const MediaRow = ({
 	const handleFocus = useCallback((e) => {
 		onFocus?.(rowIndex);
 
+		// A hovered card already sits under the cursor, so nudging the lane
+		// would only slide it away from the pointer.
+		if (Spotlight.getPointerMode()) return;
+
 		const card = e.target.closest('.spottable');
 		const scroller = scrollerRef.current;
 		if (card && scroller) {

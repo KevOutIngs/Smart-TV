@@ -466,12 +466,17 @@ const Browse = ({
 		}
 		if (typeof rowIndex === 'number') {
 			lastFocusedRowRef.current = rowIndex;
-			// Focus scrolling lands wherever the engine likes, sometimes with the
-			// row's bottom past the screen, and it lands after this handler, so the
-			// focused row is put back at its resting spot on the frames behind it.
-			restRowScroll(rowIndex);
-			window.requestAnimationFrame(() => restRowScroll(rowIndex));
-			window.requestAnimationFrame(() => window.requestAnimationFrame(() => restRowScroll(rowIndex)));
+			// A pointer hover focuses whatever it crosses, and pulling that row
+			// to its resting spot would make the screen chase the cursor, so the
+			// pin only answers key driven focus.
+			if (!Spotlight.getPointerMode()) {
+				// Focus scrolling lands wherever the engine likes, sometimes with the
+				// row's bottom past the screen, and it lands after this handler, so the
+				// focused row is put back at its resting spot on the frames behind it.
+				restRowScroll(rowIndex);
+				window.requestAnimationFrame(() => restRowScroll(rowIndex));
+				window.requestAnimationFrame(() => window.requestAnimationFrame(() => restRowScroll(rowIndex)));
+			}
 		}
 	}, [browseMode, setBrowseMode, pinMainScroll, restRowScroll]);
 
