@@ -870,5 +870,17 @@
     "Network error while contacting Emby Connect or the selected server": "",
     "No reachable address provided": "",
     "Select a server": "",
-    "Unable to connect to the selected server": ""
+    "Unable to connect to the selected server": "",
+    "Select Library": "Escolha a Biblioteca",
+    "Library Shuffle": "Biblioteca Aleatório",
+    "Email or Username": "Email ou Usuário",
+    "Emby Connect": "Emby Connect",
+    "Invalid Emby Connect credentials": "Credenciais do Emby Connect inválidas",
+    "Random Shuffle": "Aleatório",
+    "Genres Shuffle": "Gênenro Aleatório",
+    "Try Again": "Tente Novamente",
+    "Unable to connect to server": "Não foi possível conectar no servidor",
+    "Select Genre": "Escolha Gênero",
+    "No libraries found": "Nenhuma biblioteca encontrada",
+    "Discover a random item from your library.": "Descubra um item aleatório da sua biblioteca."
 }
