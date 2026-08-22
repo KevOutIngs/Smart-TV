@@ -809,16 +809,16 @@ const AppContent = (props) => {
 		}
 	}, [playQueueItem, playingItem, navigateTo, clearPlayQueueItem]);
 
-	const handlePlayNext = useCallback((item, trackOptions) => {
+	const handlePlayNext = useCallback((item) => {
 		setPlayingItem(item);
 		setPlaybackOptions(prev => {
-			if (!trackOptions && prev?.audioPlaylist?.some(t => t.Id === item.Id)) {
+			if (prev?.audioPlaylist?.some(t => t.Id === item.Id)) {
 				return {audioPlaylist: prev.audioPlaylist};
 			}
-			if (!trackOptions && prev?.videoQueue?.some(e => e.Id === item.Id)) {
+			if (prev?.videoQueue?.some(e => e.Id === item.Id)) {
 				return {videoQueue: prev.videoQueue};
 			}
-			return trackOptions || null;
+			return null;
 		});
 		setIsResume(false);
 	}, []);

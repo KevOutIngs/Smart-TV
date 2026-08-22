@@ -1445,17 +1445,17 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		}
 	}, []);
 
+	// No track indexes travel along. The session only records an index the
+	// viewer asked for, so a subtitle the player picked on its own reads as
+	// minus one there, and handing that to the next episode would switch its
+	// subtitles off. A chosen track already carries over through the series
+	// preferences.
 	const onPlayNextWithCleanup = useCallback(async (episode) => {
-		const session = playback.getCurrentSession();
-		const trackOptions = session ? {
-			audioStreamIndex: session.audioStreamIndex,
-			subtitleStreamIndex: session.subtitleStreamIndex
-		} : null;
 		stopTimeUpdatePolling();
 		await playback.reportStop(positionRef.current);
 		cleanupAVPlay();
 		avplayReadyRef.current = false;
-		onPlayNext(episode, trackOptions);
+		onPlayNext(episode);
 	}, [onPlayNext, stopTimeUpdatePolling]);
 
 	const seekToSegmentTarget = useCallback((target) => {
