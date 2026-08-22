@@ -1284,9 +1284,13 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	// subtitles off. A chosen track already carries over through the series
 	// preferences.
 	const onPlayNextWithCleanup = useCallback(async (episode) => {
+		// An outro skip lands near the end, so the next up countdown can come
+		// round again on the episode it already started, and reporting a stop
+		// for it would end the session that is still playing.
+		if (episode.Id === item.Id) return;
 		await playback.reportStop(positionRef.current);
 		onPlayNext(episode);
-	}, [onPlayNext]);
+	}, [onPlayNext, item.Id]);
 
 	const onSeekToSegmentEnd = useCallback((endTicks) => {
 		if (endTicks && videoRef.current) {

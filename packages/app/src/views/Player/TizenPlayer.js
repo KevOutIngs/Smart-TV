@@ -1451,12 +1451,16 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	// subtitles off. A chosen track already carries over through the series
 	// preferences.
 	const onPlayNextWithCleanup = useCallback(async (episode) => {
+		// An outro skip lands near the end, so the next up countdown can come
+		// round again on the episode it already started. The item never changes
+		// so nothing reloads, and the teardown below would leave the player dead.
+		if (episode.Id === item.Id) return;
 		stopTimeUpdatePolling();
 		await playback.reportStop(positionRef.current);
 		cleanupAVPlay();
 		avplayReadyRef.current = false;
 		onPlayNext(episode);
-	}, [onPlayNext, stopTimeUpdatePolling]);
+	}, [onPlayNext, stopTimeUpdatePolling, item.Id]);
 
 	const seekToSegmentTarget = useCallback((target) => {
 		avplaySeek(Math.floor(target / 10000)).catch(e => console.warn('[Player] Seek failed:', e));
