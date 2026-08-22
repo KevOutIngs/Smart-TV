@@ -79,7 +79,6 @@ const useSeerrOverlay = ({item, seerrOnly}) => {
 		isAuthenticated,
 		userPermissions: data.userPermissions,
 		currentUserId: data.currentUserId,
-		hasHdServer: data.hasHdServer,
 		is4kEnabled: data.is4kEnabled,
 		hdStatus: data.hdStatus,
 		status4k: data.status4k

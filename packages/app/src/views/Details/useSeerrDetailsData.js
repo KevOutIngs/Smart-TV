@@ -20,9 +20,8 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 	const [currentUserId, setCurrentUserId] = useState(null);
 	// Seerr only offers 4K for a kind of media when it has a 4K backend standing by for it,
 	// which it reports for everyone rather than only for those who can read the server list.
-	// Taken as offered until it says otherwise, the way the other clients read it.
+	// Taken as offered until it says otherwise.
 	const [is4kEnabled, setIs4kEnabled] = useState(true);
-	const [hasHdServer, setHasHdServer] = useState(false);
 	const [servers, setServers] = useState([]);
 
 	useEffect(() => {
@@ -84,7 +83,6 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 					isRadarr: mediaType === 'movie'
 				}));
 				setServers(serversWithType);
-				setHasHdServer(serversList.some(s => !s.is4k));
 				const offers4k = mediaType === 'movie'
 					? publicSettings?.movie4kEnabled
 					: publicSettings?.series4kEnabled;
@@ -169,7 +167,6 @@ const useSeerrDetailsData = ({mediaId, mediaType, contextUser}) => {
 		userPermissions,
 		currentUserId,
 		servers,
-		hasHdServer,
 		is4kEnabled,
 		hdStatus,
 		status4k,

@@ -14,7 +14,7 @@ import {
 
 const useSeerrRequests = ({
 	mediaId, mediaType, details, setDetails, setError, isAuthenticated,
-	userPermissions, currentUserId, hasHdServer, is4kEnabled, hdStatus, status4k
+	userPermissions, currentUserId, is4kEnabled, hdStatus, status4k
 }) => {
 	const [requesting, setRequesting] = useState(false);
 	const [showQualityPopup, setShowQualityPopup] = useState(false);
@@ -149,16 +149,19 @@ const useSeerrRequests = ({
 			.some((season) => !taken.has(season));
 	}, [isTv, details, activeRequests]);
 
+	// No download server check. Seerr takes the request either way and holds it
+	// until there is somewhere to send it, so asking for one here only hid the
+	// button on a setup that would have worked.
 	const hdOffer = useMemo(() => requestOfferFor({
 		status: hdStatus,
 		hasExistingRequest: hasOpenHdRequest,
-		allowed: isAuthenticated && !isBlacklisted && !hdDeclined && hasHdServer && (mediaType === 'movie'
+		allowed: isAuthenticated && !isBlacklisted && !hdDeclined && (mediaType === 'movie'
 			? canRequestMovies(userPermissions)
 			: canRequestTv(userPermissions)),
 		isTv,
 		isContinuing,
 		hasUnrequestedSeasons: unrequestedSeasons(false)
-	}), [hdStatus, hasOpenHdRequest, isAuthenticated, isBlacklisted, hdDeclined, hasHdServer,
+	}), [hdStatus, hasOpenHdRequest, isAuthenticated, isBlacklisted, hdDeclined,
 		mediaType, userPermissions, isTv, isContinuing, unrequestedSeasons]);
 
 	const fourKOffer = useMemo(() => requestOfferFor({
