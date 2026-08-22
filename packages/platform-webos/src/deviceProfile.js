@@ -386,10 +386,14 @@ const buildVideoRangeTypes = (caps) => {
 	}
 
 	if (caps.hdr10) {
-		rangeTypes.push('HDR10');
+		// HDR10+ rides on HDR10, a set that only reads the static metadata
+		// still renders the HDR10 base
+		rangeTypes.push('HDR10', 'HDR10Plus');
 
 		if (isWebOsWithoutDV) {
-			rangeTypes.push('DOVIWithHDR10', 'DOVIWithEL', 'DOVIInvalid');
+			// dual layer Dolby Vision carries a base layer an HDR10 panel can
+			// play directly and just ignore the DV data on top
+			rangeTypes.push('DOVIWithHDR10', 'DOVIWithHDR10Plus', 'DOVIWithEL', 'DOVIWithELHDR10Plus', 'DOVIInvalid');
 		}
 	}
 

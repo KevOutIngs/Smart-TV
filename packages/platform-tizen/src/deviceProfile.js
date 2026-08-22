@@ -430,7 +430,9 @@ export const getDeviceCapabilities = async () => {
 
 		// HDR capabilities
 		hdr10,
-		hdr10Plus: hdr10 && tizenVersion >= 5, // HDR10+ on 2019+ premium models
+		// HDR10+ rides on HDR10, a set that only reads the static metadata
+		// still renders the HDR10 base, so it goes wherever HDR10 goes
+		hdr10Plus: hdr10,
 		hlg: hdr10 && tizenVersion >= 4, // HLG on 2018+ HDR-capable models
 		dolbyVision,
 		// Samsung docs: "DD+: 5.1 channel supported" for all years
@@ -645,18 +647,14 @@ export const getJellyfinDeviceProfile = async (options = {}) => {
 	}
 
 	// Dual layer Dolby Vision files carry a compatible base layer, so an HDR10
-	// panel can direct play them as HDR10 while the server strips the DV boxes.
-	//
-	// A bare DOVI goes the same way. The server reports it when it cant tell
-	// which base layer the file sits on, and AVPlay falls back to the HEVC base
-	// layer when it cant decode the Dolby Vision on top. Holding it back to
-	// panels that carry Dolby Vision outright is what sent an HDR10 set off to
-	// transcode a file it can play.
+	// panel can direct play them and just ignore the DV data on top. A bare
+	// DOVI is profile 5, which has no such base layer, so it stays with panels
+	// that decode Dolby Vision outright.
 	const hevcRangeTypes = ['SDR', 'DOVIWithSDR'];
 	if (caps.hdr10) hevcRangeTypes.push('HDR10', 'DOVIWithHDR10', 'DOVIWithEL', 'DOVIInvalid');
 	if (caps.hdr10Plus) hevcRangeTypes.push('HDR10Plus', 'DOVIWithHDR10Plus', 'DOVIWithELHDR10Plus');
 	if (caps.hlg) hevcRangeTypes.push('HLG', 'DOVIWithHLG');
-	if (caps.dolbyVision || caps.hdr10) hevcRangeTypes.push('DOVI');
+	if (caps.dolbyVision) hevcRangeTypes.push('DOVI');
 
 	const codecProfiles = [
 		{

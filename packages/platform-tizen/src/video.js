@@ -261,12 +261,9 @@ export const getPlayMethod = (mediaSource, capabilities, _options, passthroughOp
 			// panel plays that layer directly and an SDR fallback plays anywhere
 			hdrOk = rangeType.includes('SDR') ? true : (capabilities.hdr10 || capabilities.dolbyVision);
 		} else if (rangeType.includes('DOLBY') || rangeType.includes('DOVI')) {
-			// A bare DOVI plays off the HEVC base layer on a panel that handles
-			// HDR10, which is the same reasoning the profile sent to the server
-			// uses, so the two agree on what can direct play. This tested for
-			// DV before, which no range type the server sends ever contains, so
-			// the check fell through and read as playable everywhere.
-			hdrOk = capabilities.dolbyVision || (capabilities.hdr10 && capabilities.hevc);
+			// a bare DOVI is profile 5, which carries no HDR10 base layer to
+			// fall back on, so it needs a panel that decodes Dolby Vision itself
+			hdrOk = capabilities.dolbyVision;
 		} else if (rangeType.includes('HDR')) {
 			hdrOk = capabilities.hdr10;
 		}
