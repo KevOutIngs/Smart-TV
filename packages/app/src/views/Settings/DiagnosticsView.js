@@ -4,6 +4,7 @@ import Button from '@enact/sandstone/Button';
 
 import {LOG_FILTERS, logLevelColor} from './useDiagnosticsLog';
 import {SectionTitle} from './settingsRows';
+import {SpottableButton} from './settingsSpottables';
 import SettingsView from './SettingsView';
 
 import css from './Settings.module.less';
@@ -33,38 +34,40 @@ const DiagnosticsView = ({
 				{$L('Server requests recorded on this device. Video and image traffic is not included.')}
 			</div>
 			{logMessage && <div className={css.statusMessage}>{logMessage}</div>}
-			<div className={css.actionBar}>
+			<div className={css.logFilterBar}>
 				{LOG_FILTERS.map((filter) => (
-					<Button
+					<SpottableButton
 						key={filter.id}
+						className={`${css.logFilter} ${logFilter === filter.id ? css.logFilterOn : ''}`}
 						onClick={() => onFilterChange(filter.id)}
-						size='small'
-						selected={logFilter === filter.id}
 						spotlightId={`logfilter-${filter.id}`}
 					>
 						{$L(filter.label)}
-					</Button>
+					</SpottableButton>
 				))}
 			</div>
 			{entries.length === 0 && (
-				<div className={css.viewDescription}>
+				<div className={css.logEmpty}>
 					{loggingEnabled
 						? $L('Nothing recorded yet.')
 						: $L('Turn on Diagnostic Logging to start recording.')}
 				</div>
 			)}
-			{shown.map((entry, index) => (
-				<div key={`${entry.timestamp}-${index}`} className={css.listItem}>
-					<div className={css.listItemBody}>
-						<div className={css.listItemHeading} style={{color: logLevelColor(entry.level)}}>
-							{entry.message}
+			<div className={css.logList}>
+				{shown.map((entry, index) => (
+					<div
+						key={`${entry.timestamp}-${index}`}
+						className={css.logRow}
+						style={{borderLeftColor: logLevelColor(entry.level)}}
+					>
+						<div className={css.logMeta}>
+							<div className={css.logTime}>{entry.timestamp.slice(11, 23)}</div>
+							<div className={css.logCategory}>{entry.category}</div>
 						</div>
-						<div className={css.listItemCaption}>
-							{`${entry.timestamp.slice(11, 23)}  ${entry.category}`}
-						</div>
+						<div className={css.logMessage}>{entry.message}</div>
 					</div>
-				</div>
-			))}
+				))}
+			</div>
 			{entries.length > logRenderLimit && (
 				<div className={css.actionBar}>
 					<Button

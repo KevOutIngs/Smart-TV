@@ -593,3 +593,88 @@ background: var(--theme-focus-border-color, #00a4dc);
 	background: var(--theme-focus-border-color, #00a4dc);
 	color: #fff;
 }
+
+.logFilterBar {
+display: flex;
+flex-wrap: wrap;
+padding: 4px 24px 12px;
+}
+
+/* Sized to their text. The framework button holds a width that fits only two
+   to a row, which costs more of the panel than the filters are worth. */
+.logFilter {
+margin-right: 8px;
+margin-bottom: 8px;
+padding: 8px 18px;
+font-size: 16px;
+background: var(--theme-surface-variant, #1e1e1e);
+color: var(--theme-text-secondary, #888);
+border: 2px solid transparent;
+border-radius: 999px;
+cursor: pointer;
+
+&:focus {
+outline: none;
+background: var(--accent-color, #00a4dc);
+border-color: var(--accent-color, #00a4dc);
+color: var(--theme-on-accent, #fff);
+}
+}
+
+/* Outlined rather than filled, so the one being pointed at stays the only
+   solid chip and the two states never read as each other. */
+.logFilterOn {
+color: var(--theme-text-primary, #fff);
+border-color: var(--accent-color, #00a4dc);
+}
+
+.logList {
+padding: 0 24px;
+}
+
+/* A log line is read, not chosen, so it drops the settings row's card and
+   focus growth and packs in as many lines as the panel will hold. */
+.logRow {
+padding: 8px 12px;
+margin-bottom: 2px;
+border-left: 4px solid transparent;
+border-radius: 4px;
+background: var(--theme-surface, #141414);
+}
+
+.logMeta {
+display: flex;
+align-items: baseline;
+font-size: 14px;
+line-height: 1.4;
+color: var(--theme-text-secondary, #888);
+}
+
+/* Held to its own width so the digits line up down the column. */
+.logTime {
+flex: 0 0 auto;
+width: 108px;
+font-family: monospace;
+}
+
+.logCategory {
+text-transform: uppercase;
+letter-spacing: 0.5px;
+}
+
+/* Kept on its own full width line, since a url squeezed into a column beside
+   the clock wraps four times over, and it has no spaces to break at. */
+.logMessage {
+margin-top: 2px;
+font-size: 16px;
+line-height: 1.45;
+color: var(--theme-text-primary, #fff);
+word-break: break-all;
+}
+
+.logEmpty {
+padding: 32px 24px;
+text-align: center;
+color: var(--theme-text-secondary, #888);
+font-size: 16px;
+}
