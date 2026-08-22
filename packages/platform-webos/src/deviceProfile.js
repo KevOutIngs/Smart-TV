@@ -1,5 +1,7 @@
 // Device Profile Service - webOS hardware capability detection via Luna APIs
 
+import {resolvePanelType} from './panelType';
+
 let cachedCapabilities = null;
 
 const DEFAULT_PASSTHROUGH_SETTINGS = {
@@ -278,13 +280,32 @@ export const getDeviceCapabilities = async () => {
 		});
 	} catch (e) { void e; }
 
+	// The config service returns nothing for a key the app has no rights to,
+	// and the panel keys are among the ones it withholds on some sets. This
+	// service answers the same question, so it is asked when nothing else has
+	// said what the panel is.
+	let systemProperty = {};
+	if (!configData.configs?.['tv.hw.panelResolution'] && deviceInfoData.uhd !== true) {
+		try {
+			const LS2Request = (await import('@enact/webos/LS2Request')).default;
+			systemProperty = await new Promise((resolve) => {
+				new LS2Request().send({
+					service: 'luna://com.webos.service.tv.systemproperty',
+					method: 'getSystemInfo',
+					parameters: {keys: ['UHD', 'OLED']},
+					onSuccess: resolve,
+					onFailure: () => resolve({})
+				});
+			});
+		} catch (e) { void e; }
+	}
+
 	const cfg = configData.configs || {};
 	const webosVersion = detectWebOSVersion(deviceInfoData.sdkVersion);
 
 	const containerSupport = getDocumentedContainerSupport(webosVersion);
 
-	const isUhd = cfg['tv.hw.panelResolution'] === 'UD' || cfg['tv.hw.panelResolution'] === '8K' || deviceInfoData.uhd || false;
-	const isOled = cfg['tv.hw.displayType'] === 'OLED' || (cfg['tv.model.moduleBackLightType'] || '').toLowerCase() === 'oled' || deviceInfoData.oled || false;
+	const {isUhd, isOled} = resolvePanelType(cfg, systemProperty, deviceInfoData);
 
 	// tv.model.edidType is undocumented and may be absent on some firmware.
 	const rawEdidType = cfg['tv.model.edidType'];
