@@ -44,7 +44,7 @@ export const defaultSettings = {
 	skipBackLength: 10000,
 	maxVideoResolution: 'auto',
 	playerZoomMode: 'fit',
-	mediaSegmentAutoHide: 's5',
+	mediaSegmentAutoHide: 'off',
 	cinemaModeEpisodesEnabled: false,
 	trickPlayEnabled: true,
 	assDirectPlay: true,

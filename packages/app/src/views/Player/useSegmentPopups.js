@@ -206,8 +206,8 @@ const useSegmentPopups = ({
 				} else {
 					// The prompt stops covering the picture after a while when asked to,
 					// and seeking back before the segment offers it again.
-					const autoHideSeconds = settings.mediaSegmentAutoHide === 's10' ? 10
-						: settings.mediaSegmentAutoHide === 'off' ? 0 : 5;
+					const autoHideSeconds = settings.mediaSegmentAutoHide === 's5' ? 5
+						: settings.mediaSegmentAutoHide === 's10' ? 10 : 0;
 					if (promptShownAtRef.current?.start !== active.start) {
 						promptShownAtRef.current = {start: active.start, at: Date.now()};
 					}
