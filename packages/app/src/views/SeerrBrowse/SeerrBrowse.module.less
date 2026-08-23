@@ -382,6 +382,12 @@
 	overflow-y: auto;
 	scrollbar-width: none;
 
+	// Older sets shrink flex children to fit the height rather than scrolling,
+	// which squeezes every row to a few pixels and piles the text on top of itself.
+	> * {
+		flex-shrink: 0;
+	}
+
 	&::-webkit-scrollbar {
 		display: none;
 		width: 0;
