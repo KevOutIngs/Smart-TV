@@ -1115,3 +1115,101 @@
 	from { opacity: 0; }
 	to { opacity: 1; }
 }
+
+.castRow {
+	display: flex;
+	overflow-x: auto;
+	overflow-y: hidden;
+	padding: 8px 4px 12px;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.castRow::-webkit-scrollbar {
+	display: none;
+}
+
+.castCard {
+	min-width: 160px;
+	max-width: 160px;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	border: none;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	color: #fff;
+	// Scales from the top so the name and role below it stay put
+	transform-origin: top center;
+	transition: transform 0.2s ease;
+	outline: none;
+}
+
+.castCard:hover,
+.castCard:focus {
+	transform: scale(1.06);
+	z-index: 10;
+
+	.castPhotoWrap {
+		border-color: #ffffff;
+	}
+}
+
+.castPhotoWrap {
+	width: 140px;
+	height: 140px;
+	border-radius: 50%;
+	overflow: hidden;
+	background: rgba(255, 255, 255, 0.1);
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 3px solid transparent;
+	transition: border-color 0.2s ease;
+}
+
+.castPhoto {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.castPhotoFallback {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 48px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.4);
+}
+
+.castName {
+	font-size: 17px;
+	font-weight: 600;
+	line-height: 1.2;
+	max-width: 100%;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.castRole {
+	margin-top: 2px;
+	font-size: 15px;
+	line-height: 1.2;
+	color: rgba(255, 255, 255, 0.54);
+	max-width: 100%;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+// Sits at the end so the row spacing is not eaten by a child margin declared later
+.castRow { .flex-row-gap(16px); }

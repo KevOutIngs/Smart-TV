@@ -19,6 +19,7 @@ import {
 	IconShuffle, IconRepeat, IconRepeatOne, IconSleep, IconGuide
 } from './PlayerConstants';
 import {formatClockTime} from '../../utils/clock';
+import {keepFocusInView} from '../../utils/focusScroll';
 import {SLEEP_TIMER_MINUTES} from './useSleepTimer';
 import {arrange, OSD_ORDER_KEY, OSD_HIDDEN_KEY} from '../../utils/buttonLayout';
 import {formatPlaybackTimeSlot, formatPlaybackTrailingTime} from '../../utils/playbackTimeLabels';
@@ -612,7 +613,7 @@ const PlayerControls = ({
 								</SpottableDiv>
 							)}
 							{!isLoadingCastMembers && castMembers.length > 0 && (
-								<div className={css.castRow}>
+								<div className={css.castRow} onFocus={keepFocusInView}>
 									{castMembers.map((person, index) => {
 										const imageTag = person?.PrimaryImageTag || person?.ImageTag || person?.ImageTags?.Primary || null;
 										const imageServer = person?._serverUrl || item?._serverUrl || getServerUrl();

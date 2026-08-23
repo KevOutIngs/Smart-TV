@@ -5,8 +5,10 @@
 const SCROLL_PADDING = 24;
 
 /**
- * Scrolls the focused element into view inside its container. Goes straight on
- * the scrolling element as its onFocus handler.
+ * Scrolls the focused element into view inside its container, on whichever axis
+ * it has run past the edge. Goes straight on the scrolling element as its
+ * onFocus handler. A container that only scrolls one way ignores the other,
+ * since setting the offset it has no room for does nothing.
  *
  * @param {Object} e - the focus event, whose currentTarget is the scroller
  */
@@ -20,5 +22,10 @@ export const keepFocusInView = (e) => {
 		container.scrollTop -= (view.top - row.top) + SCROLL_PADDING;
 	} else if (row.bottom > view.bottom) {
 		container.scrollTop += (row.bottom - view.bottom) + SCROLL_PADDING;
+	}
+	if (row.left < view.left) {
+		container.scrollLeft -= (view.left - row.left) + SCROLL_PADDING;
+	} else if (row.right > view.right) {
+		container.scrollLeft += (row.right - view.right) + SCROLL_PADDING;
 	}
 };
