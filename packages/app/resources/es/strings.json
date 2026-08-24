@@ -762,7 +762,6 @@
     "{count} minutes": "{count} minutos",
     "{count} players": "{count} jugadores",
     "Email or Username": "Correo electrónico o nombre de usuario",
-    "Emby Connect": "",
     "Invalid Emby Connect credentials": "Credenciales de Emby Connect no válidas",
     "Invalid Emby Connect username or password": "Nombre de usuario o contraseña de Emby Connect no válidos",
     "Network error while contacting Emby Connect or the selected server": "Error de red al contactar con Emby Connect o el servidor seleccionado",
