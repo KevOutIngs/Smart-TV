@@ -296,6 +296,9 @@
 	display: inline-flex;
 	align-items: center;
 	height: 75px;
+	// The width comes from the icon slot, so a squeezed button flattens into an
+	// oval. The row runs short of room whenever a Next Up card narrows the column.
+	flex-shrink: 0;
 	border-radius: 38px;
 	box-sizing: border-box;
 	.glass-button();

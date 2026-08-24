@@ -7,6 +7,7 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 import {isBackKey, KEYS} from '../../utils/keys';
 import {clampRating, displayRatingLikes, personalRatingOf, starsFromRating} from '../../utils/personalRating';
 import {RATING_ICON_PATHS} from '../icons/ratingIcons';
+import {iconViewBox} from '../icons/iconViewBox';
 
 import dialogCss from '../ClearDataDialog/ClearDataDialog.module.less';
 import css from './PersonalRatingDialog.module.less';
@@ -21,7 +22,7 @@ const SpottableButton = Spottable('button');
 const SpottableDiv = Spottable('div');
 
 const Glyph = ({path}) => (
-	<svg viewBox="0 -960 960 960" aria-hidden="true"><path d={path} /></svg>
+	<svg viewBox={iconViewBox(path)} aria-hidden="true"><path d={path} /></svg>
 );
 
 const STAR_STEP = 0.5;

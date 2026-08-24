@@ -16,6 +16,7 @@ import {castPhotoUrl, hidesMediaDescription} from './detailsMedia';
 import ExpandableOverview from './ExpandableOverview';
 import {KEYS} from '../../utils/keys';
 import {DETAIL_ICON_PATHS} from './detailIcons';
+import {iconViewBox} from '../../components/icons/iconViewBox';
 import {personalRatingIconPath, personalRatingLabel} from './personalRatingAction';
 import {arrange, seerrOnlyRow, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
 
@@ -39,7 +40,7 @@ const hasSpottableBelow = (container, active) => {
 };
 
 const Icon = ({path}) => (
-	<svg className={css.icon} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">
+	<svg className={css.icon} viewBox={iconViewBox(path)} fill="currentColor" aria-hidden="true">
 		<path d={path} />
 	</svg>
 );

@@ -3,12 +3,19 @@ import $L from '@enact/i18n/$L';
 
 import {arrange, seerrOnlyRow, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../utils/buttonLayout';
 import {DETAIL_ICON_PATHS} from './detailIcons';
+import {iconViewBox} from '../../components/icons/iconViewBox';
 import {personalRatingIconPath, personalRatingLabel} from './personalRatingAction';
 import {versionLabel} from '../../utils/trackLabels';
 import {SpottableDiv, HorizontalContainer} from './detailsSpottables';
 import {handleButtonRowKeyDown} from './detailsFocus';
 
 import css from './Details.module.less';
+
+const BtnIcon = ({path, stateClass}) => (
+	<svg className={stateClass ? `${css.btnIcon} ${stateClass}` : css.btnIcon} viewBox={iconViewBox(path)} fill="currentColor">
+		<path d={path}/>
+	</svg>
+);
 
 // The row under the header. Play and Resume always lead it, and everything after them is in
 // whatever order the viewer arranged in settings, with anything they hid left out.
@@ -63,9 +70,7 @@ const DetailActionButtons = ({
 	const seerrButton = (label, icon, onClick) => (
 		<SpottableDiv className={css.btnWrapper} onClick={onClick}>
 			<div className={css.btnAction}>
-				<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-					<path d={icon}/>
-				</svg>
+				<BtnIcon path={icon}/>
 			</div>
 			<span className={css.btnLabel}>{label}</span>
 		</SpottableDiv>
@@ -88,9 +93,7 @@ const DetailActionButtons = ({
 		{id: 'shuffle', when: isSeries || isSeason, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onShuffle}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.shuffle}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.shuffle}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Shuffle')}</span>
 			</SpottableDiv>
@@ -100,9 +103,7 @@ const DetailActionButtons = ({
 			return (
 				<SpottableDiv className={css.btnWrapper} onClick={onOpenVersionModal}>
 					<div className={css.btnAction}>
-						<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-							<path d={DETAIL_ICON_PATHS.version}/>
-						</svg>
+						<BtnIcon path={DETAIL_ICON_PATHS.version}/>
 					</div>
 					<span className={css.btnLabel}>{$L('Version')}</span>
 					<span className={css.btnDetail}>{versionDetail}</span>
@@ -112,9 +113,7 @@ const DetailActionButtons = ({
 		{id: 'server', when: hasMultipleServers, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onOpenServerModal}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.server}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.server}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Server')}</span>
 				<span className={css.btnDetail}>{currentServerName}</span>
@@ -123,9 +122,7 @@ const DetailActionButtons = ({
 		{id: 'audio', when: hasMultipleAudio, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onOpenAudioModal}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.audio}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.audio}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Audio')}</span>
 				{currentAudioStream && (
@@ -138,9 +135,7 @@ const DetailActionButtons = ({
 		{id: 'subtitles', when: supportsMediaSourceSelection, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onOpenSubtitleModal}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.subtitle}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.subtitle}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Subtitle')}</span>
 				{currentSubtitleStream ? (
@@ -155,9 +150,7 @@ const DetailActionButtons = ({
 		{id: 'trailer', when: item.LocalTrailerCount > 0 || item.RemoteTrailers?.length > 0, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onTrailer}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.trailer}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.trailer}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Trailer')}</span>
 			</SpottableDiv>
@@ -165,9 +158,7 @@ const DetailActionButtons = ({
 		{id: 'watched', when: true, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onToggleWatched} spotlightId="details-watched-btn">
 				<div className={css.btnAction}>
-					<svg className={`${css.btnIcon} ${item.UserData?.Played ? css.watched : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.watched}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.watched} stateClass={item.UserData?.Played ? css.watched : ''}/>
 				</div>
 				<span className={css.btnLabel}>{item.UserData?.Played ? $L('Watched') : $L('Mark Watched')}</span>
 			</SpottableDiv>
@@ -175,9 +166,7 @@ const DetailActionButtons = ({
 		{id: 'favorite', when: true, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onToggleFavorite} spotlightId="details-favorite-btn">
 				<div className={css.btnAction}>
-					<svg className={`${css.btnIcon} ${item.UserData?.IsFavorite ? css.favorited : ''}`} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.favorite}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.favorite} stateClass={item.UserData?.IsFavorite ? css.favorited : ''}/>
 				</div>
 				<span className={css.btnLabel}>{item.UserData?.IsFavorite ? $L('Favorited') : $L('Favorite')}</span>
 			</SpottableDiv>
@@ -185,9 +174,7 @@ const DetailActionButtons = ({
 		{id: 'personalRating', when: showsPersonalRating, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onOpenRatingDialog} spotlightId="details-rating-btn">
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={personalRatingIconPath(personalRatingStyle, item.UserData)}/>
-					</svg>
+					<BtnIcon path={personalRatingIconPath(personalRatingStyle, item.UserData)}/>
 				</div>
 				<span className={css.btnLabel}>{personalRatingLabel(personalRatingStyle, item.UserData)}</span>
 			</SpottableDiv>
@@ -195,9 +182,7 @@ const DetailActionButtons = ({
 		{id: 'goToSeries', when: isEpisode && item.SeriesId, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onGoToSeries}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.series}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.series}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Series')}</span>
 			</SpottableDiv>
@@ -205,9 +190,7 @@ const DetailActionButtons = ({
 		{id: 'playlist', when: true, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onOpenPlaylistModal}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.playlist}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.playlist}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Add to Playlist')}</span>
 			</SpottableDiv>
@@ -215,9 +198,7 @@ const DetailActionButtons = ({
 		{id: 'collection', when: canAddToCollection, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onOpenCollectionModal}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.collection}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.collection}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Add to Collection')}</span>
 			</SpottableDiv>
@@ -225,9 +206,7 @@ const DetailActionButtons = ({
 		{id: 'deleteFiles', when: item.CanDelete, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onOpenDeleteDialog}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.delete}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.delete}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Delete')}</span>
 			</SpottableDiv>
@@ -242,9 +221,7 @@ const DetailActionButtons = ({
 		{id: 'seerrReportIssue', when: seerr.showsReportIssue, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={seerr.handleReportIssueClick}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.reportIssue}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.reportIssue}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Report Issue')}</span>
 			</SpottableDiv>
@@ -252,9 +229,7 @@ const DetailActionButtons = ({
 		{id: 'seerrManage', when: seerr.showsManage, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={seerr.handleManageRequestsClick}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.manageRequests}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.manageRequests}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Manage Requests')}</span>
 			</SpottableDiv>
@@ -262,9 +237,7 @@ const DetailActionButtons = ({
 		{id: 'admin', when: canIdentify, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onOpenIdentifyModal}>
 				<div className={css.btnAction}>
-					<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-						<path d={DETAIL_ICON_PATHS.admin}/>
-					</svg>
+					<BtnIcon path={DETAIL_ICON_PATHS.admin}/>
 				</div>
 				<span className={css.btnLabel}>{$L('Admin Controls')}</span>
 			</SpottableDiv>
@@ -291,13 +264,9 @@ const DetailActionButtons = ({
 				<SpottableDiv className={css.btnWrapper} {...playLongPress} onFocus={onFocusRow} spotlightId={hasPlaybackPosition ? undefined : 'details-primary-btn'}>
 					<div className={css.btnAction}>
 						{hasPlaybackPosition && !isBook ? (
-							<svg className={css.btnIcon} viewBox="0 -960 960 960">
-								<path d={DETAIL_ICON_PATHS.restart}/>
-							</svg>
+							<BtnIcon path={DETAIL_ICON_PATHS.restart}/>
 						) : isBook ? (
-							<svg className={css.btnIcon} viewBox="0 -960 960 960" fill="currentColor">
-								<path d={DETAIL_ICON_PATHS.book}/>
-							</svg>
+							<BtnIcon path={DETAIL_ICON_PATHS.book}/>
 						) : (
 							<span className={css.btnIcon}>▶</span>
 						)}
