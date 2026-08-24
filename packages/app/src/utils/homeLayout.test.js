@@ -140,6 +140,20 @@ describe('writing the layout back', () => {
 		expect(homeRowsToSections(rows)).toContainEqual(pluginRow);
 	});
 
+	test('a row type this client has none of its own for is handed back untouched', () => {
+		// Rows another client renders and this one doesn't, arriving with no kind on them
+		// the way the server sends them. Writing a layout without them deletes them from
+		// the account.
+		const mediabar = {type: 'mediabar', enabled: false, order: 64};
+		const resumebook = {type: 'resumebook', enabled: true, order: 65};
+		const rows = homeRowsFromProfile({
+			homeSections: [{type: 'resume', enabled: true, order: 0}, mediabar, resumebook]
+		});
+		const written = homeRowsToSections(rows);
+		expect(written).toContainEqual(mediabar);
+		expect(written).toContainEqual(resumebook);
+	});
+
 	test('a layout read as homeRowOrder is written back as both views', () => {
 		const rows = homeRowsFromProfile({homeRowOrder: ['resume']});
 		expect(hasSeenServerLayout()).toBe(true);

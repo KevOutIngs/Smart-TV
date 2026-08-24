@@ -140,9 +140,10 @@ export const mergeHomeRows = (rows) => {
 	return merged;
 };
 
-// Sections this client doesn't model, meaning plugin rows and any type added later.
-// They get handed back verbatim so that writing a layout from the TV never destroys
-// them. Null means we haven't read the server's layout yet.
+// Sections this client has no row for, meaning plugin rows and any type belonging to a
+// client with rows this one lacks. They get handed back verbatim so that writing a
+// layout from the TV never destroys them. Null means we haven't read the server's
+// layout yet.
 let homeSectionsPassthrough = null;
 
 export const hasSeenServerLayout = () => homeSectionsPassthrough !== null;
@@ -152,19 +153,24 @@ export const __resetHomeLayoutPassthrough = () => {
 	homeSectionsPassthrough = null;
 };
 
-const isBuiltinSection = (section) =>
-	section && section.kind !== 'pluginDynamic' && section.type && section.type !== 'none';
+const ROW_BY_ID = new Map(DEFAULT_HOME_ROWS.map((row) => [row.id, row]));
 
 // A server type we don't have a row for is left out rather than invented.
-const rowForServerType = (type) =>
-	DEFAULT_HOME_ROWS.find((row) => row.id === (SERVER_TO_TV_ROW[type] || type));
+const rowForServerType = (type) => ROW_BY_ID.get(SERVER_TO_TV_ROW[type] || type);
+
+// The row that writes a section back, if this client has one. A section with none has
+// to be carried through untouched instead, so the type is what decides it rather than
+// the kind, which the server often leaves off entirely.
+const modelledRow = (section) => {
+	if (!section || section.kind === 'pluginDynamic') return undefined;
+	return rowForServerType(section.type);
+};
 
 export const homeRowsFromSections = (sections) => {
 	if (!Array.isArray(sections) || sections.length === 0) return undefined;
 	const rows = sections
-		.filter(isBuiltinSection)
 		.map((section) => {
-			const def = rowForServerType(section.type);
+			const def = modelledRow(section);
 			return def ? {def, enabled: section.enabled !== false, order: section.order ?? 0} : null;
 		})
 		.filter(Boolean)
@@ -189,7 +195,7 @@ export const homeRowsFromProfile = (serverProfile) => {
 	if (!serverProfile) return undefined;
 	const fromSections = homeRowsFromSections(serverProfile.homeSections);
 	if (fromSections) {
-		homeSectionsPassthrough = serverProfile.homeSections.filter((s) => !isBuiltinSection(s));
+		homeSectionsPassthrough = serverProfile.homeSections.filter((s) => !modelledRow(s));
 		return fromSections;
 	}
 	const fromOrder = homeRowsFromRowOrder(serverProfile.homeRowOrder);
