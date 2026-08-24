@@ -10,6 +10,7 @@ jest.mock('react', () => ({createContext: () => ({})}));
 jest.mock('../services/storage', () => ({}));
 
 import {SYNCABLE_KEYS, defaultSettings, profileToLocal, localToProfile} from './SettingsContext';
+import {__resetHomeLayoutPassthrough, homeRowsFromProfile} from '../utils/homeLayout';
 
 describe('profileToLocal', () => {
 	test('takes the TV button fields under their own names', () => {
@@ -78,6 +79,37 @@ describe('localToProfile', () => {
 	// order rather than a stored one.
 	test('invents nothing when there is no local value to send', () => {
 		expect(localToProfile({})).toEqual({});
+	});
+});
+
+describe('localToProfile with the keys the viewer changed', () => {
+	test('sends those keys and nothing else', () => {
+		const profile = localToProfile({...defaultSettings, themeMusicEnabled: true}, ['themeMusicEnabled']);
+
+		expect(profile).toEqual({themeMusicEnabled: true});
+	});
+
+	test('a default the viewer never touched stays out of the profile', () => {
+		// Once sent it is stored as the viewer's own choice and outranks what the admin
+		// sets afterwards, so an untouched default must never go out on its own.
+		const profile = localToProfile(defaultSettings, ['uiLanguage']);
+
+		expect(profile).not.toHaveProperty('displayCollectionsRows');
+		expect(profile).not.toHaveProperty('classicHomeRowsPadding');
+	});
+
+	test('the layout only goes when the rows were among the changes', () => {
+		__resetHomeLayoutPassthrough();
+		const rows = homeRowsFromProfile({homeSections: [{type: 'resume', enabled: true, order: 0}]});
+		const local = {...defaultSettings, homeRows: rows};
+
+		const without = localToProfile(local, ['themeMusicEnabled']);
+		expect(without).not.toHaveProperty('homeSections');
+		expect(without).not.toHaveProperty('homeRowOrder');
+
+		const withRows = localToProfile(local, ['homeRows']);
+		expect(withRows.homeRowOrder).toEqual(['resume']);
+		expect(withRows.homeSections.length).toBeGreaterThan(0);
 	});
 });
 

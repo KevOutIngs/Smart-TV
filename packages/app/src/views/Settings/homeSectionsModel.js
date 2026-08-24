@@ -5,6 +5,7 @@
 import $L from '@enact/i18n/$L';
 
 import {isPluginSourcedRow, isRowEnabledBySetting} from '../../utils/homeRowGates';
+import {apiSortBy, getGenresIncludeTypes, resolveSortOrder} from '../../utils/homeRowSorting';
 
 export const COLLECTIONS_SECTION_SOURCE = 'collections';
 export const GENRES_SECTION_SOURCE = 'genres';
@@ -107,6 +108,54 @@ export const builtInSectionToPluginSection = (section, existingSection = null, f
 	source: section.source,
 	specJson: section.specJson
 });
+
+// Plugin rows the server holds, built the way the editor builds the ones it finds
+// itself, so a collection pushed from the server and the same one found here share
+// an id. The server carries the item id in pluginAdditionalData and the row title
+// in pluginDisplayText, and a row with no item to load is left out.
+export const pluginSectionsFromServer = (sections, settings) => {
+	const list = Array.isArray(sections) ? sections : [];
+	if (list.length === 0) return [];
+	const collectionsSortBy = apiSortBy(settings.collectionsRowSortBy || 'SortName');
+	const collectionsSortOrder = resolveSortOrder(collectionsSortBy, settings.collectionsRowSortOrder);
+	const genresSortBy = settings.genresRowSortBy || 'SortName';
+	const genresSortOrder = resolveSortOrder(genresSortBy, settings.genresRowSortOrder);
+	const genresIncludeTypes = getGenresIncludeTypes(settings.genresRowItemFilter);
+
+	const imported = [];
+	list.forEach((section) => {
+		if (!section || section.kind !== 'pluginDynamic') return;
+		const id = String(section.pluginAdditionalData || '').trim();
+		if (!id) return;
+		const item = {Id: id, Name: section.pluginDisplayText || section.pluginSection || ''};
+		let built = null;
+		if (section.pluginSource === COLLECTIONS_SECTION_SOURCE) {
+			built = buildCollectionPluginSections([item], collectionsSortBy, collectionsSortOrder)[0];
+		} else if (section.pluginSource === GENRES_SECTION_SOURCE) {
+			built = buildGenrePluginSections([item], genresIncludeTypes, genresSortBy, genresSortOrder)[0];
+		}
+		if (!built) return;
+		imported.push({...built, enabled: section.enabled !== false});
+	});
+	return imported;
+};
+
+// A section already here keeps the order and switch the viewer gave it. The same
+// list comes back when there is nothing new, so a sync that changes nothing does
+// not rebuild the home screen.
+export const mergeServerPluginSections = (existingSections, importedSections) => {
+	const existing = Array.isArray(existingSections) ? existingSections : [];
+	const known = new Set(existing.map((section) => section.id));
+	const fresh = (importedSections || []).filter((section) => !known.has(section.id));
+	if (fresh.length === 0) return existingSections;
+	return [
+		...existing,
+		...fresh.map((section, index) => ({
+			...builtInSectionToPluginSection(section, null, existing.length + index),
+			enabled: section.enabled
+		}))
+	];
+};
 
 export const getPluginSectionSourceLabel = (source) => {
 	if (source === COLLECTIONS_SECTION_SOURCE) return $L('Collections');

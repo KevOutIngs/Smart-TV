@@ -206,6 +206,11 @@ export const homeRowsFromProfile = (serverProfile) => {
 	return undefined;
 };
 
+// The plugin rows of the layout that was read. They ride the passthrough so a save
+// hands them back, and the home screen draws them from here.
+export const serverPluginSections = () =>
+	(homeSectionsPassthrough || []).filter((section) => section && section.kind === 'pluginDynamic');
+
 export const homeRowsToSections = (rows) => [
 	...[...rows]
 		.sort((left, right) => left.order - right.order)

@@ -2,6 +2,7 @@ import {
 	DEFAULT_HOME_ROWS,
 	TV_TO_SERVER_ROW,
 	__resetHomeLayoutPassthrough,
+	serverPluginSections,
 	hasSeenServerLayout,
 	homeRowsFromProfile,
 	homeRowsFromRowOrder,
@@ -177,5 +178,23 @@ describe('write suppression before the layout is known', () => {
 	test('a profile without a layout leaves it unknown', () => {
 		homeRowsFromProfile({});
 		expect(hasSeenServerLayout()).toBe(false);
+	});
+});
+
+describe('serverPluginSections', () => {
+	test('nothing until a layout has been read', () => {
+		expect(serverPluginSections()).toEqual([]);
+	});
+
+	test('the plugin rows of the layout that was read, and only those', () => {
+		const pluginRow = {kind: 'pluginDynamic', type: 'none', enabled: true, order: 1, pluginSource: 'collections', pluginAdditionalData: 'c1'};
+		homeRowsFromProfile({
+			homeSections: [
+				{type: 'resume', enabled: true, order: 0},
+				pluginRow,
+				{type: 'mediabar', enabled: false, order: 2}
+			]
+		});
+		expect(serverPluginSections()).toEqual([pluginRow]);
 	});
 });

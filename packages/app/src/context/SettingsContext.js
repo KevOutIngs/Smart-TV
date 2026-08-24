@@ -1,6 +1,7 @@
 import {createContext, useContext, useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {getFromStorage, saveToStorage} from '../services/storage';
 import {getMoonfinSettings, getMoonfinThemes, saveMoonfinProfile, moonfinPing} from '../services/seerrApi';
+import {mergeServerPluginSections, pluginSectionsFromServer} from '../views/Settings/homeSectionsModel';
 import {parseThemeSpec} from '../theme/themeSpec';
 import {normalizeOverlayColorKey} from '../theme/overlayColors';
 import {noteAnsweredSettings, SETUP_QUESTION_KEYS} from '../utils/setupWizardGate';
@@ -12,6 +13,7 @@ import {
 	TV_TO_SERVER_ROW,
 	hasSeenServerLayout,
 	homeRowsFromProfile,
+	serverPluginSections,
 	homeRowsToRowOrder,
 	homeRowsToSections,
 	mergeHomeRows
@@ -272,10 +274,16 @@ export const profileToLocal = (serverProfile) => {
 	return local;
 };
 
-export const localToProfile = (localSettings) => {
+// With a key list only those keys go out. Every value sent is stored as the
+// viewer's own choice from then on and outranks what the admin sets later, so the
+// automatic push names what changed. Without a list the whole profile goes, which
+// is what a deliberate sync wants.
+export const localToProfile = (localSettings, keys) => {
+	const wanted = keys ? new Set(keys) : null;
 	const profile = {};
 	for (const key of SYNCABLE_KEYS) {
 		if (key === 'homeRows') continue;
+		if (wanted && !wanted.has(key)) continue;
 		const value = localSettings[key];
 		if (value === undefined || value === null) continue;
 		const serverKey = LOCAL_TO_SERVER[key] || key;
@@ -289,7 +297,8 @@ export const localToProfile = (localSettings) => {
 	// Send both views or neither. homeRowOrder on its own makes the server throw away the
 	// stored homeSections, whereas sending neither leaves the stored layout alone. That is
 	// what we want before we have read it and know which sections to preserve.
-	if (Array.isArray(localSettings.homeRows) && hasSeenServerLayout()) {
+	const sendsLayout = !wanted || wanted.has('homeRows');
+	if (sendsLayout && Array.isArray(localSettings.homeRows) && hasSeenServerLayout()) {
 		profile.homeSections = homeRowsToSections(localSettings.homeRows);
 		profile.homeRowOrder = homeRowsToRowOrder(localSettings.homeRows);
 	}
@@ -320,7 +329,10 @@ const resolveFromEnvelope = (envelope, adminDefaults) => {
 	const homeRows = homeRowsFromProfile(envelope?.tv)
 		?? homeRowsFromProfile(envelope?.global)
 		?? homeRowsFromProfile(adminDefaults);
-	if (homeRows !== undefined) resolved.homeRows = homeRows;
+	if (homeRows !== undefined) {
+		resolved.homeRows = homeRows;
+		resolved.serverPluginSections = serverPluginSections();
+	}
 	return resolved;
 };
 
@@ -351,7 +363,8 @@ const flushTvProfile = () => {
 	const {updated, serverUrl, token} = pendingPush;
 	pendingPush = null;
 	const sent = [...unpushedKeys];
-	inFlightPush = saveMoonfinProfile('tv', localToProfile(updated), serverUrl, token).then(() => {
+	if (sent.length === 0) return inFlightPush || Promise.resolve();
+	inFlightPush = saveMoonfinProfile('tv', localToProfile(updated, sent), serverUrl, token).then(() => {
 		for (const key of sent) unpushedKeys.delete(key);
 	}).catch(e =>
 		console.warn('[Settings] Failed to push TV profile:', e.message)
@@ -840,6 +853,10 @@ export function SettingsProvider({children}) {
 						: incoming;
 				}
 				const tmdbApiKey = resolved.tmdbApiKey !== undefined ? resolved.tmdbApiKey : prev.tmdbApiKey;
+				const pluginSections = mergeServerPluginSections(
+					prev.pluginSections,
+					pluginSectionsFromServer(resolved.serverPluginSections, {...prev, ...nextValues})
+				);
 				const homeRowsStyle = normalizeHomeRowsStyle(nextValues.homeRowsStyle);
 				const detailScreenStyle = normalizeDetailScreenStyle(nextValues.detailScreenStyle);
 
@@ -855,6 +872,7 @@ export function SettingsProvider({children}) {
 				// Unchanged values kept their previous reference, so comparing identity is
 				// enough here.
 				const changed = tmdbApiKey !== prev.tmdbApiKey ||
+					pluginSections !== prev.pluginSections ||
 					homeRowsStyle !== prev.homeRowsStyle ||
 					detailScreenStyle !== prev.detailScreenStyle ||
 					customThemeId !== prev.customThemeId ||
@@ -866,6 +884,7 @@ export function SettingsProvider({children}) {
 						...prev,
 						...nextValues,
 						tmdbApiKey,
+						pluginSections,
 						homeRowsStyle,
 						detailScreenStyle,
 						customThemeId,
