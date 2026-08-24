@@ -161,6 +161,21 @@ export const useThemeMusic = () => {
 		}
 	}, [getTargetVolume]);
 
+	// Nothing else stops the track once the app leaves the screen, so standby leaves a
+	// looping theme playing out of the speakers. Older sets only fire the prefixed
+	// event, so both are watched.
+	useEffect(() => {
+		const stopWhenHidden = () => {
+			if (document.hidden || document.webkitHidden) stopImmediate();
+		};
+		document.addEventListener('visibilitychange', stopWhenHidden);
+		document.addEventListener('webkitvisibilitychange', stopWhenHidden);
+		return () => {
+			document.removeEventListener('visibilitychange', stopWhenHidden);
+			document.removeEventListener('webkitvisibilitychange', stopWhenHidden);
+		};
+	}, [stopImmediate]);
+
 	useEffect(() => {
 		return () => stopImmediate();
 	}, [stopImmediate]);
