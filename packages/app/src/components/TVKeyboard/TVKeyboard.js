@@ -23,6 +23,7 @@ const URL_CHIPS = ['https://', 'http://', 'www.', 'jellyfin', '.com', '.org', '.
 const EMAIL_CHIPS = ['@gmail.com', '@outlook.com', '@icloud.com', '@yahoo.com', '.com', '.'];
 const SUGGESTION_DEBOUNCE_MS = 280;
 const LONG_PRESS_MS = 500;
+const MIN_POPUP_EDGE_GAP = 16;
 
 const ICON_PATHS = {
 	BACKSPACE: 'M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H7.07L2.4 12l4.66-7H22v14zm-11.59-2L14 13.41 17.59 17 19 15.59 15.41 12 19 8.41 17.59 7 14 10.59 10.41 7 9 8.41 12.59 12 9 15.59z',
@@ -98,8 +99,10 @@ class TVKeyboardHost extends Component {
 		this.pendingAlternate = false;
 		this.suggestTimer = null;
 		this.holdTimer = null;
+		this.enterHoldTimer = null;
 		this.suppressClick = false;
 		this.panelRef = null;
+		this.popupRef = null;
 		this.gridRef = null;
 		this.paletteSource = null;
 		this.palette = null;
@@ -107,6 +110,12 @@ class TVKeyboardHost extends Component {
 
 	componentDidMount() {
 		this.unregister = registerKeyboardHost(this);
+	}
+
+	componentDidUpdate(prevProps, prevState) {
+		// Only when a row opens. Stepping along it leaves the box where it was, and
+		// measuring on every press costs a layout the sets here can feel.
+		if (this.state.popup && this.state.popup.options !== prevState.popup?.options) this.clampPopup();
 	}
 
 	componentWillUnmount() {
@@ -154,8 +163,10 @@ class TVKeyboardHost extends Component {
 		this.pause.resume();
 		clearTimeout(this.suggestTimer);
 		clearTimeout(this.holdTimer);
+		clearTimeout(this.enterHoldTimer);
 		this.suggestTimer = null;
 		this.holdTimer = null;
+		this.enterHoldTimer = null;
 		this.enterHeld = false;
 		this.pendingAlternate = false;
 		this.suppressClick = false;
@@ -356,7 +367,24 @@ class TVKeyboardHost extends Component {
 	openAlternates(key, viaHold) {
 		const options = alternatesFor(key);
 		if (!options) return;
-		this.setState({popup: {options, index: 0, awaitRelease: !!viaHold}});
+		this.setState({popup: {options, index: 0, awaitRelease: !!viaHold, shift: 0}});
+	}
+
+	setPopupRef = (node) => {
+		this.popupRef = node;
+	};
+
+	// The row is centred on its key, so one near either end of the keyboard hangs off
+	// the screen. How far it hangs off is only known once it has been laid out.
+	clampPopup() {
+		const {popup} = this.state;
+		if (!popup || !this.popupRef) return;
+		const box = this.popupRef.getBoundingClientRect();
+		const overLeft = MIN_POPUP_EDGE_GAP - box.left;
+		const overRight = box.right - (window.innerWidth - MIN_POPUP_EDGE_GAP);
+		const shift = overLeft > 0 ? overLeft : (overRight > 0 ? -overRight : 0);
+		if (!shift) return;
+		this.setState({popup: {...popup, shift}});
 	}
 
 	commitAlternate(value) {
@@ -452,7 +480,16 @@ class TVKeyboardHost extends Component {
 			}
 			const key = this.selectedKey();
 			if (alternatesFor(key)) {
+				// Timed rather than counting repeats, since the sets here dont all send
+				// a fresh keydown while the button stays down.
 				this.pendingAlternate = true;
+				clearTimeout(this.enterHoldTimer);
+				this.enterHoldTimer = setTimeout(() => {
+					this.enterHoldTimer = null;
+					if (!this.pendingAlternate) return;
+					this.pendingAlternate = false;
+					this.openAlternates(this.selectedKey(), true);
+				}, LONG_PRESS_MS);
 				return;
 			}
 			this.act(key);
@@ -499,6 +536,8 @@ class TVKeyboardHost extends Component {
 		const code = e.keyCode || e.which;
 		if (code !== 13) return;
 		const {popup} = this.state;
+		clearTimeout(this.enterHoldTimer);
+		this.enterHoldTimer = null;
 		if (popup?.awaitRelease) {
 			this.setState({popup: {...popup, awaitRelease: false}});
 			this.enterHeld = false;
@@ -588,8 +627,14 @@ class TVKeyboardHost extends Component {
 		const {popup} = this.state;
 		return (
 			<div
+				ref={this.setPopupRef}
 				className={css.alternatesPopup}
-				style={{background: palette.panel, border: palette.panelBorder, borderRadius: palette.panelRadius}}
+				style={{
+					background: palette.panel,
+					border: palette.panelBorder,
+					borderRadius: palette.panelRadius,
+					marginLeft: popup.shift
+				}}
 			>
 				{popup.options.map((option, index) => {
 					const isSelected = index === popup.index;
