@@ -1,5 +1,4 @@
 import {useCallback} from 'react';
-import $L from '@enact/i18n/$L';
 
 import {getImageUrl} from '../../utils/helpers';
 import {hidesMediaDescription, seriesThumbUrl} from './detailsMedia';
@@ -25,7 +24,7 @@ const NextUpCard = ({episode, title, serverUrl, settings, onSelectItem}) => {
 	return (
 		<RowContainer className={css.section}>
 			<div className={css.sectionHeader}>
-				<h3 className={css.sectionTitle}>{$L(title)}</h3>
+				<h3 className={css.sectionTitle}>{title}</h3>
 			</div>
 			<SpottableDiv className={css.nextUpCard} onClick={handleClick}>
 				<div className={css.nextUpThumb}>

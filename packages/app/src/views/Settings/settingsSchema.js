@@ -157,7 +157,7 @@ export const SETTINGS_SCHEMA = [
 						action: (ctx) => ctx.actions.openPinCode()
 					},
 					{kind: KIND.SECTION, id: 'accountPreferences', label: () => $L('Account Preferences')},
-					{kind: KIND.OPTION, key: 'uiLanguage', label: () => $L('Interface Language'), options: getUiLanguageOptions, fallback: () => $L('English'), icon: 'language'},
+					{kind: KIND.OPTION, key: 'uiLanguage', label: () => $L('Interface Language'), options: getUiLanguageOptions, fallback: () => 'English (US)', icon: 'language'},
 					{kind: KIND.OPTION, key: 'serverSortBy', label: () => $L('Sort Servers By'), options: getServerSortOptions, fallback: () => $L('Server Name'), icon: 'swap_horiz'},
 					{kind: KIND.SECTION, id: 'privacySafety', label: () => $L('Privacy & Safety')},
 					{

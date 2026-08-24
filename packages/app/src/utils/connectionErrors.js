@@ -1,3 +1,5 @@
+import $L from '@enact/i18n/$L';
+
 export const TIMEOUT = 'timeout';
 export const DNS_OR_NETWORK = 'network';
 export const INVALID_ADDRESS = 'invalid_address';
@@ -9,28 +11,30 @@ export const INSECURE_CERT = 'insecure_cert';
 
 export const MIN_SERVER_VERSION = '10.9.0';
 
+// Looked up rather than stored, because $L only has the strings once the locale
+// chunk has landed and these modules are imported well before that.
 const MESSAGES = {
-	[TIMEOUT]: 'Connection timed out. Check the address and your network.',
-	[DNS_OR_NETWORK]: 'Could not reach server. Check the address and that the server is running.',
-	[INVALID_ADDRESS]: 'Invalid server address format.',
-	[SERVER_NOT_JELLYFIN]: 'Server responded but does not appear to be Jellyfin or Emby.',
-	[VERSION_UNSUPPORTED]: 'Server version is not supported. Minimum: ' + MIN_SERVER_VERSION + '.',
-	[AUTH_FAILED]: 'Invalid username or password.',
-	[SERVER_ERROR]: 'Server error. Please try again later.',
-	[INSECURE_CERT]: 'Your TV rejected this server\'s security certificate. Check the TV\'s date & time, update webOS, or use a server whose certificate your TV trusts. Public servers using Let\'s Encrypt may not work on older TVs.'
+	[TIMEOUT]: () => $L('Connection timed out. Check the address and your network.'),
+	[DNS_OR_NETWORK]: () => $L('Could not reach server. Check the address and that the server is running.'),
+	[INVALID_ADDRESS]: () => $L('Invalid server address format.'),
+	[SERVER_NOT_JELLYFIN]: () => $L('Server responded but does not appear to be Jellyfin or Emby.'),
+	[VERSION_UNSUPPORTED]: () => $L('Server version is not supported. Minimum: {version}').replace('{version}', MIN_SERVER_VERSION) + '.',
+	[AUTH_FAILED]: () => $L('Invalid username or password.'),
+	[SERVER_ERROR]: () => $L('Server error. Please try again later.'),
+	[INSECURE_CERT]: () => $L('Your TV rejected this server\'s security certificate. Check the TV\'s date & time, update webOS, or use a server whose certificate your TV trusts. Public servers using Let\'s Encrypt may not work on older TVs.')
 };
 
 const LOGIN_MESSAGES = {
-	[AUTH_FAILED]: 'Invalid username or password.',
-	[TIMEOUT]: 'Server timed out during login.'
+	[AUTH_FAILED]: () => $L('Invalid username or password.'),
+	[TIMEOUT]: () => $L('Server timed out during login.')
 };
 
 export function getConnectionMessage (type) {
-	return MESSAGES[type] || 'Failed to connect. Check the address and try again.';
+	return MESSAGES[type] ? MESSAGES[type]() : $L('Failed to connect. Check the address and try again.');
 }
 
 export function getLoginMessage (type) {
-	return LOGIN_MESSAGES[type] || 'Login failed. Please try again.';
+	return LOGIN_MESSAGES[type] ? LOGIN_MESSAGES[type]() : $L('Login failed. Please try again.');
 }
 
 export function classifyError (err) {

@@ -1,4 +1,5 @@
 import {createContext, useContext, useState, useEffect, useCallback, useMemo, useRef} from 'react';
+import $L from '@enact/i18n/$L';
 import * as jellyfinApi from '../services/jellyfinApi';
 import {initStorage, getFromStorage, saveToStorage, removeFromStorage} from '../services/storage';
 import * as multiServerManager from '../services/multiServerManager';
@@ -177,7 +178,7 @@ export const AuthProvider = ({children}) => {
 				const url = parseUrl(server);
 				finalServerName = url.hostname;
 			} catch (e) {
-				finalServerName = 'Media Server';
+				finalServerName = $L('Media Server');
 			}
 		}
 
@@ -237,7 +238,7 @@ export const AuthProvider = ({children}) => {
 				const url = parseUrl(server);
 				finalServerName = url.hostname;
 			} catch (e) {
-				finalServerName = 'Media Server';
+				finalServerName = $L('Media Server');
 			}
 		}
 

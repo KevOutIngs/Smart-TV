@@ -594,6 +594,9 @@ async function main() {
 	// for configured locales, removing ~5.5 MB of unused formatting data.
 	log('Pruning ilib locale data...');
 	require(path.join(REPO_ROOT, 'scripts', 'prune-ilib-locales.js'))(DIST);
+
+	// Drop the per-locale strings.json copies the bundle already carries.
+	require(path.join(REPO_ROOT, 'scripts', 'prune-bundled-strings.js'))(DIST);
 	success('Pruned ilib locale data');
 	
 	// Step 6 & 7: Determine output filename and clean previous output

@@ -1576,14 +1576,33 @@ try {
 	}
 } catch (e) { /* use default */ }
 
-// Pre-populate ilib.data with all locale strings so loadData() finds them
-// cached and skips synchronous XHR (which fails silently on Tizen).
-// ilib keys use underscores and path segments: pt-BR -> strings_pt_BR
-const localeContext = require.context('../../resources', true, /^\.[\/][a-z]{2}(-[A-Z]{2})?\/strings\.json$/);
-localeContext.keys().forEach((key) => {
-	const lang = key.split('/')[1].replace('-', '_').replace('/', '_');
-	ilib.data['strings_' + lang] = localeContext(key);
-});
+// Pre-populate ilib.data with the locale strings so loadData() finds them cached
+// and skips synchronous XHR, which fails silently on Tizen. Only the locale the
+// app boots into is fetched, since a language change reloads the app and bundling
+// every locale eagerly would add megabytes to main.js. ilib keys use underscores
+// and path segments, so pt-BR becomes strings_pt_BR.
+const localeContext = require.context('../../resources', true, /^\.[\/][^/]+\/strings\.json$/, 'lazy');
+
+// ilib merges root, then language, then language-region, so a regional locale
+// needs its base language loaded alongside it for anything the region file
+// leaves out.
+const localeChain = (locale) => {
+	const [language, region] = String(locale || '').split('-');
+	if (!language) return [];
+	return region ? [language, language + '-' + region] : [language];
+};
+
+export const localeStringsReady = Promise.all(
+	localeChain(storedLocale).map((dir) => {
+		const key = './' + dir + '/strings.json';
+		if (localeContext.keys().indexOf(key) === -1) return null;
+		return localeContext(key).then((strings) => {
+			ilib.data['strings_' + dir.replace('-', '_')] = strings.default || strings;
+		}, () => {
+			// A missing chunk just means that locale falls back to English.
+		});
+	})
+);
 
 const AppBase = (props) => (
 	<SettingsProvider>

@@ -1520,7 +1520,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		const hasVideoStream = !!session?.mediaSource?.MediaStreams?.some((s) => s.Type === 'Video');
 		const isAudioOnlySession = !!session?.mediaSource && !hasVideoStream;
 		if (isAudioOnlySession) {
-			errorMessage = 'Audio playback failed for this track on this device.';
+			errorMessage = $L('Audio playback failed for this track on this device.');
 			destroyHlsPlayer();
 			await cleanupVideoElement(videoRef.current);
 			setError(errorMessage);

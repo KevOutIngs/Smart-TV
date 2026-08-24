@@ -6,7 +6,7 @@ import 'whatwg-fetch';
 
 import {createRoot, hydrateRoot} from 'react-dom/client';
 
-import App from './App';
+import App, {localeStringsReady} from './App';
 import {isTizen} from './platform';
 import {registerKeys, ESSENTIAL_KEY_NAMES} from './utils/keys';
 
@@ -93,11 +93,15 @@ if (isTizen()) {
 const appElement = (<App />);
 
 if (typeof window !== 'undefined') {
-	if (ENACT_PACK_ISOMORPHIC) {
-		hydrateRoot(document.getElementById('root'), appElement);
-	} else {
-		createRoot(document.getElementById('root')).render(appElement);
-	}
+	// The locale strings arrive in their own chunk, so hold the first render until
+	// they land. Otherwise the app paints English and swaps a frame later.
+	localeStringsReady.then(() => {
+		if (ENACT_PACK_ISOMORPHIC) {
+			hydrateRoot(document.getElementById('root'), appElement);
+		} else {
+			createRoot(document.getElementById('root')).render(appElement);
+		}
+	});
 }
 
 export default appElement;

@@ -160,7 +160,7 @@ const ClassicDetailScreen = ({
 
 		<div className={css.sectionsContainer} onKeyDown={handleSectionKeyDown}>
 			{nextUp.length > 0 && (
-				<NextUpCard episode={nextUp[0]} title="Next Up" serverUrl={serverUrl} settings={settings} onSelectItem={onSelectItem} />
+				<NextUpCard episode={nextUp[0]} title={$L('Next Up')} serverUrl={serverUrl} settings={settings} onSelectItem={onSelectItem} />
 			)}
 
 			{isSeries && seasons.length > 0 && (
@@ -205,7 +205,7 @@ const ClassicDetailScreen = ({
 			)}
 
 			{isEpisode && nextEpisode && (
-				<NextUpCard episode={nextEpisode} title="Next Episode" serverUrl={serverUrl} settings={settings} onSelectItem={onSelectItem} />
+				<NextUpCard episode={nextEpisode} title={$L('Next Episode')} serverUrl={serverUrl} settings={settings} onSelectItem={onSelectItem} />
 			)}
 
 			{isEpisode && episodes.length > 0 && (

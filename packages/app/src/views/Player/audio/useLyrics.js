@@ -1,4 +1,5 @@
 import {useState, useEffect, useMemo} from 'react';
+import $L from '@enact/i18n/$L';
 import {api as jellyfinApi, createApiForServer} from '../../../services/jellyfinApi';
 import {parseLyricsResponse} from '../PlayerConstants';
 
@@ -35,7 +36,7 @@ const useLyrics = (item, isAudioMode, currentTime) => {
 				if (cancelled) return;
 				setLines([]);
 				if (err?.status && err.status !== 404) {
-					setError('Unable to load lyrics right now.');
+					setError($L('Unable to load lyrics right now.'));
 				}
 			} finally {
 				if (!cancelled) setIsLoading(false);

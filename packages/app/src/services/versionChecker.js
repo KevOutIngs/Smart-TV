@@ -5,6 +5,8 @@
  * the platform-specific asset (.ipk for webOS, .wgt for Tizen).
  */
 
+import $L from '@enact/i18n/$L';
+
 import {getFromStorage, saveToStorage} from './storage';
 import {isWebOS, isTizen} from '../platform';
 import packageJson from '../../package.json';
@@ -182,7 +184,7 @@ const fetchLatestRelease = async () => {
  * @returns {string} Formatted text (truncated)
  */
 export const formatReleaseNotes = (notes) => {
-	if (!notes) return 'A new version is available. Visit GitHub to download.';
+	if (!notes) return $L('A new version is available. Visit GitHub to download.');
 
 	// Keep full notes, only clean up links for display
 	let formatted = notes

@@ -187,6 +187,10 @@ try {
 	console.log('\n Pruning ilib locale data...');
 	require(path.join(ROOT_DIR, 'scripts', 'prune-ilib-locales.js'))(DIST_DIR);
 
+	// Drop the per-locale strings.json copies the bundle already carries.
+	console.log('\n Pruning bundled translation copies...');
+	require(path.join(ROOT_DIR, 'scripts', 'prune-bundled-strings.js'))(DIST_DIR);
+
 	// Remove unused font weights to reduce size
 	const museoDir = findDir(DIST_DIR, 'MuseoSans');
 	if (museoDir) {

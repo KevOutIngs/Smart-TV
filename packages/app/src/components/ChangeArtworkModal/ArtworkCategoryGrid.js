@@ -20,7 +20,7 @@ const ResolutionChip = ({resolution, active, onSelect}) => {
 			className={`${css.resolutionChip} ${active ? css.activeChip : ''}`}
 			onClick={handleClick}
 		>
-			{resolution}
+			{$L(resolution)}
 		</SpottableButton>
 	);
 };

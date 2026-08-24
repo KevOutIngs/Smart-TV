@@ -242,7 +242,9 @@ export const getOptions = () => {
 			if (cur == null) return;
 			out.push({
 				id: opt.id,
-				label: opt.label,
+				// Only our own labels get translated. The choices are raw values the
+				// emulator matches on.
+				label: $L(opt.label),
 				choices: opt.choices.map((c) => ({value: c, label: c})),
 				current: cur
 			});

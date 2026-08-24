@@ -31,7 +31,7 @@ const ComicViewer = ({item, serverUrl, accessToken, onClose}) => {
 				const downloadUrl = `${baseUrl}/Items/${item.Id}/Download?${getTokenParam(item._serverType)}=${encodeURIComponent(token)}`;
 
 				const response = await fetch(downloadUrl);
-				if (!response.ok) throw new Error('Download failed');
+				if (!response.ok) throw new Error($L('Download failed'));
 
 				const arrayBuffer = await response.arrayBuffer();
 				const zip = await JSZip.loadAsync(arrayBuffer);
@@ -71,7 +71,7 @@ const ComicViewer = ({item, serverUrl, accessToken, onClose}) => {
 				}
 			} catch (err) {
 				if (!cancelled) {
-					setError(err.message || 'Failed to open comic');
+					setError(err.message || $L('Failed to open comic'));
 					setLoading(false);
 				}
 			}
