@@ -67,7 +67,7 @@ const ModernDetailContent = (props) => {
 		backdropUrl, posterUrl, logoUrl, onLogoError,
 		year, runtime, endsAt, officialRating, seasonCount, genres, tagline,
 		hasPlaybackPosition, resumeTimeText,
-		seasons, episodes, similar, extras, cast, crew = [], nextUp, collectionItems, albumTracks, artistAlbums, playlistItems, personMovies, personSeries, birthDate, birthPlace, episodeRatings,
+		seasons, episodes, similar, extras, cast, crew = [], nextUp, collectionItems, parentCollection = [], parentCollectionName, albumTracks, artistAlbums, playlistItems, personMovies, personSeries, birthDate, birthPlace, episodeRatings,
 		techBadges = [], techSize, overviewBackRef,
 		mediaSource, supportsMediaSourceSelection, hasMultipleVersions, hasMultipleAudio, hasMultipleServers,
 		handlePlay, handleResume, handleShuffle, handleTrailer, handleToggleWatched, handleToggleFavorite, handleGoToSeries,
@@ -270,10 +270,11 @@ const ModernDetailContent = (props) => {
 		if (item.Chapters?.length) list.push({id: 'chapters', label: $L('Chapters')});
 		if (extras.length) list.push({id: 'extras', label: $L('Extras')});
 		if (supportsMediaSourceSelection && mediaSource?.MediaStreams?.length) list.push({id: 'details', label: $L('Details')});
+		if (parentCollection.length) list.push({id: 'collection', label: parentCollectionName || $L('Collection')});
 		if (similar.length) list.push({id: 'similar', label: $L('More Like This')});
 		if (seerr.isActive) list.push({id: 'seerr', label: seerr.displayName});
 		return list;
-	}, [isSeries, seasons.length, isSeason, isEpisode, episodes.length, isPerson, personMovies.length, personSeries.length, isAlbum, isPlaylist, albumTracks.length, playlistItems.length, isMusicArtist, artistAlbums.length, isBoxSet, collectionItems.length, cast.length, crew.length, item.Studios, item.Chapters, extras.length, supportsMediaSourceSelection, mediaSource, similar.length, seerr.isActive, seerr.displayName]);
+	}, [isSeries, seasons.length, isSeason, isEpisode, episodes.length, isPerson, personMovies.length, personSeries.length, isAlbum, isPlaylist, albumTracks.length, playlistItems.length, isMusicArtist, artistAlbums.length, isBoxSet, collectionItems.length, parentCollection.length, parentCollectionName, cast.length, crew.length, item.Studios, item.Chapters, extras.length, supportsMediaSourceSelection, mediaSource, similar.length, seerr.isActive, seerr.displayName]);
 
 	const [activeTab, setActiveTab] = useState(null);
 	// Expanded Tabs on keeps the first tab open and lets focus follow selection.
@@ -531,6 +532,8 @@ const ModernDetailContent = (props) => {
 				return renderGrid(artistAlbums, 'square');
 			case 'items':
 				return renderGrid(collectionItems, 'portrait');
+			case 'collection':
+				return renderGrid(parentCollection, 'portrait');
 			case 'similar':
 				return renderGrid(similar, 'portrait');
 			case 'cast':

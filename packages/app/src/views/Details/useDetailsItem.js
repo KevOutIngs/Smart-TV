@@ -5,6 +5,7 @@ import * as playback from '../../services/playback';
 import {fetchTmdbSeasonRatings, resolveSeriesTmdbId, isRatingSourceAllowed} from '../../services/mdblistApi';
 import {getItemSubtitlePref, getSeriesSubtitlePref, getSeriesAudioPref} from '../../services/subtitlePrefs';
 import {fromServerStream, matchSeriesTrackIndex} from '../../utils/seriesTrackPrefs';
+import {findParentCollection} from './parentCollection';
 
 // Everything the screen shows about one item. The item itself is fetched first and rendered
 // on its own, then the rows that hang off it fill in behind, because waiting for all of them
@@ -216,25 +217,26 @@ const useDetailsItem = ({itemId, initialItem, effectiveApi, effectiveServerUrl, 
 				const needsExtras = data.Type === 'Movie' || data.Type === 'Episode' || data.Type === 'Video';
 				const needsBoxSet = data.Type === 'Movie' || data.Type === 'Video';
 
-				const [similarData, extrasData, ancestorsData] = await Promise.all([
+				const [similarData, extrasData, boxSet] = await Promise.all([
 					needsSimilar ? effectiveApi.getSimilar(itemId).catch(() => null) : Promise.resolve(null),
 					needsExtras ? effectiveApi.getSpecialFeatures(itemId).catch(() => null) : Promise.resolve(null),
-					needsBoxSet ? effectiveApi.getAncestors(itemId).catch(() => null) : Promise.resolve(null)
+					needsBoxSet ? findParentCollection(effectiveApi, data).catch(() => null) : Promise.resolve(null)
 				]);
 
 				if (similarData) setSimilar(tagWithServerInfo(similarData.Items || []));
 				if (extrasData) setExtras(tagWithServerInfo(extrasData.filter(e => e.Id !== itemId)));
-				if (ancestorsData) {
-					const boxSet = ancestorsData.find(a => a.Type === 'BoxSet') || null;
-					if (boxSet) {
+				if (boxSet) {
+					const colData = await effectiveApi.getItems({
+						ParentId: boxSet.Id,
+						SortBy: 'PremiereDate,SortName',
+						SortOrder: 'Ascending',
+						Fields: 'PrimaryImageAspectRatio,ProductionYear'
+					}).catch(() => null);
+					// A collection holding nothing but the title being looked at says nothing.
+					const members = colData?.Items || [];
+					if (members.length > 1) {
 						setParentCollectionName(boxSet.Name || $L('Collection'));
-						const colData = await effectiveApi.getItems({
-							ParentId: boxSet.Id,
-							SortBy: 'PremiereDate,SortName',
-							SortOrder: 'Ascending',
-							Fields: 'PrimaryImageAspectRatio,ProductionYear'
-						}).catch(() => null);
-						if (colData) setParentCollection(tagWithServerInfo(colData.Items || []));
+						setParentCollection(tagWithServerInfo(members));
 					}
 				}
 
