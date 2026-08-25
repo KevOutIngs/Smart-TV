@@ -29,6 +29,10 @@ export const getQualityPresets = () => (_qualityPresets ??= [
 
 export const CONTROLS_HIDE_DELAY = 5000;
 
+// Only the skip prompt waits on this and it runs alongside playback, so waiting out
+// a slow answer costs nothing and losing the prompt for the episode costs the viewer.
+export const SEGMENT_FETCH_TIMEOUT = 20000;
+
 const MaterialIcon = ({path}) => (
 	<svg viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" focusable="false">
 		<path d={path} />

@@ -37,7 +37,7 @@ import useAudioTransport from './audio/useAudioTransport';
 import useLyrics from './audio/useLyrics';
 import {handleAudioFocusKey, exitAudioPanel, nextAudioFocusRow, AUDIO_FOCUS_IDS} from './audio/audioFocus';
 import useSegmentPopups from './useSegmentPopups';
-import {NextEpisodeContainer, CONTROLS_HIDE_DELAY, withTimeout} from './PlayerConstants';
+import {NextEpisodeContainer, CONTROLS_HIDE_DELAY, withTimeout, SEGMENT_FETCH_TIMEOUT} from './PlayerConstants';
 import NextUpOverlay from './NextUpOverlay';
 import SkipSegmentOverlay from './SkipSegmentOverlay';
 import StillWatchingDialog from './StillWatchingDialog';
@@ -930,6 +930,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			setSubtitleTrackEvents(null);
 			setCurrentSubtitleText(null);
 			setSelectedSubtitleIndex(-1);
+			setMediaSegments(null);
 			setVideoAspectRatio(null);
 			resetPopups(); // eslint-disable-line no-use-before-define
 
@@ -1228,11 +1229,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				if (shouldUseAudioMode) {
 					setControlsVisible(true);
 				} else if (!isLiveTV) {
-					withTimeout(playback.getMediaSegments(item.Id), 4000).then((segments) => {
+					withTimeout(playback.getMediaSegments(item.Id), SEGMENT_FETCH_TIMEOUT).then((segments) => {
 						if (stillCurrent()) setMediaSegments(segments);
 					}).catch((segmentErr) => {
 						console.warn('[Player] Media segment fetch skipped:', segmentErr?.message || segmentErr);
-						if (stillCurrent()) setMediaSegments({introStart: null, introEnd: null, creditsStart: null});
 					});
 
 					// A queue sets its own order. Running off the end of one, or playing a

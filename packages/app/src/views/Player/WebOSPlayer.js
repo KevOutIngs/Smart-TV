@@ -47,7 +47,7 @@ import {driftAction, driftMs, needsSeek, correctionOptions, DRIFT_CHECK_MS} from
 import {createReadyGate} from '../../utils/syncReady';
 import {
 	NextEpisodeContainer, CONTROLS_HIDE_DELAY,
-	withTimeout
+	withTimeout, SEGMENT_FETCH_TIMEOUT
 } from './PlayerConstants';
 import {
 	toSubtitleLanguage,
@@ -597,6 +597,8 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			initialSubtitleIndex
 		});
 
+		let cancelled = false;
+
 		const loadMedia = async () => {
 			isCleaningUpRef.current = false;
 			hasReportedStartRef.current = false;
@@ -607,6 +609,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			}
 			setIsLoading(true);
 			setError(null);
+			setMediaSegments(null);
 			setHasTriedTranscode(false);
 			setCurrentTime(0);
 			setSeekPosition(0);
@@ -850,13 +853,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				if (shouldUseAudioMode) {
 					setControlsVisible(true);
 				} else if (!isLiveTV) {
-					try {
-						const segments = await withTimeout(playback.getMediaSegments(item.Id), 4000);
-						setMediaSegments(segments);
-					} catch (segmentErr) {
+					withTimeout(playback.getMediaSegments(item.Id), SEGMENT_FETCH_TIMEOUT).then((segments) => {
+						if (!cancelled) setMediaSegments(segments);
+					}).catch((segmentErr) => {
 						console.warn('[Player] Media segment fetch skipped:', segmentErr?.message || segmentErr);
-						setMediaSegments({introStart: null, introEnd: null, creditsStart: null});
-					}
+					});
 
 					// A queue sets its own order. Running off the end of one, or playing a
 					// lone episode, falls back to the air order lookup.
@@ -886,6 +887,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		loadMedia();
 
 		return () => {
+			cancelled = true;
 			console.log('[Player] Cleanup running - unmounting or re-rendering');
 
 			if (isCleaningUpRef.current) {
