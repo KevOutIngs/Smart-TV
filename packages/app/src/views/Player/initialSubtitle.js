@@ -132,7 +132,12 @@ const audioIsNative = (audioStream, settings) => {
  * Works out which subtitle track a fresh playback should start on.
  *
  * Returns the stream to use, null to start with subtitles off, or undefined
- * when nothing applies and the caller should leave the selection alone.
+ * when no mode is in play and the caller should leave the selection alone.
+ *
+ * A mode that finds nothing it wants means off rather than undefined. Leaving
+ * the selection alone there hands the choice to whatever the file or the server
+ * defaults to, which is how asking for forced subtitles ends up showing a full
+ * track when the file carries no forced one.
  *
  * A remembered pick wins so a chosen track survives across plays and episodes.
  * The per item index restores the exact track on a replay, and the per series
@@ -178,16 +183,16 @@ export const resolveInitialSubtitle = async (result, item, initialSubtitleIndex,
 	}
 
 	if (settings.subtitleMode === 'always') {
-		return pick('always');
+		return pick('always') || null;
 	}
 
 	if (settings.subtitleMode === 'foreign') {
 		if (audioIsNative(audioStream, settings)) return null;
-		return pick('foreign');
+		return pick('foreign') || null;
 	}
 
 	if (settings.subtitleMode === 'forced') {
-		return pick('forced');
+		return pick('forced') || null;
 	}
 
 	// Default mode defers to the Jellyfin user's own preference, which the server
@@ -199,7 +204,7 @@ export const resolveInitialSubtitle = async (result, item, initialSubtitleIndex,
 			const serverChoice = streams.find((s) => s.index === result.defaultSubtitleStreamIndex);
 			if (serverChoice) return serverChoice;
 		}
-		return pick('flagged');
+		return pick('flagged') || null;
 	}
 
 	return undefined;

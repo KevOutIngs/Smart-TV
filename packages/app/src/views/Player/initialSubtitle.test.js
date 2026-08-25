@@ -24,9 +24,17 @@ describe('resolveInitialSubtitle', () => {
 		expect(picked).toBe(engForced);
 	});
 
-	test('forced mode leaves the selection alone when nothing is forced', async () => {
+	test('forced mode turns subtitles off when nothing is forced', async () => {
+		// Leaving the selection alone here lets a full track the file defaults to
+		// play instead, which is the opposite of what forced was asked for.
 		const picked = await resolveInitialSubtitle({subtitleStreams: [eng, spa]}, item, undefined, {subtitleMode: 'forced'});
-		expect(picked).toBeUndefined();
+		expect(picked).toBeNull();
+	});
+
+	test('default mode turns subtitles off when the server names none and nothing is flagged', async () => {
+		const streams = [{index: 0, language: 'spa'}, {index: 1, language: 'fre'}];
+		const picked = await resolveInitialSubtitle({subtitleStreams: streams}, item, undefined, {subtitleMode: 'default', subtitleLanguage: 'deu'});
+		expect(picked).toBeNull();
 	});
 
 	test('always mode prefers the default track', async () => {
@@ -121,8 +129,13 @@ describe('resolveInitialSubtitle', () => {
 		expect(getSeriesSubtitlePref).not.toHaveBeenCalled();
 	});
 
-	test('no streams at all leaves the selection alone', async () => {
+	test('no streams at all turns subtitles off', async () => {
 		const picked = await resolveInitialSubtitle({}, item, undefined, {subtitleMode: 'forced'});
+		expect(picked).toBeNull();
+	});
+
+	test('a mode this client does not know leaves the selection alone', async () => {
+		const picked = await resolveInitialSubtitle(result(), item, undefined, {subtitleMode: 'something-new'});
 		expect(picked).toBeUndefined();
 	});
 });
