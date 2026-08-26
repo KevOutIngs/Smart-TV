@@ -5,6 +5,7 @@ import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import Image from '@enact/sandstone/Image';
 import {useAuth} from '../../context/AuthContext';
+import {pointerHover} from '../../utils/focusScroll';
 import MediaCard from '../../components/MediaCard';
 import {KEYS} from '../../utils/keys';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -81,6 +82,7 @@ const Person = ({personId, onSelectItem}) => {
 	}, []);
 
 	const handleGridFocus = useCallback((e) => {
+		if (pointerHover()) return;
 		const container = e.currentTarget;
 		const focused = e.target;
 		if (container && focused && container !== focused) {

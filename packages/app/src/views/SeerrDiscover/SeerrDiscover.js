@@ -4,6 +4,7 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 import Spotlight from '@enact/spotlight';
 import $L from '@enact/i18n/$L';
 import {useSeerr} from '../../context/SeerrContext';
+import {pointerHover} from '../../utils/focusScroll';
 import {useSettings} from '../../context/SettingsContext';
 import seerrApi from '../../services/seerrApi';
 import {seerrGenreBackdrop} from '../../utils/seerrGenreArt';
@@ -276,14 +277,17 @@ const DiscoverRow = memo(function DiscoverRow({
 
 		const card = e.target.closest(`.${css.mediaCard}, .${css.genreCard}, .${css.networkCard}, .${css.requestCard}`);
 		const scroller = scrollerRef.current;
+		const hover = pointerHover();
 		if (card && scroller) {
-			const cardRect = card.getBoundingClientRect();
-			const scrollerRect = scroller.getBoundingClientRect();
+			if (!hover) {
+				const cardRect = card.getBoundingClientRect();
+				const scrollerRect = scroller.getBoundingClientRect();
 
-			if (cardRect.left < scrollerRect.left) {
-				scroller.scrollLeft -= (scrollerRect.left - cardRect.left + 50);
-			} else if (cardRect.right > scrollerRect.right) {
-				scroller.scrollLeft += (cardRect.right - scrollerRect.right + 50);
+				if (cardRect.left < scrollerRect.left) {
+					scroller.scrollLeft -= (scrollerRect.left - cardRect.left + 50);
+				} else if (cardRect.right > scrollerRect.right) {
+					scroller.scrollLeft += (cardRect.right - scrollerRect.right + 50);
+				}
 			}
 
 			const cards = scroller.querySelectorAll(`.${css.mediaCard}, .${css.genreCard}, .${css.networkCard}, .${css.requestCard}`);
@@ -293,7 +297,7 @@ const DiscoverRow = memo(function DiscoverRow({
 			}
 		}
 
-		const row = e.target.closest(`.${css.contentRow}`);
+		const row = hover ? null : e.target.closest(`.${css.contentRow}`);
 		if (row) {
 			row.scrollIntoView({behavior: 'smooth', block: 'center'});
 		}

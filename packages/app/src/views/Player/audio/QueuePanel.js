@@ -1,6 +1,7 @@
 import {useCallback} from 'react';
 import $L from '@enact/i18n/$L';
 import {getImageUrl} from '../../../utils/helpers';
+import {pointerHover} from '../../../utils/focusScroll';
 import {SpottableDiv} from '../PlayerConstants';
 
 import css from './QueuePanel.module.less';
@@ -46,7 +47,7 @@ const QueueRow = ({track, isCurrent, serverUrl, focusDisabled, onSelect, onFocus
 const QueuePanel = ({items, currentId, serverUrl, focusDisabled, onSelectTrack, scrollerRef}) => {
 	const handleFocusRow = useCallback((el) => {
 		const container = scrollerRef?.current;
-		if (!container || !el) return;
+		if (!container || !el || pointerHover()) return;
 		// scrollIntoView options are unsupported on webOS 2 and old WebKit
 		container.scrollTop = el.offsetTop - (container.clientHeight / 2) + (el.offsetHeight / 2);
 	}, [scrollerRef]);

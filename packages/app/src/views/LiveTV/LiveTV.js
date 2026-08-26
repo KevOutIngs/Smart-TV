@@ -5,6 +5,7 @@ import Spotlight from '@enact/spotlight';
 import ri from '@enact/ui/resolution';
 import $L from '@enact/i18n/$L';
 import {useAuth} from '../../context/AuthContext';
+import {pointerHover} from '../../utils/focusScroll';
 import {useSettings} from '../../context/SettingsContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {formatClockTime, formatDayLabel} from '../../utils/clock';
@@ -206,6 +207,7 @@ const ProgramCell = memo(({program, channel, left, width, hasTimer, clockDisplay
 	const handleFocus = useCallback((e) => {
 		setFocused(true);
 		onProgramFocus(program, channel);
+		if (pointerHover()) return;
 		const el = e.currentTarget || e.target;
 		if (el) el.scrollIntoView({behavior: 'smooth', block: 'nearest', inline: 'nearest'});
 	}, [program, channel, onProgramFocus]);

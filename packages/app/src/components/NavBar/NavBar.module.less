@@ -27,6 +27,14 @@
 	justify-content: center;
 }
 
+// Opened with a pointer the libraries drop into a panel under the bar. Out of the
+// positioning chain the group hands the panel to the centre wrapper, which sits
+// outside the pill, so the width the pill has left over cant squeeze it and the
+// pill's own side to side scrolling cant crop it.
+.navCenter.menuOpen .librariesGroup {
+	position: static;
+}
+
 // The pill's own color arrives as an inline style, mixed from the navbar color
 // and opacity settings. Fading the element itself would take the labels with it.
 .navPill {
@@ -201,6 +209,27 @@
 	&.expanded .librariesList {
 		max-width: 800px;
 		opacity: 1;
+	}
+
+	// Every library on screen at once, in rows under the bar. A list long enough to
+	// reach the cap scrolls rather than covering what is behind it.
+	&.wrapped .librariesList {
+		position: absolute;
+		top: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 1000px;
+		max-width: 92vw;
+		max-height: 300px;
+		margin-top: 10px;
+		padding: 14px 20px;
+		overflow-x: hidden;
+		overflow-y: auto;
+		flex-wrap: wrap;
+		justify-content: center;
+		border-radius: 24px;
+		background: rgba(var(--theme-surface-rgb, 26, 26, 26), 0.97);
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 	}
 }
 

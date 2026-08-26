@@ -2,6 +2,8 @@ import {useCallback} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 
+import {pointerHover} from '../../utils/focusScroll';
+
 import css from './DetailsTabBar.module.less';
 
 const Pill = Spottable('div');
@@ -17,8 +19,9 @@ const DetailsTabBar = ({tabs, activeId, onSelect, onActivate, expanded = true, s
 
 	const handleFocus = useCallback((ev) => {
 		// With Expanded Tabs on, focus follows selection. Otherwise a tab only
-		// opens when it's clicked.
-		if (!expanded) return;
+		// opens when it's clicked. A pointer sweeping across the bar would flip
+		// the content on every tab it crossed, so it has to click as well.
+		if (!expanded || pointerHover()) return;
 		const id = ev.currentTarget.dataset.id;
 		if (id) onSelect?.(id);
 	}, [expanded, onSelect]);

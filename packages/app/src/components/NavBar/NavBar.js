@@ -1,4 +1,4 @@
-import {memo, useCallback, useMemo} from 'react';
+import {memo, useCallback, useMemo, useState} from 'react';
 import $L from '@enact/i18n/$L';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import {useSettings} from '../../context/SettingsContext';
@@ -12,6 +12,7 @@ import useClock from '../../hooks/useClock';
 import {shadowToCss, toCssColor, toCssColorWithAlpha} from '../../theme/themeSpec';
 import {resolveOverlayColor} from '../../theme/overlayColors';
 import {CONTENT_FOCUS_TARGETS, focusFirstContentTarget} from '../../utils/navFocusTargets';
+import {pointerHover} from '../../utils/focusScroll';
 import {KEYS} from '../../utils/keys';
 import NavLibraries from './NavLibraries';
 import NavPillButton from './NavPillButton';
@@ -44,6 +45,7 @@ const NavBar = ({
 	const {isEnabled: seerrEnabled, displayName} = useSeerr();
 	const {isInGroup} = useSyncPlay();
 	const {messages, unreadCount} = useServerMessages();
+	const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
 	const showClock = settings.showClock !== false;
 	const clock = useClock(showClock);
 
@@ -86,6 +88,7 @@ const NavBar = ({
 	}, [showSyncPlay, showSeerr, showFavorites, showGenres, showShuffle]);
 
 	const handlePillFocus = useCallback((e) => {
+		if (pointerHover()) return;
 		e.target?.scrollIntoView?.({behavior: 'smooth', block: 'nearest', inline: 'nearest'});
 	}, []);
 
@@ -114,7 +117,7 @@ const NavBar = ({
 				<NavUserButton onClick={onUserMenu} />
 			</div>
 
-			<div className={css.navCenter}>
+			<div className={libraryMenuOpen ? `${css.navCenter} ${css.menuOpen}` : css.navCenter}>
 				<div className={css.navPill} style={navPillStyle} onFocus={handlePillFocus}>
 					<NavPillButton Icon={HomeIcon} slot={nextSlot()} label={$L('Home')} onClick={onHome} spotlightId="navbar-home" isDefault />
 					<NavPillButton Icon={SearchIcon} slot={nextSlot()} label={$L('Search')} onClick={onSearch} spotlightId="navbar-search" />
@@ -146,6 +149,7 @@ const NavBar = ({
 							activeView={activeView}
 							onSelectLibrary={onSelectLibrary}
 							leftTargetId={librariesLeftTargetId}
+							onMenuOpen={setLibraryMenuOpen}
 						/>
 					)}
 

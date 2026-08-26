@@ -5,6 +5,7 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 import Spotlight from '@enact/spotlight';
 import {isPaused} from '@enact/spotlight/Pause';
 import {useAuth} from '../../context/AuthContext';
+import {pointerHover} from '../../utils/focusScroll';
 import {useSettings} from '../../context/SettingsContext';
 import {useSeerr} from '../../context/SeerrContext';
 import * as connectionPool from '../../services/connectionPool';
@@ -342,6 +343,7 @@ const Search = ({onSelectItem, onSelectSeerrItem, onSelectPerson, onSelectGame, 
 	}, [allRows.length]);
 
 	const handleRowFocus = useCallback((rowId) => (e) => {
+		if (pointerHover()) return;
 		const card = e.target.closest('[data-spotlight-id]');
 		const scroller = scrollerRefs.current[rowId];
 		if (!card || !scroller) return;

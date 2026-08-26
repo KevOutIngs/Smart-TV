@@ -4,6 +4,7 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 import Spotlight from '@enact/spotlight';
 import $L from '@enact/i18n/$L';
 import {useAuth} from '../../context/AuthContext';
+import {pointerHover} from '../../utils/focusScroll';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import {formatDayLabel} from '../../utils/clock';
 import {formatDuration} from '../../utils/helpers';
@@ -56,6 +57,7 @@ const Card = memo(({payload, imageUrl, title, subtitle, isSeries, onSelect}) => 
 	}, [payload, onSelect]);
 
 	const handleFocus = useCallback((e) => {
+		if (pointerHover()) return;
 		const el = e.currentTarget || e.target;
 		if (el) el.scrollIntoView({behavior: 'smooth', block: 'nearest', inline: 'nearest'});
 	}, []);

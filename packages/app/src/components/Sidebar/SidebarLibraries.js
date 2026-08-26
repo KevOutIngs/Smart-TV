@@ -4,6 +4,7 @@ import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 
 import {ChevronDownIcon, LibrariesIcon} from '../icons/navIcons';
+import {pointerHover} from '../../utils/focusScroll';
 import SidebarItem from './SidebarItem';
 
 import css from './Sidebar.module.less';
@@ -25,6 +26,7 @@ const SidebarLibraries = ({libraries, slot, expanded, onToggle, onSelectLibrary}
 	}, [libraries, onSelectLibrary]);
 
 	const handleLibraryFocus = useCallback((e) => {
+		if (pointerHover()) return;
 		e.target?.scrollIntoView?.({behavior: 'smooth', block: 'nearest'});
 	}, []);
 
