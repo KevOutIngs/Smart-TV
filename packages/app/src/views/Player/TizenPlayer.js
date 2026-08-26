@@ -999,6 +999,27 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				const serverAudio = result.audioStreams?.find(s => s.index === result.defaultAudioStreamIndex);
 				const fileDefaultAudio = result.audioStreams?.find(s => s.isDefault);
 				const autoAudio = preferredAudio || serverAudio || fileDefaultAudio;
+
+				// A remux or transcode carries only the track the server built it around, so
+				// switching on the player cant reach any other one. Direct play gets the
+				// whole file and switches locally. The index stays on the options so a
+				// later renegotiation keeps it.
+				let audioNegotiated = false;
+				if (initialAudioIndex == null && autoAudio && !isLiveTV
+					&& result.playMethod !== playback.PlayMethod.DirectPlay
+					&& autoAudio.index !== result.selectedAudioStreamIndex) {
+					try {
+						playbackInfoOptions.audioStreamIndex = autoAudio.index;
+						const renegotiated = await playback.getPlaybackInfo(item.Id, playbackInfoOptions);
+						if (!stillCurrent()) return;
+						result = renegotiated;
+						applyPlaybackResult(result);
+						audioNegotiated = true;
+					} catch (err) {
+						console.error('[Player] Audio track negotiation failed:', err);
+					}
+				}
+
 				if (initialAudioIndex !== undefined && initialAudioIndex !== null) {
 					setSelectedAudioIndex(initialAudioIndex);
 				} else if (autoAudio) {
@@ -1011,7 +1032,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				let pendingAudioIndex = null;
 				if (initialAudioIndex != null) {
 					pendingAudioIndex = initialAudioIndex;
-				} else if (autoAudio && autoAudio.index !== fileDefaultAudio?.index) {
+				} else if (!audioNegotiated && autoAudio && autoAudio.index !== fileDefaultAudio?.index) {
 					pendingAudioIndex = autoAudio.index;
 				}
 

@@ -669,6 +669,23 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					? result.audioStreams?.find(s => s.index === initialAudioIndex)
 					: autoAudio;
 
+				// A remux or transcode carries only the track the server built it around, so
+				// switching on the player cant reach any other one. Direct play gets the
+				// whole file and switches locally. The index stays on the options so a
+				// later renegotiation keeps it.
+				let audioNegotiated = false;
+				if (initialAudioIndex == null && autoAudio && !isLiveTV
+					&& result.playMethod !== playback.PlayMethod.DirectPlay
+					&& autoAudio.index !== result.selectedAudioStreamIndex) {
+					try {
+						playbackInfoOptions.audioStreamIndex = autoAudio.index;
+						result = await playback.getPlaybackInfo(item.Id, playbackInfoOptions);
+						audioNegotiated = true;
+					} catch (err) {
+						console.error('[Player] Audio track negotiation failed:', err);
+					}
+				}
+
 				// The subtitle track has to be settled before the url reaches the video
 				// element, because a burn in one needs the stream negotiated again and
 				// swapping the source afterwards would restart playback.
@@ -736,7 +753,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				} else if (autoAudio) {
 					setSelectedAudioIndex(autoAudio.index);
 					// Only switch via the audioTracks API when it isn't the file's native default
-					pendingAudioRef.current = autoAudio.index !== defaultAudio?.index
+					pendingAudioRef.current = !audioNegotiated && autoAudio.index !== defaultAudio?.index
 						? {streamIndex: autoAudio.index, audioStreams: result.audioStreams || []}
 						: null;
 				}
