@@ -61,6 +61,8 @@ const AVPLAY_FULLSCREEN_RECT = {x: 0, y: 0, ...AVPLAY_SCREEN};
 
 // The longest a segment skip waits on a session whose position never moves.
 const PLAYBACK_SETTLE_MS = 2000;
+// How long a resume gets to start moving after an error was swallowed in pause.
+const RESUME_CHECK_MS = 5000;
 
 const getRootFontSizePx = () => {
 	if (typeof window === 'undefined' || typeof document === 'undefined') return 24;
@@ -150,6 +152,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const avplayReadyRef = useRef(false);
 	// Whether the pipeline is really running, and the segment skip waiting on it.
 	const playbackMovingRef = useRef(false);
+	// Whether this stream ever ran, and whether it has been reopened since it did.
+	const hasPlayedRef = useRef(false);
+	const hasReopenedRef = useRef(false);
 	const playIssuedAtRef = useRef(0);
 	const lastPolledMsRef = useRef(null);
 	const pendingSegmentSeekRef = useRef(null);
@@ -336,6 +341,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			lastPolledMsRef.current = ms;
 			if (advanced || Date.now() - playIssuedAtRef.current > PLAYBACK_SETTLE_MS) {
 				playbackMovingRef.current = true;
+				hasPlayedRef.current = true;
+				// Running again, so a later stall earns its own reopen. One that never
+				// gets this far keeps the flag, so the next error downgrades instead.
+				hasReopenedRef.current = false;
 				const held = pendingSegmentSeekRef.current;
 				pendingSegmentSeekRef.current = null;
 				if (held != null) seekToSegmentTarget(held); // eslint-disable-line no-use-before-define
@@ -809,7 +818,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 							} else {
 								// the transcode session likely expired while backgrounded
 								console.warn('[Player] AVPlay restore failed, reloading stream');
-								reloadPlaybackRef.current?.();
+								reloadPlaybackRef.current?.().then((reloaded) => {
+									if (!reloaded) setError($L('Playback failed. The file format may not be supported.'));
+								});
 							}
 						});
 						return;
@@ -940,6 +951,9 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			avplayReadyRef.current = false;
 			burnInSubtitleRef.current = null;
 			pausedErrorRef.current = null;
+			hasPlayedRef.current = false;
+			hasReopenedRef.current = false;
+			setHasTriedTranscode(false);
 
 			try {
 				const savedPosition = isLiveTV ? 0 : (item.UserData?.PlaybackPositionTicks || 0);
@@ -1561,6 +1575,15 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			return;
 		}
 
+		// A stream that was running and then died is opened again as it was, since
+		// nothing about it is unplayable. Sitting paused long enough kills the
+		// pipeline that way. Downgrading is for one that never ran at all.
+		if (hasPlayedRef.current && !hasReopenedRef.current && playMethod !== playback.PlayMethod.Transcode) {
+			hasReopenedRef.current = true;
+			console.warn('[Player] Playback died after running, reopening the same stream');
+			if (await reloadPlaybackRef.current?.()) return;
+		}
+
 		if (!hasTriedTranscode && playMethod !== playback.PlayMethod.Transcode) {
 			console.log('[Player] DirectPlay failed, falling back to transcode...');
 			setHasTriedTranscode(true);
@@ -1606,10 +1629,10 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				item,
 				stereoUpmixEnabled: settings.stereoUpmixEnabled
 			});
-			await restartFromResult(result, positionRef.current);
+			return await restartFromResult(result, positionRef.current);
 		} catch (err) {
 			console.error('[Player] Stream reload failed:', err);
-			setError($L('Playback failed. The file format may not be supported.'));
+			return false;
 		}
 	}, [item, selectedQuality, settings.maxBitrate, settings.stereoUpmixEnabled, mediaSourceId, selectedAudioIndex, restartFromResult]);
 
@@ -1652,7 +1675,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				pausedErrorRef.current = null;
 				handleErrorCallbackRef.current?.();
 			}
-		}, 1500);
+		}, RESUME_CHECK_MS);
 	}, []);
 
 	const handlePlayPause = useCallback(() => {
