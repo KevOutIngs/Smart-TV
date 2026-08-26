@@ -4,9 +4,10 @@ import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDeco
 import {useSettings} from '../../context/SettingsContext';
 import {useSeerr} from '../../context/SeerrContext';
 import {useSyncPlay} from '../../context/SyncPlayContext';
+import {useServerMessages} from '../../context/ServerMessagesContext';
 import SeerrIcon from '../icons/SeerrIcon';
 import SyncPlayIcon from '../icons/SyncPlayIcon';
-import {FavoritesIcon, GenresIcon, HomeIcon, SearchIcon, SettingsIcon, ShuffleIcon} from '../icons/navIcons';
+import {FavoritesIcon, GenresIcon, HomeIcon, MessagesIcon, SearchIcon, SettingsIcon, ShuffleIcon} from '../icons/navIcons';
 import useClock from '../../hooks/useClock';
 import {shadowToCss, toCssColor, toCssColorWithAlpha} from '../../theme/themeSpec';
 import {resolveOverlayColor} from '../../theme/overlayColors';
@@ -36,11 +37,13 @@ const NavBar = ({
 	onSettings,
 	onSelectLibrary,
 	onUserMenu,
-	onSyncPlay
+	onSyncPlay,
+	onMessages
 }) => {
 	const {settings, activeTheme} = useSettings();
 	const {isEnabled: seerrEnabled, displayName} = useSeerr();
 	const {isInGroup} = useSyncPlay();
+	const {messages, unreadCount} = useServerMessages();
 	const showClock = settings.showClock !== false;
 	const clock = useClock(showClock);
 
@@ -50,6 +53,8 @@ const NavBar = ({
 	const showSeerr = seerrEnabled && settings.showSeerrButton !== false;
 	const showSyncPlay = settings.syncplayEnabled !== false && settings.showSyncPlayButton !== false;
 	const showLibraries = settings.showLibrariesInToolbar !== false && libraries.length > 0;
+	// Only with something to show, so the menu never has a button that does nothing.
+	const showMessages = settings.showServerMessagesButton === true && messages.length > 0;
 
 	const navPillStyle = useMemo(() => {
 		// The pill wears the overlay color at the chosen opacity, and only a theme
@@ -142,6 +147,10 @@ const NavBar = ({
 							onSelectLibrary={onSelectLibrary}
 							leftTargetId={librariesLeftTargetId}
 						/>
+					)}
+
+					{showMessages && (
+						<NavPillButton Icon={MessagesIcon} slot={nextSlot()} label={$L('Messages')} onClick={onMessages} spotlightId="navbar-messages" badge={unreadCount} />
 					)}
 
 					<NavPillButton Icon={SettingsIcon} slot={nextSlot()} label={$L('Settings')} onClick={onSettings} spotlightId="navbar-settings" />

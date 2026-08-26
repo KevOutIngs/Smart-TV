@@ -291,6 +291,38 @@ export const moonfinPing = async (serverUrl, token) => {
 	}
 };
 
+// The messages the admin wrote for this viewer, as the plugin sends them.
+export const getMoonfinMessages = async (serverUrl, token) => {
+	const sUrl = serverUrl || jellyfinServerUrl;
+	const sToken = token || jellyfinAccessToken;
+	if (!sUrl || !sToken) {
+		throw new Error('Server URL and token required');
+	}
+
+	const result = await fetchRequest({
+		url: `${sUrl}/Moonfin/Messages`,
+		method: 'GET',
+		headers: {
+			'Accept': 'application/json',
+			'Authorization': `MediaBrowser Token="${sToken}"`
+		},
+		timeout: 15000
+	});
+
+	if (!result.success) throw new Error(result.error || 'Network error');
+	if (result.status >= 400) {
+		const error = new Error(`Moonfin messages failed: ${result.status}`);
+		error.status = result.status;
+		throw error;
+	}
+
+	try {
+		return JSON.parse(result.body);
+	} catch (e) {
+		throw new Error('Invalid response from Moonfin Messages');
+	}
+};
+
 export const getMoonfinConfig = async (serverUrl, token) => {
 	const sUrl = serverUrl || jellyfinServerUrl;
 	const sToken = token || jellyfinAccessToken;

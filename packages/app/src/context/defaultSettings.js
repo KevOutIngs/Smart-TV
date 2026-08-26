@@ -249,6 +249,9 @@ export const defaultSettings = {
 	forceTruehdPassthrough: false,
 	blockedRatings: [],
 	showSeerrButton: true,
+	// Off until asked for. An admin who wants it on for everyone can set it in the
+	// plugin's default settings.
+	showServerMessagesButton: false,
 	// Synced but not shown anywhere in this app, so null keeps the TV from stamping a default
 	// of its own over what another client set.
 	showCastButton: null,

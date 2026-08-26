@@ -25,7 +25,9 @@ export const SeerrProvider = ({children}) => {
 	const [displayName, setDisplayName] = useState('Seerr');
 	const [pluginInfo, setPluginInfo] = useState(null);
 	const [streamNotification, setStreamNotification] = useState(null);
-	const [adminMessage, setAdminMessage] = useState(null);
+	// Bumped whenever the server says its messages changed, so the messages
+	// provider knows to ask for them again.
+	const [messagesSignal, setMessagesSignal] = useState(0);
 	const streamRef = useRef({subscription: null, retryTimer: null, retryDelay: STREAM_RECONNECT_MIN_MS});
 	// Tracks the Jellyfin token currently pushed into seerrApi so a user switch can
 	// tell whether it still points at the previous account and needs reconfiguring.
@@ -33,7 +35,6 @@ export const SeerrProvider = ({children}) => {
 	const [moonfinAuthType, setMoonfinAuthTypeState] = useState('jellyfin');
 
 	const dismissStreamNotification = useCallback(() => setStreamNotification(null), []);
-	const dismissAdminMessage = useCallback(() => setAdminMessage(null), []);
 
 	const handleStreamEvent = useCallback((event) => {
 		// Any event proves the connection is healthy, so reset the backoff.
@@ -49,11 +50,10 @@ export const SeerrProvider = ({children}) => {
 			return;
 		}
 
-		if (event.type === 'adminMessage') {
-			const text = typeof event.text === 'string' ? event.text.trim() : '';
-			if (text) {
-				setAdminMessage(text);
-			}
+		// A broadcast is saved as a message set to open the window, so refreshing
+		// is enough for it too.
+		if (event.type === 'adminMessage' || event.type === 'messagesChanged') {
+			setMessagesSignal((n) => n + 1);
 		}
 	}, []);
 
@@ -364,8 +364,7 @@ export const SeerrProvider = ({children}) => {
 			disable,
 			streamNotification,
 			dismissStreamNotification,
-			adminMessage,
-			dismissAdminMessage
+			messagesSignal
 		}}>
 			{children}
 		</SeerrContext.Provider>

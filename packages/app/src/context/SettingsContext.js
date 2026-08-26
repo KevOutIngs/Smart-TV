@@ -236,7 +236,7 @@ export const SYNCABLE_KEYS = [
 	'mergeRadarrSonarrCalendars',
 	'radarrCalendarShowCinema', 'radarrCalendarShowDigital', 'radarrCalendarShowPhysical',
 	'radarrCalendarShowDate', 'sonarrCalendarShowDate', 'sonarrCalendarShowEpisodeInfo',
-	'showSeerrButton',
+	'showSeerrButton', 'showServerMessagesButton',
 	'screensaverMode', 'screensaverClockMode',
 	'navbarAlwaysExpanded', 'oledMode', 'themeMusicLoop',
 	// Settings this app has no screen for. They ride along so a value set on another client

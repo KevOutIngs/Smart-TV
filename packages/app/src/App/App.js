@@ -23,11 +23,12 @@ import {seedLanguagePreferences} from '../utils/languagePrefSeed';
 import {shouldRun as shouldRunSetupWizard, beginRerun as beginSetupWizardRerun} from '../utils/setupWizardGate';
 import {getActiveServer} from '../services/multiServerManager';
 import {SeerrProvider, useSeerr} from '../context/SeerrContext';
+import {ServerMessagesProvider, useServerMessages} from '../context/ServerMessagesContext';
 import {SyncPlayProvider, useSyncPlay} from '../context/SyncPlayContext';
 import {useVersionCheck} from '../hooks/useVersionCheck';
 import UpdateNotification from '../components/UpdateNotification';
 import SeerrNotificationToast from '../components/SeerrNotificationToast';
-import AdminMessageDialog from '../components/AdminMessageDialog';
+import ServerMessagesDialog from '../components/ServerMessagesDialog';
 import DebugOverlay from '../components/DebugOverlay'; // Red Button on TV remote toggles this
 import NavBar from '../components/NavBar';
 import Sidebar from '../components/Sidebar';
@@ -142,7 +143,8 @@ const PANELS = {
 const AppContent = (props) => {
 	const {isAuthenticated, isLoading, logout, serverUrl, serverName, api, user, hasMultipleServers, accessToken, connectionState, revalidateSession} = useAuth();
 	const {settings, activeTheme, syncOnLogin, updateSettings, loaded: settingsLoaded} = useSettings();
-	const {streamNotification, dismissStreamNotification, adminMessage, dismissAdminMessage} = useSeerr();
+	const {streamNotification, dismissStreamNotification} = useSeerr();
+	const {pendingPopups, markPopupsRead} = useServerMessages();
 	const themeMusic = useThemeMusic();
 	const {openDialog: openSyncPlay, closeDialog: closeSyncPlay, isDialogOpen: syncPlayDialogOpen, playQueueItem, clearPlayQueueItem, isInGroup: isSyncPlayInGroup, setNewQueue: syncPlaySetNewQueue, displayMessage: syncPlayMessage, clearDisplayMessage: clearSyncPlayMessage} = useSyncPlay();
 
@@ -176,6 +178,8 @@ const AppContent = (props) => {
 	const [authChecked, setAuthChecked] = useState(false);
 	const [libraries, setLibraries] = useState([]);
 	const [showAccountModal, setShowAccountModal] = useState(false);
+	const [showServerMessages, setShowServerMessages] = useState(false);
+	const serverMessagesBackRef = useRef(null);
 	const [showExitDialog, setShowExitDialog] = useState(false);
 	const [showSettingsPanel, setShowSettingsPanel] = useState(false);
 	const [showShuffleOverlay, setShowShuffleOverlay] = useState(false);
@@ -214,6 +218,7 @@ const AppContent = (props) => {
 		!showShuffleOverlay &&
 		!showSettingsPanel &&
 		!showAccountModal &&
+		!showServerMessages &&
 		!photoViewerItem &&
 		!comicViewerItem
 	);
@@ -621,6 +626,11 @@ const AppContent = (props) => {
 					return;
 				}
 
+				if (showServerMessages) {
+					if (!serverMessagesBackRef.current?.()) setShowServerMessages(false);
+					return;
+				}
+
 				if (showSettingsPanel) {
 					return;
 				}
@@ -651,7 +661,7 @@ const AppContent = (props) => {
 
 		window.addEventListener('keydown', handleKeyDown, true);
 		return () => window.removeEventListener('keydown', handleKeyDown, true);
-	}, [panelIndex, handleBack, performAppCleanup, settings.exitConfirmation, showAccountModal, showExitDialog, showSettingsPanel, showShuffleOverlay, isPinGateActive, setupWizardActive]);
+	}, [panelIndex, handleBack, performAppCleanup, settings.exitConfirmation, showAccountModal, showServerMessages, showExitDialog, showSettingsPanel, showShuffleOverlay, isPinGateActive, setupWizardActive]);
 
 	const handleLoggedIn = useCallback(() => {
 		setPanelHistory([]);
@@ -863,6 +873,22 @@ const AppContent = (props) => {
 	const handleCloseAccountModal = useCallback(() => {
 		setShowAccountModal(false);
 	}, []);
+
+	const handleOpenServerMessages = useCallback(() => {
+		setShowServerMessages(true);
+	}, []);
+
+	const handleCloseServerMessages = useCallback(() => {
+		setShowServerMessages(false);
+	}, []);
+
+	// Opens the messages window for messages the admin marked as open the window.
+	// Nothing else opens on its own, and playback is left alone until it ends.
+	useEffect(() => {
+		if (!isAuthenticated || panelIndex === PANELS.PLAYER || pendingPopups.length === 0) return;
+		markPopupsRead();
+		setShowServerMessages(true);
+	}, [isAuthenticated, panelIndex, pendingPopups, markPopupsRead]);
 
 	const handleCancelExitDialog = useCallback(() => {
 		setShowExitDialog(false);
@@ -1212,6 +1238,7 @@ const AppContent = (props) => {
 					onSettings={handleOpenSettings}
 					onSelectLibrary={handleSelectLibrary}
 					onUserMenu={handleOpenAccountModal}
+					onMessages={handleOpenServerMessages}
 				/>
 			) : showNavBar ? (
 				<NavBar
@@ -1227,6 +1254,7 @@ const AppContent = (props) => {
 					onSettings={handleOpenSettings}
 					onSelectLibrary={handleSelectLibrary}
 					onUserMenu={handleOpenAccountModal}
+					onMessages={handleOpenServerMessages}
 				/>
 			) : null}
 			<Suspense fallback={<PanelLoader />}>
@@ -1510,10 +1538,10 @@ const AppContent = (props) => {
 				notification={syncPlayToast}
 				onDismiss={clearSyncPlayMessage}
 			/>
-			<AdminMessageDialog
-				open={!!adminMessage}
-				message={adminMessage}
-				onDismiss={dismissAdminMessage}
+			<ServerMessagesDialog
+				open={showServerMessages}
+				onClose={handleCloseServerMessages}
+				backHandlerRef={serverMessagesBackRef}
 			/>
 			{photoViewerItem && (
 				<PhotoViewer
@@ -1608,9 +1636,11 @@ const AppBase = (props) => (
 	<SettingsProvider>
 		<AuthProvider>
 			<SeerrProvider>
-				<SyncPlayProvider>
-					<AppContent {...props} />
-				</SyncPlayProvider>
+				<ServerMessagesProvider>
+					<SyncPlayProvider>
+						<AppContent {...props} />
+					</SyncPlayProvider>
+				</ServerMessagesProvider>
 			</SeerrProvider>
 		</AuthProvider>
 	</SettingsProvider>
