@@ -29,7 +29,7 @@ const SORT_OPTIONS = [
 	{key: 'DateCreated', field: 'DateCreated', order: 'Descending', label: $L('Date Added')},
 	{key: 'PremiereDate', field: 'PremiereDate', order: 'Descending', label: $L('Premiere Date')},
 	{key: 'CommunityRating', field: 'CommunityRating', order: 'Descending', label: $L('Community Rating')},
-	{key: 'CriticRating', field: 'CriticRating', order: 'Descending', label: $L('Critic Rating')},
+	{key: 'CriticRating', field: 'CriticRating', order: 'Descending', label: $L('Critic rating')},
 	{key: 'DatePlayed', field: 'DatePlayed', order: 'Descending', label: $L('Last Played')},
 	{key: 'Runtime', field: 'Runtime', order: 'Ascending', label: $L('Runtime')}
 ];
@@ -450,7 +450,7 @@ const Favorites = ({onSelectItem, onSelectPerson, onHome, backHandlerRef}) => {
 							onClick={handleCycleImageType}
 							spotlightId="fav-settings-image-type"
 						>
-							<div className={css.settingLabel}>{$L('Image type')}</div>
+							<div className={css.settingLabel}>{$L('Image Type')}</div>
 							<div className={css.settingValue}>{$L(capitalize(imageType))}</div>
 						</SpottableButton>
 

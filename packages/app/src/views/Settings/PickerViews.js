@@ -58,7 +58,7 @@ export const RatingSourcesView = ({selected, onToggleSource, onMoveSource, onRes
 			))}
 			<div className={css.actionBar}>
 				<Button onClick={onReset} size='small' spotlightId='rating-sources-reset'>
-					{$L('Reset to Defaults')}
+					{$L('Reset to defaults')}
 				</Button>
 				<Button onClick={onCancel} size='small' spotlightId='rating-sources-cancel'>
 					{$L('Cancel')}

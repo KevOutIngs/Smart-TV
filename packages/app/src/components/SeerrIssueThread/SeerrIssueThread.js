@@ -182,7 +182,7 @@ const SeerrIssueThread = ({issue: initialIssue, canManage, myUserId, onClose, on
 						<SpottableInput
 							className={css.composeInput}
 							spotlightId="issue-thread-input"
-							placeholder={$L('Add a comment...')}
+							placeholder={$L('Add a comment')}
 							value={comment}
 							onChange={handleCommentChange}
 							disabled={busy}

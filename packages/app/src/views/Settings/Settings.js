@@ -748,7 +748,7 @@ const Settings = ({ onBack, onLibrariesChanged, onRunSetupWizard, panelMode }) =
 				onClick={handleClearImageCache}
 				spotlightId='clear-image-cache'
 			>
-				{imageCacheCleared ? $L('Image Cache Cleared') : $L('Clear Image Cache')}
+				{imageCacheCleared ? $L('Image cache cleared') : $L('Clear image cache')}
 			</SpottableButton>
 		</div>
 	);

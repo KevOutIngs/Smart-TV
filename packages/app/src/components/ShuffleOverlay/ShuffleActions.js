@@ -17,7 +17,7 @@ const ShuffleActions = ({onLibraryShuffle, onRandomShuffle, onGenreShuffle, onFo
 			onClick={onLibraryShuffle}
 			spotlightId="shuffle-action-library"
 		>
-			{$L('Library Shuffle')}
+			{$L('LIBRARY SHUFFLE')}
 		</SpottableButton>
 		<SpottableButton
 			className={`${css.actionBtn} ${css.actionPrimary}`}
@@ -25,7 +25,7 @@ const ShuffleActions = ({onLibraryShuffle, onRandomShuffle, onGenreShuffle, onFo
 			onClick={onRandomShuffle}
 			spotlightId="shuffle-action-random"
 		>
-			{$L('Random Shuffle')}
+			{$L('RANDOM SHUFFLE')}
 		</SpottableButton>
 		<SpottableButton
 			className={css.actionBtn}
@@ -33,7 +33,7 @@ const ShuffleActions = ({onLibraryShuffle, onRandomShuffle, onGenreShuffle, onFo
 			onClick={onGenreShuffle}
 			spotlightId="shuffle-action-genres"
 		>
-			{$L('Genres Shuffle')}
+			{$L('GENRES SHUFFLE')}
 		</SpottableButton>
 	</div>
 );

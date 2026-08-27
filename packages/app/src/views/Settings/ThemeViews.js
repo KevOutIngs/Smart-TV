@@ -59,7 +59,7 @@ export const ThemeStoreView = ({catalog, loading, error, busyId, availableThemes
 		{loading ? (
 			<div className={css.themeStoreMessage}>{$L('Loading themes…')}</div>
 		) : error ? (
-			<div className={css.themeStoreMessage}>{$L('Couldn’t load the Theme Store. Check your connection and try again.')}</div>
+			<div className={css.themeStoreMessage}>{$L("Couldn't load the Theme Store. Check your connection and try again.")}</div>
 		) : catalog.length === 0 ? (
 			<div className={css.themeStoreMessage}>{$L('No themes are available right now.')}</div>
 		) : (

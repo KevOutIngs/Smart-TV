@@ -77,7 +77,7 @@ const UpdateNotification = ({updateInfo, formattedNotes, onDismiss}) => {
 					}}
 				>
 					<Heading size="small" className={css.title}>
-						{$L('Update Available')}
+						{$L('Update available')}
 					</Heading>
 
 					<div className={css.versionInfo}>

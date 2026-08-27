@@ -45,7 +45,7 @@ const SORT_OPTIONS = [
 	{key: 'PremiereDate', field: 'PremiereDate,SortName', order: 'Descending', label: $L('Premiere Date')},
 	{key: 'OfficialRating', field: 'OfficialRating,SortName', order: 'Ascending', label: $L('Rating')},
 	{key: 'CommunityRating', field: 'CommunityRating,SortName', order: 'Descending', label: $L('Community Rating')},
-	{key: 'CriticRating', field: 'CriticRating,SortName', order: 'Descending', label: $L('Critic Rating')},
+	{key: 'CriticRating', field: 'CriticRating,SortName', order: 'Descending', label: $L('Critic rating')},
 	{key: 'DatePlayed', field: 'DatePlayed,SortName', order: 'Descending', label: $L('Last Played')},
 	{key: 'PlayCount', field: 'PlayCount,SortName', order: 'Descending', label: $L('Play Count')},
 	{key: 'Runtime', field: 'Runtime,SortName', order: 'Ascending', label: $L('Runtime')},
@@ -57,7 +57,7 @@ const MUSIC_SORT_OPTIONS = [
 	{key: 'DateCreated', field: 'DateCreated,SortName', order: 'Descending', label: $L('Date Added')},
 	{key: 'CommunityRating', field: 'CommunityRating,SortName', order: 'Descending', label: $L('Community Rating')},
 	{key: 'DatePlayed', field: 'DatePlayed,SortName', order: 'Descending', label: $L('Last Played')},
-	{key: 'AlbumArtist', field: 'AlbumArtist,Album,SortName', order: 'Ascending', label: $L('Album Artist')},
+	{key: 'AlbumArtist', field: 'AlbumArtist,Album,SortName', order: 'Ascending', label: $L('Album artist')},
 	{key: 'Album', field: 'Album,SortName', order: 'Ascending', label: $L('Album')},
 	{key: 'Artist', field: 'Artist,Album,SortName', order: 'Ascending', label: $L('Artist')},
 	{key: 'IndexNumber', field: 'IndexNumber,SortName', order: 'Ascending', label: $L('Number')},
@@ -1205,7 +1205,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 							<SpottableInput
 								type="text"
 								className={css.searchField}
-								placeholder={$L('Search this library')}
+								placeholder={$L('Search this library...')}
 								value={searchQuery}
 								onChange={handleSearchChange}
 								onKeyDown={handleSearchKeyDown}
@@ -1584,7 +1584,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 								onClick={handleCycleImageType}
 								spotlightId="settings-image-type"
 							>
-								<div className={css.settingLabel}>{$L('Image type')}</div>
+								<div className={css.settingLabel}>{$L('Image Type')}</div>
 								<div className={css.settingValue}>{$L(capitalize(imageType))}</div>
 							</SpottableButton>
 						)}
@@ -1604,7 +1604,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 								onClick={handleCycleGroupBy}
 								spotlightId="settings-group-by"
 							>
-								<div className={css.settingLabel}>{$L('Group by')}</div>
+								<div className={css.settingLabel}>{$L('Group By')}</div>
 								<div className={css.settingValue}>{GROUP_BY_LABELS[groupBy]()}</div>
 							</SpottableButton>
 						)}
@@ -1615,7 +1615,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 								onClick={handleTogglePlaylistGrouping}
 								spotlightId="settings-playlist-grouping"
 							>
-								<div className={css.settingLabel}>{$L('Group by type')}</div>
+								<div className={css.settingLabel}>{$L('Group by Type')}</div>
 								<div className={css.settingValue}>{playlistGroupingOn ? $L('On') : $L('Off')}</div>
 							</SpottableButton>
 						)}

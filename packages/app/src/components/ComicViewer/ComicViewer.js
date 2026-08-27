@@ -172,7 +172,7 @@ const ComicViewer = ({item, serverUrl, accessToken, onClose}) => {
 		return (
 			<div className={css.viewer}>
 				<div className={css.loadingContainer}>
-					<div className={css.errorText}>{$L('No pages found')}</div>
+					<div className={css.errorText}>{$L('No pages found.')}</div>
 					<div className={css.loadingText}>{$L('Press Back to close')}</div>
 				</div>
 			</div>

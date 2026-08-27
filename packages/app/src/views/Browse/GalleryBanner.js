@@ -311,7 +311,7 @@ const GalleryBanner = memo(({
 													)}
 													{activeDetail.cast?.length > 0 && (
 														<div className={css.galleryCredit}>
-															<span className={css.galleryCreditLabel}>{$L('Starring')}</span>
+															<span className={css.galleryCreditLabel}>{$L('STARRING')}</span>
 															<span className={css.galleryCreditValue}>{activeDetail.cast.join(', ')}</span>
 														</div>
 													)}

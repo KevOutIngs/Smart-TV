@@ -197,7 +197,7 @@ const LobbyView = memo(({groups, groupName, isCreating, isJoining, onInputChange
 					value={groupName}
 					onChange={onInputChange}
 					onKeyDown={onInputKeyDown}
-					placeholder={$L('Group name...')}
+					placeholder={$L('Group name')}
 					maxLength={64}
 					spotlightId="syncplay-input"
 				/>
@@ -313,7 +313,7 @@ const GroupView = memo(({group, isLeaving, onLeave, playQueue, playQueueItem, on
 					disabled={isLeaving}
 					spotlightId="syncplay-leave-btn"
 				>
-					{isLeaving ? $L('Leaving...') : $L('Leave Group')}
+					{isLeaving ? $L('Leaving...') : $L('Leave group')}
 				</SpottableButton>
 			</div>
 		</div>

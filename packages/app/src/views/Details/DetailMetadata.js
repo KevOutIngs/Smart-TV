@@ -12,7 +12,7 @@ const DetailMetadata = ({item}) => {
 	const metaItems = [];
 	if (genres.length > 0) metaItems.push({label: $L('Genres'), value: genres.slice(0, 3).join(', ')});
 	if (directors.length > 0) metaItems.push({label: $L('Director'), value: directors.map(d => d.Name).join(', ')});
-	if (writers.length > 0) metaItems.push({label: $L('Writers'), value: writers.map(w => w.Name).join(', ')});
+	if (writers.length > 0) metaItems.push({label: $L('WRITERS'), value: writers.map(w => w.Name).join(', ')});
 	if (studios.length > 0) metaItems.push({label: $L('Studio'), value: studios.map(s => s.Name).join(', ')});
 	if (metaItems.length === 0) return null;
 

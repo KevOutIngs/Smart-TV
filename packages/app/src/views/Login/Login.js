@@ -1073,7 +1073,7 @@ const Login = ({
 
 	const renderEmbyServers = () => (
 		<FocusArea className={css.card}>
-			<div className={css.sectionTitle}>{$L('Select a server')}</div>
+			<div className={css.sectionTitle}>{$L('Select a Server')}</div>
 			{connectServers.map((entry, index) => renderTile({
 				key: entry.systemId || index,
 				spotlightId: `emby-server-${index}`,

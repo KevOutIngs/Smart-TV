@@ -770,7 +770,7 @@ const GalleryBar = ({items, t}) => {
 							<div style={{flex: '2 1 0%', minWidth: 0, padding: 18, backgroundColor: t.scrimA(0.55), borderRadius: 18, border: `1px solid ${t.onSurfaceA(0.12)}`}}>
 								<div style={{fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: t.accent}}>{$L('Director').toUpperCase()}</div>
 								<ShimmerBar width={120} t={t} />
-								<div style={{marginTop: 14, fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: t.accent}}>{$L('Starring').toUpperCase()}</div>
+								<div style={{marginTop: 14, fontSize: 11, fontWeight: 800, letterSpacing: 1.4, color: t.accent}}>{$L('STARRING').toUpperCase()}</div>
 								<ShimmerBar width={160} t={t} />
 								<ShimmerBar width={140} t={t} />
 							</div>

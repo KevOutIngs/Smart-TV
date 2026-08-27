@@ -105,7 +105,7 @@ const ShuffleOverlay = ({
 		<div className={css.overlay}>
 			<DialogContainer className={`${css.dialog} ${pickerMode ? css.dialogDimmed : ''}`} spotlightId="shuffle-overlay-dialog">
 				<div className={css.topStrip}>
-					<div className={css.badge}>{$L('Random Shuffle')}</div>
+					<div className={css.badge}>{$L('RANDOM SHUFFLE')}</div>
 					<div className={css.filterSummary}>{filterSummary}</div>
 				</div>
 

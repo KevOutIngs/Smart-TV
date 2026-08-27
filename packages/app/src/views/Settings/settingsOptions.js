@@ -205,7 +205,7 @@ export const getHomeRowSortOptions = () => [
 	{ value: 'OfficialRating', label: $L('Rating') },
 	{ value: 'Runtime', label: $L('Runtime') },
 	{ value: 'Random', label: $L('Random') },
-	{ value: 'CriticRating', label: $L('Critic Rating') },
+	{ value: 'CriticRating', label: $L('Critic rating') },
 	{ value: 'CommunityRating', label: $L('Community Rating') }
 ];
 
@@ -244,14 +244,14 @@ export const getRewatchSortOptions = () => [
 ];
 
 export const getServerSortOptions = () => [
-	{ value: 'name', label: $L('Server Name') },
+	{ value: 'name', label: $L('Server name') },
 	{ value: 'recent', label: $L('Recently Used') },
 	{ value: 'added', label: $L('Date Added') }
 ];
 
 export const getFolderViewModeOptions = () => [
 	{ value: 'local', label: $L('Per Library') },
-	{ value: 'on', label: $L('Always On') },
+	{ value: 'on', label: $L('Always on.') },
 	{ value: 'off', label: $L('Always Off') }
 ];
 
@@ -429,7 +429,7 @@ export const getRatingSourceOptions = () => [
 	{ value: 'tomatoes', label: $L('Rotten Tomatoes (Critics)') },
 	{ value: 'tomatoes_audience', label: $L('Rotten Tomatoes (Audience)') },
 	{ value: 'metacritic', label: $L('Metacritic') },
-	{ value: 'metacriticuser', label: $L('Metacritic User') },
+	{ value: 'metacriticuser', label: $L('Metacritic (User)') },
 	{ value: 'trakt', label: $L('Trakt') },
 	{ value: 'letterboxd', label: $L('Letterboxd') },
 	{ value: 'rogerebert', label: $L('Roger Ebert') },
@@ -537,10 +537,10 @@ export const getStillWatchingBehaviorOptions = () => [
 // under someone else's.
 const PLAYBACK_TIME_LABELS = {
 	none: () => $L('Hidden'),
-	elapsed: () => $L('Time Elapsed'),
-	totalDuration: () => $L('Total Duration'),
-	timeRemaining: () => $L('Time Remaining'),
-	endsAt: () => $L('Ends At')
+	elapsed: () => $L('Time elapsed'),
+	totalDuration: () => $L('Total duration'),
+	timeRemaining: () => $L('Time remaining'),
+	endsAt: () => $L('Ends at')
 };
 
 const playbackTimeOptions = (values) => values

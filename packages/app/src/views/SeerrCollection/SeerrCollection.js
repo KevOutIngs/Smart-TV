@@ -230,7 +230,7 @@ const RequestCollectionPopup = memo(function RequestCollectionPopup({
 							spotlightId="collection-request-confirm"
 							onClick={handleConfirm}
 						>
-							{$L('Request {count} Movies').replace('{count}', selected.size)}
+							{$L('Request {count} movies').replace('{count}', selected.size)}
 						</SpottableDiv>
 						<SpottableDiv className={css.popupBtn} onClick={onClose}>
 							{$L('Cancel')}

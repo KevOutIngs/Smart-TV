@@ -29,7 +29,7 @@ const PersonScreen = ({item, serverUrl, settings, personMovies, personSeries, bi
 					{birthDate && (
 						<span className={css.infoItem}>
 							{$L('Born')} {birthDate.toLocaleDateString()}
-							{' '}({$L('age')} {Math.floor((Date.now() - birthDate.getTime()) / 31557600000)})
+							{' '}({$L('{age}+')} {Math.floor((Date.now() - birthDate.getTime()) / 31557600000)})
 						</span>
 					)}
 					{birthPlace && <span className={css.infoItem}>{birthPlace}</span>}

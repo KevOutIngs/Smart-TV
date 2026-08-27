@@ -47,9 +47,9 @@ export const usePlayerButtons = ({
 		if (!isLiveTV) {
 			buttons.push(
 				{id: 'previous', icon: <IconPrevious />, label: $L('Previous'), action: 'prevTrack'},
-				{id: 'rewind', icon: <IconRewind />, label: $L('Seek Back'), action: 'rewind'},
+				{id: 'rewind', icon: <IconRewind />, label: $L('Seek back'), action: 'rewind'},
 				{id: 'playPause', icon: isPaused ? <IconPlay /> : <IconPause />, label: isPaused ? $L('Play') : $L('Pause'), action: 'playPause'},
-				{id: 'forward', icon: <IconForward />, label: $L('Seek Forward'), action: 'forward'}
+				{id: 'forward', icon: <IconForward />, label: $L('Seek forward'), action: 'forward'}
 			);
 			if (hasNextTrack) {
 				buttons.push(
@@ -84,7 +84,7 @@ export const usePlayerButtons = ({
 				...((subtitleStreams.length > 0 || canDownloadRemoteSubtitles) ? [{id: 'subtitles', icon: (selectedSubtitleIndex >= 0 ? <IconSubtitle /> : <IconSubtitleOff />), label: $L('Subtitles'), action: 'subtitle'}] : []),
 				{id: 'quality', icon: <IconQuality />, label: $L('Playback Quality'), action: 'quality'},
 				{id: 'zoom', icon: <IconZoom />, label: $L('Zoom').concat(` (${zoomModeLabel})`), action: 'zoom', active: zoomModeKey !== 'fit'},
-				{id: 'sleep', icon: <IconSleep />, label: $L('Sleep Timer'), action: 'sleep', active: sleepMinutes != null},
+				{id: 'sleep', icon: <IconSleep />, label: $L('Sleep timer'), action: 'sleep', active: sleepMinutes != null},
 				{id: 'info', icon: <IconInfo />, label: $L('Playback Information'), action: 'info'}
 			], {order: osdOrder, hidden: osdHidden});
 		}
@@ -97,7 +97,7 @@ export const usePlayerButtons = ({
 			{id: 'castAndCrew', icon: <IconCast />, label: $L('Cast and Crew'), action: 'cast', disabled: !hasCastMembers},
 			{id: 'quality', icon: <IconQuality />, label: $L('Playback Quality'), action: 'quality', active: selectedQuality != null},
 			{id: 'zoom', icon: <IconZoom />, label: $L('Zoom').concat(` (${zoomModeLabel})`), action: 'zoom', active: zoomModeKey !== 'fit'},
-			{id: 'sleep', icon: <IconSleep />, label: $L('Sleep Timer'), action: 'sleep', active: sleepMinutes != null},
+			{id: 'sleep', icon: <IconSleep />, label: $L('Sleep timer'), action: 'sleep', active: sleepMinutes != null},
 			{id: 'info', icon: <IconInfo />, label: $L('Playback Information'), action: 'info'}
 		], {order: osdOrder, hidden: osdHidden});
 	}, [audioStreams.length, chapters.length, subtitleStreams.length, isAudioMode, isLiveTV, selectedQuality, selectedSubtitleIndex, canDownloadRemoteSubtitles, hasCastMembers, zoomModeLabel, zoomModeKey, sleepMinutes, osdOrder, osdHidden]);
@@ -510,7 +510,7 @@ const PlayerControls = ({
 			{activeModal === 'sleep' && (
 				<div className={css.trackModal} onClick={closeModal}>
 					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="sleep" spotlightId="sleep-modal">
-						<h2 className={css.modalTitle}>{$L('Sleep Timer')}</h2>
+						<h2 className={css.modalTitle}>{$L('Sleep timer')}</h2>
 						<div className={css.trackList}>
 							<SpottableButton
 								className={`${css.trackItem} ${sleepMinutes == null ? css.selected : ''}`}

@@ -250,7 +250,7 @@ const GameSystem = ({library, system, onSelectGame, onBack, backHandlerRef}) => 
 							<SpottableInput
 								type="text"
 								className={css.searchField}
-								placeholder={$L('Search this library')}
+								placeholder={$L('Search this library...')}
 								value={searchQuery}
 								onChange={handleSearchChange}
 								onKeyDown={handleSearchKeyDown}
