@@ -5,7 +5,7 @@ import Spinner from '@enact/sandstone/Spinner';
 import BodyText from '@enact/sandstone/BodyText';
 import Button from '@enact/sandstone/Button';
 import Image from '@enact/sandstone/Image';
-import VirtualList from '@enact/sandstone/VirtualList';
+import VirtualList, {VirtualGridList} from '@enact/sandstone/VirtualList';
 import Spotlight from '@enact/spotlight';
 import Spottable from '@enact/spotlight/Spottable';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
@@ -16,6 +16,7 @@ import {libraryIdOf} from '../../utils/seerrTarget';
 import {useSeerr} from '../../context/SeerrContext';
 import {useSettings} from '../../context/SettingsContext';
 import SeerrStatusChip from '../../components/SeerrStatusChip';
+import SeerrMediaTypeBadge from '../../components/seerr/SeerrMediaTypeBadge';
 import SeerrDownloadProgress from '../../components/SeerrDownloadProgress';
 import SeerrIssueThread from '../../components/SeerrIssueThread';
 import {
@@ -50,6 +51,26 @@ const useRootFontSize = (uiScale) => {
 
 const SpottableDiv = Spottable('div');
 const PillContainer = SpotlightContainerDecorator({enterTo: 'last-focused'}, 'div');
+
+// The requests grid. A tile is a whole 2:3 poster over a caption that reserves
+// room for the fullest case, a pending request a manager can approve or
+// decline, so posters stay level across a row.
+const TILE_WIDTH = 232;
+const TILE_PADDING = 8;
+// A whole 2:3 poster of the width left inside the tile's own padding.
+const TILE_POSTER_HEIGHT = (TILE_WIDTH - TILE_PADDING * 2) * 1.5;
+// Title, status slot, the requester over two lines, date, and the action row a
+// pending request adds.
+const TILE_CAPTION_HEIGHT = 212;
+const TILE_GAP = 24;
+
+// Timestamps arrive as ISO strings, so the set's own locale formats them.
+const formatRequestDate = (iso) => {
+	if (!iso) return '';
+	const parsed = new Date(iso);
+	if (isNaN(parsed.getTime())) return '';
+	return parsed.toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'});
+};
 
 const PAGE_SIZE = 20;
 const REQUEST_FILTERS = ['all', 'pending', 'approved', 'processing', 'available', 'failed'];
@@ -102,16 +123,17 @@ const TabPill = memo(function TabPill({label, count, selected, onSelect, value})
 
 const RequestItem = memo(function RequestItem({request, index, canManage, myUserId, onSelect, onAction, ...rest}) {
 	const media = request.media;
+	// w342 like the other Seerr screens. w185 is too soft once the grid enlarges it.
 	const posterUrl = media?.posterPath
-		? seerrApi.getImageUrl(media.posterPath, 'w185')
+		? seerrApi.getImageUrl(media.posterPath, 'w342')
 		: null;
 	const statusInfo = getRequestStatusInfo(request);
 	const isPending = request.status === REQUEST_STATUS.PENDING;
 	const isFailed = request.status === REQUEST_STATUS.FAILED;
 	const downloadSummary = getRequestDownloadSummary(request);
 	const isOwn = request.requestedBy?.id != null && request.requestedBy.id === myUserId;
-	const requester = request.requestedBy?.displayName;
-	const modifier = request.modifiedBy?.displayName;
+	const requester = request.requestedBy?.displayName || $L('Unknown');
+	const isMovie = request.type === 'movie' || media?.mediaType === 'movie';
 
 	const handleClick = useCallback(() => {
 		onSelect(request);
@@ -137,65 +159,60 @@ const RequestItem = memo(function RequestItem({request, index, canManage, myUser
 		onAction('cancel', request);
 	}, [request, onAction]);
 
-	let byLine = requester ? $L('Requested by {name}').replace('{name}', requester) : '';
-	if (canManage && modifier) {
-		const modLine = $L('Modified by {name}').replace('{name}', modifier);
-		byLine = byLine ? `${byLine} · ${modLine}` : modLine;
-	}
+	const date = formatRequestDate(request.createdAt);
 
+	// The poster is what you scan and the band under it carries the status colour.
+	// Progress is the bar in the caption, so the band is colour only.
 	return (
 		<SpottableDiv
 			{...rest}
-			className={css.requestItem}
+			className={css.tile}
 			data-spotlight-id={`request-${index}`}
 			onClick={handleClick}
 		>
-			{posterUrl && (
-				<Image src={posterUrl} className={css.poster} sizing="fill" />
-			)}
-			<Column className={css.requestInfo}>
-				<BodyText className={css.title}>
-					{media?.title || media?.name || $L('Unknown')}
-				</BodyText>
-				<Row className={css.meta}>
-					<span className={css.type}>
-						{request.type === 'movie' || media?.mediaType === 'movie' ? $L('Movie') : $L('TV Show')}
-						{request.is4k ? ' · 4K' : ''}
-					</span>
-					<SeerrStatusChip label={statusInfo.label} color={statusInfo.color} />
-				</Row>
-				{downloadSummary ? (
-					<SeerrDownloadProgress summary={downloadSummary} />
+			<div className={css.tilePoster}>
+				{posterUrl ? (
+					<img className={css.tileImage} src={posterUrl} alt="" />
 				) : (
-					<BodyText className={css.date}>
-						{byLine || `${$L('Requested:')} ${new Date(request.createdAt).toLocaleDateString()}`}
-					</BodyText>
+					<div className={css.tilePlaceholder} />
 				)}
-			</Column>
-			{isPending && canManage && (
-				<div className={css.rowActions}>
-					<SpottableDiv className={`${css.actionBtn} ${css.approveBtn}`} onClick={handleApprove}>
-						{$L('Approve')}
-					</SpottableDiv>
-					<SpottableDiv className={`${css.actionBtn} ${css.declineBtn}`} onClick={handleDecline}>
-						{$L('Decline')}
-					</SpottableDiv>
+				<SeerrMediaTypeBadge mediaType={isMovie ? 'movie' : 'tv'} suffix={request.is4k ? '4K' : null} className={css.tileBadge} />
+				<div className={`${css.tileStripe} ${css[`stripe_${statusInfo.color}`] || css.stripe_approved}`} />
+			</div>
+			<div className={css.tileCaption}>
+				<div className={css.tileTitle}>{media?.title || media?.name || $L('Unknown')}</div>
+				<div className={css.tileStatus}>
+					{downloadSummary
+						? <SeerrDownloadProgress summary={downloadSummary} compact />
+						: <SeerrStatusChip label={statusInfo.label} color={statusInfo.color} />}
 				</div>
-			)}
-			{isPending && !canManage && isOwn && (
-				<div className={css.rowActions}>
-					<SpottableDiv className={`${css.actionBtn} ${css.cancelBtnPlain}`} onClick={handleCancel}>
-						{$L('Cancel')}
-					</SpottableDiv>
-				</div>
-			)}
-			{isFailed && canManage && (
-				<div className={css.rowActions}>
-					<SpottableDiv className={`${css.actionBtn} ${css.retryBtn}`} onClick={handleRetry}>
-						{$L('Retry')}
-					</SpottableDiv>
-				</div>
-			)}
+				<div className={css.tileBy}>{$L('Requested by {name}').replace('{name}', requester)}</div>
+				{date && <div className={css.tileDate}>{date}</div>}
+				{isPending && canManage && (
+					<div className={css.tileActions}>
+						<SpottableDiv className={`${css.actionBtn} ${css.approveBtn}`} onClick={handleApprove}>
+							{$L('Approve')}
+						</SpottableDiv>
+						<SpottableDiv className={`${css.actionBtn} ${css.declineBtn}`} onClick={handleDecline}>
+							{$L('Decline')}
+						</SpottableDiv>
+					</div>
+				)}
+				{isPending && !canManage && isOwn && (
+					<div className={css.tileActions}>
+						<SpottableDiv className={`${css.actionBtn} ${css.cancelBtnPlain}`} onClick={handleCancel}>
+							{$L('Cancel')}
+						</SpottableDiv>
+					</div>
+				)}
+				{isFailed && canManage && (
+					<div className={css.tileActions}>
+						<SpottableDiv className={`${css.actionBtn} ${css.retryBtn}`} onClick={handleRetry}>
+							{$L('Retry')}
+						</SpottableDiv>
+					</div>
+				)}
+			</div>
 		</SpottableDiv>
 	);
 });
@@ -250,7 +267,7 @@ const IssueItem = memo(function IssueItem({issue, index, canManage, myUserId, on
 				<BodyText className={css.date}>
 					{issue.createdBy?.displayName
 						? $L('Reported by {name}').replace('{name}', issue.createdBy.displayName)
-						: new Date(issue.createdAt).toLocaleDateString()}
+						: formatRequestDate(issue.createdAt)}
 				</BodyText>
 			</Column>
 			{canAct && (
@@ -597,6 +614,18 @@ const SeerrRequests = ({onSelectItem, onClose, initialTab = 'requests', backHand
 				<Column align="center center" className={css.message}>
 					<BodyText>{tab === 'requests' ? $L('No requests found') : $L('No issues found')}</BodyText>
 				</Column>
+			);
+		}
+
+		if (tab === 'requests') {
+			return (
+				<VirtualGridList
+					dataSize={items.length}
+					itemRenderer={renderItem}
+					itemSize={{minWidth: TILE_WIDTH, minHeight: TILE_POSTER_HEIGHT + TILE_CAPTION_HEIGHT + TILE_PADDING * 2}}
+					spacing={TILE_GAP}
+					spotlightId="hub-list"
+				/>
 			);
 		}
 

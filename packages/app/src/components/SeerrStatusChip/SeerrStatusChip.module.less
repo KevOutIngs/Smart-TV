@@ -1,3 +1,5 @@
+// Seerr's badge treatment: fill at 80%, a full border of the same hue, light
+// text of that hue. A 14% tint was unreadable over cover art.
 .chip {
 	display: inline-block;
 	font-size: 18px;
@@ -11,31 +13,31 @@
 }
 
 .pending {
-	color: var(--theme-status-pending, #eab308);
-	border-color: rgba(234, 179, 8, 0.4);
-	background: rgba(234, 179, 8, 0.14);
+	color: #fbf1d3;
+	border-color: var(--theme-status-pending, #eab308);
+	background: rgba(234, 179, 8, 0.8);
 }
 
 .requested {
-	color: var(--theme-status-requested, #8b8dfa);
-	border-color: rgba(99, 102, 241, 0.4);
-	background: rgba(99, 102, 241, 0.14);
+	color: #eaeafe;
+	border-color: var(--theme-status-requested, #8b8dfa);
+	background: rgba(139, 141, 250, 0.8);
 }
 
 .available {
-	color: var(--theme-status-available, #22c55e);
-	border-color: rgba(34, 197, 94, 0.4);
-	background: rgba(34, 197, 94, 0.14);
+	color: #d7f5e2;
+	border-color: var(--theme-status-available, #22c55e);
+	background: rgba(34, 197, 94, 0.8);
 }
 
 .error {
-	color: var(--theme-recording-active, #ef4444);
-	border-color: rgba(239, 68, 68, 0.4);
-	background: rgba(239, 68, 68, 0.12);
+	color: #fcdddd;
+	border-color: var(--theme-recording-active, #ef4444);
+	background: rgba(239, 68, 68, 0.8);
 }
 
 .approved {
-	color: var(--theme-accent, #00a4dc);
-	border-color: rgba(0, 164, 220, 0.4);
-	background: rgba(0, 164, 220, 0.14);
+	color: #d1eff9;
+	border-color: var(--theme-accent, #00a4dc);
+	background: rgba(0, 164, 220, 0.8);
 }

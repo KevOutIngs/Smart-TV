@@ -261,3 +261,158 @@
 		margin-top: 1rem;
 	}
 }
+
+// The requests grid. A whole 2:3 poster with the status band at its foot, then
+// a caption of a fixed height so posters stay level across a row.
+.tile {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-box-orient: vertical;
+	-webkit-flex-direction: column;
+	flex-direction: column;
+	box-sizing: border-box;
+	width: 100%;
+	height: 100%;
+	// Room inside the cell for the focus ring and the lift, which the list would
+	// otherwise crop at the cell edge.
+	padding: 8px;
+	border-radius: 12px;
+	cursor: pointer;
+	transition: transform 0.15s ease, background 0.2s;
+
+	&:focus {
+		outline: none;
+		background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.08);
+		transform: scale(1.02);
+
+		.tilePoster {
+			box-shadow: 0 0 0 4px var(--theme-focus-border-color, #ffffff);
+		}
+	}
+}
+
+.tilePoster {
+	position: relative;
+	width: 100%;
+	// A true 2:3 held by the padding, since the height is not known up front.
+	height: 0;
+	padding-top: 150%;
+	border-radius: 8px;
+	overflow: hidden;
+	background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.06);
+	flex-shrink: 0;
+	transition: box-shadow 0.15s ease;
+}
+
+.tileImage,
+.tilePlaceholder {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.tileImage {
+	object-fit: cover;
+}
+
+.tileBadge {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	z-index: 1;
+}
+
+// Status colour only, so a wall of tiles is easy to scan.
+.tileStripe {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 7px;
+}
+
+.stripe_pending { background: var(--theme-status-pending, #eab308); }
+.stripe_requested { background: var(--theme-status-requested, #8b8dfa); }
+.stripe_available { background: var(--theme-status-available, #22c55e); }
+.stripe_error { background: var(--theme-recording-active, #ef4444); }
+.stripe_approved { background: var(--theme-accent, #00a4dc); }
+
+.tileCaption {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-box-orient: vertical;
+	-webkit-flex-direction: column;
+	flex-direction: column;
+	-webkit-box-align: start;
+	-webkit-align-items: flex-start;
+	align-items: flex-start;
+	min-width: 0;
+	padding: 12px 6px 0;
+}
+
+.tileTitle {
+	width: 100%;
+	font-size: 20px;
+	font-weight: 600;
+	color: var(--theme-text-primary, #ffffff);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+// A fixed slot. The bar is taller than a status word, so one height keeps the
+// lines below it level from tile to tile.
+.tileStatus {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	-webkit-box-align: center;
+	-webkit-align-items: center;
+	align-items: center;
+	width: 100%;
+	height: 40px;
+	margin-top: 6px;
+}
+
+.tileBy,
+.tileDate {
+	width: 100%;
+	font-size: 16px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.tileDate {
+	white-space: nowrap;
+}
+
+// The name drops to a second line rather than being cut. Wrapping rather than
+// splitting the string keeps whatever word order a language puts it in.
+.tileBy {
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.6);
+	margin-top: 6px;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	word-break: break-word;
+}
+
+.tileDate {
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.4);
+	margin-top: 2px;
+}
+
+.tileActions {
+	display: -webkit-box;
+	display: -webkit-flex;
+	display: flex;
+	margin-top: 10px;
+
+	> * + * {
+		margin-left: 0.5rem;
+	}
+}

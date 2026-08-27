@@ -53,6 +53,15 @@ const fetchRequest = async (params) => {
 	}
 };
 
+// What a server said went wrong, capped. The message ends up in the diagnostic
+// report, and a raw body from a proxy in front of the server is an error page
+// that can carry paths or tokens.
+const errorDetail = (body) => {
+	const detail = String(body?.message || body?.error || body?.code || '').trim();
+	if (!detail) return null;
+	return detail.length > 200 ? `${detail.slice(0, 200)}...` : detail;
+};
+
 const moonfinRequest = async (endpoint, options = {}) => {
 	if (!jellyfinServerUrl || !jellyfinAccessToken) {
 		throw new Error('Moonfin not configured');
@@ -93,7 +102,7 @@ const moonfinRequest = async (endpoint, options = {}) => {
 					} catch (e2) { void e2; payload = null; }
 				}
 				if (payload) {
-					errorMessage = payload.message || payload.error || errorMessage;
+					errorMessage = errorDetail(payload) || errorMessage;
 					// Surface the plugin's structured reason (UPSTREAM_REDIRECT / UPSTREAM_HTML /
 					// SESSION_EXPIRED) so the UI can explain why instead of showing an empty row.
 					errorCode = payload.code || null;
@@ -136,8 +145,7 @@ const moonfinAuthRequest = async (url, method, headers, body, timeout = 15000) =
 		let errorMessage = `Moonfin request failed: ${result.status}`;
 		if (result.body) {
 			try {
-				const errorBody = JSON.parse(result.body);
-				errorMessage = errorBody.message || errorBody.error || errorMessage;
+				errorMessage = errorDetail(JSON.parse(result.body)) || errorMessage;
 			} catch (e) { void e; }
 		}
 		const error = new Error(errorMessage);
