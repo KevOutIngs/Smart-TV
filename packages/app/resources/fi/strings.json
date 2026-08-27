@@ -855,5 +855,12 @@
     "10 Mbps": "10 Mbps",
     "25%": "25%",
     "ATMOS": "ATMOS",
-    "AVPlay (Native)": "AVPlay (Native)"
+    "AVPlay (Native)": "AVPlay (Native)",
+    "All custom artwork cleared": "Kaikki mukautetut kansikuvat poistettu",
+    "Audio Rows Sort Order": "Äänirivien lajittelujärjestys",
+    "Audio/video settings, subtitles, and SyncPlay controls": "Ääni/kuva asetukset, tekstitykset ja SyncPlay säätimet",
+    "Audiobook Playlists": "Äänikirja soittolistat",
+    "Auto (Recommended)": "Automaattinen (suositeltu)",
+    "Auto Detect (Hardware Default)": "Automaattinen Tunnistus (Laitteiston Oletus)",
+    "Auto Skip": "Automaattinen ohitus"
 }
