@@ -5,7 +5,6 @@ import {arrange, seerrOnlyRow, DETAIL_ORDER_KEY, DETAIL_HIDDEN_KEY} from '../../
 import {DETAIL_ICON_PATHS} from './detailIcons';
 import {iconViewBox} from '../../components/icons/iconViewBox';
 import {personalRatingIconPath, personalRatingLabel} from './personalRatingAction';
-import {versionLabel} from '../../utils/trackLabels';
 import {SpottableDiv, HorizontalContainer} from './detailsSpottables';
 import {handleButtonRowKeyDown} from './detailsFocus';
 
@@ -35,9 +34,6 @@ const DetailActionButtons = ({
 	supportsMediaSourceSelection,
 	hasMultipleVersions,
 	hasMultipleAudio,
-	versionLibraries,
-	hasMultipleServers,
-	currentServerName,
 	selectedVersionIndex,
 	selectedAudioIndex,
 	selectedSubtitleIndex,
@@ -50,7 +46,6 @@ const DetailActionButtons = ({
 	onFocusRow,
 	onShuffle,
 	onOpenVersionModal,
-	onOpenServerModal,
 	onOpenAudioModal,
 	onOpenSubtitleModal,
 	onTrailer,
@@ -98,25 +93,13 @@ const DetailActionButtons = ({
 				<span className={css.btnLabel}>{$L('Shuffle')}</span>
 			</SpottableDiv>
 		)},
-		{id: 'version', when: hasMultipleVersions, render: () => {
-			const versionDetail = versionLabel(mediaSource?.Name || `${$L('Version')} ${selectedVersionIndex + 1}`, versionLibraries?.[mediaSource?.Id]);
-			return (
-				<SpottableDiv className={css.btnWrapper} onClick={onOpenVersionModal}>
-					<div className={css.btnAction}>
-						<BtnIcon path={DETAIL_ICON_PATHS.version}/>
-					</div>
-					<span className={css.btnLabel}>{$L('Version')}</span>
-					<span className={css.btnDetail}>{versionDetail}</span>
-				</SpottableDiv>
-			);
-		}},
-		{id: 'server', when: hasMultipleServers, render: () => (
-			<SpottableDiv className={css.btnWrapper} onClick={onOpenServerModal}>
+		{id: 'version', when: hasMultipleVersions, render: () => (
+			<SpottableDiv className={css.btnWrapper} onClick={onOpenVersionModal}>
 				<div className={css.btnAction}>
-					<BtnIcon path={DETAIL_ICON_PATHS.server}/>
+					<BtnIcon path={DETAIL_ICON_PATHS.version}/>
 				</div>
-				<span className={css.btnLabel}>{$L('Server')}</span>
-				<span className={css.btnDetail}>{currentServerName}</span>
+				<span className={css.btnLabel}>{$L('Version')}</span>
+				<span className={css.btnDetail}>{mediaSource?.Name || `${$L('Version')} ${selectedVersionIndex + 1}`}</span>
 			</SpottableDiv>
 		)},
 		{id: 'audio', when: hasMultipleAudio, render: () => (
