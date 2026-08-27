@@ -288,7 +288,6 @@
     "Edit": "Editar",
     "Email or Username": "Correo electrónico o nombre de usuario",
     "Embedded": "Incrustado",
-    "Emby Connect": "",
     "Emulator settings": "Configuración del emulador",
     "Enable Folder View": "Habilitar vista de carpetas",
     "Enable Plugin": "Activar plugin",
@@ -807,7 +806,6 @@
     "Select Genre": "Seleccionar género",
     "Select Library": "Seleccionar biblioteca",
     "Select Seasons": "Seleccionar temporadas",
-    "Select Server": "",
     "Select Subtitle": "Seleccionar subtítulo",
     "Select Version": "Seleccionar versión",
     "Select a server": "Seleccione un servidor",
@@ -1074,12 +1072,9 @@
     "Audio": "Audio",
     "Director": "Director",
     "{seerrLabel} (Seerr v3+)": "{seerrLabel} (Seerr v3+)",
-    "Zoom": "",
     "HDR": "HDR",
     "Quick Connect": "Quick Connect",
     "Visible": "Visible",
-    "Intro": "",
-    "Outro": "",
     "1080p (10 Mbps)": "1080p (10 Mbps)",
     "1080p (20 Mbps)": "1080p (20 Mbps)",
     "720p (4 Mbps)": "720p (4 Mbps)",
@@ -1092,6 +1087,5 @@
     "Halloween": "Halloween",
     "Seerr": "Seerr",
     "Magenta": "Magenta",
-    "Mono": "Mono",
-    "No": ""
+    "Mono": "Mono"
 }
