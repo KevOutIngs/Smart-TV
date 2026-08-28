@@ -721,5 +721,14 @@
     "No pages found.": "ಯಾವುದೇ ಪುಟಗಳು ಕಂಡುಬಂದಿಲ್ಲ.",
     "Search this library...": "ಈ ಗ್ರಂಥಾಲಯವನ್ನು ಹುಡುಕಿ...",
     "Show details of the selected item at the top of Library pages.": "ಲೈಬ್ರರಿ ಪುಟಗಳ ಮೇಲ್ಭಾಗದಲ್ಲಿ ಆಯ್ಕೆಮಾಡಿದ ಐಟಂನ ವಿವರಗಳನ್ನು ತೋರಿಸಿ.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "ಪಾತ್ರವರ್ಗ ಮತ್ತು ಸಿಬ್ಬಂದಿ",
+    "DTS-HD MA Passthrough": "DTS-HD MA ಪಾಸ್‌ಥ್ರೂ",
+    "Incorrect PIN": "ತಪ್ಪಾದ ಪಿನ್",
+    "Mark as Watched": "ವೀಕ್ಷಿಸಲಾಗಿದೆ ಎಂದು ಗುರುತಿಸಿ",
+    "Recently Released {libraryName}": "ಇತ್ತೀಚೆಗೆ ಬಿಡುಗಡೆಯಾದ {libraryName}",
+    "Show preview thumbnails when seeking": "ಹುಡುಕುತ್ತಿರುವಾಗ ಪೂರ್ವವೀಕ್ಷಣೆ ಥಂಬ್‌ನೇಲ್‌ಗಳನ್ನು ತೋರಿಸಿ",
+    "Login failed": "ಲಾಗಿನ್ ವಿಫಲವಾಗಿದೆ",
+    "Text Fill Color": "ಪಠ್ಯವನ್ನು ತುಂಬುವ ಬಣ್ಣ",
+    "Queue is empty": "ಸರತಿ ಸಾಲು ಖಾಲಿಯಾಗಿದೆ"
 }
