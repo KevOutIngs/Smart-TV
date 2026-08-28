@@ -721,5 +721,14 @@
     "No pages found.": "ھېچقانداق بەت تېپىلمىدى.",
     "Search this library...": "بۇ كۇتۇپخانىنى ئىزدەڭ ...",
     "Show details of the selected item at the top of Library pages.": "ئامبار بەتلىرىنىڭ ئۈستىدە تاللانغان تۈرنىڭ تەپسىلاتلىرىنى كۆرسىتىدۇ.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "ئارتىسلار ۋە خادىملار",
+    "DTS-HD MA Passthrough": "DTS-HD MA بىۋاسىتە ئۆتكۈزۈش",
+    "Incorrect PIN": "PIN خاتا",
+    "Mark as Watched": "كۆزىتىلگەندەك بەلگە",
+    "Recently Released {libraryName}": "يېقىندا تارقىتىلغان {libraryName}",
+    "Show preview thumbnails when seeking": "ئىزدىگەندە ئالدىن كۆرۈش كىچىك كۆرۈنۈشىنى كۆرسىتىڭ",
+    "Login failed": "كىرىش مەغلۇب بولدى",
+    "Text Fill Color": "تېكىست تولدۇرۇش رەڭگى",
+    "Queue is empty": "ئۆچرەت قۇرۇق"
 }
