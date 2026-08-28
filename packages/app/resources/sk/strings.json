@@ -721,5 +721,14 @@
     "No pages found.": "Nenašli sa žiadne stránky.",
     "Search this library...": "Hľadať v tejto knižnici...",
     "Show details of the selected item at the top of Library pages.": "Zobraziť podrobnosti o vybratej položke v hornej časti stránok knižnice.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Obsadenie a štáb",
+    "DTS-HD MA Passthrough": "Passthrough DTS-HD MA",
+    "Incorrect PIN": "Nesprávny PIN",
+    "Mark as Watched": "Označiť ako sledované",
+    "Recently Released {libraryName}": "Nedávno vydané – {libraryName}",
+    "Show preview thumbnails when seeking": "Pri vyhľadávaní zobraziť miniatúry ukážky",
+    "Login failed": "Prihlásenie zlyhalo",
+    "Text Fill Color": "Farba výplne textu",
+    "Queue is empty": "Poradie je prázdne"
 }
