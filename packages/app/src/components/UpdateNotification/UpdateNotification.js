@@ -12,26 +12,9 @@ import Spotlight from '@enact/spotlight';
 import $L from '@enact/i18n/$L';
 
 import {KEYS} from '../../utils/keys';
+import {renderReleaseNotes} from '../../utils/releaseNotes';
 
 import css from './UpdateNotification.module.less';
-
-// Simple markdown to HTML converter
-const markdownToHtml = (text) => {
-	if (!text) return '';
-	return text
-		// Headers
-		.replace(/^### (.+)$/gm, '<h3>$1</h3>')
-		.replace(/^## (.+)$/gm, '<h2>$1</h2>')
-		.replace(/^# (.+)$/gm, '<h1>$1</h1>')
-		// Bold
-		.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-		// Italic
-		.replace(/\*(.+?)\*/g, '<em>$1</em>')
-		// Bullet points
-		.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
-		// Line breaks
-		.replace(/\n/g, '<br/>');
-};
 
 const OK_BUTTON_ID = 'update-ok-btn';
 
@@ -44,7 +27,7 @@ const UpdateNotification = ({updateInfo, formattedNotes, onDismiss}) => {
 		}
 	}, [onDismiss]);
 
-	const htmlNotes = useMemo(() => markdownToHtml(formattedNotes), [formattedNotes]);
+	const htmlNotes = useMemo(() => renderReleaseNotes(formattedNotes), [formattedNotes]);
 
 	const holdsFocus = useCallback(() => {
 		const current = Spotlight.getCurrent();

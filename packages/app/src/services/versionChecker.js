@@ -179,18 +179,14 @@ const fetchLatestRelease = async () => {
 };
 
 /**
- * Format release notes for display
+ * Notes to show in the update panel, or a line to stand in when a release
+ * carried none. The markdown itself is rendered by the panel.
  * @param {string} notes - Raw release notes
- * @returns {string} Formatted text (truncated)
+ * @returns {string} Markdown to render
  */
 export const formatReleaseNotes = (notes) => {
 	if (!notes) return $L('A new version is available. Visit GitHub to download.');
-
-	// Keep full notes, only clean up links for display
-	let formatted = notes
-		.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');  // Convert links to just text
-
-	return formatted;
+	return notes;
 };
 
 // The settings row wants an answer either way, unlike the launch check below

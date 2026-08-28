@@ -95,10 +95,44 @@
 		font-style: italic;
 	}
 
+	p {
+		margin: 0 0 12px 0;
+	}
+
+	ul, ol {
+		margin: 0 0 12px 0;
+		padding: 0;
+	}
+
 	li {
 		margin-left: 24px;
 		list-style: disc;
 		margin-bottom: 8px;
+	}
+
+	ol li {
+		list-style: decimal;
+	}
+
+	code {
+		padding: 0 6px;
+		border-radius: 4px;
+		background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.12);
+		font-family: monospace;
+		font-size: 20px;
+	}
+
+	// A fenced block keeps its own line breaks, and a long line wraps rather
+	// than pushing the panel wider.
+	pre {
+		margin: 0 0 12px 0;
+		padding: 16px;
+		border-radius: 8px;
+		background: rgba(0, 0, 0, 0.35);
+		font-family: monospace;
+		font-size: 20px;
+		white-space: pre-wrap;
+		word-break: break-word;
 	}
 }
 
