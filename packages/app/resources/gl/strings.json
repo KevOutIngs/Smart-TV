@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Mostrar miniaturas de vista previa ao buscar",
     "Login failed": "Fallou o inicio de sesión",
     "Text Fill Color": "Cor de recheo do texto",
-    "Queue is empty": "A cola está baleira"
+    "Queue is empty": "A cola está baleira",
+    "Perfect match": "Combinación perfecta",
+    "{count} downloads": "{count} descargas"
 }
