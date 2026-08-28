@@ -1083,5 +1083,20 @@
     "Yes, Cancel": "Oui, annuler",
     "Your Watchlist": "Ma liste",
     "{rating} / 10": "{rating} / 10",
-    "{rating} / 5": "{rating} / 5"
+    "{rating} / 5": "{rating} / 5",
+    "Also play prerolls before TV episodes": "Diffuser aussi les bandes-annonces avant les épisodes de série",
+    "Cast & Crew": "Casting et équipe",
+    "DTS-HD MA Passthrough": "Passthrough DTS-HD MA",
+    "Details Screen Style": "Style de l'écran de détails",
+    "Display Studio Row": "Afficher la rangée des studios",
+    "On Watchlist": "Dans la liste à voir",
+    "Incorrect PIN": "PIN incorrect",
+    "Recently Added {libraryName}": "{libraryName}, ajouts récents",
+    "Recently Released {libraryName}": "{libraryName}, sorties récentes",
+    "Request More in 4K": "Demander davantage en 4K",
+    "Show Studio row in Home Sections.": "Afficher la rangée des studios dans les sections d'accueil.",
+    "Show preview thumbnails when seeking": "Afficher les miniatures d’aperçu pendant la recherche",
+    "Login failed": "Échec de la connexion",
+    "Studio Row Sorting": "Tri de la rangée des studios",
+    "Queue is empty": "La file d'attente est vide"
 }
