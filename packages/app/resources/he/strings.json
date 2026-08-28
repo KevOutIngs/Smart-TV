@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "הצג תמונות ממוזערות של תצוגה מקדימה בעת חיפוש",
     "Login failed": "הכניסה נכשלה",
     "Text Fill Color": "צבע מילוי טקסט",
-    "Queue is empty": "התור ריק"
+    "Queue is empty": "התור ריק",
+    "Perfect match": "התאמה מושלמת",
+    "{count} downloads": "{count} הורדות"
 }
