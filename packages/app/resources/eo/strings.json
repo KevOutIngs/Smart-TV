@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Montru antaŭrigardajn bildetojn dum serĉado",
     "Login failed": "Ensaluto malsukcesis",
     "Text Fill Color": "Teksto Plenigkoloro",
-    "Queue is empty": "Vico estas malplena"
+    "Queue is empty": "Vico estas malplena",
+    "Perfect match": "Perfekta matĉo",
+    "{count} downloads": "{count} elŝutas"
 }
