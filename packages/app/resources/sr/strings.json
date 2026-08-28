@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Прикажи сличице за преглед када тражите",
     "Login failed": "Пријава није успела",
     "Text Fill Color": "Боја испуне текста",
-    "Queue is empty": "Ред је празан"
+    "Queue is empty": "Ред је празан",
+    "Perfect match": "Савршено подударање",
+    "{count} downloads": "{count, plural, one{{count} преузимање} few{{count} преузимања} other{{count} преузимања}}"
 }
