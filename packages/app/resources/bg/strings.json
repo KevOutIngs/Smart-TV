@@ -721,5 +721,14 @@
     "No pages found.": "Няма намерени страници.",
     "Search this library...": "Търсене в тази библиотека...",
     "Show details of the selected item at the top of Library pages.": "Показване на детайли за избрания елемент в горната част на страниците с библиотеки.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Актьори и екип",
+    "DTS-HD MA Passthrough": "DTS-HD MA Passthrough",
+    "Incorrect PIN": "Неправилен ПИН",
+    "Mark as Watched": "Маркирайте като гледани",
+    "Recently Released {libraryName}": "Наскоро издадени {libraryName}",
+    "Show preview thumbnails when seeking": "Показване на миниатюри за визуализация при търсене",
+    "Login failed": "Неуспешно влизане",
+    "Text Fill Color": "Цвят на запълване на текст",
+    "Queue is empty": "Опашката е празна"
 }
