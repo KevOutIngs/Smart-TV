@@ -721,5 +721,14 @@
     "No pages found.": "ไม่พบหน้า",
     "Search this library...": "ค้นหาห้องสมุดนี้...",
     "Show details of the selected item at the top of Library pages.": "แสดงรายละเอียดของรายการที่เลือกไว้ด้านบนของหน้าคลังสื่อ",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "นักแสดงและทีมงาน",
+    "DTS-HD MA Passthrough": "ส่งผ่าน DTS-HD MA",
+    "Incorrect PIN": "PIN ไม่ถูกต้อง",
+    "Mark as Watched": "ทำเครื่องหมายว่าดูแล้ว",
+    "Recently Released {libraryName}": "{libraryName} ที่เพิ่งออกฉาย",
+    "Show preview thumbnails when seeking": "แสดงภาพตัวอย่างเมื่อค้นหา",
+    "Login failed": "การเข้าสู่ระบบล้มเหลว",
+    "Text Fill Color": "สีเติมข้อความ",
+    "Queue is empty": "คิวว่าง"
 }
