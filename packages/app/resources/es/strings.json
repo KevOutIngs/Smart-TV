@@ -1101,5 +1101,7 @@
     "Recently Released {libraryName}": "Lanzamientos recientes de {libraryName}",
     "Show preview thumbnails when seeking": "Mostrar miniaturas de vista previa al buscar",
     "Login failed": "Error de inicio de sesión",
-    "Queue is empty": "La cola está vacía"
+    "Queue is empty": "La cola está vacía",
+    "Perfect match": "Coincidencia perfecta",
+    "{count} downloads": "{count} descargas"
 }
