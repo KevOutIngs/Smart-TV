@@ -604,5 +604,7 @@
     "Show preview thumbnails when seeking": "搜索时显示预览缩略图",
     "Login failed": "登录失败",
     "Text Fill Color": "文本填充颜色",
-    "Queue is empty": "队列为空"
+    "Queue is empty": "队列为空",
+    "Perfect match": "完美搭配",
+    "{count} downloads": "{count} 下载"
 }
