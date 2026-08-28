@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Прикажи преглед на сликички кога барате",
     "Login failed": "Најавата не успеа",
     "Text Fill Color": "Боја за пополнување на текст",
-    "Queue is empty": "Редот е празен"
+    "Queue is empty": "Редот е празен",
+    "Perfect match": "Совршен натпревар",
+    "{count} downloads": "{count} преземања"
 }
