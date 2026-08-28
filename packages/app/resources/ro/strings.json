@@ -826,5 +826,7 @@
     "Show preview thumbnails when seeking": "Afișați miniaturile de previzualizare când căutați",
     "Login failed": "Autentificare eșuată",
     "Text Fill Color": "Culoarea umplerii textului",
-    "Queue is empty": "Coada este goală"
+    "Queue is empty": "Coada este goală",
+    "Perfect match": "Potrivire perfectă",
+    "{count} downloads": "{count} descărcări"
 }
