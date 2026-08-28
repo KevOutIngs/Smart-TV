@@ -736,5 +736,7 @@
     "Show preview thumbnails when seeking": "Vis forhåndsvisningsminiatyrer når du søker",
     "Login failed": "Innlogging mislyktes",
     "Text Fill Color": "Tekstfyllfarge",
-    "Queue is empty": "Køen er tom"
+    "Queue is empty": "Køen er tom",
+    "Perfect match": "Perfekt match",
+    "{count} downloads": "{count} nedlastinger"
 }
