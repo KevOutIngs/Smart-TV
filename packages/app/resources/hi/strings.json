@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "मांगते समय पूर्वावलोकन थंबनेल दिखाएं",
     "Login failed": "लॉगिन विफल",
     "Text Fill Color": "टेक्स्ट भरें रंग",
-    "Queue is empty": "कतार खाली है"
+    "Queue is empty": "कतार खाली है",
+    "Perfect match": "बहतरीन मैच",
+    "{count} downloads": "{count} डाउनलोड"
 }
