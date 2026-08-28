@@ -727,5 +727,16 @@
     "No pages found.": "未找到頁面。",
     "Search this library...": "搜尋這個媒體庫...",
     "Show details of the selected item at the top of Library pages.": "在媒體庫頁面頂端顯示所選項目的詳細資訊。",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "演職人員",
+    "DTS-HD MA Passthrough": "DTS-HD MA 直通",
+    "Incorrect PIN": "PIN 碼不正確",
+    "Mark as Watched": "標記為已觀看",
+    "Recently Added {libraryName}": "最近新增的 {libraryName}",
+    "Recently Released {libraryName}": "最近發行的 {libraryName}",
+    "Show Studio row in Home Sections.": "在首頁中顯示製片商列。",
+    "Show preview thumbnails when seeking": "搜尋時顯示預覽縮圖",
+    "Login failed": "登入失敗",
+    "Text Fill Color": "文字填滿顏色",
+    "Queue is empty": "隊列為空"
 }
