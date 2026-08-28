@@ -6,43 +6,42 @@ import $L from '@enact/i18n/$L';
 
 // A track with no name of its own still needs something to be called, and its
 // position is the only thing left to call it by.
-export const trackName = (position, title, typeLabel) =>
+const trackName = (position, title, typeLabel) =>
 	title || `${typeLabel || $L('Track')} ${position}`;
 
-// Audio rows lead with their position, which is how the players below refer to
-// the track when switching between them.
+// Rows lead with their position, which is how the players below refer to the
+// track when switching between them.
 export const numberedTrackName = (position, title, typeLabel) =>
 	`${position} - ${trackName(position, title, typeLabel)}`;
 
-const isExternalSubtitle = (stream) =>
+// The player works in mapped streams and the detail screen in raw server ones,
+// so both spellings have to answer.
+export const isExternalSubtitleStream = (stream) =>
 	stream.isExternal === true ||
-	(stream.deliveryMethod || '').trim().toLowerCase() === 'external';
+	stream.IsExternal === true ||
+	(stream.deliveryMethod || stream.DeliveryMethod || '').trim().toLowerCase() === 'external';
 
 // Internal tracks list first and external ones last, the order the other clients
 // use. Only rows that select by stream index can be reordered, so this takes the
 // player's mapped streams rather than raw server ones.
 export const sortSubtitleStreams = (streams) => [
-	...streams.filter((stream) => !isExternalSubtitle(stream)),
-	...streams.filter(isExternalSubtitle)
+	...streams.filter((stream) => !isExternalSubtitleStream(stream)),
+	...streams.filter(isExternalSubtitleStream)
 ];
 
 // Servers and release groups spell hearing impaired several ways, and the word
 // boundaries keep cc from matching inside an ordinary word.
 const SDH_WORDS = /\b(sdh|cc|hoh|hearing[\s-]*impaired|closed[\s-]*captions?)\b/;
 
-// Each part is dropped when the name already says it, so a track that announces
-// itself is not announced twice. The name is built from server wording, so the
-// checks read English while the parts themselves stay translated. The language
-// code always shows, because the name spells the language out and only the code
-// tells regional variants like pt-BR and pt-PT apart.
+// The format and where the track comes from lead the line, then the parts that
+// tell two otherwise identical rows apart. Those are dropped when the name
+// already says them, so a track that announces itself is not announced twice.
+// The name is built from server wording, so the checks read English while the
+// parts themselves stay translated. The language code always shows, because the
+// name spells the language out and only the code tells pt-BR and pt-PT apart.
 export const subtitleTrackDetail = ({name, codec, language, isExternal, deliveryMethod, isForced, isHearingImpaired}) => {
 	const named = (name || '').toLowerCase();
-	const parts = [];
-	if (!codec) {
-		parts.push($L('Unknown'));
-	} else if (!named.includes(codec.toLowerCase())) {
-		parts.push(codec.toUpperCase());
-	}
+	const parts = [codec ? codec.toUpperCase() : $L('Unknown')];
 	if (isExternal) {
 		if (!named.includes('external')) parts.push($L('External'));
 	} else if ((deliveryMethod || '').toLowerCase() === 'embed') {

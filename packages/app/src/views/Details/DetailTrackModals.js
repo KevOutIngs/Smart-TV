@@ -1,9 +1,10 @@
-import {useCallback} from 'react';
+import {useCallback, useMemo} from 'react';
 import $L from '@enact/i18n/$L';
 
 import {TRANSCODE_QUALITIES} from './detailsMedia';
 import {ModalContainer} from '../../utils/spotlightContainers';
-import {numberedTrackName, trackName, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
+import {numberedTrackName, subtitleTrackDetail, audioTrackDetail, isExternalSubtitleStream} from '../../utils/trackLabels';
+import TrackOptionRow, {TrackDivider} from '../../components/TrackOptionRow';
 import {SpottableButton, SpottableDiv} from './detailsSpottables';
 
 import css from './Details.module.less';
@@ -32,6 +33,17 @@ const DetailTrackModals = ({
 }) => {
 	const stopPropagation = useCallback((e) => e.stopPropagation(), []);
 
+	// The file's own tracks list before downloaded ones, the order the player
+	// uses. Rows are picked by their place in the unsorted list, so each one
+	// carries that place rather than its place on screen.
+	const displaySubtitleStreams = useMemo(() => {
+		const withPosition = subtitleStreams.map((stream, position) => ({stream, position}));
+		return [
+			...withPosition.filter((entry) => !isExternalSubtitleStream(entry.stream)),
+			...withPosition.filter((entry) => isExternalSubtitleStream(entry.stream))
+		];
+	}, [subtitleStreams]);
+
 	// The list only stands in for itself once the work is done and there is
 	// nothing to report instead.
 	const remoteSubtitleBusy = isSearchingRemoteSubtitles || isDownloadingRemoteSubtitle;
@@ -45,18 +57,17 @@ const DetailTrackModals = ({
 						<h2 className={css.trackModalTitle}>{$L('Advanced Playback')}</h2>
 						<div className={css.trackList}>
 							{TRANSCODE_QUALITIES.map((quality, i) => (
-								<SpottableButton
+								<TrackOptionRow
 									key={quality.bitrate}
-									className={css.trackItem}
+									label={`${$L('Transcode Stream')}: ${quality.label()}`}
+									selected={i === 0}
 									data-bitrate={quality.bitrate}
-									data-selected={i === 0 ? 'true' : undefined}
 									onClick={onSelectTranscodeQuality}
-								>
-									<span className={css.trackName}>{$L('Transcode Stream')}: {quality.label()}</span>
-								</SpottableButton>
+								/>
 							))}
+							<TrackDivider />
+							<TrackOptionRow label={$L('Cancel')} dimmed onClick={onCloseModal} />
 						</div>
-						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>
 			)}
@@ -72,80 +83,74 @@ const DetailTrackModals = ({
 								const container = source.Container?.toUpperCase();
 								const detail = [resLabel, container, bitrate].filter(Boolean).join(' · ');
 								return (
-									<SpottableButton
+									<TrackOptionRow
 										key={source.Id}
-										className={`${css.trackItem} ${i === selectedVersionIndex ? css.selected : ''}`}
+										label={source.Name || `${$L('Version')} ${i + 1}`}
+										detail={detail}
+										selected={i === selectedVersionIndex}
 										data-index={i}
-										data-selected={i === selectedVersionIndex ? 'true' : undefined}
 										onClick={onSelectVersion}
-									>
-										<span className={css.trackName}>{source.Name || `${$L('Version')} ${i + 1}`}</span>
-										{detail && <span className={css.trackInfo}>{detail}</span>}
-									</SpottableButton>
+									/>
 								);
 							})}
+							<TrackDivider />
+							<TrackOptionRow label={$L('Cancel')} dimmed onClick={onCloseModal} />
 						</div>
-						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>
 			)}
 			{activeModal === 'audio' && (
 				<div className={css.trackModal} onClick={onCloseModal}>
 					<ModalContainer className={css.trackModalPanel} onClick={stopPropagation} data-modal="audio" spotlightId="audio-modal">
-						<h2 className={css.trackModalTitle}>{$L('Select Audio Track')}</h2>
+						<h2 className={css.trackModalTitle}>{$L('Audio Track')}</h2>
 						<div className={css.trackList}>
-							{audioStreams.map((stream, i) => {
-								const detail = audioTrackDetail({language: stream.Language, displayTitle: stream.DisplayTitle, codec: stream.Codec, channels: stream.Channels});
-								return (
-									<SpottableButton
-										key={stream.Index}
-										className={`${css.trackItem} ${i === selectedAudioIndex ? css.selected : ''}`}
-										data-index={i}
-										data-selected={i === selectedAudioIndex ? 'true' : undefined}
-										onClick={onSelectAudio}
-									>
-										<span className={css.trackName}>{numberedTrackName(i + 1, stream.DisplayTitle || stream.Title || stream.Language, $L('Audio'))}</span>
-										{detail && <span className={css.trackInfo}>{detail}</span>}
-									</SpottableButton>
-								);
-							})}
+							{audioStreams.map((stream, i) => (
+								<TrackOptionRow
+									key={stream.Index}
+									label={numberedTrackName(i + 1, stream.DisplayTitle || stream.Title || stream.Language, $L('Audio'))}
+									detail={audioTrackDetail({language: stream.Language, displayTitle: stream.DisplayTitle, codec: stream.Codec, channels: stream.Channels})}
+									selected={i === selectedAudioIndex}
+									data-index={i}
+									onClick={onSelectAudio}
+								/>
+							))}
+							<TrackDivider />
+							<TrackOptionRow label={$L('Cancel')} dimmed onClick={onCloseModal} />
 						</div>
-						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>
 			)}
 			{activeModal === 'subtitle' && (
 				<div className={css.trackModal} onClick={onCloseModal}>
 					<ModalContainer className={css.trackModalPanel} onClick={stopPropagation} data-modal="subtitle" spotlightId="subtitle-modal">
-						<h2 className={css.trackModalTitle}>{$L('Select Subtitle')}</h2>
+						<h2 className={css.trackModalTitle}>{$L('Subtitle Track')}</h2>
 						<div className={css.trackList}>
-							<SpottableButton
-								className={`${css.trackItem} ${selectedSubtitleIndex === -1 ? css.selected : ''}`}
+							<TrackOptionRow
+								label={$L('None')}
+								selected={selectedSubtitleIndex === -1}
 								data-index={-1}
-								data-selected={selectedSubtitleIndex === -1 ? 'true' : undefined}
 								onClick={onSelectSubtitle}
-							>
-								<span className={css.trackName}>{$L('Off')}</span>
-							</SpottableButton>
-							{subtitleStreams.map((stream, i) => (
-								<SpottableButton
+							/>
+							{displaySubtitleStreams.map(({stream, position}, i) => (
+								<TrackOptionRow
 									key={stream.Index}
-									className={`${css.trackItem} ${i === selectedSubtitleIndex ? css.selected : ''}`}
-									data-index={i}
-									data-selected={i === selectedSubtitleIndex ? 'true' : undefined}
+									label={numberedTrackName(i + 1, stream.DisplayTitle || stream.Title || stream.Language, $L('Subtitle'))}
+									detail={subtitleTrackDetail({name: stream.DisplayTitle || stream.Title || stream.Language, codec: stream.Codec, language: stream.Language, isExternal: stream.IsExternal, deliveryMethod: stream.DeliveryMethod, isForced: stream.IsForced, isHearingImpaired: stream.IsHearingImpaired})}
+									selected={position === selectedSubtitleIndex}
+									data-index={position}
 									onClick={onSelectSubtitle}
-								>
-									<span className={css.trackName}>{trackName(i + 1, stream.DisplayTitle || stream.Title || stream.Language, $L('Subtitle'))}</span>
-									<span className={css.trackInfo}>{subtitleTrackDetail({name: stream.DisplayTitle || stream.Title || stream.Language, codec: stream.Codec, language: stream.Language, isExternal: stream.IsExternal, deliveryMethod: stream.DeliveryMethod, isForced: stream.IsForced, isHearingImpaired: stream.IsHearingImpaired})}</span>
-								</SpottableButton>
+								/>
 							))}
+							<TrackDivider />
+							<TrackOptionRow
+								label={$L('Download subtitles...')}
+								detail={$L('Search using the OpenSubtitles plugin')}
+								spotlightId="btn-subtitle-download"
+								onClick={onOpenRemoteSubtitleSearch}
+							/>
+							<TrackDivider />
+							<TrackOptionRow label={$L('Cancel')} dimmed onClick={onCloseModal} />
 						</div>
-						<p className={css.trackModalFooter}>
-							<SpottableButton spotlightId="btn-subtitle-download" className={css.actionBtn} onClick={onOpenRemoteSubtitleSearch}>
-								{$L('Download')}
-							</SpottableButton>
-						</p>
-						<p className={css.trackModalFooter} style={{marginTop: 5, fontSize: 14, opacity: 0.5}}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>
 			)}
@@ -193,8 +198,9 @@ const DetailTrackModals = ({
 									)}
 								</SpottableButton>
 							))}
+							<TrackDivider />
+							<TrackOptionRow label={$L('Cancel')} dimmed onClick={onCloseModal} />
 						</div>
-						<p className={css.trackModalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>
 			)}

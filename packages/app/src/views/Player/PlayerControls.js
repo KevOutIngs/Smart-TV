@@ -10,7 +10,8 @@ import SubtitleSettingsOverlay from './SubtitleSettingsOverlay';
 import {isHdrVideoStream} from '../../utils/videoRange';
 import {getPlatform} from '../../platform';
 import {ModalContainer} from '../../utils/spotlightContainers';
-import {numberedTrackName, trackName, sortSubtitleStreams, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
+import {numberedTrackName, sortSubtitleStreams, subtitleTrackDetail, audioTrackDetail} from '../../utils/trackLabels';
+import TrackOptionRow, {TrackDivider} from '../../components/TrackOptionRow';
 import {
 	SpottableButton, SpottableDiv,
 	formatTime, getQualityPresets,
@@ -417,25 +418,21 @@ const PlayerControls = ({
 			{activeModal === 'audio' && (
 				<div className={css.trackModal} onClick={closeModal}>
 					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="audio" spotlightId="audio-modal">
-						<h2 className={css.modalTitle}>{$L('Select Audio Track')}</h2>
+						<h2 className={css.modalTitle}>{$L('Audio Track')}</h2>
 						<div className={css.trackList}>
-							{audioStreams.map((stream, i) => {
-								const detail = audioTrackDetail({language: stream.language, displayTitle: stream.displayTitle, codec: stream.codec, channels: stream.channels});
-								return (
-									<SpottableButton
-										key={stream.index}
-										className={`${css.trackItem} ${stream.index === selectedAudioIndex ? css.selected : ''}`}
-										data-index={stream.index}
-										data-selected={stream.index === selectedAudioIndex ? 'true' : undefined}
-										onClick={handleSelectAudio}
-									>
-										<span className={css.trackName}>{numberedTrackName(i + 1, stream.displayTitle, $L('Audio'))}</span>
-										{detail && <span className={css.trackInfo}>{detail}</span>}
-									</SpottableButton>
-								);
-							})}
+							{audioStreams.map((stream, i) => (
+								<TrackOptionRow
+									key={stream.index}
+									label={numberedTrackName(i + 1, stream.displayTitle, $L('Audio'))}
+									detail={audioTrackDetail({language: stream.language, displayTitle: stream.displayTitle, codec: stream.codec, channels: stream.channels})}
+									selected={stream.index === selectedAudioIndex}
+									data-index={stream.index}
+									onClick={handleSelectAudio}
+								/>
+							))}
+							<TrackDivider />
+							<TrackOptionRow label={$L('Cancel')} dimmed onClick={closeModal} />
 						</div>
-						<p className={css.modalFooter}>{$L('Press BACK to close')}</p>
 					</ModalContainer>
 				</div>
 			)}
@@ -443,41 +440,40 @@ const PlayerControls = ({
 			{activeModal === 'subtitle' && (
 				<div className={css.trackModal} onClick={closeModal}>
 					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="subtitle" spotlightId="subtitle-modal">
-						<h2 className={css.modalTitle}>{$L('Select Subtitle')}</h2>
+						<h2 className={css.modalTitle}>{$L('Subtitle Track')}</h2>
 						<div className={css.trackList}>
-							<SpottableButton
-								className={`${css.trackItem} ${selectedSubtitleIndex === -1 ? css.selected : ''}`}
+							<TrackOptionRow
+								label={$L('None')}
+								selected={selectedSubtitleIndex === -1}
 								data-index={-1}
-								data-selected={selectedSubtitleIndex === -1 ? 'true' : undefined}
 								onClick={handleSelectSubtitle}
 								onKeyDown={handleSubtitleKeyDown}
-							>
-								<span className={css.trackName}>{$L('Off')}</span>
-							</SpottableButton>
+							/>
 							{sortSubtitleStreams(subtitleStreams).map((stream, i) => (
-								<SpottableButton
+								<TrackOptionRow
 									key={stream.index}
-									className={`${css.trackItem} ${stream.index === selectedSubtitleIndex ? css.selected : ''}`}
+									label={numberedTrackName(i + 1, stream.displayTitle, $L('Subtitle'))}
+									detail={subtitleTrackDetail({name: stream.displayTitle, codec: stream.codec, language: stream.language, isExternal: stream.isExternal, deliveryMethod: stream.deliveryMethod, isForced: stream.isForced, isHearingImpaired: stream.isHearingImpaired})}
+									selected={stream.index === selectedSubtitleIndex}
 									data-index={stream.index}
-									data-selected={stream.index === selectedSubtitleIndex ? 'true' : undefined}
 									onClick={handleSelectSubtitle}
 									onKeyDown={handleSubtitleKeyDown}
-								>
-									<span className={css.trackName}>{trackName(i + 1, stream.displayTitle, $L('Subtitle'))}</span>
-									<span className={css.trackInfo}>{subtitleTrackDetail({name: stream.displayTitle, codec: stream.codec, language: stream.language, isExternal: stream.isExternal, deliveryMethod: stream.deliveryMethod, isForced: stream.isForced, isHearingImpaired: stream.isHearingImpaired})}</span>
-								</SpottableButton>
+								/>
 							))}
-						</div>
-						<p className={css.modalFooter}>
-							<SpottableButton spotlightId="btn-subtitle-offset" className={css.actionBtn} onClick={handleOpenSubtitleOffset}>{$L('Offset')}</SpottableButton>
-							<SpottableButton spotlightId="btn-subtitle-appearance" className={css.actionBtn} onClick={handleOpenSubtitleSettings} style={{marginLeft: 15}}>{$L('Appearance')}</SpottableButton>
+							<TrackDivider />
+							<TrackOptionRow label={$L('Offset')} spotlightId="btn-subtitle-offset" onClick={handleOpenSubtitleOffset} />
+							<TrackOptionRow label={$L('Appearance')} spotlightId="btn-subtitle-appearance" onClick={handleOpenSubtitleSettings} />
 							{canDownloadRemoteSubtitles && (
-								<SpottableButton spotlightId="btn-subtitle-download" className={css.actionBtn} onClick={handleOpenRemoteSubtitleSearch} style={{marginLeft: 15}}>
-									{$L('Download')}
-								</SpottableButton>
+								<TrackOptionRow
+									label={$L('Download subtitles...')}
+									detail={$L('Search using the OpenSubtitles plugin')}
+									spotlightId="btn-subtitle-download"
+									onClick={handleOpenRemoteSubtitleSearch}
+								/>
 							)}
-						</p>
-						<p className={css.modalFooter} style={{marginTop: 5, fontSize: 14, opacity: 0.5}}>{$L('Press BACK to close')}</p>
+							<TrackDivider />
+							<TrackOptionRow label={$L('Cancel')} dimmed onClick={closeModal} />
+						</div>
 					</ModalContainer>
 				</div>
 			)}
@@ -537,24 +533,20 @@ const PlayerControls = ({
 					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="sleep" spotlightId="sleep-modal">
 						<h2 className={css.modalTitle}>{$L('Sleep timer')}</h2>
 						<div className={css.trackList}>
-							<SpottableButton
-								className={`${css.trackItem} ${sleepMinutes == null ? css.selected : ''}`}
+							<TrackOptionRow
+								label={$L('Off')}
+								selected={sleepMinutes == null}
 								data-minutes="0"
-								data-selected={sleepMinutes == null ? 'true' : undefined}
 								onClick={handleSelectSleep}
-							>
-								<span className={css.trackName}>{$L('Off')}</span>
-							</SpottableButton>
+							/>
 							{SLEEP_TIMER_MINUTES.map((minutes) => (
-								<SpottableButton
+								<TrackOptionRow
 									key={minutes}
-									className={`${css.trackItem} ${minutes === sleepMinutes ? css.selected : ''}`}
+									label={$L('{count} minutes').replace('{count}', minutes)}
+									selected={minutes === sleepMinutes}
 									data-minutes={minutes}
-									data-selected={minutes === sleepMinutes ? 'true' : undefined}
 									onClick={handleSelectSleep}
-								>
-									<span className={css.trackName}>{$L('{count} minutes').replace('{count}', minutes)}</span>
-								</SpottableButton>
+								/>
 							))}
 						</div>
 						{sleepMinutes != null && sleepRemainingSeconds > 0 && (
@@ -573,15 +565,13 @@ const PlayerControls = ({
 						<h2 className={css.modalTitle}>{$L('Max Bitrate')}</h2>
 						<div className={css.trackList}>
 							{getQualityPresets().map((preset) => (
-								<SpottableButton
+								<TrackOptionRow
 									key={preset.value ?? 'auto'}
-									className={`${css.trackItem} ${selectedQuality === preset.value ? css.selected : ''}`}
+									label={preset.label}
+									selected={selectedQuality === preset.value}
 									data-value={preset.value === null ? 'null' : preset.value}
-									data-selected={selectedQuality === preset.value ? 'true' : undefined}
 									onClick={handleSelectQuality}
-								>
-									<span className={css.trackName}>{preset.label}</span>
-								</SpottableButton>
+								/>
 							))}
 						</div>
 						<p className={css.modalFooter}>{$L('Current')}: {playMethod || $L('Unknown')}</p>
