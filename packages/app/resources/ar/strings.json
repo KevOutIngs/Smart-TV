@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "إظهار الصور المصغرة للمعاينة عند البحث",
     "Login failed": "فشل تسجيل الدخول",
     "Text Fill Color": "لون تعبئة النص",
-    "Queue is empty": "قائمة الانتظار فارغة"
+    "Queue is empty": "قائمة الانتظار فارغة",
+    "Perfect match": "مباراة مثالية",
+    "{count} downloads": "{count} التنزيلات"
 }
