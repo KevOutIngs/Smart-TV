@@ -729,5 +729,7 @@
     "Show preview thumbnails when seeking": "Dangos mân-luniau rhagolwg wrth geisio",
     "Login failed": "Methodd mewngofnodi",
     "Text Fill Color": "Lliw Llenwch Testun",
-    "Queue is empty": "Mae'r ciw yn wag"
+    "Queue is empty": "Mae'r ciw yn wag",
+    "Perfect match": "Cydweddiad perffaith",
+    "{count} downloads": "{count} lawrlwythiadau"
 }
