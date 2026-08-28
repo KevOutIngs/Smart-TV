@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Pri vyhľadávaní zobraziť miniatúry ukážky",
     "Login failed": "Prihlásenie zlyhalo",
     "Text Fill Color": "Farba výplne textu",
-    "Queue is empty": "Poradie je prázdne"
+    "Queue is empty": "Poradie je prázdne",
+    "Perfect match": "Perfektná zhoda",
+    "{count} downloads": "{count} stiahnutí"
 }
