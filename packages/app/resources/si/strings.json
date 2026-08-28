@@ -721,5 +721,14 @@
     "No pages found.": "පිටු කිසිවක් හමු නොවීය.",
     "Search this library...": "මෙම පුස්තකාලය සොයන්න...",
     "Show details of the selected item at the top of Library pages.": "පුස්තකාල පිටුවල ඉහළින් තෝරාගත් අයිතමයේ විස්තර පෙන්වන්න.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "රංගන ශිල්පීන් සහ කණ්ඩායම",
+    "DTS-HD MA Passthrough": "DTS-HD MA පාස්ත්‍රූ",
+    "Incorrect PIN": "වැරදි PIN අංකය",
+    "Mark as Watched": "නැරඹූ ලෙස ලකුණු කරන්න",
+    "Recently Released {libraryName}": "මෑතකදී නිකුත් වූ {libraryName}",
+    "Show preview thumbnails when seeking": "සොයන විට පෙරදසුන් සිඟිති රූ පෙන්වන්න",
+    "Login failed": "ඇතුළු වීම අසාර්ථක විය",
+    "Text Fill Color": "පෙළ පිරවුම් වර්ණය",
+    "Queue is empty": "පෝලිම හිස්"
 }
