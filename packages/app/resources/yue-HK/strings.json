@@ -596,5 +596,13 @@
     "Videos": "Videos",
     "{count} Episodes": "{count} Episodes",
     "{count} items": "{count} items",
-    "{count} selected": "{count} selected"
+    "{count} selected": "{count} selected",
+    "Cast & Crew": "演職人員",
+    "DTS-HD MA Passthrough": "DTS-HD MA Passthrough",
+    "Incorrect PIN": "PIN 碼不正確",
+    "Mark as Watched": "標記為已觀看",
+    "Show preview thumbnails when seeking": "搜尋時顯示預覽縮圖",
+    "Login failed": "登入失敗",
+    "Text Fill Color": "文字填滿顏色",
+    "Queue is empty": "隊列為空"
 }
