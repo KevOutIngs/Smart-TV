@@ -721,5 +721,14 @@
     "No pages found.": "Không tìm thấy trang nào.",
     "Search this library...": "Tìm kiếm thư viện này...",
     "Show details of the selected item at the top of Library pages.": "Hiển thị chi tiết của mục đang chọn ở đầu trang Thư viện.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Diễn viên & Đoàn làm phim",
+    "DTS-HD MA Passthrough": "Truyền qua DTS-HD MA",
+    "Incorrect PIN": "Mã PIN không chính xác",
+    "Mark as Watched": "Đánh dấu là đã xem",
+    "Recently Released {libraryName}": "{libraryName} mới phát hành",
+    "Show preview thumbnails when seeking": "Hiển thị hình thu nhỏ xem trước khi tìm kiếm",
+    "Login failed": "Đăng nhập không thành công",
+    "Text Fill Color": "Màu tô văn bản",
+    "Queue is empty": "Hàng đợi trống"
 }
