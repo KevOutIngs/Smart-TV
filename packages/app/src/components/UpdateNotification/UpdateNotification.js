@@ -11,6 +11,8 @@ import Scroller from '@enact/sandstone/Scroller';
 import Spotlight from '@enact/spotlight';
 import $L from '@enact/i18n/$L';
 
+import {KEYS} from '../../utils/keys';
+
 import css from './UpdateNotification.module.less';
 
 // Simple markdown to HTML converter
@@ -31,8 +33,10 @@ const markdownToHtml = (text) => {
 		.replace(/\n/g, '<br/>');
 };
 
+const OK_BUTTON_ID = 'update-ok-btn';
+
 const UpdateNotification = ({updateInfo, formattedNotes, onDismiss}) => {
-	const buttonRef = useRef(null);
+	const panelRef = useRef(null);
 
 	const handleDismiss = useCallback(() => {
 		if (onDismiss) {
@@ -42,18 +46,49 @@ const UpdateNotification = ({updateInfo, formattedNotes, onDismiss}) => {
 
 	const htmlNotes = useMemo(() => markdownToHtml(formattedNotes), [formattedNotes]);
 
-	// Auto-focus the OK button when the popup opens
+	const holdsFocus = useCallback(() => {
+		const current = Spotlight.getCurrent();
+		return Boolean(current && panelRef.current && panelRef.current.contains(current));
+	}, []);
+
+	// Asked for by id because Button does not forward a ref, so there is no
+	// element to hand Spotlight. The panel animates in, so the first ask can
+	// land before there is anything to take it.
 	useEffect(() => {
-		if (updateInfo) {
-			// Small delay to ensure the popup is rendered
-			const timer = setTimeout(() => {
-				if (buttonRef.current) {
-					Spotlight.focus(buttonRef.current);
-				}
-			}, 100);
-			return () => clearTimeout(timer);
-		}
-	}, [updateInfo]);
+		if (!updateInfo) return;
+
+		let timer = null;
+		let attempts = 0;
+		const focusOk = () => {
+			Spotlight.focus(OK_BUTTON_ID);
+			attempts += 1;
+			if (attempts < 5 && !holdsFocus()) {
+				timer = setTimeout(focusOk, 150);
+			}
+		};
+
+		timer = setTimeout(focusOk, 100);
+		return () => clearTimeout(timer);
+	}, [updateInfo, holdsFocus]);
+
+	// Spotlight only fences off moves that start inside the panel, so focus can
+	// still be taken by the screen behind. Every press after that drives the
+	// screen instead of the panel.
+	useEffect(() => {
+		if (!updateInfo) return;
+
+		const handleKey = (e) => {
+			const code = e.keyCode || e.which;
+			if (code !== KEYS.UP && code !== KEYS.DOWN && code !== KEYS.LEFT && code !== KEYS.RIGHT) return;
+			if (holdsFocus()) return;
+			e.preventDefault();
+			e.stopPropagation();
+			Spotlight.focus(OK_BUTTON_ID);
+		};
+
+		window.addEventListener('keydown', handleKey, true);
+		return () => window.removeEventListener('keydown', handleKey, true);
+	}, [updateInfo, holdsFocus]);
 
 	if (!updateInfo) {
 		return null;
@@ -70,6 +105,7 @@ const UpdateNotification = ({updateInfo, formattedNotes, onDismiss}) => {
 		>
 			<div className={css.overlay}>
 				<div
+					ref={panelRef}
 					className={css.modal}
 					style={{
 						width: '1400px',
@@ -100,7 +136,7 @@ const UpdateNotification = ({updateInfo, formattedNotes, onDismiss}) => {
 
 					<div className={css.buttons}>
 						<Button
-							ref={buttonRef}
+							spotlightId={OK_BUTTON_ID}
 							size="small"
 							onClick={handleDismiss}
 						>

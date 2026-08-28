@@ -621,6 +621,11 @@ const AppContent = (props) => {
 					return;
 				}
 
+				if (updateInfo) {
+					dismissUpdate();
+					return;
+				}
+
 				if (showAccountModal) {
 					setShowAccountModal(false);
 					return;
@@ -661,7 +666,7 @@ const AppContent = (props) => {
 
 		window.addEventListener('keydown', handleKeyDown, true);
 		return () => window.removeEventListener('keydown', handleKeyDown, true);
-	}, [panelIndex, handleBack, performAppCleanup, settings.exitConfirmation, showAccountModal, showServerMessages, showExitDialog, showSettingsPanel, showShuffleOverlay, isPinGateActive, setupWizardActive]);
+	}, [panelIndex, handleBack, performAppCleanup, settings.exitConfirmation, showAccountModal, showServerMessages, showExitDialog, showSettingsPanel, showShuffleOverlay, isPinGateActive, setupWizardActive, updateInfo, dismissUpdate]);
 
 	const handleLoggedIn = useCallback(() => {
 		setPanelHistory([]);
