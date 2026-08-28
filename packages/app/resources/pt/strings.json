@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Mostrar miniaturas de pré-visualização ao avançar",
     "Login failed": "Falha no login",
     "Text Fill Color": "Cor de preenchimento de texto",
-    "Queue is empty": "A fila está vazia"
+    "Queue is empty": "A fila está vazia",
+    "Perfect match": "Correspondência perfeita",
+    "{count} downloads": "{count} downloads"
 }
