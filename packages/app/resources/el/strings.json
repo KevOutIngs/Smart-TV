@@ -743,5 +743,7 @@
     "Show preview thumbnails when seeking": "Εμφάνιση μικρογραφιών προεπισκόπησης κατά την αναζήτηση",
     "Login failed": "Η σύνδεση απέτυχε",
     "Text Fill Color": "Χρώμα πλήρωσης κειμένου",
-    "Queue is empty": "Η ουρά είναι άδεια"
+    "Queue is empty": "Η ουρά είναι άδεια",
+    "Perfect match": "Τέλειο ταίρι",
+    "{count} downloads": "{count} λήψεις"
 }
