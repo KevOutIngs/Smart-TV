@@ -958,5 +958,22 @@
     "Years": "Vuodet",
     "You're set. Here's what else is in here.": "Valmis. Tässä on muutkin sisällön osat.",
     "{rating} / 10": "{rating} / 10",
-    "{rating} / 5": "{rating} / 5"
+    "{rating} / 5": "{rating} / 5",
+    "Cast & Crew": "Näyttelijät & tuotantoryhmä",
+    "DTS-HD MA Passthrough": "DTS-HD MA -läpivienti",
+    "Details Screen Style": "Tietonäkymän Tyyli",
+    "Display Studio Row": "Display Studio -rivi",
+    "On Watchlist": "Seurantaluettelossa",
+    "Incorrect PIN": "Väärä PIN-koodi",
+    "Mark as Watched": "Merkitse katsotuksi",
+    "Recently Added {libraryName}": "Äskettäin lisätty {libraryName}",
+    "Recently Released {libraryName}": "Äskettäin julkaistut: {libraryName}",
+    "Request More in 4K": "Pyydä lisää 4K-laadulla",
+    "Show Studio row in Home Sections.": "Näytä Studio-rivi Koti-osiossa.",
+    "Show preview thumbnails when seeking": "Näytä esikatselupikkukuvat etsiessäsi",
+    "Choose what is shown on the right side of the music progress bar.": "Valitse, mitä musiikin etenemispalkin oikealla puolella näytetään.",
+    "Login failed": "Kirjautuminen epäonnistui",
+    "Studio Row Sorting": "Studio Row -lajittelu",
+    "Text Fill Color": "Tekstin täyttöväri",
+    "Queue is empty": "Jono on tyhjä"
 }
