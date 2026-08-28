@@ -721,5 +721,14 @@
     "No pages found.": "Ямар ч хуудас олдсонгүй.",
     "Search this library...": "Энэ номын сангаас хайх...",
     "Show details of the selected item at the top of Library pages.": "Сангийн хуудасны дээд хэсэгт сонгосон зүйлийн дэлгэрэнгүйг харуулна.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Жүжигчид ба багийнхан",
+    "DTS-HD MA Passthrough": "DTS-HD MA дамжуулалт",
+    "Incorrect PIN": "ПИН код буруу",
+    "Mark as Watched": "Үзсэн гэж тэмдэглэ",
+    "Recently Released {libraryName}": "Саяхан гарсан {libraryName}",
+    "Show preview thumbnails when seeking": "Хайх үед урьдчилан харах өнгөц зургийг харуул",
+    "Login failed": "Нэвтэрч чадсангүй",
+    "Text Fill Color": "Текст дүүргэх өнгө",
+    "Queue is empty": "Дараалал хоосон байна"
 }
