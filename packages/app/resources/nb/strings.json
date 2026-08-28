@@ -726,5 +726,15 @@
     "Trailer": "Trailer",
     "Trakt": "Trakt",
     "Type": "Type",
-    "Video": "Video"
+    "Video": "Video",
+    "Cast & Crew": "Skuespillere og team",
+    "DTS-HD MA Passthrough": "DTS-HD MA-passthrough",
+    "Incorrect PIN": "Feil PIN-kode",
+    "Mark as Watched": "Merk som sett",
+    "Recently Added {libraryName}": "Nylig lagt til i {libraryName}",
+    "Recently Released {libraryName}": "Nylig utgitt i {libraryName}",
+    "Show preview thumbnails when seeking": "Vis forhåndsvisningsminiatyrer når du søker",
+    "Login failed": "Innlogging mislyktes",
+    "Text Fill Color": "Tekstfyllfarge",
+    "Queue is empty": "Køen er tom"
 }
