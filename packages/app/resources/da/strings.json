@@ -887,5 +887,13 @@
     "Skip Forward Length": "Spring fremad længde",
     "{count} items": "{count} elementer",
     "Failed": "Mislykkedes",
-    "Part of {name}": "Del af {name}"
+    "Part of {name}": "Del af {name}",
+    "Cast & Crew": "Medvirkende & hold",
+    "DTS-HD MA Passthrough": "DTS-HD MA-passthrough",
+    "Incorrect PIN": "Forkert pinkode",
+    "Recently Released {libraryName}": "Nyligt udgivet i {libraryName}",
+    "Show preview thumbnails when seeking": "Vis forhåndsvisningsminiaturer, når du søger",
+    "Login failed": "Login mislykkedes",
+    "Text Fill Color": "Tekstfyldfarve",
+    "Queue is empty": "Køen er tom"
 }
