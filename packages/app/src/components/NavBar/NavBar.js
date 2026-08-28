@@ -79,13 +79,13 @@ const NavBar = ({
 	// Whatever sits immediately left of the libraries group, which depends on how
 	// many of the optional buttons are turned on.
 	const librariesLeftTargetId = useMemo(() => {
-		if (showSyncPlay) return 'navbar-syncplay';
 		if (showSeerr) return 'navbar-discover';
+		if (showSyncPlay) return 'navbar-syncplay';
 		if (showFavorites) return 'navbar-favorites';
 		if (showGenres) return 'navbar-genres';
 		if (showShuffle) return 'navbar-shuffle';
 		return 'navbar-search';
-	}, [showSyncPlay, showSeerr, showFavorites, showGenres, showShuffle]);
+	}, [showSeerr, showSyncPlay, showFavorites, showGenres, showShuffle]);
 
 	const handlePillFocus = useCallback((e) => {
 		if (pointerHover()) return;
@@ -134,12 +134,12 @@ const NavBar = ({
 						<NavPillButton Icon={FavoritesIcon} slot={nextSlot()} label={$L('Favorites')} onClick={onFavorites} spotlightId="navbar-favorites" />
 					)}
 
-					{showSeerr && (
-						<NavPillButton Icon={SeerrIcon} slot={nextSlot()} label={displayName} onClick={onDiscover} spotlightId="navbar-discover" />
-					)}
-
 					{showSyncPlay && (
 						<NavPillButton Icon={SyncPlayIcon} slot={nextSlot()} label={$L('SyncPlay')} onClick={onSyncPlay} spotlightId="navbar-syncplay" active={isInGroup} />
+					)}
+
+					{showSeerr && (
+						<NavPillButton Icon={SeerrIcon} slot={nextSlot()} label={displayName} onClick={onDiscover} spotlightId="navbar-discover" />
 					)}
 
 					{showLibraries && (

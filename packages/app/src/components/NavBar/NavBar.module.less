@@ -41,13 +41,19 @@
 	display: flex;
 	align-items: center;
 	border: var(--theme-nav-border, none);
-	border-radius: 40px;
-	padding: 10px;
+	border-radius: 36px;
+	// Deliberately unpadded, so a focused button reaches the ends of the pill
+	// instead of floating inside it.
+	padding: 0;
 	max-width: 1400px;
 	overflow-x: auto;
 	overflow-y: hidden;
 	scroll-behavior: smooth;
 	scrollbar-width: none;
+
+	> * + * {
+		margin-left: 2px;
+	}
 
 	&::-webkit-scrollbar {
 		display: none;
@@ -78,7 +84,7 @@
 .navBtn {
 	display: flex;
 	align-items: center;
-	padding: 12px 20px;
+	padding: 14px 24px;
 	background: transparent;
 	border: none;
 	color: var(--theme-text-secondary, rgba(255, 255, 255, 0.6));
@@ -88,8 +94,8 @@
 	transition: all 0.15s ease-out;
 	outline: none;
 	position: relative;
-	border-radius: 32px;
-	min-height: 60px;
+	border-radius: 36px;
+	min-height: 70px;
 	white-space: nowrap;
 	flex-shrink: 0;
 
@@ -99,17 +105,16 @@
 
 	&:hover,
 	&:focus {
-		color: var(--theme-text-primary, #ffffff);
-		background: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.14);
-		transform: scale(1.05);
+		color: var(--theme-background, #000000);
+		background: var(--theme-on-surface, #ffffff);
 	}
 }
 
 .navBtnIcon {
-	padding: 12px 16px;
-	min-width: 60px;
+	padding: 14px 18px;
+	min-width: 70px;
 	justify-content: center;
-	border-radius: 32px;
+	border-radius: 36px;
 
 	> * + * {
 		margin-left: 0;
@@ -117,8 +122,8 @@
 }
 
 .navIcon {
-	width: 32px;
-	height: 32px;
+	width: 36px;
+	height: 36px;
 	fill: currentColor;
 	flex-shrink: 0;
 }
@@ -133,28 +138,28 @@
 }
 
 .clock {
-	font-size: 26px;
+	font-size: 28px;
 	font-weight: 500;
 	color: var(--theme-text-primary, rgba(255, 255, 255, 0.9));
 	text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .userAvatarImg {
-	width: 56px;
-	height: 56px;
+	width: 64px;
+	height: 64px;
 	border-radius: 50%;
 	object-fit: cover;
 }
 
 .userAvatar {
-	width: 56px;
-	height: 56px;
+	width: 64px;
+	height: 64px;
 	border-radius: 50%;
 	background: linear-gradient(135deg, @accent, var(--theme-accent-secondary, #0077b6));
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 28px;
+	font-size: 30px;
 	font-weight: 600;
 	color: var(--theme-on-accent, #fff);
 }
@@ -165,13 +170,13 @@
 	.expandLabel {
 		display: none;
 		margin-left: 10px;
-		font-size: 20px;
+		font-size: 22px;
 		font-weight: 600;
 		white-space: nowrap;
 	}
 
 	&:focus {
-		padding: 12px 20px;
+		padding: 14px 24px;
 
 		.expandLabel {
 			display: inline;
@@ -181,7 +186,7 @@
 
 // Keeps every pill label on screen instead of only the focused one.
 .alwaysExpanded .expandableBtn {
-	padding: 12px 20px;
+	padding: 14px 24px;
 
 	.expandLabel {
 		display: inline;
@@ -234,9 +239,9 @@
 }
 
 .libraryBtn {
-	padding: 10px 18px;
-	min-height: 50px;
-	font-size: 18px;
+	padding: 12px 20px;
+	min-height: 58px;
+	font-size: 20px;
 	margin-left: 4px;
 }
 
