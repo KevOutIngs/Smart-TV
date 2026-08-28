@@ -721,5 +721,14 @@
     "No pages found.": "ページが見つかりませんでした。",
     "Search this library...": "このライブラリを検索...",
     "Show details of the selected item at the top of Library pages.": "ライブラリページの上部に、選択中のアイテムの詳細を表示します。",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "キャスト＆スタッフ",
+    "DTS-HD MA Passthrough": "DTS-HD MA パススルー",
+    "Incorrect PIN": "間違ったPIN",
+    "Mark as Watched": "監視済みとしてマークする",
+    "Recently Released {libraryName}": "最近公開された{libraryName}",
+    "Show preview thumbnails when seeking": "シーク時にプレビューのサムネイルを表示する",
+    "Login failed": "ログインに失敗しました",
+    "Text Fill Color": "テキストの塗りつぶしの色",
+    "Queue is empty": "キューは空です"
 }
