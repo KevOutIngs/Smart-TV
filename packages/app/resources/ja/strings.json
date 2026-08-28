@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "シーク時にプレビューのサムネイルを表示する",
     "Login failed": "ログインに失敗しました",
     "Text Fill Color": "テキストの塗りつぶしの色",
-    "Queue is empty": "キューは空です"
+    "Queue is empty": "キューは空です",
+    "Perfect match": "完璧に一致",
+    "{count} downloads": "{count} ダウンロード"
 }
