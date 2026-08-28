@@ -1010,5 +1010,14 @@
     "Your Watchlist": "Deine Watchlist",
     "No libraries found": "Keine Bibliotheken gefunden",
     "This core has no adjustable options.": "Dieser Core bietet keine einstellbaren Optionen.",
-    "Premiere": "Premiere"
+    "Premiere": "Premiere",
+    "Cast & Crew": "Besetzung & Crew",
+    "DTS-HD MA Passthrough": "DTS-HD MA Passthrough",
+    "Details Screen Style": "Layout der Mediendetails",
+    "On Watchlist": "auf Watchlist",
+    "Incorrect PIN": "Falsche PIN",
+    "Recently Released {libraryName}": "Kürzlich erschienen: {libraryName}",
+    "Show preview thumbnails when seeking": "Vorschaubilder beim Spulen anzeigen",
+    "Login failed": "Anmeldung fehlgeschlagen",
+    "Queue is empty": "Die Warteschlange ist leer"
 }
