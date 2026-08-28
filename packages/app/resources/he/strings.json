@@ -721,5 +721,14 @@
     "No pages found.": "לא נמצאו דפים.",
     "Search this library...": "חפש בספרייה זו...",
     "Show details of the selected item at the top of Library pages.": "הצג את פרטי הפריט הנבחר בראש דפי הספרייה.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "שחקנים וצוות",
+    "DTS-HD MA Passthrough": "מעבר DTS-HD MA",
+    "Incorrect PIN": "PIN שגוי",
+    "Mark as Watched": "סמן כנצפית",
+    "Recently Released {libraryName}": "{libraryName} שיצאו לאחרונה",
+    "Show preview thumbnails when seeking": "הצג תמונות ממוזערות של תצוגה מקדימה בעת חיפוש",
+    "Login failed": "הכניסה נכשלה",
+    "Text Fill Color": "צבע מילוי טקסט",
+    "Queue is empty": "התור ריק"
 }
