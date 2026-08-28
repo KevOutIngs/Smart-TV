@@ -721,5 +721,14 @@
     "No pages found.": "Није пронађена ниједна страница.",
     "Search this library...": "Претражи ову библиотеку...",
     "Show details of the selected item at the top of Library pages.": "Прикажи детаље изабране ставке на врху страница библиотеке.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Глумци и екипа",
+    "DTS-HD MA Passthrough": "DTS-HD MA Passthrough",
+    "Incorrect PIN": "Нетачан ПИН",
+    "Mark as Watched": "Означи као Гледано",
+    "Recently Released {libraryName}": "Недавно објављено – {libraryName}",
+    "Show preview thumbnails when seeking": "Прикажи сличице за преглед када тражите",
+    "Login failed": "Пријава није успела",
+    "Text Fill Color": "Боја испуне текста",
+    "Queue is empty": "Ред је празан"
 }
