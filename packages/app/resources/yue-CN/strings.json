@@ -596,5 +596,13 @@
     "Trailers": "Trailers",
     "Transcoding Limits": "Transcoding Limits",
     "Videos": "Videos",
-    "{count} selected": "{count} selected"
+    "{count} selected": "{count} selected",
+    "Cast & Crew": "演职人员",
+    "DTS-HD MA Passthrough": "DTS-HD MA Passthrough",
+    "Incorrect PIN": "PIN 码不正确",
+    "Mark as Watched": "标记为已观看",
+    "Show preview thumbnails when seeking": "搜索时显示预览缩略图",
+    "Login failed": "登录失败",
+    "Text Fill Color": "文本填充颜色",
+    "Queue is empty": "队列为空"
 }
