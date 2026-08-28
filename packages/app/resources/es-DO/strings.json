@@ -605,5 +605,7 @@
     "Show preview thumbnails when seeking": "Mostrar miniaturas de vista previa al buscar",
     "Login failed": "error de inicio de sesion",
     "Text Fill Color": "Color de relleno del texto",
-    "Queue is empty": "La cola está vacía."
+    "Queue is empty": "La cola está vacía.",
+    "Perfect match": "combinación perfecta",
+    "{count} downloads": "{count} descargas"
 }
