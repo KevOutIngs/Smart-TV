@@ -721,5 +721,14 @@
     "No pages found.": "Puslapių nerasta.",
     "Search this library...": "Ieškoti šioje bibliotekoje...",
     "Show details of the selected item at the top of Library pages.": "Rodyti pasirinkto elemento informaciją bibliotekos puslapių viršuje.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Aktoriai ir įgula",
+    "DTS-HD MA Passthrough": "DTS-HD MA tiesioginis perdavimas",
+    "Incorrect PIN": "Neteisingas PIN kodas",
+    "Mark as Watched": "Pažymėti kaip žiūrėtą",
+    "Recently Released {libraryName}": "Neseniai išleista: {libraryName}",
+    "Show preview thumbnails when seeking": "Ieškant rodyti peržiūros miniatiūras",
+    "Login failed": "Prisijungti nepavyko",
+    "Text Fill Color": "Teksto užpildymo spalva",
+    "Queue is empty": "Eilė tuščia"
 }
