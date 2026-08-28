@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "هنگام جستجو، تصاویر کوچک پیش‌نمایش را نشان دهید",
     "Login failed": "ورود ناموفق بود",
     "Text Fill Color": "رنگ پر کردن متن",
-    "Queue is empty": "صف خالی است"
+    "Queue is empty": "صف خالی است",
+    "Perfect match": "تطابق کامل",
+    "{count} downloads": "{count} دانلودها"
 }
