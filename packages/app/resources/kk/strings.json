@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Іздеу кезінде алдын ала қарау нобайларын көрсетіңіз",
     "Login failed": "Логин кірмеді",
     "Text Fill Color": "Мәтінді толтыру түсі",
-    "Queue is empty": "Кезек бос"
+    "Queue is empty": "Кезек бос",
+    "Perfect match": "Керемет сәйкестік",
+    "{count} downloads": "{count} жүктеу"
 }
