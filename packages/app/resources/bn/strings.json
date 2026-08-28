@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "খোঁজার সময় পূর্বরূপ থাম্বনেল দেখান",
     "Login failed": "লগইন ব্যর্থ হয়েছে",
     "Text Fill Color": "টেক্সট ফিল কালার",
-    "Queue is empty": "সারি খালি"
+    "Queue is empty": "সারি খালি",
+    "Perfect match": "নিখুঁত ম্যাচ",
+    "{count} downloads": "{count} ডাউনলোড"
 }
