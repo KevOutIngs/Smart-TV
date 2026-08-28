@@ -721,5 +721,14 @@
     "No pages found.": "Hakuna kurasa zilizopatikana.",
     "Search this library...": "Tafuta maktaba hii...",
     "Show details of the selected item at the top of Library pages.": "Onyesha maelezo ya kipengee kilichochaguliwa juu ya kurasa za Maktaba.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Waigizaji na Wafanyakazi",
+    "DTS-HD MA Passthrough": "DTS-HD MA Passthrough",
+    "Incorrect PIN": "PIN si sahihi",
+    "Mark as Watched": "Weka alama kama Imetazamwa",
+    "Recently Released {libraryName}": "Zilizotolewa Hivi Karibuni katika {libraryName}",
+    "Show preview thumbnails when seeking": "Onyesha vijipicha vya kukagua unapotafuta",
+    "Login failed": "Kuingia kumeshindwa",
+    "Text Fill Color": "Rangi ya Kujaza Maandishi",
+    "Queue is empty": "Foleni ni tupu"
 }
