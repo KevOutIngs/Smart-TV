@@ -721,5 +721,14 @@
     "No pages found.": "هیچ صفحه ای یافت نشد",
     "Search this library...": "جستجو در این کتابخانه...",
     "Show details of the selected item at the top of Library pages.": "نمایش جزئیات مورد انتخاب‌شده در بالای صفحات کتابخانه.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "بازیگران و خدمه",
+    "DTS-HD MA Passthrough": "عبور مستقیم DTS-HD MA",
+    "Incorrect PIN": "پین نادرست",
+    "Mark as Watched": "علامت گذاری به عنوان تماشا شده",
+    "Recently Released {libraryName}": "{libraryName} تازه‌منتشرشده",
+    "Show preview thumbnails when seeking": "هنگام جستجو، تصاویر کوچک پیش‌نمایش را نشان دهید",
+    "Login failed": "ورود ناموفق بود",
+    "Text Fill Color": "رنگ پر کردن متن",
+    "Queue is empty": "صف خالی است"
 }
