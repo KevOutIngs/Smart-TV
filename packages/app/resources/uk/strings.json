@@ -721,5 +721,14 @@
     "No pages found.": "Сторінок не знайдено.",
     "Search this library...": "Пошук у цій бібліотеці...",
     "Show details of the selected item at the top of Library pages.": "Показувати деталі вибраного елемента вгорі сторінок бібліотеки.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Актори та знімальна група",
+    "DTS-HD MA Passthrough": "Пряма передача DTS-HD MA",
+    "Incorrect PIN": "Неправильний PIN-код",
+    "Mark as Watched": "Позначити як переглянуте",
+    "Recently Released {libraryName}": "Нещодавно вийшло: {libraryName}",
+    "Show preview thumbnails when seeking": "Показувати мініатюри попереднього перегляду під час пошуку",
+    "Login failed": "Помилка входу",
+    "Text Fill Color": "Колір заливки тексту",
+    "Queue is empty": "Черга порожня"
 }
