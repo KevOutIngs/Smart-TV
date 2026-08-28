@@ -975,5 +975,7 @@
     "Login failed": "Kirjautuminen epäonnistui",
     "Studio Row Sorting": "Studio Row -lajittelu",
     "Text Fill Color": "Tekstin täyttöväri",
-    "Queue is empty": "Jono on tyhjä"
+    "Queue is empty": "Jono on tyhjä",
+    "Perfect match": "Täydellinen ottelu",
+    "{count} downloads": "{count} lataukset"
 }
