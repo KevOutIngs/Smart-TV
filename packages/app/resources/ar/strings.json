@@ -721,5 +721,14 @@
     "No pages found.": "لم يتم العثور على صفحات.",
     "Search this library...": "ابحث في هذه المكتبة...",
     "Show details of the selected item at the top of Library pages.": "إظهار تفاصيل العنصر المحدد في أعلى صفحات المكتبة.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "الممثلون وطاقم العمل",
+    "DTS-HD MA Passthrough": "DTS-HD MA العبور",
+    "Incorrect PIN": "رقم التعريف الشخصي غير صحيح",
+    "Mark as Watched": "وضع علامة \"تمت مشاهدته\".",
+    "Recently Released {libraryName}": "صدر حديثًا في {libraryName}",
+    "Show preview thumbnails when seeking": "إظهار الصور المصغرة للمعاينة عند البحث",
+    "Login failed": "فشل تسجيل الدخول",
+    "Text Fill Color": "لون تعبئة النص",
+    "Queue is empty": "قائمة الانتظار فارغة"
 }
