@@ -1,4 +1,15 @@
-import {mapSubtitleStreamsFromMediaSource} from './remoteSubtitleUtils';
+jest.mock('@enact/i18n/$L', () => ({__esModule: true, default: (str) => str}));
+
+import {
+	mapSubtitleStreamsFromMediaSource,
+	mapRemoteSubtitleOptions,
+	remoteSubtitleDetails,
+	remoteSubtitleFlags,
+	remoteSubtitleSearchError,
+	remoteSubtitleDownloadError,
+	pollForSubtitleAppearance,
+	SUBTITLE_APPEARANCE_DELAYS
+} from './remoteSubtitleUtils';
 
 const mediaSource = (streams, over = {}) => ({MediaStreams: streams, ...over});
 const mapOne = (stream, over) =>
@@ -89,5 +100,112 @@ describe('mapSubtitleStreamsFromMediaSource', () => {
 		const source = mediaSource([{Type: 'Audio', Index: 1, Codec: 'truehd'}, subtitle({Index: 2})]);
 
 		expect(mapSubtitleStreamsFromMediaSource(source, 'https://server')).toHaveLength(1);
+	});
+});
+
+describe('remote subtitle results', () => {
+	const result = (over = {}) => ({Id: 'r1', Name: 'Some.Release.1080p', ...over});
+
+	test('names the flags the provider set and leaves the rest out', () => {
+		expect(remoteSubtitleFlags(result())).toEqual([]);
+		expect(remoteSubtitleFlags(result({AiTranslated: true, HearingImpaired: true, IsHashMatch: true})))
+			.toEqual(['AI Translated', 'SDH', 'Perfect match']);
+		expect(remoteSubtitleFlags(result({MachineTranslated: true, Forced: true})))
+			.toEqual(['Machine Translated', 'Forced']);
+	});
+
+	test('builds the detail line out of what the provider filled in', () => {
+		const details = remoteSubtitleDetails(result({
+			ThreeLetterISOLanguageName: 'eng',
+			ProviderName: 'Open Subtitles',
+			Format: 'srt',
+			CommunityRating: 8,
+			DownloadCount: 1204,
+			FrameRate: 23.976
+		}));
+
+		expect(details).toBe('ENG · Open Subtitles · SRT · 8.0★ · 1204 downloads · 23.976 fps');
+	});
+
+	test('drops a whole frame rate to the whole number and skips what is missing', () => {
+		expect(remoteSubtitleDetails(result({FrameRate: 25}))).toBe('25 fps');
+		expect(remoteSubtitleDetails(result({DownloadCount: 1}))).toBe('1 download');
+		expect(remoteSubtitleDetails(result({DownloadCount: 0}))).toBe('0 downloads');
+		expect(remoteSubtitleDetails(result({Language: 'spa'}))).toBe('SPA');
+		expect(remoteSubtitleDetails(result({FrameRate: 0}))).toBe('');
+		expect(remoteSubtitleDetails(result())).toBe('');
+	});
+
+	test('an option carries its flags alongside the detail line', () => {
+		const [option] = mapRemoteSubtitleOptions([result({ProviderName: 'Open Subtitles', Forced: true})]);
+
+		expect(option).toEqual({
+			id: 'r1',
+			name: 'Some.Release.1080p',
+			info: 'Open Subtitles',
+			flags: ['Forced']
+		});
+		expect(mapRemoteSubtitleOptions(null)).toEqual([]);
+	});
+
+	test('a refused request reads differently from one that simply failed', () => {
+		expect(remoteSubtitleSearchError({status: 403})).toBe('You do not have permission to search for subtitles');
+		expect(remoteSubtitleSearchError({status: 404})).toBe('No subtitle provider is set up on the server');
+		expect(remoteSubtitleSearchError({status: 500})).toBe('Subtitle search failed');
+		expect(remoteSubtitleSearchError(undefined)).toBe('Subtitle search failed');
+		expect(remoteSubtitleDownloadError({status: 403})).toBe('You do not have permission to download subtitles');
+		expect(remoteSubtitleDownloadError({status: 404})).toBe('That subtitle is no longer available');
+		expect(remoteSubtitleDownloadError(new Error('offline'))).toBe('Subtitle download failed');
+	});
+});
+
+describe('pollForSubtitleAppearance', () => {
+	beforeEach(() => {
+		jest.useFakeTimers();
+	});
+
+	afterEach(() => {
+		jest.useRealTimers();
+	});
+
+	// The whole schedule has to outlast a metadata refresh on a busy server.
+	test('waits about twenty seconds in total', () => {
+		const total = SUBTITLE_APPEARANCE_DELAYS.reduce((sum, ms) => sum + ms, 0);
+
+		expect(total).toBe(19300);
+	});
+
+	test('stops as soon as the probe finds the stream', async () => {
+		const probe = jest.fn()
+			.mockResolvedValueOnce(null)
+			.mockResolvedValueOnce({Index: 4});
+		const found = pollForSubtitleAppearance(probe);
+
+		await jest.advanceTimersByTimeAsync(1000);
+
+		await expect(found).resolves.toEqual({Index: 4});
+		expect(probe).toHaveBeenCalledTimes(2);
+	});
+
+	test('gives up once the schedule runs out', async () => {
+		const probe = jest.fn().mockResolvedValue(null);
+		const found = pollForSubtitleAppearance(probe);
+
+		await jest.advanceTimersByTimeAsync(30000);
+
+		await expect(found).resolves.toBeNull();
+		expect(probe).toHaveBeenCalledTimes(SUBTITLE_APPEARANCE_DELAYS.length + 1);
+	});
+
+	test('a probe that throws is tried again rather than ending the wait', async () => {
+		const probe = jest.fn()
+			.mockRejectedValueOnce(new Error('server hiccup'))
+			.mockResolvedValueOnce({Index: 7});
+		const found = pollForSubtitleAppearance(probe);
+
+		await jest.advanceTimersByTimeAsync(1000);
+
+		await expect(found).resolves.toEqual({Index: 7});
+		expect(probe).toHaveBeenCalledTimes(2);
 	});
 });

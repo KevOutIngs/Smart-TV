@@ -25,10 +25,17 @@ const DetailTrackModals = ({
 	onSelectSubtitle,
 	onOpenRemoteSubtitleSearch,
 	isSearchingRemoteSubtitles,
+	isDownloadingRemoteSubtitle,
+	remoteSubtitleError,
 	remoteSubtitleResults,
 	onSelectRemoteSubtitle
 }) => {
 	const stopPropagation = useCallback((e) => e.stopPropagation(), []);
+
+	// The list only stands in for itself once the work is done and there is
+	// nothing to report instead.
+	const remoteSubtitleBusy = isSearchingRemoteSubtitles || isDownloadingRemoteSubtitle;
+	const showRemoteSubtitleResults = !remoteSubtitleBusy && !remoteSubtitleError;
 
 	return (
 		<>
@@ -152,12 +159,22 @@ const DetailTrackModals = ({
 									<span className={css.trackName}>{$L('Searching...')}</span>
 								</SpottableDiv>
 							)}
-							{!isSearchingRemoteSubtitles && remoteSubtitleResults.length === 0 && (
+							{isDownloadingRemoteSubtitle && (
+								<SpottableDiv className={css.trackItem}>
+									<span className={css.trackName}>{$L('Downloading subtitle...')}</span>
+								</SpottableDiv>
+							)}
+							{!remoteSubtitleBusy && remoteSubtitleError && (
+								<SpottableDiv className={css.trackItem}>
+									<span className={css.trackName}>{remoteSubtitleError}</span>
+								</SpottableDiv>
+							)}
+							{showRemoteSubtitleResults && remoteSubtitleResults.length === 0 && (
 								<SpottableDiv className={css.trackItem}>
 									<span className={css.trackName}>{$L('No remote subtitles found')}</span>
 								</SpottableDiv>
 							)}
-							{!isSearchingRemoteSubtitles && remoteSubtitleResults.map((subtitle, idx) => (
+							{showRemoteSubtitleResults && remoteSubtitleResults.map((subtitle, idx) => (
 								<SpottableButton
 									key={subtitle.id || idx}
 									className={css.trackItem}
@@ -167,6 +184,13 @@ const DetailTrackModals = ({
 								>
 									<span className={css.trackName}>{subtitle.name || $L('Subtitle')}</span>
 									{subtitle.info && <span className={css.trackInfo} style={{marginTop: 4}}>{subtitle.info}</span>}
+									{subtitle.flags?.length > 0 && (
+										<span className={css.subtitleFlags}>
+											{subtitle.flags.map((flag) => (
+												<span key={flag} className={css.subtitleFlag}>{flag}</span>
+											))}
+										</span>
+									)}
 								</SpottableButton>
 							))}
 						</div>

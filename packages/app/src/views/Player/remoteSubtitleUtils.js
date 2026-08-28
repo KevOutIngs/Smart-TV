@@ -1,3 +1,5 @@
+import $L from '@enact/i18n/$L';
+
 import {TEXT_SUBTITLE_CODECS, isAssSubtitleCodec, isPgsSubtitleCodec, isBurnInSubtitleCodec} from '../../utils/subtitleCodecs';
 
 const LANGUAGE_MAP = {
@@ -79,13 +81,89 @@ export const mapSubtitleStreamsFromMediaSource = (mediaSource, serverUrl, option
 		});
 };
 
+// The flags the provider sets on an upload, which are what decide whether a
+// result is worth taking at all. They are kept out of the detail line and drawn
+// as their own badges, since run in with the rest a long release name pushes
+// them off the end of the row.
+export const remoteSubtitleFlags = (result) => [
+	result.AiTranslated ? $L('AI Translated') : null,
+	result.MachineTranslated ? $L('Machine Translated') : null,
+	result.HearingImpaired ? $L('SDH') : null,
+	result.Forced ? $L('Forced') : null,
+	result.IsHashMatch ? $L('Perfect match') : null
+].filter(Boolean);
+
+// 23.976 stays as it is, 25.000 reads better as 25.
+const frameRateLabel = (value) => value.toFixed(3).replace(/\.?0+$/, '');
+
+// The provider's own bookkeeping, as one line under the release name.
+export const remoteSubtitleDetails = (result) => {
+	const parts = [];
+	const language = (result.ThreeLetterISOLanguageName || result.Language || '').trim();
+	if (language) parts.push(language.toUpperCase());
+	const provider = (result.ProviderName || '').trim();
+	if (provider) parts.push(provider);
+	const format = (result.Format || '').trim();
+	if (format) parts.push(format.toUpperCase());
+	if (typeof result.CommunityRating === 'number') parts.push(`${result.CommunityRating.toFixed(1)}★`);
+	if (typeof result.DownloadCount === 'number') {
+		parts.push(result.DownloadCount === 1
+			? $L('1 download')
+			: $L('{count} downloads').replace('{count}', result.DownloadCount));
+	}
+	if (typeof result.FrameRate === 'number' && result.FrameRate > 0) {
+		parts.push($L('{fps} fps').replace('{fps}', frameRateLabel(result.FrameRate)));
+	}
+	return parts.join(' · ');
+};
+
 export const mapRemoteSubtitleOptions = (results) =>
-	(Array.isArray(results) ? results : []).map((result) => {
-		const name = result.Name || result.Author || 'Subtitle';
-		const infoParts = [result.LanguageName || result.ThreeLetterISOLanguageName, result.Author, result.Format].filter(Boolean);
-		return {
-			id: result.Id,
-			name,
-			info: infoParts.join(' · ')
-		};
-	});
+	(Array.isArray(results) ? results : []).map((result) => ({
+		id: result.Id,
+		name: result.Name || result.Author || 'Subtitle',
+		info: remoteSubtitleDetails(result),
+		flags: remoteSubtitleFlags(result)
+	}));
+
+// The server writes the file and then queues a metadata refresh, so the new
+// stream only appears some time after the download call has already come back.
+// These steps start tight so a quick server still feels immediate, then stretch
+// out to cover about twenty seconds without asking the whole way through.
+export const SUBTITLE_APPEARANCE_DELAYS = [300, 300, 500, 700, 1000, 1000, 1500, 2000, 2000, 3000, 3000, 4000];
+
+// Runs probe against that schedule until it turns something up.
+export const pollForSubtitleAppearance = async (probe) => {
+	for (let attempt = 0; ; attempt++) {
+		let found = null;
+		try {
+			found = await probe();
+		} catch {
+			// A server that hiccups part way through gets another go on the next tick.
+		}
+		if (found) return found;
+		if (attempt >= SUBTITLE_APPEARANCE_DELAYS.length) return null;
+		await new Promise((resolve) => setTimeout(resolve, SUBTITLE_APPEARANCE_DELAYS[attempt]));
+	}
+};
+
+const pickErrorMessage = (error, denied, missing, failed) => {
+	if (error?.status === 403) return denied;
+	if (error?.status === 404) return missing;
+	return failed;
+};
+
+export const remoteSubtitleSearchError = (error) => pickErrorMessage(
+	error,
+	$L('You do not have permission to search for subtitles'),
+	$L('No subtitle provider is set up on the server'),
+	$L('Subtitle search failed')
+);
+
+export const remoteSubtitleDownloadError = (error) => pickErrorMessage(
+	error,
+	$L('You do not have permission to download subtitles'),
+	$L('That subtitle is no longer available'),
+	$L('Subtitle download failed')
+);
+
+export const remoteSubtitleNotAppearedMessage = () => $L('The subtitle was downloaded but has not appeared yet');

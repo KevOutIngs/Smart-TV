@@ -11,7 +11,14 @@ import ModernDetailContent from './ModernDetailContent';
 import {formatDuration, getImageUrl, getBackdropId, getLogoUrl} from '../../utils/helpers';
 import {KEYS} from '../../utils/keys';
 import {fetchPrerolls} from '../../utils/cinemaMode';
-import {toSubtitleLanguage, mapRemoteSubtitleOptions} from '../Player/remoteSubtitleUtils';
+import {
+	toSubtitleLanguage,
+	mapRemoteSubtitleOptions,
+	pollForSubtitleAppearance,
+	remoteSubtitleSearchError,
+	remoteSubtitleDownloadError,
+	remoteSubtitleNotAppearedMessage
+} from '../Player/remoteSubtitleUtils';
 import useLongPress from '../../utils/longPress';
 import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 import {pickEpisodePlayTarget, shouldResumeTarget} from '../../utils/episodePlayTarget';
@@ -74,6 +81,8 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 
 	const [remoteSubtitleResults, setRemoteSubtitleResults] = useState([]);
 	const [isSearchingRemoteSubtitles, setIsSearchingRemoteSubtitles] = useState(false);
+	const [isDownloadingRemoteSubtitle, setIsDownloadingRemoteSubtitle] = useState(false);
+	const [remoteSubtitleError, setRemoteSubtitleError] = useState(null);
 	const [toastMessage, setToastMessage] = useState(null);
 	const [logoFailed, setLogoFailed] = useState(false);
 	const ratingSaveRef = useRef(false);
@@ -453,6 +462,7 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 		if (!item?.Id) return;
 		setRemoteSubtitleResults([]);
 		setIsSearchingRemoteSubtitles(true);
+		setRemoteSubtitleError(null);
 		openModal('subtitleDownload');
 		try {
 			const ms = item.MediaSources?.[selectedVersionIndex] || item.MediaSources?.[0];
@@ -467,8 +477,9 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 			);
 			const results = await effectiveApi.searchRemoteSubtitles(item.Id, language);
 			setRemoteSubtitleResults(mapRemoteSubtitleOptions(Array.isArray(results) ? results : results?.SearchResults || []));
-		} catch {
+		} catch (err) {
 			setRemoteSubtitleResults([]);
+			setRemoteSubtitleError(remoteSubtitleSearchError(err));
 		} finally {
 			setIsSearchingRemoteSubtitles(false);
 		}
@@ -477,20 +488,37 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 	const handleSelectRemoteSubtitle = useCallback(async (e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index) || !remoteSubtitleResults[index] || !item?.Id) return;
+		const oldSubs = (item.MediaSources?.[selectedVersionIndex] || item.MediaSources?.[0])?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
+		const oldIndexes = new Set(oldSubs.map(s => s.Index));
+		setIsDownloadingRemoteSubtitle(true);
+		setRemoteSubtitleError(null);
 		try {
 			await effectiveApi.downloadRemoteSubtitle(item.Id, remoteSubtitleResults[index].id);
-			const refreshed = await effectiveApi.getItem(item.Id);
-			setItem(tagWithServerInfo(refreshed));
-			const ms = refreshed.MediaSources?.[selectedVersionIndex] || refreshed.MediaSources?.[0];
-			const newSubs = ms?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
-			const oldSubs = (item.MediaSources?.[selectedVersionIndex] || item.MediaSources?.[0])?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
-			if (newSubs.length > oldSubs.length) {
-				const newIdx = newSubs.length - 1;
-				subtitleChosenRef.current = true;
-				setSelectedSubtitleIndex(newIdx);
+
+			// The file is saved before the metadata refresh that lists it, so the
+			// track is only there some time after this call comes back.
+			const appeared = await pollForSubtitleAppearance(async () => {
+				const refreshed = await effectiveApi.getItemMediaInfo(item.Id);
+				const ms = refreshed?.MediaSources?.[selectedVersionIndex] || refreshed?.MediaSources?.[0];
+				const subs = ms?.MediaStreams?.filter(s => s.Type === 'Subtitle') || [];
+				const position = subs.findIndex(s => !oldIndexes.has(s.Index));
+				return position >= 0 ? {position} : null;
+			});
+
+			if (!appeared) {
+				setRemoteSubtitleError(remoteSubtitleNotAppearedMessage());
+				return;
 			}
-		} catch { /* ignore */ }
-		closeModal();
+
+			subtitleChosenRef.current = true;
+			setSelectedSubtitleIndex(appeared.position);
+			setItem(tagWithServerInfo(await effectiveApi.getItem(item.Id)));
+			closeModal();
+		} catch (err) {
+			setRemoteSubtitleError(remoteSubtitleDownloadError(err));
+		} finally {
+			setIsDownloadingRemoteSubtitle(false);
+		}
 	}, [remoteSubtitleResults, item, effectiveApi, selectedVersionIndex, closeModal, tagWithServerInfo, setItem, setSelectedSubtitleIndex]);
 
 	const handleSelectVersion = useCallback((e) => {
@@ -842,6 +870,8 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 				onSelectSubtitle={handleSelectSubtitle}
 				onOpenRemoteSubtitleSearch={handleOpenRemoteSubtitleSearch}
 				isSearchingRemoteSubtitles={isSearchingRemoteSubtitles}
+				isDownloadingRemoteSubtitle={isDownloadingRemoteSubtitle}
+				remoteSubtitleError={remoteSubtitleError}
 				remoteSubtitleResults={remoteSubtitleResults}
 				onSelectRemoteSubtitle={handleSelectRemoteSubtitle}
 			/>

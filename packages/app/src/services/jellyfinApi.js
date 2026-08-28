@@ -391,6 +391,10 @@ export const api = {
 
 	getItemWithChapters: (itemId) => request(`/Users/${currentUser}/Items/${itemId}?Fields=Chapters`),
 
+	// Just the track list, for the repeated checks after a subtitle download. The
+	// full item drags people, chapters and trickplay along with it.
+	getItemMediaInfo: (itemId) => request(`/Users/${currentUser}/Items/${itemId}?Fields=MediaSources,MediaStreams`),
+
 	getMediaSegments: (itemId) => request(`/MediaSegments/${itemId}`),
 
 	getUserConfiguration: () => request(`/Users/${currentUser}`),
@@ -882,6 +886,9 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 		// UserData is named so a saved rating comes back when the title is reopened.
 		getItem: (itemId) =>
 			serverRequest(`/Users/${userId}/Items/${itemId}?Fields=Overview,Genres,People,Studios,MediaSources,MediaStreams,ExternalUrls,ProviderIds,RemoteTrailers,Taglines,UserData`),
+
+		getItemMediaInfo: (itemId) =>
+			serverRequest(`/Users/${userId}/Items/${itemId}?Fields=MediaSources,MediaStreams`),
 
 		getItems: (params = {}) => {
 			// Manually build query string to match main api.getItems behavior

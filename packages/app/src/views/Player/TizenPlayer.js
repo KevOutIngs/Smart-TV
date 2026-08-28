@@ -44,7 +44,11 @@ import StillWatchingDialog from './StillWatchingDialog';
 import {
 	toSubtitleLanguage,
 	mapSubtitleStreamsFromMediaSource,
-	mapRemoteSubtitleOptions
+	mapRemoteSubtitleOptions,
+	pollForSubtitleAppearance,
+	remoteSubtitleSearchError,
+	remoteSubtitleDownloadError,
+	remoteSubtitleNotAppearedMessage
 } from './remoteSubtitleUtils';
 import {getVideoDisplayAspectRatio, getZoomDisplayRect} from './aspectRatioUtils';
 import {mapJellyfinTrackToTizen} from './tizenTrackUtils';
@@ -120,6 +124,8 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 	const [selectedQuality, setSelectedQuality] = useState(initialQuality || null);
 	const [remoteSubtitleResults, setRemoteSubtitleResults] = useState([]);
 	const [isSearchingRemoteSubtitles, setIsSearchingRemoteSubtitles] = useState(false);
+	const [isDownloadingRemoteSubtitle, setIsDownloadingRemoteSubtitle] = useState(false);
+	const [remoteSubtitleError, setRemoteSubtitleError] = useState(null);
 	const [mediaSegments, setMediaSegments] = useState(null);
 	const [nextEpisode, setNextEpisode] = useState(null);
 	const [isSeeking, setIsSeeking] = useState(false);
@@ -2232,6 +2238,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 
 		setRemoteSubtitleResults([]);
 		setIsSearchingRemoteSubtitles(true);
+		setRemoteSubtitleError(null);
 		openModal('subtitleDownload');
 
 		const selectedSubtitle = subtitleStreams.find((s) => s.index === selectedSubtitleIndex);
@@ -2252,6 +2259,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			});
 		} catch (err) {
 			setRemoteSubtitleResults([]);
+			setRemoteSubtitleError(remoteSubtitleSearchError(err));
 		} finally {
 			setIsSearchingRemoteSubtitles(false);
 		}
@@ -2261,10 +2269,28 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		const index = parseInt(e.currentTarget.dataset.index, 10);
 		if (isNaN(index) || !remoteSubtitleResults[index] || !item?.Id) return;
 
+		setIsDownloadingRemoteSubtitle(true);
+		setRemoteSubtitleError(null);
 		try {
 			await jellyfinApi.downloadRemoteSubtitle(item.Id, remoteSubtitleResults[index].id);
 
 			const existingIndexes = new Set(subtitleStreams.map((s) => s.index));
+
+			// The server writes the file and then queues the metadata refresh that
+			// lists it, so the track only shows up a while after this call returns.
+			// The light item endpoint is what gets asked repeatedly, and the stream
+			// is negotiated once at the end.
+			const appeared = await pollForSubtitleAppearance(async () => {
+				const refreshed = await jellyfinApi.getItemMediaInfo(item.Id);
+				const source = refreshed?.MediaSources?.find((s) => s.Id === mediaSourceId) || refreshed?.MediaSources?.[0];
+				return (source?.MediaStreams || []).find((s) => s.Type === 'Subtitle' && !existingIndexes.has(s.Index)) || null;
+			});
+
+			if (!appeared) {
+				setRemoteSubtitleError(remoteSubtitleNotAppearedMessage());
+				return;
+			}
+
 			const startTicks = Math.floor(avplayGetCurrentTime() * 10000);
 			const info = await jellyfinApi.getPlaybackInfo(item.Id, {
 				StartTimeTicks: startTicks,
@@ -2279,15 +2305,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				includeEmbeddedNative: true
 			});
 			setSubtitleStreams(refreshedSubtitleStreams);
-
-			const newStream = refreshedSubtitleStreams.find((stream) => !existingIndexes.has(stream.index));
-			if (newStream) {
-				await applySubtitleSelection(newStream.index, refreshedSubtitleStreams, true);
-			} else {
-				setActiveModal('subtitle');
-			}
+			await applySubtitleSelection(appeared.Index, refreshedSubtitleStreams, true);
 		} catch (err) {
-			setActiveModal('subtitle');
+			setRemoteSubtitleError(remoteSubtitleDownloadError(err));
+		} finally {
+			setIsDownloadingRemoteSubtitle(false);
 		}
 	}, [remoteSubtitleResults, item, subtitleStreams, mediaSourceId, selectedAudioIndex, selectedSubtitleIndex, selectedQuality, settings.maxBitrate, applySubtitleSelection]);
 
@@ -2805,6 +2827,8 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				handleSelectRemoteSubtitle={handleSelectRemoteSubtitle}
 				canDownloadRemoteSubtitles={!isAudioMode && Boolean(item?.Id)}
 				isSearchingRemoteSubtitles={isSearchingRemoteSubtitles}
+				isDownloadingRemoteSubtitle={isDownloadingRemoteSubtitle}
+				remoteSubtitleError={remoteSubtitleError}
 				remoteSubtitleResults={remoteSubtitleResults}
 				castMembers={castMembers}
 				isLoadingCastMembers={isLoadingCastMembers}

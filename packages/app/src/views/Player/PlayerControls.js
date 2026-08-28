@@ -210,6 +210,8 @@ const PlayerControls = ({
 	handleSelectRemoteSubtitle,
 	canDownloadRemoteSubtitles,
 	isSearchingRemoteSubtitles,
+	isDownloadingRemoteSubtitle,
+	remoteSubtitleError,
 	remoteSubtitleResults,
 	castMembers,
 	isLoadingCastMembers,
@@ -232,6 +234,11 @@ const PlayerControls = ({
 	const handleTooltipBlur = useCallback(() => {
 		setFocusedTooltip(null);
 	}, []);
+
+	// The list only stands in for itself once the work is done and there is
+	// nothing to report instead.
+	const remoteSubtitleBusy = isSearchingRemoteSubtitles || isDownloadingRemoteSubtitle;
+	const showRemoteSubtitleResults = !remoteSubtitleBusy && !remoteSubtitleError;
 
 	const renderControlButton = useCallback((btn, row, defaultSpotlightId) => (
 		<div key={btn.id} className={css.controlBtnWrapper}>
@@ -485,12 +492,22 @@ const PlayerControls = ({
 									<span className={css.trackName}>{$L('Searching...')}</span>
 								</SpottableDiv>
 							)}
-							{!isSearchingRemoteSubtitles && remoteSubtitleResults.length === 0 && (
+							{isDownloadingRemoteSubtitle && (
+								<SpottableDiv className={css.trackItem}>
+									<span className={css.trackName}>{$L('Downloading subtitle...')}</span>
+								</SpottableDiv>
+							)}
+							{!remoteSubtitleBusy && remoteSubtitleError && (
+								<SpottableDiv className={css.trackItem}>
+									<span className={css.trackName}>{remoteSubtitleError}</span>
+								</SpottableDiv>
+							)}
+							{showRemoteSubtitleResults && remoteSubtitleResults.length === 0 && (
 								<SpottableDiv className={css.trackItem}>
 									<span className={css.trackName}>{$L('No remote subtitles found')}</span>
 								</SpottableDiv>
 							)}
-							{!isSearchingRemoteSubtitles && remoteSubtitleResults.map((remoteSubtitle, idx) => (
+							{showRemoteSubtitleResults && remoteSubtitleResults.map((remoteSubtitle, idx) => (
 								<SpottableButton
 									key={remoteSubtitle.id || idx}
 									className={css.trackItem}
@@ -498,8 +515,15 @@ const PlayerControls = ({
 									onClick={handleSelectRemoteSubtitle}
 									style={{flexDirection: 'column', alignItems: 'flex-start'}}
 								>
-											<span className={css.trackName}>{remoteSubtitle.name || $L('Subtitle')}</span>
-											{remoteSubtitle.info && <span className={css.trackInfo} style={{marginTop: 4}}>{remoteSubtitle.info}</span>}
+									<span className={css.trackName}>{remoteSubtitle.name || $L('Subtitle')}</span>
+									{remoteSubtitle.info && <span className={css.trackInfo} style={{marginTop: 4}}>{remoteSubtitle.info}</span>}
+									{remoteSubtitle.flags?.length > 0 && (
+										<span className={css.subtitleFlags}>
+											{remoteSubtitle.flags.map((flag) => (
+												<span key={flag} className={css.subtitleFlag}>{flag}</span>
+											))}
+										</span>
+									)}
 								</SpottableButton>
 							))}
 						</div>
