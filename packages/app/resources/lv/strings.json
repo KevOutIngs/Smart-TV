@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Rādīt priekšskatījuma sīktēlus, kad meklējat",
     "Login failed": "Pieteikšanās neizdevās",
     "Text Fill Color": "Teksta aizpildījuma krāsa",
-    "Queue is empty": "Rinda ir tukša"
+    "Queue is empty": "Rinda ir tukša",
+    "Perfect match": "Perfekta sakritība",
+    "{count} downloads": "{count} lejupielādes"
 }
