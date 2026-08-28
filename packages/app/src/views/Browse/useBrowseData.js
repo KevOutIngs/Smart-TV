@@ -412,7 +412,7 @@ const useBrowseData = ({
 						for (const merged of mergeRecentRows(entries, 'DateCreated')) {
 							newRows.push({
 								id: `latest-merged-${merged.collectionType}`,
-								title: $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', genericCollectionLabel(merged.collectionType)),
+								title: $L('Recently Added {libraryName}').replace('{libraryName}', genericCollectionLabel(merged.collectionType)),
 								items: merged.items,
 								type: merged.cardType,
 								isLatestRow: true
@@ -428,7 +428,7 @@ const useBrowseData = ({
 
 								newRows.push({
 									id: rowId,
-									title: $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', libraryTitle),
+									title: $L('Recently Added {libraryName}').replace('{libraryName}', libraryTitle),
 									items: result.latest,
 									library: result.lib,
 									type: result.lib.CollectionType?.toLowerCase() === 'music' ? 'square' : 'portrait',

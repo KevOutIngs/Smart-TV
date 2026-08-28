@@ -143,7 +143,7 @@ const DetailActionButtons = ({
 				<div className={css.btnAction}>
 					<BtnIcon path={DETAIL_ICON_PATHS.watched} stateClass={item.UserData?.Played ? css.watched : ''}/>
 				</div>
-				<span className={css.btnLabel}>{item.UserData?.Played ? $L('Watched') : $L('Mark Watched')}</span>
+				<span className={css.btnLabel}>{item.UserData?.Played ? $L('Watched') : $L('Mark as Watched')}</span>
 			</SpottableDiv>
 		)},
 		{id: 'favorite', when: true, render: () => (
@@ -196,7 +196,7 @@ const DetailActionButtons = ({
 		)},
 		{id: 'seerrWatchlist', when: seerr.showsWatchlist, render: () => (
 			seerrButton(
-				seerr.onWatchlist ? $L('In Watchlist') : $L('Add to Watchlist'),
+				seerr.onWatchlist ? $L('On Watchlist') : $L('Add to Watchlist'),
 				seerr.onWatchlist ? DETAIL_ICON_PATHS.watchlistOn : DETAIL_ICON_PATHS.watchlist,
 				seerr.toggleWatchlist
 			)

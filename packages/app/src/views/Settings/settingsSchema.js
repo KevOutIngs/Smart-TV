@@ -241,7 +241,7 @@ export const SETTINGS_SCHEMA = [
 				description: () => $L('Style, background blur, and tab behavior'),
 				rows: [
 					{kind: KIND.SECTION, id: 'detailsDisplay', label: () => $L('Display')},
-					{kind: KIND.OPTION, key: 'detailScreenStyle', label: () => $L('Detail Screen Style'), desc: () => $L('Classic is the original centered moonfin layout. Modern is a responsive cinematic layout.'), options: getDetailScreenStyleOptions, fallback: () => $L('Modern'), icon: 'movie'},
+					{kind: KIND.OPTION, key: 'detailScreenStyle', label: () => $L('Details Screen Style'), desc: () => $L('Classic is the original centered moonfin layout. Modern is a responsive cinematic layout.'), options: getDetailScreenStyleOptions, fallback: () => $L('Modern'), icon: 'movie'},
 					{
 						kind: KIND.OPTION,
 						key: 'backdropBlurDetail',
@@ -363,8 +363,8 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'playlistsRowSortOrder', label: () => $L('Playlist Row Sort Order'), options: getSortOrderOptions, fallback: () => $L('Auto'), icon: 'arrowupdown', when: (ctx) => ctx.settings.displayPlaylistsRows},
 					{kind: KIND.TOGGLE, key: 'playlistsRowShowEpisodes', label: () => $L('Show Individual Episodes'), desc: () => $L('Expand series inside playlist rows into their episodes'), icon: 'video_library', when: (ctx) => ctx.settings.displayPlaylistsRows},
 					{kind: KIND.SECTION, id: 'studios', label: () => $L('Studios')},
-					{kind: KIND.TOGGLE, key: 'displayStudiosRows', label: () => $L('Display Studios Rows'), desc: () => $L('Show a Studios row in Home Sections.'), icon: 'domain'},
-					{kind: KIND.OPTION, key: 'studiosRowSortBy', label: () => $L('Studios Row Sorting'), options: getHomeRowSortOptions, fallback: () => $L('Name'), icon: 'sort', when: (ctx) => ctx.settings.displayStudiosRows},
+					{kind: KIND.TOGGLE, key: 'displayStudiosRows', label: () => $L('Display Studio Row'), desc: () => $L('Show Studio row in Home Sections.'), icon: 'domain'},
+					{kind: KIND.OPTION, key: 'studiosRowSortBy', label: () => $L('Studio Row Sorting'), options: getHomeRowSortOptions, fallback: () => $L('Name'), icon: 'sort', when: (ctx) => ctx.settings.displayStudiosRows},
 					{kind: KIND.OPTION, key: 'studiosRowSortOrder', label: () => $L('Studios Row Sort Order'), options: getSortOrderOptions, fallback: () => $L('Auto'), icon: 'arrowupdown', when: (ctx) => ctx.settings.displayStudiosRows},
 					{kind: KIND.SECTION, id: 'rewatch', label: () => $L('Rewatch'), when: whenRewatch},
 					{kind: KIND.TOGGLE, key: 'displayRewatchRow', label: () => $L('Display Rewatch Row'), desc: () => $L('Show Rewatch row in Home Sections'), icon: 'replay', when: whenRewatch},
@@ -415,7 +415,7 @@ export const SETTINGS_SCHEMA = [
 						label: () => $L('Source Libraries'),
 						desc: (ctx) => (Array.isArray(ctx.settings.mediaBarLibraryIds) && ctx.settings.mediaBarLibraryIds.length > 0
 							? countLabel(ctx.settings.mediaBarLibraryIds.length)
-							: $L('All libraries')),
+							: $L('All Libraries')),
 						icon: 'folder',
 						action: (ctx) => ctx.actions.openMediaBarLibraries()
 					},
@@ -500,7 +500,7 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.TOGGLE, key: 'showDescriptionOnPause', label: () => $L('Show Description on Pause'), desc: () => $L('Dim video and show overview text while paused'), icon: 'pausecircle'},
 					{kind: KIND.NAV, id: 'progressBarTime', label: () => $L('Progress Bar Time'), desc: () => $L('Choose which time labels appear around the playback progress bar.'), icon: 'timer', action: (ctx) => ctx.actions.openScreen('playbackSyncPlay', 'playbackTime', 'setting-progressBarTime')},
 					{kind: KIND.OPTION, key: 'playerZoomMode', label: () => $L('Player Zoom Mode'), desc: () => $L('How video that does not match the screen shape is displayed'), options: getZoomModeOptions, fallback: () => $L('Fit'), icon: 'crop'},
-					{kind: KIND.TOGGLE, key: 'trickPlayEnabled', label: () => $L('Trick Play'), desc: () => $L('Show preview thumbnails while seeking'), icon: 'imagesearch'},
+					{kind: KIND.TOGGLE, key: 'trickPlayEnabled', label: () => $L('Trick Play'), desc: () => $L('Show preview thumbnails when seeking'), icon: 'imagesearch'},
 					{kind: KIND.OPTION, key: 'resumeSubtractDuration', label: () => $L('Resume Rewind'), desc: () => $L('Rewind a little when resuming partially watched media'), options: getResumeRewindOptions, fallback: () => $L('Disabled'), icon: 'replay'},
 					{kind: KIND.SLIDER, key: 'unpauseRewind', label: () => $L('Unpause Rewind'), desc: () => $L('When resuming playback after pressing the pause button, how many seconds should be rewound?'), min: 0, max: 30, step: 5, format: (v) => (v === 0 ? $L('Off') : `${v}s`), icon: 'autoplay'},
 					{kind: KIND.OPTION, key: 'seekStep', label: () => $L('Seek Step'), desc: () => $L('How far each press moves while scrubbing the progress bar'), options: getSeekStepOptions, fallback: () => $L('10 seconds'), icon: 'skip'},
@@ -532,7 +532,7 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'playbackTimeBelowCenter', label: () => $L('Below bar, center'), options: getPlaybackTimeSlotOptions, fallback: () => $L('Hidden'), icon: 'aligncenter'},
 					{kind: KIND.OPTION, key: 'playbackTimeBelowRight', label: () => $L('Below bar, right'), options: getPlaybackTimeSlotOptions, fallback: () => $L('Total duration'), icon: 'alignright'},
 					{kind: KIND.SECTION, id: 'playbackTimeMusic', label: () => $L('Music Player')},
-					{kind: KIND.OPTION, key: 'musicPlaybackTimeDisplay', label: () => $L('Music Progress Bar Time'), options: getPlaybackTimeDisplayOptions, fallback: () => $L('Total duration'), desc: () => $L('Shown on the right of the music progress bar'), icon: 'music'}
+					{kind: KIND.OPTION, key: 'musicPlaybackTimeDisplay', label: () => $L('Music Progress Bar Time'), options: getPlaybackTimeDisplayOptions, fallback: () => $L('Total duration'), desc: () => $L('Choose what is shown on the right side of the music progress bar.'), icon: 'music'}
 				]
 			},
 			{
@@ -556,7 +556,7 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.TOGGLE, key: 'ac3Passthrough', label: () => $L('AC3 Passthrough'), desc: () => $L('Allow Dolby Digital passthrough when available'), icon: 'speaker', when: whenPassthrough},
 					{kind: KIND.TOGGLE, key: 'eac3Passthrough', label: () => $L('EAC3 Passthrough'), desc: () => $L('Allow Dolby Digital Plus passthrough when available'), icon: 'surround', when: whenPassthrough},
 					{kind: KIND.TOGGLE, key: 'dtsPassthrough', label: () => $L('DTS Passthrough'), desc: () => $L('Allow DTS passthrough when available'), icon: 'audiotrack', when: whenPassthrough},
-					{kind: KIND.TOGGLE, key: 'dtshdPassthrough', label: () => $L('DTS-HD Passthrough'), desc: () => $L('Allow DTS-HD and DTS:X passthrough when available'), icon: 'quality', when: whenPassthrough},
+					{kind: KIND.TOGGLE, key: 'dtshdPassthrough', label: () => $L('DTS-HD MA Passthrough'), desc: () => $L('Allow DTS-HD and DTS:X passthrough when available'), icon: 'quality', when: whenPassthrough},
 					{kind: KIND.TOGGLE, key: 'truehdPassthrough', label: () => $L('TrueHD Passthrough (Experimental)'), desc: () => $L('Allow Dolby TrueHD passthrough when available'), icon: 'graphic_eq', when: whenPassthrough},
 					{kind: KIND.TOGGLE, key: 'forceTruehdPassthrough', label: () => $L('Force TrueHD / Atmos Passthrough'), desc: () => $L('Send Dolby TrueHD and Atmos straight to your receiver. Make sure your receiver supports it.'), icon: 'graphic_eq', when: (ctx) => ctx.settings.audioPassthroughMode !== 'disabled' && !ctx.settings.downmixToStereo && ctx.isWebOS}
 				]
@@ -579,7 +579,7 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'subtitlePosition', label: () => $L('Subtitle Position'), options: getSubtitlePositionOptions, fallback: () => $L('Bottom'), icon: 'arrowlargedown'},
 					{kind: KIND.SLIDER, key: 'subtitlePositionAbsolute', label: () => $L('Absolute Position'), min: 0, max: 100, step: 5, format: percent, icon: 'vertical_align_bottom', when: (ctx) => ctx.settings.subtitlePosition === 'absolute'},
 					{kind: KIND.SLIDER, key: 'subtitleOpacity', label: () => $L('Text Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'opacity'},
-					{kind: KIND.OPTION, key: 'subtitleColor', label: () => $L('Text Color'), options: getSubtitleColorOptions, fallback: () => $L('White'), icon: 'format_color_text'},
+					{kind: KIND.OPTION, key: 'subtitleColor', label: () => $L('Text Fill Color'), options: getSubtitleColorOptions, fallback: () => $L('White'), icon: 'format_color_text'},
 					{kind: KIND.DIVIDER, id: 'shadow'},
 					{kind: KIND.OPTION, key: 'subtitleShadowColor', label: () => $L('Shadow Color'), options: getSubtitleShadowColorOptions, fallback: () => $L('Black'), icon: 'edit'},
 					{kind: KIND.SLIDER, key: 'subtitleShadowOpacity', label: () => $L('Shadow Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'opacity'},
@@ -610,7 +610,7 @@ export const SETTINGS_SCHEMA = [
 					{kind: KIND.OPTION, key: 'subtitlePositionHdr', label: () => $L('Subtitle Position'), options: getSubtitlePositionOptions, fallback: () => $L('Bottom'), icon: 'arrowlargedown', when: whenHdrSubtitles},
 					{kind: KIND.SLIDER, key: 'subtitlePositionAbsoluteHdr', label: () => $L('Absolute Position'), min: 0, max: 100, step: 5, format: percent, icon: 'vertical_align_bottom', when: (ctx) => whenHdrSubtitles(ctx) && ctx.settings.subtitlePositionHdr === 'absolute'},
 					{kind: KIND.SLIDER, key: 'subtitleOpacityHdr', label: () => $L('Text Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'opacity', when: whenHdrSubtitles},
-					{kind: KIND.OPTION, key: 'subtitleColorHdr', label: () => $L('Text Color'), options: getSubtitleColorOptions, fallback: () => $L('Grey'), icon: 'format_color_text', when: whenHdrSubtitles},
+					{kind: KIND.OPTION, key: 'subtitleColorHdr', label: () => $L('Text Fill Color'), options: getSubtitleColorOptions, fallback: () => $L('Grey'), icon: 'format_color_text', when: whenHdrSubtitles},
 					{kind: KIND.DIVIDER, id: 'hdrShadow', when: whenHdrSubtitles},
 					{kind: KIND.OPTION, key: 'subtitleShadowColorHdr', label: () => $L('Shadow Color'), options: getSubtitleShadowColorOptions, fallback: () => $L('Black'), icon: 'edit', when: whenHdrSubtitles},
 					{kind: KIND.SLIDER, key: 'subtitleShadowOpacityHdr', label: () => $L('Shadow Opacity'), min: 0, max: 100, step: 5, format: percent, icon: 'opacity', when: whenHdrSubtitles},
@@ -629,7 +629,7 @@ export const SETTINGS_SCHEMA = [
 				rows: [
 					{kind: KIND.SECTION, id: 'playbackEnhancements', label: () => $L('Playback Enhancements')},
 					{kind: KIND.TOGGLE, key: 'cinemaModeEnabled', label: () => $L('Cinema Mode'), desc: () => $L('Play trailers/prerolls before a main feature'), icon: 'theaters'},
-					{kind: KIND.TOGGLE, key: 'cinemaModeEpisodesEnabled', label: () => $L('Cinema Mode for episodes'), desc: () => $L('Also play prerolls before episodes'), icon: 'mediaplayer', when: (ctx) => ctx.settings.cinemaModeEnabled},
+					{kind: KIND.TOGGLE, key: 'cinemaModeEpisodesEnabled', label: () => $L('Cinema Mode for episodes'), desc: () => $L('Also play prerolls before TV episodes'), icon: 'mediaplayer', when: (ctx) => ctx.settings.cinemaModeEnabled},
 					{kind: KIND.OPTION, key: 'introAction', label: () => $L('Intro Action'), options: getMediaSegmentActionOptions, fallback: () => $L('Ask to Skip'), icon: 'content_cut'},
 					{kind: KIND.OPTION, key: 'outroAction', label: () => $L('Outro Action'), options: getMediaSegmentActionOptions, fallback: () => $L('Ask to Skip'), icon: 'content_cut'},
 					{kind: KIND.OPTION, key: 'mediaSegmentAutoHide', label: () => $L('Auto Hide Skip Button'), desc: () => $L('Take the skip button off screen after this long'), options: getMediaSegmentAutoHideOptions, fallback: () => $L('Off'), icon: 'hide', when: (ctx) => ctx.settings.introAction === 'ask' || ctx.settings.outroAction === 'ask'},
@@ -751,7 +751,7 @@ export const SETTINGS_SCHEMA = [
 				description: () => $L('Media request integration'),
 				// The sign-in panel holds no persisted settings, so the screen itself is the
 				// only thing worth surfacing. These make it findable by what it does.
-				keywords: () => [$L('sign in'), $L('login'), $L('password'), $L('requests')],
+				keywords: () => [$L('Sign In'), $L('login'), $L('Password'), $L('Requests')],
 				rows: [
 					{kind: KIND.CUSTOM, render: 'seerrPanel'}
 				]

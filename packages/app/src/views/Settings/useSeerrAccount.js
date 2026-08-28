@@ -100,7 +100,7 @@ const useSeerrAccount = ({seerr, seerrLabel, settings, updateSetting, serverUrl,
 		} catch (err) {
 			const message = typeof err?.message === 'string' && err.message.trim()
 				? err.message.trim()
-				: $L('Sign-in failed');
+				: $L('Login failed');
 			setSeerrAuthError(message);
 		} finally {
 			setSeerrAuthSubmitting(false);

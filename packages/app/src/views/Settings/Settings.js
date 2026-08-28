@@ -959,7 +959,7 @@ const Settings = ({ onBack, onLibrariesChanged, onRunSetupWizard, panelMode }) =
 	const openRowsTypeOption = useCallback(() => {
 		pushView({
 			view: 'options',
-			title: $L('Rows Type'),
+			title: $L('Row Type'),
 			options: getHomeRowsStyleOptions(),
 			settingKey: 'homeRowsStyle',
 			returnFocusTo: 'setting-homeRowsStyle'

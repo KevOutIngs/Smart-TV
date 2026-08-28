@@ -138,7 +138,7 @@ const loadLatestAndRecentlyReleased = async (ctx) => {
 			for (const merged of mergeRecentRows(latestEntries, 'DateCreated')) {
 				rows.push({
 					id: `latest-merged-${merged.collectionType}`,
-					title: $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', genericCollectionLabel(merged.collectionType)),
+					title: $L('Recently Added {libraryName}').replace('{libraryName}', genericCollectionLabel(merged.collectionType)),
 					items: merged.items,
 					type: merged.cardType,
 					isLatestRow: true
@@ -150,7 +150,7 @@ const loadLatestAndRecentlyReleased = async (ctx) => {
 			for (const merged of mergeRecentRows(releasedEntries, 'PremiereDate')) {
 				rows.push({
 					id: `recently-released-merged-${merged.collectionType}`,
-					title: $L('Recently Released in {libraryTitle}').replace('{libraryTitle}', genericCollectionLabel(merged.collectionType)),
+					title: $L('Recently Released {libraryName}').replace('{libraryName}', genericCollectionLabel(merged.collectionType)),
 					items: merged.items,
 					type: merged.cardType,
 					isRecentlyReleasedRow: true
@@ -165,7 +165,7 @@ const loadLatestAndRecentlyReleased = async (ctx) => {
 				const rowId = `latest-${result.lib.Id}`;
 				rows.push({
 					id: rowId,
-					title: $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', libraryTitle),
+					title: $L('Recently Added {libraryName}').replace('{libraryName}', libraryTitle),
 					items: result.latest,
 					library: result.lib,
 					type: result.lib.CollectionType?.toLowerCase() === 'music' ? 'square' : 'portrait',
@@ -179,7 +179,7 @@ const loadLatestAndRecentlyReleased = async (ctx) => {
 				const rowId = `recently-released-${result.lib.Id}`;
 				rows.push({
 					id: rowId,
-					title: $L('Recently Released in {libraryTitle}').replace('{libraryTitle}', libraryTitle),
+					title: $L('Recently Released {libraryName}').replace('{libraryName}', libraryTitle),
 					items: result.latest.Items,
 					library: result.lib,
 					type: result.lib.CollectionType?.toLowerCase() === 'music' ? 'square' : 'portrait',

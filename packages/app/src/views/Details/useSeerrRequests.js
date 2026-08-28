@@ -202,7 +202,7 @@ const useSeerrRequests = ({
 	[hdOffer]);
 
 	const requestLabel4k = useMemo(() =>
-		fourKOffer.wantsMore ? $L('Request More 4K') : $L('Request 4K'),
+		fourKOffer.wantsMore ? $L('Request More in 4K') : $L('Request 4K'),
 	[fourKOffer]);
 
 	const handleRequest = useCallback(async (is4K = false, seasons = null, advancedOptions = null) => {

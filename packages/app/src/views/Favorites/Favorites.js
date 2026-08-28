@@ -433,7 +433,7 @@ const Favorites = ({onSelectItem, onSelectPerson, onHome, backHandlerRef}) => {
 						spotlightId="fav-settings-panel"
 						onClick={stopPropagation}
 					>
-						<div className={css.settingsHeader}>{$L('FAVORITES')}</div>
+						<div className={css.settingsHeader}>{$L('Favorites')}</div>
 						<h2 className={css.sortPanelTitle}>{$L('Settings')}</h2>
 
 						<SpottableButton

@@ -521,7 +521,7 @@ const Login = ({
 			case 'invalidAuthResponse': return $L('Invalid Emby Connect credentials');
 			case 'noLinkedServers': return $L('No servers linked to this Emby Connect account');
 			case 'noReachableAddress': return $L('No reachable address provided');
-			case 'unableToConnectServer': return $L('Unable to connect to the selected server');
+			case 'unableToConnectServer': return $L('Unable to connect to server');
 			default: return $L('Network error while contacting Emby Connect or the selected server');
 		}
 	}, []);

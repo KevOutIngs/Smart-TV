@@ -80,7 +80,7 @@ const MediaCard = memo(function MediaCard({item, mediaType, onSelect, onFocus}) 
 				)}
 				{itemMediaType && (
 					<div className={`${css.mediaTypeBadge} ${itemMediaType === 'movie' ? css.movieBadge : css.seriesBadge}`}>
-						{itemMediaType === 'movie' ? $L('MOVIE') : $L('SERIES')}
+						{itemMediaType === 'movie' ? $L('Movie') : $L('Series')}
 					</div>
 				)}
 				{status && [2, 3, 4, 5].includes(status) && (
@@ -219,7 +219,7 @@ const RequestCard = memo(function RequestCard({request, onSelect, onFocus}) {
 				)}
 				{mediaType && (
 					<div className={`${css.mediaTypeBadge} ${mediaType === 'movie' ? css.movieBadge : css.seriesBadge}`}>
-						{mediaType === 'movie' ? $L('MOVIE') : $L('SERIES')}
+						{mediaType === 'movie' ? $L('Movie') : $L('Series')}
 					</div>
 				)}
 				{requestStatus === 1 ? (

@@ -82,7 +82,7 @@ const SeerrPerson = ({personId, personName, onClose, onSelectItem, onBack}) => {
 					{/* Media type badge - top left */}
 					{itemMediaType && (
 						<div className={`${css.mediaTypeBadge} ${itemMediaType === 'movie' ? css.movieBadge : css.seriesBadge}`}>
-							{itemMediaType === 'movie' ? $L('MOVIE') : $L('SERIES')}
+							{itemMediaType === 'movie' ? $L('Movie') : $L('Series')}
 						</div>
 					)}
 					{/* Availability badge - top right */}

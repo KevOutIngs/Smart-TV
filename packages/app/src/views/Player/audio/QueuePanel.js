@@ -53,7 +53,7 @@ const QueuePanel = ({items, currentId, serverUrl, focusDisabled, onSelectTrack, 
 	}, [scrollerRef]);
 
 	if (!items || items.length === 0) {
-		return <div className={css.empty}>{$L('The queue is empty')}</div>;
+		return <div className={css.empty}>{$L('Queue is empty')}</div>;
 	}
 
 	return (

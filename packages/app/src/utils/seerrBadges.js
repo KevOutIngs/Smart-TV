@@ -50,7 +50,7 @@ const trackPill = (status, declined) => {
 		case MEDIA_STATUS.PARTIALLY_AVAILABLE: return {label: $L('Partially Available'), color: 'green'};
 		case MEDIA_STATUS.PROCESSING: return {label: $L('Requested'), color: 'purple'};
 		case MEDIA_STATUS.PENDING: return {label: $L('Pending'), color: 'yellow'};
-		case MEDIA_STATUS.BLOCKLISTED: return {label: $L('Blacklisted'), color: 'red'};
+		case MEDIA_STATUS.BLOCKLISTED: return {label: $L('Blocklisted'), color: 'red'};
 		case MEDIA_STATUS.DELETED: return {label: $L('Deleted'), color: 'red'};
 		default: return {label: $L('Not Requested'), color: 'gray'};
 	}

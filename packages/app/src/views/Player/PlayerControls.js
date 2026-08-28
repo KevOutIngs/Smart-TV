@@ -94,7 +94,7 @@ export const usePlayerButtons = ({
 			...(audioStreams.length > 1 ? [{id: 'audio', icon: <IconAudio />, label: $L('Audio'), action: 'audio'}] : []),
 			// Core calls this castAndCrew and keeps cast for Chromecast, so hiding one there
 			// must not take the other away here.
-			{id: 'castAndCrew', icon: <IconCast />, label: $L('Cast and Crew'), action: 'cast', disabled: !hasCastMembers},
+			{id: 'castAndCrew', icon: <IconCast />, label: $L('Cast & Crew'), action: 'cast', disabled: !hasCastMembers},
 			{id: 'quality', icon: <IconQuality />, label: $L('Playback Quality'), action: 'quality', active: selectedQuality != null},
 			{id: 'zoom', icon: <IconZoom />, label: $L('Zoom').concat(` (${zoomModeLabel})`), action: 'zoom', active: zoomModeKey !== 'fit'},
 			{id: 'sleep', icon: <IconSleep />, label: $L('Sleep timer'), action: 'sleep', active: sleepMinutes != null},
@@ -621,7 +621,7 @@ const PlayerControls = ({
 			{activeModal === 'cast' && (
 				<div className={css.trackModal} onClick={closeModal}>
 					<ModalContainer className={css.modalContent} onClick={stopPropagation} data-modal="cast" spotlightId="cast-modal">
-						<h2 className={css.modalTitle}>{$L('Cast and Crew')}</h2>
+						<h2 className={css.modalTitle}>{$L('Cast & Crew')}</h2>
 						<div className={css.trackList}>
 							{isLoadingCastMembers && (
 								<SpottableDiv className={css.trackItem}>

@@ -204,7 +204,7 @@ const RequestCollectionPopup = memo(function RequestCollectionPopup({
 							<div className={`${css.checkbox} ${is4k ? css.checkboxChecked : ''}`}>
 								{is4k && '✓'}
 							</div>
-							<span className={css.checkLabel}>{$L('Request in 4K')}</span>
+							<span className={css.checkLabel}>{$L('Request 4K')}</span>
 						</SpottableDiv>
 					)}
 				</PopupContainer>

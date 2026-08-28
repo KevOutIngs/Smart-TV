@@ -35,10 +35,10 @@ const resolveTitle = (row, favoriteLabelMap) => {
 	if (ROW_TITLES[row.id]) return ROW_TITLES[row.id]();
 	if (favoriteLabelMap.has(row.id)) return favoriteLabelMap.get(row.id);
 	if (row.isLatestRow && row.library) {
-		return $L('Recently Added in {libraryTitle}').replace('{libraryTitle}', libraryTitle(row.library));
+		return $L('Recently Added {libraryName}').replace('{libraryName}', libraryTitle(row.library));
 	}
 	if (row.isRecentlyReleasedRow && row.library) {
-		return $L('Recently Released in {libraryTitle}').replace('{libraryTitle}', libraryTitle(row.library));
+		return $L('Recently Released {libraryName}').replace('{libraryName}', libraryTitle(row.library));
 	}
 	return undefined;
 };

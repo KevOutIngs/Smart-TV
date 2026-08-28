@@ -1566,7 +1566,7 @@ const Library = ({library, genreFilter, studioFilter, onSelectItem, onViewPhoto,
 						spotlightId="settings-panel"
 						onClick={stopPropagation}
 					>
-						<div className={css.settingsHeader}>{isStudioMode ? $L('STUDIO') : isGenreMode ? $L('GENRE') : $L('LIBRARIES')}</div>
+						<div className={css.settingsHeader}>{isStudioMode ? $L('STUDIO') : isGenreMode ? $L('Genre') : $L('Libraries')}</div>
 						<h2 className={css.sortPanelTitle}>{displayName}</h2>
 
 						<SpottableButton

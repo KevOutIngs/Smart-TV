@@ -240,7 +240,7 @@ const SubtitleSettingsOverlay = ({visible, onClose, isHdr = false}) => {
 						onClick={handleCycleColor}
 						spotlightId="sub-setting-color"
 					>
-						<span className={css.settingLabel}>{$L('Text Color')}</span>
+						<span className={css.settingLabel}>{$L('Text Fill Color')}</span>
 						<span className={css.settingValue}>
 							{getLabel(SUBTITLE_COLOR_OPTIONS, style.subtitleColor, $L('White'))}
 						</span>

@@ -53,7 +53,7 @@ const ButtonLayoutView = ({kind, tempButtons, onToggleButton, onMoveButton, onRe
 		))}
 		<div className={css.actionBar}>
 			<Button onClick={onReset} size='small' spotlightId='layoutbtn-reset'>
-				{$L('Reset to Default')}
+				{$L('Reset to defaults')}
 			</Button>
 			<Button onClick={onSave} size='small' spotlightId='layoutbtn-save'>
 				{$L('Save')}

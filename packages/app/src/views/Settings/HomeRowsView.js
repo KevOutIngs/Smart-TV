@@ -36,7 +36,7 @@ const HomeRowsView = ({
 		</div>
 		<OptionRow
 			settingKey='homeRowsStyle'
-			title={$L('Rows Type')}
+			title={$L('Row Type')}
 			caption={rowsTypeCaption}
 			icon='appscontents'
 			onOpen={onOpenRowsType}
@@ -128,7 +128,7 @@ const HomeRowsView = ({
 		)}
 		<div className={css.actionBar}>
 			<Button onClick={onReset} size='small' spotlightId='homerow-reset'>
-				{$L('Reset to Default')}
+				{$L('Reset to defaults')}
 			</Button>
 			<Button onClick={onSave} size='small' spotlightId='homerow-save'>
 				{$L('Save')}

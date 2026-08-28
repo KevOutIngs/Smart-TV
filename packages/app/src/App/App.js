@@ -1122,7 +1122,7 @@ const AppContent = (props) => {
 			return;
 		}
 		setPinCodeInput('');
-		setPinCodeError($L('Incorrect PIN code'));
+		setPinCodeError($L('Incorrect PIN'));
 		Spotlight.focus('[data-spotlight-id="app-pin-input"]');
 	}, [pinCodeInput, configuredPin]);
 

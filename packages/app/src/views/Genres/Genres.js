@@ -455,7 +455,7 @@ const Genres = ({onSelectGenre, onHome, backHandlerRef}) => {
 						spotlightId="genres-settings-panel"
 						onClick={stopPropagation}
 					>
-						<div className={css.settingsHeader}>{$L('GENRES')}</div>
+						<div className={css.settingsHeader}>{$L('Genres')}</div>
 						<h2 className={css.sortPanelTitle}>{$L('Settings')}</h2>
 
 						<SpottableButton
