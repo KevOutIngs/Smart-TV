@@ -721,5 +721,14 @@
     "Trakt": "Trakt",
     "Trick Play": "Trick Play",
     "Username": "Username",
-    "Video": "Video"
+    "Video": "Video",
+    "Cast & Crew": "Cast at Crew",
+    "DTS-HD MA Passthrough": "DTS-HD MA Passthrough",
+    "Incorrect PIN": "Maling PIN",
+    "Mark as Watched": "Markahan bilang Napanood",
+    "Recently Released {libraryName}": "Kamakailang Inilabas na {libraryName}",
+    "Show preview thumbnails when seeking": "Ipakita ang mga thumbnail ng preview kapag naghahanap",
+    "Login failed": "Nabigo ang pag-login",
+    "Text Fill Color": "Kulay ng Text Fill",
+    "Queue is empty": "Walang laman ang pila"
 }
