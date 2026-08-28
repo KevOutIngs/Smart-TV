@@ -1125,5 +1125,10 @@
     "Trick Play": "Trick Play",
     "Unfavorite Channel": "Kedvenc eltávolítása",
     "Watch": "Megtekintés",
-    "Yesterday": "Tegnap"
+    "Yesterday": "Tegnap",
+    "DTS-HD MA Passthrough": "DTS-HD MA-átengedés",
+    "Recently Added {libraryName}": "Legutóbb hozzáadott {libraryName}",
+    "Recently Released {libraryName}": "Legutóbb megjelent {libraryName}",
+    "Show preview thumbnails when seeking": "Az előnézeti bélyegképek megjelenítése kereséskor",
+    "Queue is empty": "A sor üres"
 }
