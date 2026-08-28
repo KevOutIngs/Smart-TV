@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "සොයන විට පෙරදසුන් සිඟිති රූ පෙන්වන්න",
     "Login failed": "ඇතුළු වීම අසාර්ථක විය",
     "Text Fill Color": "පෙළ පිරවුම් වර්ණය",
-    "Queue is empty": "පෝලිම හිස්"
+    "Queue is empty": "පෝලිම හිස්",
+    "Perfect match": "පරිපූර්ණ ගැලපීම",
+    "{count} downloads": "බාගැනීම් {count}"
 }
