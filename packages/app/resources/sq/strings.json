@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Shfaq miniaturën e pamjes paraprake kur kërkon",
     "Login failed": "Identifikimi dështoi",
     "Text Fill Color": "Ngjyra e mbushjes së tekstit",
-    "Queue is empty": "Radha është bosh"
+    "Queue is empty": "Radha është bosh",
+    "Perfect match": "Ndeshje perfekte",
+    "{count} downloads": "{count} shkarkime"
 }
