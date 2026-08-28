@@ -984,5 +984,12 @@
     "Cancel scheduled recording of \"{name}\"?": "Cancelar a gravação agendada de \"{name}\"?",
     "Stop recording \"{name}\"?": "Parar a gravação de \"{name}\"?",
     "No": "Não",
-    "Yes, Cancel": "Sim, cancelar"
+    "Yes, Cancel": "Sim, cancelar",
+    "Cast & Crew": "Elenco e equipe",
+    "DTS-HD MA Passthrough": "Passthrough DTS-HD MA",
+    "Incorrect PIN": "PIN incorreto",
+    "Recently Released {libraryName}": "{libraryName} lançados recentemente",
+    "Show preview thumbnails when seeking": "Mostrar miniaturas de visualização ao pesquisar",
+    "Login failed": "Falha no login",
+    "Queue is empty": "A fila está vazia"
 }
