@@ -721,5 +721,14 @@
     "Trailer": "Trailer",
     "Trakt": "Trakt",
     "Trick Play": "Trick Play",
-    "Video": "Video"
+    "Video": "Video",
+    "Cast & Crew": "Pemeran & Kru",
+    "DTS-HD MA Passthrough": "Passthrough DTS-HD MA",
+    "Incorrect PIN": "PIN salah",
+    "Mark as Watched": "Tandai sebagai Ditonton",
+    "Recently Released {libraryName}": "{libraryName} yang Baru Rilis",
+    "Show preview thumbnails when seeking": "Tampilkan thumbnail pratinjau saat seek",
+    "Login failed": "Gagal masuk",
+    "Text Fill Color": "Warna Isi Teks",
+    "Queue is empty": "Antrean kosong"
 }
