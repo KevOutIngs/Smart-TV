@@ -993,5 +993,7 @@
     "Recently Released {libraryName}": "Недавно вышедшее: {libraryName}",
     "Show preview thumbnails when seeking": "Показывать миниатюры предварительного просмотра при поиске",
     "Login failed": "Ошибка входа",
-    "Queue is empty": "Очередь пуста"
+    "Queue is empty": "Очередь пуста",
+    "Perfect match": "Идеальное совпадение",
+    "{count} downloads": "Скачиваний: {count}"
 }
