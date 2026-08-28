@@ -733,5 +733,15 @@
     "No pages found.": "Δεν βρέθηκαν σελίδες.",
     "Search this library...": "Αναζήτηση αυτής της βιβλιοθήκης...",
     "Show details of the selected item at the top of Library pages.": "Εμφάνιση των λεπτομερειών του επιλεγμένου στοιχείου στο επάνω μέρος των σελίδων της Βιβλιοθήκης.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Ηθοποιοί και συντελεστές",
+    "DTS-HD MA Passthrough": "Διέλευση DTS-HD MA",
+    "Incorrect PIN": "Λανθασμένο PIN",
+    "Mark as Watched": "Επισήμανση ως παρακολούθησης",
+    "Recently Added {libraryName}": "Πρόσφατα προστέθηκε το {libraryName}",
+    "Recently Released {libraryName}": "Πρόσφατες κυκλοφορίες: {libraryName}",
+    "Show preview thumbnails when seeking": "Εμφάνιση μικρογραφιών προεπισκόπησης κατά την αναζήτηση",
+    "Login failed": "Η σύνδεση απέτυχε",
+    "Text Fill Color": "Χρώμα πλήρωσης κειμένου",
+    "Queue is empty": "Η ουρά είναι άδεια"
 }
