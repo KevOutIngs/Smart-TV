@@ -863,5 +863,7 @@
     "Login failed": "Login failed",
     "Studio Row Sorting": "Studio Row Sorting",
     "Text Fill Color": "Text Fill Color",
-    "Queue is empty": "Queue is empty"
+    "Queue is empty": "Queue is empty",
+    "Perfect match": "Perfect match",
+    "{count} downloads": "{count} downloads"
 }
