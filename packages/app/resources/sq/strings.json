@@ -721,5 +721,14 @@
     "No pages found.": "Nuk u gjet asnjë faqe.",
     "Search this library...": "Kërko në këtë bibliotekë...",
     "Show details of the selected item at the top of Library pages.": "Shfaq detajet e artikullit të zgjedhur në krye të faqeve të Bibliotekës.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Aktorët dhe ekipi",
+    "DTS-HD MA Passthrough": "Kalim i drejtpërdrejtë DTS-HD MA",
+    "Incorrect PIN": "PIN i pasaktë",
+    "Mark as Watched": "Shënoni si të shikuar",
+    "Recently Released {libraryName}": "{libraryName} të publikuara së fundmi",
+    "Show preview thumbnails when seeking": "Shfaq miniaturën e pamjes paraprake kur kërkon",
+    "Login failed": "Identifikimi dështoi",
+    "Text Fill Color": "Ngjyra e mbushjes së tekstit",
+    "Queue is empty": "Radha është bosh"
 }
