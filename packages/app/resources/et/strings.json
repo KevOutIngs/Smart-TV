@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Kuva otsimisel eelvaate pisipildid",
     "Login failed": "Sisselogimine ebaõnnestus",
     "Text Fill Color": "Teksti täitevärv",
-    "Queue is empty": "Järjekord on tühi"
+    "Queue is empty": "Järjekord on tühi",
+    "Perfect match": "Ideaalne sobivus",
+    "{count} downloads": "{count} allalaadimised"
 }
