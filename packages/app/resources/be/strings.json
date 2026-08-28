@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Паказваць мініяцюры папярэдняга прагляду пры пошуку",
     "Login failed": "Не атрымалася ўвайсці",
     "Text Fill Color": "Колер запаўнення тэкстам",
-    "Queue is empty": "Чарга пустая"
+    "Queue is empty": "Чарга пустая",
+    "Perfect match": "Ідэальны матч",
+    "{count} downloads": "Спампоўкі {count}"
 }
