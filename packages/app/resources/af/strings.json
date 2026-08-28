@@ -721,5 +721,14 @@
     "No pages found.": "Geen bladsye gevind nie.",
     "Search this library...": "Deursoek hierdie biblioteek...",
     "Show details of the selected item at the top of Library pages.": "Wys besonderhede van die gekose item boaan biblioteekbladsye.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Rolverdeling en span",
+    "DTS-HD MA Passthrough": "DTS-HD MA deurlaat",
+    "Incorrect PIN": "Verkeerde PIN",
+    "Mark as Watched": "Merk as gekyk",
+    "Recently Released {libraryName}": "Onlangs vrygestelde {libraryName}",
+    "Show preview thumbnails when seeking": "Wys voorskou-kleinkiekies wanneer jy soek",
+    "Login failed": "Kon nie aanmeld nie",
+    "Text Fill Color": "Teksvulkleur",
+    "Queue is empty": "Die tou is leeg"
 }
