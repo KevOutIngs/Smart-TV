@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Ieškant rodyti peržiūros miniatiūras",
     "Login failed": "Prisijungti nepavyko",
     "Text Fill Color": "Teksto užpildymo spalva",
-    "Queue is empty": "Eilė tuščia"
+    "Queue is empty": "Eilė tuščia",
+    "Perfect match": "Tobulas atitikimas",
+    "{count} downloads": "Atsisiuntimų: {count}"
 }
