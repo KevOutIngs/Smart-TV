@@ -863,5 +863,7 @@
     "Login failed": "No s'ha pogut iniciar la sessió",
     "Studio Row Sorting": "Ordenació de files d'estudi",
     "Text Fill Color": "Color de farciment de text",
-    "Queue is empty": "La cua està buida"
+    "Queue is empty": "La cua està buida",
+    "Perfect match": "Coincidència perfecte",
+    "{count} downloads": "{count} descàrregues"
 }
