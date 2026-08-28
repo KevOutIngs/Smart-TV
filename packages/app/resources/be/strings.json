@@ -721,5 +721,14 @@
     "No pages found.": "Старонак не знойдзена.",
     "Search this library...": "Пошук у гэтай бібліятэцы...",
     "Show details of the selected item at the top of Library pages.": "Паказваць звесткі пра выбраны элемент угары старонак бібліятэкі.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Акцёры і здымачная група",
+    "DTS-HD MA Passthrough": "Праходжанне DTS-HD MA",
+    "Incorrect PIN": "Няправільны PIN-код",
+    "Mark as Watched": "Пазначыць як прагледжанае",
+    "Recently Released {libraryName}": "Нядаўна выйшлі: {libraryName}",
+    "Show preview thumbnails when seeking": "Паказваць мініяцюры папярэдняга прагляду пры пошуку",
+    "Login failed": "Не атрымалася ўвайсці",
+    "Text Fill Color": "Колер запаўнення тэкстам",
+    "Queue is empty": "Чарга пустая"
 }
