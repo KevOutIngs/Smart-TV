@@ -721,5 +721,14 @@
     "No pages found.": "పేజీలు ఏవీ కనుగొనబడలేదు.",
     "Search this library...": "ఈ లైబ్రరీని వెతకండి...",
     "Show details of the selected item at the top of Library pages.": "లైబ్రరీ పేజీల ఎగువన ఎంచుకున్న అంశం వివరాలను చూపుతుంది.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "తారాగణం & సిబ్బంది",
+    "DTS-HD MA Passthrough": "DTS-HD MA పాస్‌త్రూ",
+    "Incorrect PIN": "తప్పు పిన్",
+    "Mark as Watched": "వీక్షించినట్లు గుర్తు పెట్టండి",
+    "Recently Released {libraryName}": "ఇటీవల విడుదలైన {libraryName}",
+    "Show preview thumbnails when seeking": "కోరుతున్నప్పుడు ప్రివ్యూ థంబ్‌నెయిల్‌లను చూపండి",
+    "Login failed": "లాగిన్ విఫలమైంది",
+    "Text Fill Color": "టెక్స్ట్ ఫిల్ కలర్",
+    "Queue is empty": "క్యూ ఖాళీగా ఉంది"
 }
