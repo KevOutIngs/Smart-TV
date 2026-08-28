@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Tampilkan thumbnail pratinjau saat seek",
     "Login failed": "Gagal masuk",
     "Text Fill Color": "Warna Isi Teks",
-    "Queue is empty": "Antrean kosong"
+    "Queue is empty": "Antrean kosong",
+    "Perfect match": "Cocok sempurna",
+    "{count} downloads": "{count} unduhan"
 }
