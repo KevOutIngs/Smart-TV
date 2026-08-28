@@ -895,5 +895,7 @@
     "Show preview thumbnails when seeking": "Vis forhåndsvisningsminiaturer, når du søger",
     "Login failed": "Login mislykkedes",
     "Text Fill Color": "Tekstfyldfarve",
-    "Queue is empty": "Køen er tom"
+    "Queue is empty": "Køen er tom",
+    "Perfect match": "Perfekt match",
+    "{count} downloads": "{count} downloads"
 }
