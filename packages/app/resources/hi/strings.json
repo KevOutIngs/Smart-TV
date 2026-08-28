@@ -721,5 +721,14 @@
     "No pages found.": "कोई पेज नहीं मिला।",
     "Search this library...": "यह लाइब्रेरी खोजें..।",
     "Show details of the selected item at the top of Library pages.": "लाइब्रेरी पेजों के शीर्ष पर चुने गए आइटम का विवरण दिखाएँ।",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "कलाकार समूह",
+    "DTS-HD MA Passthrough": "DTS-HD MA पासथ्रू",
+    "Incorrect PIN": "ग़लत पिन",
+    "Mark as Watched": "देखे गए के रूप में चिह्नित करें",
+    "Recently Released {libraryName}": "हाल ही में रिलीज़ हुए {libraryName}",
+    "Show preview thumbnails when seeking": "मांगते समय पूर्वावलोकन थंबनेल दिखाएं",
+    "Login failed": "लॉगिन विफल",
+    "Text Fill Color": "टेक्स्ट भरें रंग",
+    "Queue is empty": "कतार खाली है"
 }
