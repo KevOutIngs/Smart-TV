@@ -991,5 +991,7 @@
     "Recently Released {libraryName}": "{libraryName} lançados recentemente",
     "Show preview thumbnails when seeking": "Mostrar miniaturas de visualização ao pesquisar",
     "Login failed": "Falha no login",
-    "Queue is empty": "A fila está vazia"
+    "Queue is empty": "A fila está vazia",
+    "Perfect match": "Combinação perfeita",
+    "{count} downloads": "{count} downloads"
 }
