@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Ipakita ang mga thumbnail ng preview kapag naghahanap",
     "Login failed": "Nabigo ang pag-login",
     "Text Fill Color": "Kulay ng Text Fill",
-    "Queue is empty": "Walang laman ang pila"
+    "Queue is empty": "Walang laman ang pila",
+    "Perfect match": "Perpektong tugma",
+    "{count} downloads": "{count} mga pag-download"
 }
