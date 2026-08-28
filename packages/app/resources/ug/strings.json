@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "ئىزدىگەندە ئالدىن كۆرۈش كىچىك كۆرۈنۈشىنى كۆرسىتىڭ",
     "Login failed": "كىرىش مەغلۇب بولدى",
     "Text Fill Color": "تېكىست تولدۇرۇش رەڭگى",
-    "Queue is empty": "ئۆچرەت قۇرۇق"
+    "Queue is empty": "ئۆچرەت قۇرۇق",
+    "Perfect match": "مۇكەممەل ماسلاشتۇرۇش",
+    "{count} downloads": "{count} قېتىم چۈشۈرۈلگەن"
 }
