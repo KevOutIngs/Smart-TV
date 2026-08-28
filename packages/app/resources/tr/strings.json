@@ -363,7 +363,7 @@
     "Like": "Beğen",
     "Like / dislike": "Beğen / Beğenme",
     "Limit home rows to 1 row per screen": "Ana sayfa satırlarını ekran başına 1 satırla sınırla",
-    "Live": "CANLI",
+    "Live": "Canlı",
     "Live TV": "Canlı TV",
     "Load Profile": "Profili Yükle",
     "Load state": "Durumu Yükle",
@@ -865,5 +865,6 @@
     "Text Fill Color": "Metin Dolgu Rengi",
     "Queue is empty": "Sıra boş",
     "Perfect match": "Mükemmel eşleşme",
-    "{count} downloads": "{count} indirme"
+    "{count} downloads": "{count} indirme",
+    "{fps} fps": "{fps} fps"
 }
