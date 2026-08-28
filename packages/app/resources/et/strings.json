@@ -721,5 +721,14 @@
     "No pages found.": "Ühtegi lehte ei leitud.",
     "Search this library...": "Otsi sellest raamatukogust...",
     "Show details of the selected item at the top of Library pages.": "Näita valitud üksuse üksikasju kogulehtede ülaosas.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Näitlejad ja meeskond",
+    "DTS-HD MA Passthrough": "DTS-HD MA läbilaskevõime",
+    "Incorrect PIN": "Vale PIN-kood",
+    "Mark as Watched": "Märgi vaadatuks",
+    "Recently Released {libraryName}": "Hiljuti ilmunud: {libraryName}",
+    "Show preview thumbnails when seeking": "Kuva otsimisel eelvaate pisipildid",
+    "Login failed": "Sisselogimine ebaõnnestus",
+    "Text Fill Color": "Teksti täitevärv",
+    "Queue is empty": "Järjekord on tühi"
 }
