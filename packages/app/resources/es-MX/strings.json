@@ -617,5 +617,7 @@
     "Choose what is shown on the right side of the music progress bar.": "Elige qué se muestra a la derecha de la barra de progreso de la música.",
     "Login failed": "error de inicio de sesion",
     "Text Fill Color": "Color de relleno del texto",
-    "Queue is empty": "La cola está vacía."
+    "Queue is empty": "La cola está vacía.",
+    "Perfect match": "combinación perfecta",
+    "{count} downloads": "{count} descargas"
 }
