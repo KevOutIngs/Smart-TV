@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "தேடும் போது முன்னோட்ட சிறுபடங்களைக் காட்டு",
     "Login failed": "உள்நுழைவு தோல்வியடைந்தது",
     "Text Fill Color": "உரை நிரப்பு வண்ணம்",
-    "Queue is empty": "வரிசை காலியாக உள்ளது"
+    "Queue is empty": "வரிசை காலியாக உள்ளது",
+    "Perfect match": "சரியான போட்டி",
+    "{count} downloads": "{count} பதிவிறக்கங்கள்"
 }
