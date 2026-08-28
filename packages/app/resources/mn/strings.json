@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Хайх үед урьдчилан харах өнгөц зургийг харуул",
     "Login failed": "Нэвтэрч чадсангүй",
     "Text Fill Color": "Текст дүүргэх өнгө",
-    "Queue is empty": "Дараалал хоосон байна"
+    "Queue is empty": "Дараалал хоосон байна",
+    "Perfect match": "Төгс тохирох",
+    "{count} downloads": "{count} татагдсан"
 }
