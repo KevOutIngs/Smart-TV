@@ -859,5 +859,7 @@
     "Login failed": "로그인 실패",
     "Studio Row Sorting": "스튜디오 행 정렬",
     "Text Fill Color": "텍스트 채우기 색상",
-    "Queue is empty": "대기열이 비어 있습니다."
+    "Queue is empty": "대기열이 비어 있습니다.",
+    "Perfect match": "완벽한 일치",
+    "{count} downloads": "다운로드 {count}회"
 }
