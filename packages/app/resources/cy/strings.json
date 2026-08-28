@@ -720,5 +720,14 @@
     "Metacritic (User)": "Metacritig (Defnyddiwr)",
     "No pages found.": "Heb ganfod tudalennau.",
     "Show details of the selected item at the top of Library pages.": "Dangos manylion yr eitem a ddewiswyd ar frig tudalennau'r Llyfrgell.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Cast a Chriw",
+    "DTS-HD MA Passthrough": "Llwybr drwodd MA DTS-HD",
+    "Incorrect PIN": "PIN anghywir",
+    "Mark as Watched": "Marciwch fel y'i Gwyliwyd",
+    "Recently Released {libraryName}": "{libraryName} a Ryddhawyd yn Ddiweddar",
+    "Show preview thumbnails when seeking": "Dangos mân-luniau rhagolwg wrth geisio",
+    "Login failed": "Methodd mewngofnodi",
+    "Text Fill Color": "Lliw Llenwch Testun",
+    "Queue is empty": "Mae'r ciw yn wag"
 }
