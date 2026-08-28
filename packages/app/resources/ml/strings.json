@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "തിരയുമ്പോൾ പ്രിവ്യൂ ലഘുചിത്രങ്ങൾ കാണിക്കുക",
     "Login failed": "ലോഗിൻ ചെയ്യുന്നത് പരാജയപ്പെട്ടു",
     "Text Fill Color": "ടെക്സ്റ്റ് ഫിൽ കളർ",
-    "Queue is empty": "ക്യൂ ശൂന്യമാണ്"
+    "Queue is empty": "ക്യൂ ശൂന്യമാണ്",
+    "Perfect match": "തികഞ്ഞ പൊരുത്തം",
+    "{count} downloads": "{count} ഡൗൺലോഡുകൾ"
 }
