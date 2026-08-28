@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Onyesha vijipicha vya kukagua unapotafuta",
     "Login failed": "Kuingia kumeshindwa",
     "Text Fill Color": "Rangi ya Kujaza Maandishi",
-    "Queue is empty": "Foleni ni tupu"
+    "Queue is empty": "Foleni ni tupu",
+    "Perfect match": "Mechi kamili",
+    "{count} downloads": "vipakuliwa {count}"
 }
