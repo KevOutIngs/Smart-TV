@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "కోరుతున్నప్పుడు ప్రివ్యూ థంబ్‌నెయిల్‌లను చూపండి",
     "Login failed": "లాగిన్ విఫలమైంది",
     "Text Fill Color": "టెక్స్ట్ ఫిల్ కలర్",
-    "Queue is empty": "క్యూ ఖాళీగా ఉంది"
+    "Queue is empty": "క్యూ ఖాళీగా ఉంది",
+    "Perfect match": "పర్ఫెక్ట్ మ్యాచ్",
+    "{count} downloads": "{count} డౌన్‌లోడ్‌లు"
 }
