@@ -721,5 +721,14 @@
     "No pages found.": "പേജുകളൊന്നും കണ്ടെത്തിയില്ല.",
     "Search this library...": "ഈ ലൈബ്രറി തിരയൂ...",
     "Show details of the selected item at the top of Library pages.": "ലൈബ്രറി പേജുകളുടെ മുകളിൽ തിരഞ്ഞെടുത്ത ഇനത്തിന്റെ വിശദാംശങ്ങൾ കാണിക്കുക.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "കാസ്റ്റ് & ക്രൂ",
+    "DTS-HD MA Passthrough": "DTS-HD MA പാസ്ത്രൂ",
+    "Incorrect PIN": "തെറ്റായ പിൻ",
+    "Mark as Watched": "കണ്ടതായി അടയാളപ്പെടുത്തുക",
+    "Recently Released {libraryName}": "അടുത്തിടെ പുറത്തിറങ്ങിയ {libraryName}",
+    "Show preview thumbnails when seeking": "തിരയുമ്പോൾ പ്രിവ്യൂ ലഘുചിത്രങ്ങൾ കാണിക്കുക",
+    "Login failed": "ലോഗിൻ ചെയ്യുന്നത് പരാജയപ്പെട്ടു",
+    "Text Fill Color": "ടെക്സ്റ്റ് ഫിൽ കളർ",
+    "Queue is empty": "ക്യൂ ശൂന്യമാണ്"
 }
