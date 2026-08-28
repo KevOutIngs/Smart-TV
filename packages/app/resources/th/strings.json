@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "แสดงภาพตัวอย่างเมื่อค้นหา",
     "Login failed": "การเข้าสู่ระบบล้มเหลว",
     "Text Fill Color": "สีเติมข้อความ",
-    "Queue is empty": "คิวว่าง"
+    "Queue is empty": "คิวว่าง",
+    "Perfect match": "คู่ที่สมบูรณ์แบบ",
+    "{count} downloads": "{count} ดาวน์โหลด"
 }
