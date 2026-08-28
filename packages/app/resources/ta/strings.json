@@ -721,5 +721,14 @@
     "No pages found.": "பக்கங்கள் எதுவும் இல்லை.",
     "Search this library...": "இந்த நூலகத்தில் தேடவும்...",
     "Show details of the selected item at the top of Library pages.": "நூலகப் பக்கங்களின் மேலே தேர்ந்தெடுக்கப்பட்ட உருப்படியின் விவரங்களைக் காட்டும்.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "நடிகர்கள் & குழுவினர்",
+    "DTS-HD MA Passthrough": "DTS-HD MA பாஸ்த்ரூ",
+    "Incorrect PIN": "தவறான பின்",
+    "Mark as Watched": "பார்த்ததாகக் குறி",
+    "Recently Released {libraryName}": "சமீபத்தில் வெளியான {libraryName}",
+    "Show preview thumbnails when seeking": "தேடும் போது முன்னோட்ட சிறுபடங்களைக் காட்டு",
+    "Login failed": "உள்நுழைவு தோல்வியடைந்தது",
+    "Text Fill Color": "உரை நிரப்பு வண்ணம்",
+    "Queue is empty": "வரிசை காலியாக உள்ளது"
 }
