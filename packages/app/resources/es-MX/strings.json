@@ -607,5 +607,15 @@
     "Group name": "Nombre del grupo",
     "No pages found.": "No se encontraron páginas.",
     "Search this library...": "Buscar en esta biblioteca...",
-    "{age}+": "{age} anos o mas"
+    "{age}+": "{age} anos o mas",
+    "Cast & Crew": "Reparto y equipo",
+    "DTS-HD MA Passthrough": "Paso a través de DTS-HD MA",
+    "Details Screen Style": "Estilo de la pantalla de detalles",
+    "Incorrect PIN": "PIN incorrecto",
+    "Mark as Watched": "Marcar como visto",
+    "Show preview thumbnails when seeking": "Mostrar miniaturas de vista previa al buscar",
+    "Choose what is shown on the right side of the music progress bar.": "Elige qué se muestra a la derecha de la barra de progreso de la música.",
+    "Login failed": "error de inicio de sesion",
+    "Text Fill Color": "Color de relleno del texto",
+    "Queue is empty": "La cola está vacía."
 }
