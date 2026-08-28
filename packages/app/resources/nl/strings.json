@@ -799,5 +799,19 @@
     "Track": "Nummer",
     "Trailer": "Trailer",
     "Requesting {current} of {total}...": "{current} van {total} aanvragen...",
-    "Request limit reached": "Verzoeklimiet bereikt"
+    "Request limit reached": "Verzoeklimiet bereikt",
+    "Also play prerolls before TV episodes": "Speel ook trailers voor afleveringen af",
+    "Cast & Crew": "Cast & Crew",
+    "DTS-HD MA Passthrough": "DTS-HD MA-passthrough",
+    "On Watchlist": "Op de kijklijst",
+    "Incorrect PIN": "Onjuiste pincode",
+    "Mark as Watched": "Markeer als bekeken",
+    "Recently Added {libraryName}": "Recent toegevoegd {libraryName}",
+    "Recently Released {libraryName}": "Onlangs uitgebracht: {libraryName}",
+    "Request More in 4K": "Vraag om meer in 4K-resolutie",
+    "Show preview thumbnails when seeking": "Toon voorbeeldminiaturen tijdens het zoeken",
+    "Choose what is shown on the right side of the music progress bar.": "Kies wat rechts te zien is van de voortgangsbalk bij muziek.",
+    "Login failed": "Inloggen mislukt",
+    "Text Fill Color": "Tekstvulkleur",
+    "Queue is empty": "Wachtrij is leeg"
 }
