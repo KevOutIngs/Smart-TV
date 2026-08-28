@@ -1019,5 +1019,7 @@
     "Recently Released {libraryName}": "Kürzlich erschienen: {libraryName}",
     "Show preview thumbnails when seeking": "Vorschaubilder beim Spulen anzeigen",
     "Login failed": "Anmeldung fehlgeschlagen",
-    "Queue is empty": "Die Warteschlange ist leer"
+    "Queue is empty": "Die Warteschlange ist leer",
+    "Perfect match": "Exakte Übereinstimmung",
+    "{count} downloads": "{count}-mal heruntergeladen"
 }
