@@ -1098,5 +1098,7 @@
     "Show preview thumbnails when seeking": "Afficher les miniatures d’aperçu pendant la recherche",
     "Login failed": "Échec de la connexion",
     "Studio Row Sorting": "Tri de la rangée des studios",
-    "Queue is empty": "La file d'attente est vide"
+    "Queue is empty": "La file d'attente est vide",
+    "Perfect match": "Correspondance parfaite",
+    "{count} downloads": "{count} téléchargements"
 }
