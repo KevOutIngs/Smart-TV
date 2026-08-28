@@ -978,5 +978,22 @@
     "You're set. Here's what else is in here.": "Tutto pronto. Ecco cos'altro c'è qui dentro.",
     "{count} items": "{count} elementi",
     "{rating} / 10": "{rating} / 10",
-    "{rating} / 5": "{rating} / 5"
+    "{rating} / 5": "{rating} / 5",
+    "Also play prerolls before TV episodes": "Riproduci i preroll anche prima degli episodi TV",
+    "Cast & Crew": "Cast e Troupe",
+    "DTS-HD MA Passthrough": "Passthrough DTS-HD MA",
+    "Details Screen Style": "Stile schermata dettagli",
+    "Display Studio Row": "Mostra Riga Studi",
+    "On Watchlist": "Nella Watchlist",
+    "Incorrect PIN": "PIN errato",
+    "Recently Added {libraryName}": "{libraryName} aggiunti di recente",
+    "Recently Released {libraryName}": "{libraryName} - Usciti di Recente",
+    "Request More in 4K": "Richiedi Altro in 4K",
+    "Show Studio row in Home Sections.": "Mostra la riga Studi nelle Sezioni Home.",
+    "Show preview thumbnails when seeking": "Mostra miniature di anteprima durante lo scorrimento",
+    "Choose what is shown on the right side of the music progress bar.": "Scegli cosa mostrare a destra della barra di avanzamento della musica.",
+    "Login failed": "Accesso fallito",
+    "Studio Row Sorting": "Ordinamento Riga Studi",
+    "Text Fill Color": "Colore riempimento testo",
+    "Queue is empty": "La coda è vuota"
 }
