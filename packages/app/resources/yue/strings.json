@@ -721,5 +721,14 @@
     "No pages found.": "未找到頁面。",
     "Search this library...": "搜尋這個圖書館...",
     "Show details of the selected item at the top of Library pages.": "喺媒體庫頁面頂部顯示已揀項目嘅詳情。",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "演職人員",
+    "DTS-HD MA Passthrough": "DTS-HD MA 直通",
+    "Incorrect PIN": "PIN 碼不正確",
+    "Mark as Watched": "標記為已觀看",
+    "Recently Released {libraryName}": "最近上架嘅{libraryName}",
+    "Show preview thumbnails when seeking": "搜尋時顯示預覽縮圖",
+    "Login failed": "登入失敗",
+    "Text Fill Color": "文字填滿顏色",
+    "Queue is empty": "隊列為空"
 }
