@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Při hledání zobrazovat náhledy",
     "Login failed": "Přihlášení se nezdařilo",
     "Text Fill Color": "Barva výplně textu",
-    "Queue is empty": "Fronta je prázdná"
+    "Queue is empty": "Fronta je prázdná",
+    "Perfect match": "Perfektní shoda",
+    "{count} downloads": "{count} stahování"
 }
