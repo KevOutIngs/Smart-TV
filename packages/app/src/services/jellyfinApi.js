@@ -508,8 +508,10 @@ export const api = {
 	getPerson: (personId) =>
 		request(`/Users/${currentUser}/Items/${personId}`),
 
-	getItemsByPerson: (personId, limit = 50) =>
-		request(`/Users/${currentUser}/Items?PersonIds=${personId}&Recursive=true&IncludeItemTypes=Movie,Series&Limit=${limit}&Fields=PrimaryImageAspectRatio,ProductionYear,OfficialRating`),
+	// Episodes and music videos get their own rows on a person, and the newest
+	// work is the part worth opening on.
+	getItemsByPerson: (personId, limit = 100) =>
+		request(`/Users/${currentUser}/Items?PersonIds=${personId}&Recursive=true&IncludeItemTypes=Movie,Series,MusicVideo,Episode&SortBy=PremiereDate&SortOrder=Descending&Limit=${limit}&Fields=PrimaryImageAspectRatio,ProductionYear,OfficialRating,BasicSyncInfo`),
 
 	getFavorites: (limit = 50) =>
 		request(`/Users/${currentUser}/Items?IsFavorite=true&Recursive=true&Limit=${limit}&Fields=PrimaryImageAspectRatio,ProductionYear,OfficialRating`),
@@ -889,6 +891,11 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 
 		getItemMediaInfo: (itemId) =>
 			serverRequest(`/Users/${userId}/Items/${itemId}?Fields=MediaSources,MediaStreams`),
+
+		getPerson: (itemId) => serverRequest(`/Users/${userId}/Items/${itemId}`),
+
+		getItemsByPerson: (personId, limit = 100) =>
+			serverRequest(`/Users/${userId}/Items?PersonIds=${personId}&Recursive=true&IncludeItemTypes=Movie,Series,MusicVideo,Episode&SortBy=PremiereDate&SortOrder=Descending&Limit=${limit}&Fields=PrimaryImageAspectRatio,ProductionYear,OfficialRating,BasicSyncInfo`),
 
 		getItems: (params = {}) => {
 			// Manually build query string to match main api.getItems behavior

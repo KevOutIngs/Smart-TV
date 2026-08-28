@@ -5,6 +5,8 @@ import Image from '@enact/sandstone/Image';
 import $L from '@enact/i18n/$L';
 import seerrApi from '../../services/seerrApi';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import {personDateLines, prepareCredits} from '../../utils/personCredits';
+
 import css from './SeerrPerson.module.less';
 
 const SpottableDiv = Spottable('div');
@@ -14,6 +16,7 @@ const SeerrPerson = ({personId, personName, onClose, onSelectItem, onBack}) => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [biographyExpanded, setBiographyExpanded] = useState(false);
+	const [credits, setCredits] = useState(null);
 	const appearancesRef = useRef([]);
 
 	useEffect(() => {
@@ -23,8 +26,12 @@ const SeerrPerson = ({personId, personName, onClose, onSelectItem, onBack}) => {
 			setLoading(true);
 			setError(null);
 			try {
-				const data = await seerrApi.getPerson(personId);
+				const [data, creditData] = await Promise.all([
+					seerrApi.getPerson(personId),
+					seerrApi.getPersonCombinedCredits(personId).catch(() => null)
+				]);
 				setDetails(data);
+				setCredits(creditData);
 			} catch (err) {
 				console.error('Failed to load person details:', err);
 				setError(err.message || $L('Failed to load details'));
@@ -61,7 +68,7 @@ const SeerrPerson = ({personId, personName, onClose, onSelectItem, onBack}) => {
 	const renderAppearanceCard = useCallback((item, index) => {
 		const posterUrl = seerrApi.getImageUrl(item.posterPath || item.poster_path, 'w342');
 		const title = item.title || item.name;
-		const character = item.character;
+		const role = item.character || item.job || item.department;
 		const year = (item.releaseDate || item.release_date || item.firstAirDate || item.first_air_date)?.substring(0, 4);
 		const itemMediaType = item.mediaType || item.media_type || (item.title ? 'movie' : 'tv');
 		const status = item.mediaInfo?.status;
@@ -92,7 +99,7 @@ const SeerrPerson = ({personId, personName, onClose, onSelectItem, onBack}) => {
 				</div>
 				<div className={css.cardInfo}>
 					<p className={css.cardTitle}>{title}</p>
-					{character && <p className={css.cardCharacter}>{character}</p>}
+					{role && <p className={css.cardCharacter}>{role}</p>}
 					{year && <p className={css.cardYear}>{year}</p>}
 				</div>
 			</SpottableDiv>
@@ -133,24 +140,17 @@ const SeerrPerson = ({personId, personName, onClose, onSelectItem, onBack}) => {
 	const profileUrl = details.profilePath
 		? seerrApi.getImageUrl(details.profilePath, 'h632')
 		: null;
-	const birthYear = details.birthday ? new Date(details.birthday).getFullYear() : null;
-	const deathYear = details.deathday ? new Date(details.deathday).getFullYear() : null;
+	const dateLines = personDateLines(details.birthday, details.deathday);
 	const biography = details.biography || '';
 	const knownFor = details.knownForDepartment || '';
 
-	const cast = details.combinedCredits?.cast || details.credits?.cast || [];
-	const crew = details.combinedCredits?.crew || details.credits?.crew || [];
-	const appearances = [
-		...cast,
-		...crew
-	]
-		.filter((item, index, self) =>
-			index === self.findIndex(t => t.id === item.id && (t.mediaType || t.media_type) === (item.mediaType || item.media_type))
-		)
-		.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-		.slice(0, 50);
+	const rawCast = credits?.cast || details.combinedCredits?.cast || details.credits?.cast;
+	const rawCrew = credits?.crew || details.combinedCredits?.crew || details.credits?.crew;
+	const appearances = prepareCredits(rawCast, {isCrew: false});
+	const crewCredits = prepareCredits(rawCrew, {isCrew: true});
 
-	appearancesRef.current = appearances;
+	// One list behind the two rows, so a card only has to carry its position.
+	appearancesRef.current = [...appearances, ...crewCredits];
 
 	return (
 		<div className={css.container}>
@@ -169,11 +169,9 @@ const SeerrPerson = ({personId, personName, onClose, onSelectItem, onBack}) => {
 						<h1 className={css.personName}>{personName || details.name}</h1>
 
 						<div className={css.metaInfo}>
-							{birthYear && (
-								<span className={css.birthInfo}>
-									{deathYear ? `${birthYear} - ${deathYear}` : `${$L('Born')} ${birthYear}`}
-								</span>
-							)}
+							{dateLines.map((line) => (
+								<span key={line} className={css.birthInfo}>{line}</span>
+							))}
 							{details.placeOfBirth && (
 								<span className={css.placeOfBirth}>{details.placeOfBirth}</span>
 							)}
@@ -199,12 +197,20 @@ const SeerrPerson = ({personId, personName, onClose, onSelectItem, onBack}) => {
 					</div>
 				)}
 
-				{/* Appearances Section */}
 				{appearances.length > 0 && (
 					<div className={css.appearancesSection}>
 						<h2 className={css.sectionTitle}>{$L('Appearances')} ({appearances.length})</h2>
 						<div className={css.appearancesList} data-spotlight-id="person-appearances">
 							{appearances.map((item, index) => renderAppearanceCard(item, index))}
+						</div>
+					</div>
+				)}
+
+				{crewCredits.length > 0 && (
+					<div className={css.appearancesSection}>
+						<h2 className={css.sectionTitle}>{$L('Crew')} ({crewCredits.length})</h2>
+						<div className={css.appearancesList} data-spotlight-id="person-crew">
+							{crewCredits.map((item, index) => renderAppearanceCard(item, appearances.length + index))}
 						</div>
 					</div>
 				)}

@@ -29,15 +29,17 @@
 
 .personImage {
 	width: 250px;
-	height: 375px;
-	border-radius: 12px;
+	height: 250px;
+	border-radius: 50%;
+	border: 3px solid var(--theme-accent, #00a4dc);
 	flex-shrink: 0;
 }
 
 .noImage {
 	width: 250px;
-	height: 375px;
-	border-radius: 12px;
+	height: 250px;
+	border-radius: 50%;
+	border: 3px solid var(--theme-accent, #00a4dc);
 	background: var(--theme-surface-variant, #333);
 	display: flex;
 	align-items: center;
@@ -98,10 +100,19 @@
 	font-weight: 600;
 }
 
-.favoriteBtn {
+.personActions {
 	display: flex;
 	align-items: center;
 	margin-top: 16px;
+
+	> * + * {
+		margin-left: 16px;
+	}
+}
+
+.favoriteBtn {
+	display: flex;
+	align-items: center;
 	padding: 8px 16px;
 	border-radius: 8px;
 	border: 2px solid transparent;

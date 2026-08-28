@@ -39,6 +39,7 @@ import SeerrDialogs from './SeerrDialogs';
 import TrailerOverlay from './TrailerOverlay';
 import PersonalRatingDialog from '../../components/PersonalRatingDialog';
 import {clampRating, clearedRatingPatch, isRatableItemType, normalizeRatingStyle, numericRatingPatch, thumbRatingPatch} from '../../utils/personalRating';
+import {personDateLines, splitFilmography} from '../../utils/personCredits';
 import ClassicDetailScreen from './ClassicDetailScreen';
 import PersonScreen from './PersonScreen';
 import SeasonScreen from './SeasonScreen';
@@ -833,8 +834,10 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 	const hasPlaybackPosition = item.UserData?.PlaybackPositionTicks > 0;
 	const resumeTimeText = hasPlaybackPosition ? formatDuration(item.UserData.PlaybackPositionTicks) : '';
 
-	const personMovies = isPerson ? similar.filter(i => i.Type === 'Movie') : [];
-	const personSeries = isPerson ? similar.filter(i => i.Type === 'Series') : [];
+	const filmography = isPerson ? splitFilmography(similar) : null;
+	const personMovies = filmography?.movies || [];
+	const personSeries = filmography?.series || [];
+	const personDates = isPerson ? personDateLines(item.PremiereDate, item.EndDate) : [];
 	const birthDate = isPerson && item.PremiereDate ? new Date(item.PremiereDate) : null;
 	const birthPlace = isPerson && item.ProductionLocations?.length > 0 ? item.ProductionLocations[0] : '';
 
@@ -1000,11 +1003,11 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 					item={item}
 					serverUrl={effectiveServerUrl}
 					settings={settings}
-					personMovies={personMovies}
-					personSeries={personSeries}
-					birthDate={birthDate}
+					filmography={filmography}
+					personDates={personDates}
 					birthPlace={birthPlace}
 					onSelectItem={onSelectItem}
+					onSelectSeerrItem={seerrNav?.onSelectItem}
 				/>
 			</DetailScrollPage>
 		);

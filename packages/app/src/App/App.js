@@ -1358,7 +1358,7 @@ const AppContent = (props) => {
 					</Panel>
 					<Panel>
 						{panelIndex === PANELS.PERSON && (
-							<Person personId={selectedPerson?.Id} onSelectItem={handleSelectItem} />
+							<Person personId={selectedPerson?.Id} onSelectItem={handleSelectItem} onSelectSeerrItem={handleSelectSeerrItem} onSelectSeerrPerson={handleSelectSeerrPerson} />
 						)}
 					</Panel>
 					<Panel>

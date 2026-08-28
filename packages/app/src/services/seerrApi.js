@@ -944,6 +944,12 @@ export const getPerson = async (tmdbId) => {
 	return request(`/person/${tmdbId}`);
 };
 
+// The person endpoint carries no credits of its own, so the work they appeared
+// in and the work they were crew on comes from here.
+export const getPersonCombinedCredits = async (tmdbId) => {
+	return request(`/person/${tmdbId}/combined_credits`);
+};
+
 export const getRequests = async (filter = 'all', take = 20, skip = 0, sort = 'added') => {
 	return request(`/request?filter=${filter}&take=${take}&skip=${skip}&sort=${sort}`);
 };
@@ -1196,6 +1202,7 @@ export default {
 	getMovie,
 	getTv,
 	getPerson,
+	getPersonCombinedCredits,
 	getMediaStatus,
 	getRequests,
 	getRequest,
