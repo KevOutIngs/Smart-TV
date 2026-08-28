@@ -721,5 +721,14 @@
     "No pages found.": "Neniuj paĝoj trovitaj.",
     "Search this library...": "Serĉu ĉi tiun bibliotekon...",
     "Show details of the selected item at the top of Library pages.": "Montri detalojn de la elektita ero ĉe la supro de bibliotekaj paĝoj.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Rolantaro & Skipo",
+    "DTS-HD MA Passthrough": "DTS-HD MA trapaso",
+    "Incorrect PIN": "Malĝusta PIN",
+    "Mark as Watched": "Marki kiel Rigardita",
+    "Recently Released {libraryName}": "Lastatempe eldonita {libraryName}",
+    "Show preview thumbnails when seeking": "Montru antaŭrigardajn bildetojn dum serĉado",
+    "Login failed": "Ensaluto malsukcesis",
+    "Text Fill Color": "Teksto Plenigkoloro",
+    "Queue is empty": "Vico estas malplena"
 }
