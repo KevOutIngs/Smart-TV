@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "搜尋時顯示預覽縮圖",
     "Login failed": "登入失敗",
     "Text Fill Color": "文字填滿顏色",
-    "Queue is empty": "隊列為空"
+    "Queue is empty": "隊列為空",
+    "Perfect match": "完美搭配",
+    "{count} downloads": "{count} 次下載"
 }
