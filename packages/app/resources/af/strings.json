@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Wys voorskou-kleinkiekies wanneer jy soek",
     "Login failed": "Kon nie aanmeld nie",
     "Text Fill Color": "Teksvulkleur",
-    "Queue is empty": "Die tou is leeg"
+    "Queue is empty": "Die tou is leeg",
+    "Perfect match": "Perfekte pasmaat",
+    "{count} downloads": "{count} aflaaie"
 }
