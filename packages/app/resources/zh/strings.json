@@ -877,5 +877,7 @@
     "Login failed": "登录失败",
     "Studio Row Sorting": "制作公司行排序",
     "Text Fill Color": "文本填充颜色",
-    "Queue is empty": "队列为空"
+    "Queue is empty": "队列为空",
+    "Perfect match": "完全匹配",
+    "{count} downloads": "{count} 次下载"
 }
