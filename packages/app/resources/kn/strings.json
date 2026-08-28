@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "ಹುಡುಕುತ್ತಿರುವಾಗ ಪೂರ್ವವೀಕ್ಷಣೆ ಥಂಬ್‌ನೇಲ್‌ಗಳನ್ನು ತೋರಿಸಿ",
     "Login failed": "ಲಾಗಿನ್ ವಿಫಲವಾಗಿದೆ",
     "Text Fill Color": "ಪಠ್ಯವನ್ನು ತುಂಬುವ ಬಣ್ಣ",
-    "Queue is empty": "ಸರತಿ ಸಾಲು ಖಾಲಿಯಾಗಿದೆ"
+    "Queue is empty": "ಸರತಿ ಸಾಲು ಖಾಲಿಯಾಗಿದೆ",
+    "Perfect match": "ಪರಿಪೂರ್ಣ ಹೊಂದಾಣಿಕೆ",
+    "{count} downloads": "{count} ಡೌನ್‌ಲೋಡ್‌ಗಳು"
 }
