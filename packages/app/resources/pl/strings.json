@@ -1697,5 +1697,7 @@
     "1080p": "1080p",
     "100%": "100%",
     "NC-17": "NC-17",
-    "VSync": "VSync"
+    "VSync": "VSync",
+    "Perfect match": "Idealne dopasowanie",
+    "{count} downloads": "{count, plural, one{{count} pobranie} few{{count} pobrania} many{{count} pobrań} other{{count} pobrania}}"
 }
