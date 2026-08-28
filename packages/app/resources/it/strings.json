@@ -995,5 +995,7 @@
     "Login failed": "Accesso fallito",
     "Studio Row Sorting": "Ordinamento Riga Studi",
     "Text Fill Color": "Colore riempimento testo",
-    "Queue is empty": "La coda è vuota"
+    "Queue is empty": "La coda è vuota",
+    "Perfect match": "Corrispondenza perfetta",
+    "{count} downloads": "{count} download"
 }
