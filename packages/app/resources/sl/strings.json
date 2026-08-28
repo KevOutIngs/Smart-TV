@@ -721,5 +721,14 @@
     "No pages found.": "Ni najdenih strani.",
     "Search this library...": "Išči v tej knjižnici ...",
     "Show details of the selected item at the top of Library pages.": "Prikaži podrobnosti izbranega elementa na vrhu strani knjižnice.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Igralci in ekipa",
+    "DTS-HD MA Passthrough": "Passthrough DTS-HD MA",
+    "Incorrect PIN": "Napačen PIN",
+    "Mark as Watched": "Označi kot gledano",
+    "Recently Released {libraryName}": "Nedavno izdano – {libraryName}",
+    "Show preview thumbnails when seeking": "Pri iskanju prikaži predogled sličic",
+    "Login failed": "Prijava ni uspela",
+    "Text Fill Color": "Barva polnila besedila",
+    "Queue is empty": "Čakalna vrsta je prazna"
 }
