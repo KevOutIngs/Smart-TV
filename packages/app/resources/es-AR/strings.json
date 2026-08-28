@@ -597,5 +597,13 @@
     "Group name": "Nombre del grupo",
     "No pages found.": "No se encontraron páginas.",
     "Search this library...": "Buscar en esta biblioteca...",
-    "{age}+": "{age} anos o mas"
+    "{age}+": "{age} anos o mas",
+    "Cast & Crew": "Reparto y equipo",
+    "DTS-HD MA Passthrough": "Paso a través de DTS-HD MA",
+    "Incorrect PIN": "PIN incorrecto",
+    "Mark as Watched": "Marcar como visto",
+    "Show preview thumbnails when seeking": "Mostrar miniaturas de vista previa al buscar",
+    "Login failed": "error de inicio de sesion",
+    "Text Fill Color": "Color de relleno del texto",
+    "Queue is empty": "La cola está vacía."
 }
