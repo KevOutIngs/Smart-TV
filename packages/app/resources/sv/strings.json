@@ -739,5 +739,7 @@
     "Show preview thumbnails when seeking": "Visa förhandsgranskningsminiatyrer när du söker",
     "Login failed": "Inloggningen misslyckades",
     "Text Fill Color": "Text fyllningsfärg",
-    "Queue is empty": "Kön är tom"
+    "Queue is empty": "Kön är tom",
+    "Perfect match": "Perfekt matchning",
+    "{count} downloads": "{count} nedladdningar"
 }
