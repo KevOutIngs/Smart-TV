@@ -813,5 +813,7 @@
     "Choose what is shown on the right side of the music progress bar.": "Kies wat rechts te zien is van de voortgangsbalk bij muziek.",
     "Login failed": "Inloggen mislukt",
     "Text Fill Color": "Tekstvulkleur",
-    "Queue is empty": "Wachtrij is leeg"
+    "Queue is empty": "Wachtrij is leeg",
+    "Perfect match": "Perfecte wedstrijd",
+    "{count} downloads": "{count} downloads"
 }
