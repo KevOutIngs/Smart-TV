@@ -1096,5 +1096,11 @@
     "For TV series, use the main series artwork instead of the episode thumbnail.": "Mostrar imágenes de episodios en tarjetas de series",
     "Group name": "Nombre del grupo",
     "Metacritic (User)": "Metacritic (Usuario)",
-    "Search this library...": "Buscar en esta biblioteca..."
+    "Search this library...": "Buscar en esta biblioteca...",
+    "DTS-HD MA Passthrough": "Paso a través de DTS-HD MA",
+    "Incorrect PIN": "PIN incorrecto",
+    "Recently Released {libraryName}": "Lanzamientos recientes de {libraryName}",
+    "Show preview thumbnails when seeking": "Mostrar miniaturas de vista previa al buscar",
+    "Login failed": "Error de inicio de sesión",
+    "Queue is empty": "La cola está vacía"
 }
