@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Показване на миниатюри за визуализация при търсене",
     "Login failed": "Неуспешно влизане",
     "Text Fill Color": "Цвят на запълване на текст",
-    "Queue is empty": "Опашката е празна"
+    "Queue is empty": "Опашката е празна",
+    "Perfect match": "Перфектно съвпадение",
+    "{count} downloads": "{count} изтегляния"
 }
