@@ -135,7 +135,7 @@ const AddToCollectionModal = ({open, itemId, api, onClose, onSuccess}) => {
 				<h2 className={css.title}>{creating ? $L('New Collection') : $L('Add to Collection')}</h2>
 
 				{loading && (
-					<p className={css.message}>{$L('Loading collections…')}</p>
+					<p className={css.message}>{$L('Loading collections...')}</p>
 				)}
 
 				{creating && (
@@ -157,7 +157,7 @@ const AddToCollectionModal = ({open, itemId, api, onClose, onSuccess}) => {
 								spotlightId="collection-create-confirm"
 								disabled={!newName.trim() || adding}
 							>
-								{adding ? $L('Creating…') : $L('Create')}
+								{adding ? $L('Creating...') : $L('Create')}
 							</SpottableButton>
 							<SpottableButton
 								className={css.btn}

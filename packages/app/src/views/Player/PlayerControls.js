@@ -494,7 +494,7 @@ const PlayerControls = ({
 							)}
 							{isDownloadingRemoteSubtitle && (
 								<SpottableDiv className={css.trackItem}>
-									<span className={css.trackName}>{$L('Downloading subtitle...')}</span>
+									<span className={css.trackName}>{$L('Downloading subtitle…')}</span>
 								</SpottableDiv>
 							)}
 							{!remoteSubtitleBusy && remoteSubtitleError && (

@@ -82,7 +82,7 @@ export const ThemeStoreView = ({catalog, loading, error, busyId, availableThemes
 								<div className={css.themeCardDescription}>{entry.description}</div>
 							) : null}
 							<div className={css.themeStoreCardAction}>
-								{busy ? $L('Working…') : saved ? $L('Remove') : $L('Save & apply')}
+								{busy ? $L('Working...') : saved ? $L('Remove') : $L('Save & apply')}
 							</div>
 						</SpottableDiv>
 					);

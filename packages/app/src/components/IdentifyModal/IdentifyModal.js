@@ -162,7 +162,7 @@ const IdentifyModal = ({open, item, api, onClose, onApplied, onSuccess}) => {
 							<span className={css.rowDetail}>{$L('Search the metadata providers for a better match')}</span>
 						</SpottableDiv>
 						<SpottableDiv className={css.row} onClick={handleRefresh}>
-							<span className={css.rowLabel}>{busy ? $L('Refreshing…') : $L('Refresh Metadata')}</span>
+							<span className={css.rowLabel}>{busy ? $L('Refreshing...') : $L('Refresh Metadata')}</span>
 							<span className={css.rowDetail}>{$L('Re-read the metadata the providers already have')}</span>
 						</SpottableDiv>
 					</>
@@ -198,7 +198,7 @@ const IdentifyModal = ({open, item, api, onClose, onApplied, onSuccess}) => {
 								spotlightId="identify-search"
 								disabled={!name.trim() || busy}
 							>
-								{busy ? $L('Searching…') : $L('Search')}
+								{busy ? $L('Searching...') : $L('Search')}
 							</SpottableButton>
 							<SpottableButton className={css.btn} onClick={handleBackToMenu}>
 								{$L('Cancel')}

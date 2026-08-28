@@ -154,7 +154,7 @@ const AddToPlaylistModal = ({open, itemId, api, onClose, onSuccess}) => {
 								spotlightId="playlist-create-confirm"
 								disabled={!newName.trim() || adding}
 							>
-							{adding ? $L('Creating…') : $L('Create')}
+							{adding ? $L('Creating...') : $L('Create')}
 							</SpottableButton>
 							<SpottableButton
 								className={css.btn}
