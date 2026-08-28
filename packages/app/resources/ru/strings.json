@@ -986,5 +986,12 @@
     "Watch": "Смотреть",
     "Yesterday": "Вчера",
     "No": "Нет",
-    "Yes, Cancel": "Да, отменить"
+    "Yes, Cancel": "Да, отменить",
+    "Cast & Crew": "Актеры и съемочная группа",
+    "DTS-HD MA Passthrough": "DTS-HD MA Passthrough",
+    "Incorrect PIN": "Неправильный PIN-код",
+    "Recently Released {libraryName}": "Недавно вышедшее: {libraryName}",
+    "Show preview thumbnails when seeking": "Показывать миниатюры предварительного просмотра при поиске",
+    "Login failed": "Ошибка входа",
+    "Queue is empty": "Очередь пуста"
 }
