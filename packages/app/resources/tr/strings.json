@@ -863,5 +863,7 @@
     "Login failed": "Giriş başarısız",
     "Studio Row Sorting": "Stüdyo Satırı Sıralaması",
     "Text Fill Color": "Metin Dolgu Rengi",
-    "Queue is empty": "Sıra boş"
+    "Queue is empty": "Sıra boş",
+    "Perfect match": "Mükemmel eşleşme",
+    "{count} downloads": "{count} indirme"
 }
