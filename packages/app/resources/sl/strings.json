@@ -730,5 +730,7 @@
     "Show preview thumbnails when seeking": "Pri iskanju prikaži predogled sličic",
     "Login failed": "Prijava ni uspela",
     "Text Fill Color": "Barva polnila besedila",
-    "Queue is empty": "Čakalna vrsta je prazna"
+    "Queue is empty": "Čakalna vrsta je prazna",
+    "Perfect match": "Popolno ujemanje",
+    "{count} downloads": "{count} prenosov"
 }
