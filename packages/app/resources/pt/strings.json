@@ -721,5 +721,14 @@
     "No pages found.": "Nenhuma página encontrada.",
     "Search this library...": "Pesquisar nesta biblioteca...",
     "Show details of the selected item at the top of Library pages.": "Mostrar os detalhes do item selecionado no topo das páginas da Biblioteca.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Elenco e Equipe",
+    "DTS-HD MA Passthrough": "Passagem DTS-HD MA",
+    "Incorrect PIN": "PIN incorreto",
+    "Mark as Watched": "Marcar como assistido",
+    "Recently Released {libraryName}": "Lançamentos recentes: {libraryName}",
+    "Show preview thumbnails when seeking": "Mostrar miniaturas de pré-visualização ao avançar",
+    "Login failed": "Falha no login",
+    "Text Fill Color": "Cor de preenchimento de texto",
+    "Queue is empty": "A fila está vazia"
 }
