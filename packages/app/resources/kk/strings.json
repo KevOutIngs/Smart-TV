@@ -721,5 +721,14 @@
     "No pages found.": "Ешбір бет табылмады.",
     "Search this library...": "Осы кітапхананы іздеу...",
     "Show details of the selected item at the top of Library pages.": "Таңдалған элементтің мәліметтерін кітапхана беттерінің жоғарғы жағында көрсету.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Рөлдер және түсірілім тобы",
+    "DTS-HD MA Passthrough": "DTS-HD MA транзиті",
+    "Incorrect PIN": "Қате PIN",
+    "Mark as Watched": "Қаралған деп белгілеу",
+    "Recently Released {libraryName}": "Жақында шыққан: {libraryName}",
+    "Show preview thumbnails when seeking": "Іздеу кезінде алдын ала қарау нобайларын көрсетіңіз",
+    "Login failed": "Логин кірмеді",
+    "Text Fill Color": "Мәтінді толтыру түсі",
+    "Queue is empty": "Кезек бос"
 }
