@@ -721,5 +721,14 @@
     "No pages found.": "Nav atrasta neviena lapa.",
     "Search this library...": "Meklēt šajā bibliotēkā...",
     "Show details of the selected item at the top of Library pages.": "Rādīt izvēlētā vienuma informāciju bibliotēkas lapu augšdaļā.",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "Aktieri un komanda",
+    "DTS-HD MA Passthrough": "DTS-HD MA caurlaide",
+    "Incorrect PIN": "Nepareizs PIN",
+    "Mark as Watched": "Atzīmēt kā skatītu",
+    "Recently Released {libraryName}": "Nesen izdots: {libraryName}",
+    "Show preview thumbnails when seeking": "Rādīt priekšskatījuma sīktēlus, kad meklējat",
+    "Login failed": "Pieteikšanās neizdevās",
+    "Text Fill Color": "Teksta aizpildījuma krāsa",
+    "Queue is empty": "Rinda ir tukša"
 }
