@@ -721,5 +721,14 @@
     "No pages found.": "কোন পেজ পাওয়া যায়নি।",
     "Search this library...": "এই লাইব্রেরিতে অনুসন্ধান করুন..।",
     "Show details of the selected item at the top of Library pages.": "লাইব্রেরি পেজের উপরে নির্বাচিত আইটেমের বিস্তারিত দেখান।",
-    "{age}+": "{age}+"
+    "{age}+": "{age}+",
+    "Cast & Crew": "কাস্ট এবং ক্রু",
+    "DTS-HD MA Passthrough": "ডিটিএস-এইচডি এমএ পাসথ্রু",
+    "Incorrect PIN": "ভুল পিন",
+    "Mark as Watched": "দেখা হয়েছে হিসেবে চিহ্নিত করুন",
+    "Recently Released {libraryName}": "সম্প্রতি মুক্তিপ্রাপ্ত {libraryName}",
+    "Show preview thumbnails when seeking": "খোঁজার সময় পূর্বরূপ থাম্বনেল দেখান",
+    "Login failed": "লগইন ব্যর্থ হয়েছে",
+    "Text Fill Color": "টেক্সট ফিল কালার",
+    "Queue is empty": "সারি খালি"
 }
