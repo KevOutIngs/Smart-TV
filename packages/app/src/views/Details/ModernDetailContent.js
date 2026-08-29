@@ -522,6 +522,7 @@ const ModernDetailContent = (props) => {
 	const renderSeerrTab = () => (
 		<div className={css.seerrTab}>
 			<SeerrChips details={seerr.details} mediaType={seerr.mediaType} seerrNav={seerrNav} />
+			<SeerrCollectionBanner collection={seerr.details?.collection} onOpen={seerrNav?.onOpenCollection} />
 			<SeerrFacts details={seerr.details} mediaType={seerr.mediaType} />
 			{seerr.recommendationCards.length > 0 && (
 				<div onFocus={handleSeerrRowFocus}>
@@ -535,7 +536,6 @@ const ModernDetailContent = (props) => {
 					{renderGrid(seerr.similarCards, 'portrait', onSelectSeerrCard)}
 				</div>
 			)}
-			<SeerrCollectionBanner collection={seerr.details?.collection} onOpen={seerrNav?.onOpenCollection} />
 		</div>
 	);
 

@@ -437,6 +437,12 @@ const ClassicDetailScreen = ({
 				</RowContainer>
 			)}
 
+			{seerr.isActive && seerr.details?.collection && seerrNav?.onOpenCollection && (
+				<RowContainer className={css.section}>
+					<SeerrCollectionBanner collection={seerr.details.collection} onOpen={seerrNav.onOpenCollection} />
+				</RowContainer>
+			)}
+
 			{seerr.isActive && hasMediaFacts(seerr.details, seerr.mediaType) && (
 				<RowContainer className={css.section}>
 					<SeerrFacts details={seerr.details} mediaType={seerr.mediaType} />
@@ -466,12 +472,6 @@ const ClassicDetailScreen = ({
 							<MediaCard key={card.Id} item={card} serverUrl={serverUrl} onSelect={onSelectSeerrCard} />
 						))}
 					</div>
-				</RowContainer>
-			)}
-
-			{seerr.isActive && seerr.details?.collection && seerrNav?.onOpenCollection && (
-				<RowContainer className={css.section}>
-					<SeerrCollectionBanner collection={seerr.details.collection} onOpen={seerrNav.onOpenCollection} />
 				</RowContainer>
 			)}
 		</div>
