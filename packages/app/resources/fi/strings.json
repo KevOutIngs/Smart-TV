@@ -977,5 +977,16 @@
     "Text Fill Color": "Tekstin täyttöväri",
     "Queue is empty": "Jono on tyhjä",
     "Perfect match": "Täydellinen ottelu",
-    "{count} downloads": "{count} lataukset"
+    "{count} downloads": "{count} lataukset",
+    "1 download": "1 lataus",
+    "AI Translated": "AI käännös",
+    "Average Rating": "Keskimääräinen arvio",
+    "Background Opacity": "Taustan läpinäkyvyys",
+    "Balanced": "Tasapainoinen",
+    "Because you watched {name}": "Koska katsoit {name}",
+    "Before 1980": "Ennen 1980",
+    "Belarusian": "Valkovenäläinen",
+    "Block content by age rating": "Estä sisältö ikärajan mukaan",
+    "Blu-ray": "Blu-ray",
+    "Born": "Syntynyt"
 }
