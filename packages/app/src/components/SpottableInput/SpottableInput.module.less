@@ -10,3 +10,16 @@
 	color: inherit;
 	font: inherit;
 }
+
+.caret {
+	position: absolute;
+	width: 2px;
+	background: var(--accent-color, #00a4dc);
+	animation: caretBlink 1.06s step-end infinite;
+	pointer-events: none;
+}
+
+@keyframes caretBlink {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0; }
+}

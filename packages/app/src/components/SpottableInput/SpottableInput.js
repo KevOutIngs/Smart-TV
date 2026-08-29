@@ -1,4 +1,4 @@
-import {useCallback, useRef, useState, useEffect} from 'react';
+import {useCallback, useRef, useState, useEffect, useLayoutEffect} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import {Pause} from '@enact/spotlight/Pause';
@@ -26,6 +26,7 @@ const SpottableInput = ({
 	const [inputFocused, setInputFocused] = useState(false);
 	const [kbActive, setKbActive] = useState(false);
 	const kbActiveRef = useRef(false);
+	const [cursorPos, setCursorPos] = useState(0);
 	const {settings} = useSettings();
 	const preferSystemIme = settings.preferSystemImeKeyboard === true;
 
@@ -76,6 +77,7 @@ const SpottableInput = ({
 			suggestionsBuilder,
 			onChange: (text, cursor) => {
 				onChangeRef.current?.({target: {value: text}});
+				setCursorPos(cursor || 0);
 				window.requestAnimationFrame(() => {
 					try {
 						inputRef.current?.setSelectionRange(cursor, cursor);
@@ -121,6 +123,7 @@ const SpottableInput = ({
 			try {
 				const end = node.value.length;
 				node.setSelectionRange(end, end);
+				setCursorPos(end);
 			} catch {
 				// Same engines as above
 			}
@@ -177,6 +180,17 @@ const SpottableInput = ({
 		}
 	}, [onKeyDown, handleActivate, deactivateInput, spotlightId, dataSpotlightId]);
 
+	const showCaret = (inputFocused || kbActive) && !disabled;
+	const value = inputProps.value == null ? '' : String(inputProps.value);
+	const caretVisible = showCaret && value.length > 0;
+	const measureRef = useRef(null);
+	const [caretLeft, setCaretLeft] = useState(0);
+
+	useLayoutEffect(() => {
+		if (!caretVisible || !measureRef.current) return;
+		setCaretLeft(measureRef.current.offsetWidth);
+	}, [caretVisible, value, cursorPos]);
+
 	return (
 		<SpottableDiv
 			spotlightId={spotlightId || dataSpotlightId}
@@ -186,15 +200,43 @@ const SpottableInput = ({
 			spotlightDisabled={disabled}
 			data-focused={inputFocused || undefined}
 		>
-			<input
-				ref={inputRef}
-				disabled={disabled}
-				{...inputProps}
-				readOnly={kbActive || inputProps.readOnly}
-				className={css.innerInput}
-				onFocus={handleFocus}
-				onBlur={handleBlur}
-			/>
+			<div style={{position: 'relative'}}>
+				<input
+					ref={inputRef}
+					disabled={disabled}
+					{...inputProps}
+					readOnly={kbActive || inputProps.readOnly}
+					className={css.innerInput}
+					onFocus={handleFocus}
+					onBlur={handleBlur}
+				/>
+				{caretVisible && (
+					<>
+						<span
+							ref={measureRef}
+							aria-hidden="true"
+							style={{
+								position: 'absolute',
+								visibility: 'hidden',
+								whiteSpace: 'pre',
+								pointerEvents: 'none',
+								overflow: 'hidden'
+							}}
+						>
+							{value.slice(0, cursorPos)}
+						</span>
+						<span
+							className={css.caret}
+							style={{
+								left: caretLeft,
+								top: '50%',
+								transform: 'translateY(-50%)',
+								height: '1.2em'
+							}}
+						/>
+					</>
+				)}
+			</div>
 		</SpottableDiv>
 	);
 };
