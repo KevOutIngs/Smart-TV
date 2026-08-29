@@ -100,7 +100,7 @@ describe('formatters', () => {
 	test('runtime reads in hours and minutes, and takes minutes', () => {
 		expect(formatRuntime(90)).toBe('1h 30m');
 		expect(formatRuntime(45)).toBe('45m');
-		expect(formatRuntime(120)).toBe('2h 0m');
+		expect(formatRuntime(120)).toBe('2h');
 		expect(formatRuntime(0)).toBeNull();
 	});
 

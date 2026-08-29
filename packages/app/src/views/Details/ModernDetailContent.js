@@ -272,9 +272,9 @@ const ModernDetailContent = (props) => {
 		if (supportsMediaSourceSelection && mediaSource?.MediaStreams?.length) list.push({id: 'details', label: $L('Details')});
 		if (parentCollection.length) list.push({id: 'collection', label: parentCollectionName || $L('Collection')});
 		if (similar.length) list.push({id: 'similar', label: $L('More Like This')});
-		if (seerr.isActive) list.push({id: 'seerr', label: seerr.displayName});
+		if (seerr.hasTabContent) list.push({id: 'seerr', label: seerr.displayName});
 		return list;
-	}, [isSeries, seasons.length, isSeason, isEpisode, episodes.length, isPerson, personMovies.length, personSeries.length, isAlbum, isPlaylist, albumTracks.length, playlistItems.length, isMusicArtist, artistAlbums.length, isBoxSet, collectionItems.length, parentCollection.length, parentCollectionName, cast.length, crew.length, item.Studios, item.Chapters, extras.length, supportsMediaSourceSelection, mediaSource, similar.length, seerr.isActive, seerr.displayName]);
+	}, [isSeries, seasons.length, isSeason, isEpisode, episodes.length, isPerson, personMovies.length, personSeries.length, isAlbum, isPlaylist, albumTracks.length, playlistItems.length, isMusicArtist, artistAlbums.length, isBoxSet, collectionItems.length, parentCollection.length, parentCollectionName, cast.length, crew.length, item.Studios, item.Chapters, extras.length, supportsMediaSourceSelection, mediaSource, similar.length, seerr.hasTabContent, seerr.displayName]);
 
 	const [activeTab, setActiveTab] = useState(null);
 	// Expanded Tabs on keeps the first tab open and lets focus follow selection.
@@ -496,22 +496,43 @@ const ModernDetailContent = (props) => {
 		</RowContainer>
 	);
 
+	// Enact pulls a newly focused card up to the top of the viewport, which takes the
+	// heading above it off the screen. Landing on the first row of a grid scrolls to the
+	// heading instead, so the row keeps its name. The page already holds its top padding
+	// clear of the navbar, so the heading is left the same room the first row gets.
+	const handleSeerrRowFocus = useCallback((ev) => {
+		const section = ev.currentTarget;
+		const card = ev.target.closest('.spottable');
+		const heading = section.firstElementChild;
+		const grid = section.lastElementChild;
+		const content = contentRef.current;
+		if (!card || !heading || !grid || !content) return;
+
+		window.requestAnimationFrame(() => {
+			// Rows below the first are meant to scroll the heading away.
+			if (card.getBoundingClientRect().top - grid.getBoundingClientRect().top > 8) return;
+			const offset = heading.getBoundingClientRect().top - content.getBoundingClientRect().top;
+			const clearance = parseFloat(window.getComputedStyle(content).paddingTop) || 0;
+			scrollToRef.current?.({position: {y: Math.max(0, offset - clearance)}, animate: false});
+		});
+	}, []);
+
 	// Everything Seerr adds to a title, in one tab: where it is filed, the production facts,
 	// what it is like, and the collection it belongs to.
 	const renderSeerrTab = () => (
 		<div className={css.seerrTab}>
 			<SeerrChips details={seerr.details} mediaType={seerr.mediaType} seerrNav={seerrNav} />
 			<SeerrFacts details={seerr.details} mediaType={seerr.mediaType} />
-			{seerr.similarCards.length > 0 && (
-				<div>
-					<h3 className={css.seerrHeading}>{seerr.mediaType === 'tv' ? $L('Similar Series') : $L('Similar Titles')}</h3>
-					{renderGrid(seerr.similarCards, 'portrait', onSelectSeerrCard)}
-				</div>
-			)}
 			{seerr.recommendationCards.length > 0 && (
-				<div>
+				<div onFocus={handleSeerrRowFocus}>
 					<h3 className={css.seerrHeading}>{$L('Recommendations')}</h3>
 					{renderGrid(seerr.recommendationCards, 'portrait', onSelectSeerrCard)}
+				</div>
+			)}
+			{seerr.similarCards.length > 0 && (
+				<div onFocus={handleSeerrRowFocus}>
+					<h3 className={css.seerrHeading}>{$L('Similar')}</h3>
+					{renderGrid(seerr.similarCards, 'portrait', onSelectSeerrCard)}
 				</div>
 			)}
 			<SeerrCollectionBanner collection={seerr.details?.collection} onOpen={seerrNav?.onOpenCollection} />

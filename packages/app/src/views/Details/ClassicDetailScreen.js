@@ -431,34 +431,6 @@ const ClassicDetailScreen = ({
 				</RowContainer>
 			)}
 
-			{seerr.isActive && seerr.similarCards.length > 0 && (
-				<RowContainer className={css.section}>
-					<div className={css.sectionHeader}>
-						<h3 className={css.sectionTitle}>
-							{seerr.mediaType === 'tv' ? $L('Similar Series') : $L('Similar Titles')}
-						</h3>
-					</div>
-					<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
-						{seerr.similarCards.map(card => (
-							<MediaCard key={card.Id} item={card} serverUrl={serverUrl} onSelect={onSelectSeerrCard} />
-						))}
-					</div>
-				</RowContainer>
-			)}
-
-			{seerr.isActive && seerr.recommendationCards.length > 0 && (
-				<RowContainer className={css.section}>
-					<div className={css.sectionHeader}>
-						<h3 className={css.sectionTitle}>{$L('Recommendations')}</h3>
-					</div>
-					<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
-						{seerr.recommendationCards.map(card => (
-							<MediaCard key={card.Id} item={card} serverUrl={serverUrl} onSelect={onSelectSeerrCard} />
-						))}
-					</div>
-				</RowContainer>
-			)}
-
 			{seerr.isActive && hasSeerrChips(seerr.details) && (
 				<RowContainer className={css.section}>
 					<SeerrChips details={seerr.details} mediaType={seerr.mediaType} seerrNav={seerrNav} />
@@ -468,6 +440,32 @@ const ClassicDetailScreen = ({
 			{seerr.isActive && hasMediaFacts(seerr.details, seerr.mediaType) && (
 				<RowContainer className={css.section}>
 					<SeerrFacts details={seerr.details} mediaType={seerr.mediaType} />
+				</RowContainer>
+			)}
+
+			{seerr.isActive && seerr.recommendationCards.length > 0 && (
+				<RowContainer className={css.section}>
+					<div className={css.sectionHeader}>
+						<h3 className={css.sectionTitle}>{`${seerr.displayName} · ${$L('Recommendations')}`}</h3>
+					</div>
+					<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
+						{seerr.recommendationCards.map(card => (
+							<MediaCard key={card.Id} item={card} serverUrl={serverUrl} onSelect={onSelectSeerrCard} />
+						))}
+					</div>
+				</RowContainer>
+			)}
+
+			{seerr.isActive && seerr.similarCards.length > 0 && (
+				<RowContainer className={css.section}>
+					<div className={css.sectionHeader}>
+						<h3 className={css.sectionTitle}>{`${seerr.displayName} · ${$L('Similar')}`}</h3>
+					</div>
+					<div className={css.sectionScroll} onFocus={handleScrollerFocus}>
+						{seerr.similarCards.map(card => (
+							<MediaCard key={card.Id} item={card} serverUrl={serverUrl} onSelect={onSelectSeerrCard} />
+						))}
+					</div>
 				</RowContainer>
 			)}
 

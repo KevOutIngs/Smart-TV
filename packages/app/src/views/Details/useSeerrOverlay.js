@@ -6,6 +6,8 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 
 import {useSeerr} from '../../context/SeerrContext';
 import seerrApi from '../../services/seerrApi';
+import {hasSeerrChips} from '../../components/seerr/SeerrSections';
+import {hasMediaFacts} from '../../utils/seerrMediaFacts';
 import {normalizeMediaItem} from '../../utils/seerrHomeRows';
 import {IDLE, bestSearchMatch, seerrTargetFor} from '../../utils/seerrTarget';
 import useSeerrDetailsData from './useSeerrDetailsData';
@@ -97,6 +99,16 @@ const useSeerrOverlay = ({item, seerrOnly}) => {
 
 	const isActive = Boolean(target.mediaId && data.details);
 
+	// A title Seerr knows of but has nothing to say about would otherwise offer
+	// an empty tab.
+	const hasTabContent = isActive && Boolean(
+		hasSeerrChips(data.details) ||
+		hasMediaFacts(data.details, target.mediaType) ||
+		recommendationCards.length ||
+		similarCards.length ||
+		data.details.collection
+	);
+
 	const offersRequest = seerrOnly
 		? requests.canRequestHd || requests.canRequest4k
 		: requests.canRequestHd;
@@ -119,6 +131,7 @@ const useSeerrOverlay = ({item, seerrOnly}) => {
 		displayName,
 		mediaType: target.mediaType,
 		isActive,
+		hasTabContent,
 		onRequest4k,
 		onCancel,
 		onCancel4k,

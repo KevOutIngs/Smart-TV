@@ -5,53 +5,53 @@ import $L from '@enact/i18n/$L';
 
 import {formatCurrency, formatDate, formatRuntime} from './seerrBadges';
 
+const positive = (value) => {
+	const number = Number(value);
+	return Number.isFinite(number) && number > 0 ? number : null;
+};
+
 export const buildMediaFacts = (details, mediaType) => {
 	if (!details) return [];
+	const isTv = mediaType === 'tv';
 	const facts = [];
 
-	const tmdbScore = Number(details.voteAverage);
-	if (Number.isFinite(tmdbScore) && tmdbScore > 0) {
+	const tmdbScore = positive(details.voteAverage);
+	if (tmdbScore) {
 		facts.push({label: $L('TMDB Score'), value: `${Math.round(tmdbScore * 10)}%`});
 	}
 
-	const productionStatus = details.status;
-	if (productionStatus) {
-		facts.push({label: $L('Status'), value: productionStatus});
+	if (details.status) {
+		facts.push({label: $L('Status'), value: details.status});
 	}
 
-	if (mediaType === 'tv') {
-		if (details.firstAirDate) {
-			const formatted = formatDate(details.firstAirDate);
-			if (formatted) facts.push({label: $L('First Air Date'), value: formatted});
-		}
-		if (details.lastAirDate) {
-			const formatted = formatDate(details.lastAirDate);
-			if (formatted) facts.push({label: $L('Last Air Date'), value: formatted});
-		}
-		if (details.numberOfSeasons) {
-			facts.push({label: $L('Seasons'), value: details.numberOfSeasons.toString()});
-		}
-		if (details.networks?.length > 0) {
-			facts.push({label: $L('Networks'), value: details.networks.slice(0, 3).map(n => n.name).join(', ')});
-		}
+	const airDate = formatDate(isTv ? details.firstAirDate : details.releaseDate);
+	if (airDate) {
+		facts.push({label: isTv ? $L('First Air Date') : $L('Release Date'), value: airDate});
 	}
 
-	if (mediaType === 'movie') {
-		if (details.releaseDate) {
-			const formatted = formatDate(details.releaseDate);
-			if (formatted) facts.push({label: $L('Release Date'), value: formatted});
-		}
-		if (details.runtime) {
-			facts.push({label: $L('Runtime'), value: formatRuntime(details.runtime)});
-		}
-		if (details.budget) {
-			const formatted = formatCurrency(details.budget);
-			if (formatted) facts.push({label: $L('Budget'), value: formatted});
-		}
-		if (details.revenue) {
-			const formatted = formatCurrency(details.revenue);
-			if (formatted) facts.push({label: $L('Revenue'), value: formatted});
-		}
+	const budget = positive(details.budget);
+	if (budget) {
+		const formatted = formatCurrency(budget);
+		if (formatted) facts.push({label: $L('Budget'), value: formatted});
+	}
+
+	const revenue = positive(details.revenue);
+	if (revenue) {
+		const formatted = formatCurrency(revenue);
+		if (formatted) facts.push({label: $L('Revenue'), value: formatted});
+	}
+
+	const runtime = positive(details.runtime);
+	if (runtime) {
+		facts.push({label: $L('Runtime'), value: formatRuntime(runtime)});
+	}
+
+	if (isTv) {
+		const seasons = positive(details.numberOfSeasons);
+		if (seasons) facts.push({label: $L('Seasons'), value: String(seasons)});
+
+		const episodes = positive(details.numberOfEpisodes);
+		if (episodes) facts.push({label: $L('Episodes'), value: String(episodes)});
 	}
 
 	return facts;

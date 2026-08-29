@@ -30,7 +30,7 @@ describe('buildMediaFacts', () => {
 		expect(labels(buildMediaFacts({voteAverage: 'n/a'}, 'movie'))).toEqual([]);
 	});
 
-	test('a movie gets its release date, runtime and money', () => {
+	test('a movie gets its release date, money and runtime', () => {
 		const facts = buildMediaFacts({
 			releaseDate: '2010-07-16',
 			runtime: 148,
@@ -38,35 +38,34 @@ describe('buildMediaFacts', () => {
 			revenue: 836800000
 		}, 'movie');
 
-		expect(labels(facts)).toEqual(['Release Date', 'Runtime', 'Budget', 'Revenue']);
+		expect(labels(facts)).toEqual(['Release Date', 'Budget', 'Revenue', 'Runtime']);
 	});
 
-	test('a series gets its air dates, season count and networks', () => {
+	test('a series gets its first air date and its counts', () => {
 		const facts = buildMediaFacts({
 			firstAirDate: '2008-01-20',
-			lastAirDate: '2013-09-29',
 			numberOfSeasons: 5,
-			networks: [{name: 'AMC'}]
+			numberOfEpisodes: 62
 		}, 'tv');
 
-		expect(labels(facts)).toEqual(['First Air Date', 'Last Air Date', 'Seasons', 'Networks']);
+		expect(labels(facts)).toEqual(['First Air Date', 'Seasons', 'Episodes']);
 		expect(factValue(facts, 'Seasons')).toBe('5');
-		expect(factValue(facts, 'Networks')).toBe('AMC');
+		expect(factValue(facts, 'Episodes')).toBe('62');
 	});
 
-	test('keeps the networks line short', () => {
-		const facts = buildMediaFacts({networks: [{name: 'A'}, {name: 'B'}, {name: 'C'}, {name: 'D'}]}, 'tv');
-
-		expect(factValue(facts, 'Networks')).toBe('A, B, C');
+	// A count of zero is a count the server never filled in, and a season line reading zero
+	// says something the title does not.
+	test('drops a count of zero', () => {
+		expect(labels(buildMediaFacts({numberOfSeasons: 0, numberOfEpisodes: 0}, 'tv'))).toEqual([]);
 	});
 
-	// The two branches are exclusive, so a payload carrying both sets of fields still only
-	// answers for the type it was opened as.
-	test('the media type decides which fields are read', () => {
-		const both = {releaseDate: '2010-07-16', runtime: 148, firstAirDate: '2008-01-20', numberOfSeasons: 5};
+	// Only the date line changes with the type, so a payload carrying both is read as
+	// whichever type it was opened as.
+	test('the media type decides which date is read', () => {
+		const both = {releaseDate: '2010-07-16', firstAirDate: '2008-01-20', runtime: 148};
 
 		expect(labels(buildMediaFacts(both, 'movie'))).toEqual(['Release Date', 'Runtime']);
-		expect(labels(buildMediaFacts(both, 'tv'))).toEqual(['First Air Date', 'Seasons']);
+		expect(labels(buildMediaFacts(both, 'tv'))).toEqual(['First Air Date', 'Runtime']);
 	});
 
 	test('the production status comes through as the server worded it', () => {

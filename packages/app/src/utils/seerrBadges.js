@@ -98,11 +98,11 @@ export const formatCurrency = (amount) => {
 		return new Intl.NumberFormat(undefined, {
 			style: 'currency',
 			currency: 'USD',
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2
 		}).format(amount);
 	} catch {
-		return `$${Math.round(amount).toLocaleString()}`;
+		return `$${Math.round(amount).toLocaleString()}.00`;
 	}
 };
 
@@ -111,5 +111,6 @@ export const formatRuntime = (minutes) => {
 	if (!minutes) return null;
 	const hours = Math.floor(minutes / 60);
 	const mins = minutes % 60;
-	return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+	if (hours === 0) return `${mins}m`;
+	return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };

@@ -1,10 +1,3 @@
-.heading {
-	font-size: 24px;
-	font-weight: 600;
-	color: var(--theme-text-primary, #ffffff);
-	margin: 0 0 12px;
-}
-
 .chipList {
 	display: flex;
 	flex-wrap: wrap;
@@ -32,38 +25,58 @@
 	}
 }
 
+// Three facts to a line, so the card stays wide and shallow rather than running
+// down the page as a column of one liners.
 .facts {
-	max-width: 520px;
+	max-width: 1100px;
+	padding: 14px 20px;
+	background: rgba(255, 255, 255, 0.06);
+	border: 2px solid var(--theme-card-border, rgba(255, 255, 255, 0.12));
+	border-radius: 10px;
+	outline: none;
+
+	&:focus {
+		border-color: var(--theme-focus-border-color, #ffffff);
+	}
 }
 
-.factRow {
+.factLine {
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
-	padding: 10px 16px;
-	border: 1px solid var(--theme-border-color, #374151);
-	border-bottom: none;
 
-	&:last-child {
-		border-bottom: 1px solid var(--theme-border-color, #374151);
-		border-radius: 0 0 8px 8px;
+	& + & {
+		margin-top: 10px;
+		padding-top: 10px;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
 	}
+}
 
-	&:first-child {
-		border-radius: 8px 8px 0 0;
-	}
+.fact {
+	flex: 1;
+	min-width: 0;
+}
+
+.factSeparator {
+	flex-shrink: 0;
+	width: 1px;
+	height: 32px;
+	margin: 0 16px;
+	background: rgba(255, 255, 255, 0.1);
 }
 
 .factLabel {
+	display: block;
 	font-size: 14px;
-	font-weight: 600;
-	color: var(--theme-text-secondary, #d1d5db);
+	font-weight: 500;
+	color: rgba(255, 255, 255, 0.6);
 }
 
 .factValue {
-	font-size: 14px;
-	color: var(--theme-text-secondary, #9ca3af);
-	text-align: right;
+	display: block;
+	margin-top: 3px;
+	font-size: 16px;
+	font-weight: 700;
+	color: #ffffff;
 }
 
 .collectionBanner {
@@ -107,11 +120,98 @@
 	text-overflow: ellipsis;
 }
 
+.collectionBannerIcon {
+	position: relative;
+	flex-shrink: 0;
+	width: 28px;
+	height: 28px;
+	margin-right: 16px;
+	color: rgba(255, 255, 255, 0.7);
+}
+
 .collectionBannerCta {
 	position: relative;
 	font-size: 20px;
 	font-weight: 600;
-	color: var(--theme-accent, #00a4dc);
+	color: var(--accent-color, #00a4dc);
 	margin-left: 20px;
 	white-space: nowrap;
+}
+
+.collectionBannerChevron {
+	position: relative;
+	flex-shrink: 0;
+	width: 24px;
+	height: 24px;
+	color: rgba(255, 255, 255, 0.55);
+}
+
+.tagsBackdrop {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(var(--theme-scrim-rgb, 0, 0, 0), 0.75);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+
+.tagsPanel {
+	width: 960px;
+	max-width: 90%;
+	max-height: 80%;
+	display: flex;
+	flex-direction: column;
+	padding: 40px 48px;
+	border: 1px solid var(--theme-card-border, rgba(255, 255, 255, 0.14));
+	border-radius: 14px;
+	background: var(--theme-surface, #181818);
+	box-sizing: border-box;
+}
+
+// The title and the way out stay put while the tags themselves scroll.
+.tagsHeader {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	margin-bottom: 24px;
+}
+
+.tagsSections {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	scrollbar-width: none;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+.tagsTitle {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	font-size: 34px;
+	font-weight: 700;
+	color: var(--theme-text-primary, #ffffff);
+}
+
+.tagsSection {
+	margin-bottom: 28px;
+}
+
+.tagsSectionTitle {
+	margin: 0 0 14px 0;
+	font-size: 24px;
+	font-weight: 600;
+	color: rgba(var(--theme-on-surface-rgb, 255, 255, 255), 0.7);
+}
+
+.tagsClose {
+	flex-shrink: 0;
+	margin-left: 24px;
 }
