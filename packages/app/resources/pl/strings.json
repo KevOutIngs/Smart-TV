@@ -1711,5 +1711,7 @@
     "The subtitle was downloaded but has not appeared yet": "Napisy zostały pobrane, ale jeszcze się nie pojawiły",
     "You do not have permission to download subtitles": "Nie masz uprawnień do pobierania napisów",
     "You do not have permission to search for subtitles": "Nie masz uprawnień do wyszukiwania napisów",
-    "{fps} fps": "{fps} kl./s"
+    "{fps} fps": "{fps} kl./s",
+    "Genres and Tags": "Gatunki i tagi",
+    "Similar": "Podobne"
 }
