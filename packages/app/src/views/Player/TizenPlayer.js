@@ -64,6 +64,11 @@ import css from './TizenPlayer.module.less';
 const AVPLAY_SCREEN = {width: 1920, height: 1080};
 const AVPLAY_FULLSCREEN_RECT = {x: 0, y: 0, ...AVPLAY_SCREEN};
 
+// How long the ass renderer waits for the subtitle canvas to reach the page, which only
+// happens once the loading screen gives way to the player.
+const CANVAS_WAIT_TRIES = 100;
+const CANVAS_WAIT_STEP_MS = 50;
+
 // The longest a segment skip waits on a session whose position never moves.
 const PLAYBACK_SETTLE_MS = 2000;
 // How long a resume gets to start moving after an error was swallowed in pause.
@@ -938,6 +943,85 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		healthMonitorRef.current = playback.getHealthMonitor();
 	};
 
+	// The loading screen stands in place of the player until the stream is ready, so the
+	// canvas the renderer draws on is not in the page when the first track is picked.
+	// Waiting for it beats starting a renderer with nowhere to put anything.
+	const waitForSubtitleCanvas = useCallback(async (isCurrent) => {
+		for (let i = 0; i < CANVAS_WAIT_TRIES; i++) {
+			if (pgsCanvasRef.current) return pgsCanvasRef.current;
+			if (!isCurrent()) return null;
+			await new Promise((resolve) => setTimeout(resolve, CANVAS_WAIT_STEP_MS));
+		}
+		return pgsCanvasRef.current;
+	}, []);
+
+	// Draws an ass track on the canvas, falling back to server extracted text events
+	// when the renderer cant start. Every way out leaves a line in the log, since a
+	// track that was chosen and then never drew anything reads back as nothing at all.
+	// isCurrent lets the initial load say a newer load took over, so a renderer built
+	// for a stale load is thrown away rather than kept.
+	const startAssRenderer = useCallback(async (stream, isCurrent = () => true) => {
+		try {
+			const assUrl = playback.getAssSubtitleUrl(stream);
+			const canvas = assUrl ? await waitForSubtitleCanvas(isCurrent) : null;
+			if (!assUrl || !canvas) {
+				serverLogger.playbackError('Subtitle: ass renderer had nowhere to draw', {
+					stream: describeSubtitleStream(stream),
+					hasUrl: !!assUrl,
+					hasCanvas: !!canvas
+				});
+				return;
+			}
+			const assFontsUrl = playback.getAssFontsUrl(stream);
+			const assErrorHandler = (err) => {
+				console.error('[Player] ASS renderer error, falling back to text', err);
+				serverLogger.playbackError('Subtitle: ass renderer errored during playback, falling back to text', {
+					stream: describeSubtitleStream(stream),
+					error: err?.message || String(err)
+				});
+				disposeAssRenderer(assRendererRef.current);
+				assRendererRef.current = null;
+				playback.fetchSubtitleData(stream).then(data => {
+					if (isCurrent()) setSubtitleTrackEvents(data?.TrackEvents || null);
+				}).catch(() => isCurrent() && setSubtitleTrackEvents(null));
+			};
+			const renderer = await initAssCanvasRenderer(canvas, assUrl, assFontsUrl, assErrorHandler);
+			if (!isCurrent()) {
+				if (renderer) disposeAssRenderer(renderer);
+				serverLogger.playback('Subtitle: ass renderer discarded, a newer load took over', {
+					stream: describeSubtitleStream(stream)
+				});
+				return;
+			}
+			if (renderer) {
+				assRendererRef.current = renderer;
+				setSubtitleTrackEvents(null);
+				serverLogger.playback('Subtitle: ass renderer started', {
+					stream: describeSubtitleStream(stream)
+				});
+			} else {
+				const data = await playback.fetchSubtitleData(stream);
+				if (isCurrent()) setSubtitleTrackEvents(data?.TrackEvents || null);
+				serverLogger.playback('Subtitle: ass renderer unavailable, using text events', {
+					stream: describeSubtitleStream(stream),
+					trackEvents: data?.TrackEvents?.length ?? 0
+				});
+			}
+		} catch (err) {
+			console.error('[Player] ASS init failed, falling back to text', err);
+			serverLogger.playbackError('Subtitle: ass renderer failed to start, falling back to text', {
+				stream: describeSubtitleStream(stream),
+				error: err?.message || String(err)
+			});
+			try {
+				const data = await playback.fetchSubtitleData(stream);
+				if (isCurrent()) setSubtitleTrackEvents(data?.TrackEvents || null);
+			} catch (_e) {
+				if (isCurrent()) setSubtitleTrackEvents(null);
+			}
+		}
+	}, [waitForSubtitleCanvas]);
+
 	// ==============================
 	// Load Media & Start AVPlay
 	// ==============================
@@ -1099,6 +1183,11 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 				const decideSubtitleAction = (sub) => {
 					if (!sub) return {type: 'off'};
 					if (sub.isEmbeddedNative) return {type: 'native', stream: sub};
+					// The server bakes a burn in track into the video itself, so drawing it
+					// client side as well would put the same line on screen twice. An ass
+					// track with direct play turned off is flagged this way too, and has to
+					// be caught before the renderer takes it.
+					if (sub.isBurnIn) return {type: 'burnin', stream: sub};
 					if (sub.isAss && supportsAssRenderer()) return {type: 'ass', stream: sub};
 					if (sub.isTextBased) return {type: 'text', stream: sub};
 					if (sub.isImageBased && settings.enablePgsRendering) return {type: 'pgs', stream: sub};
@@ -1127,40 +1216,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 					const sub = action?.stream;
 					if (!sub) return;
 					if (action.type === 'ass') {
-						try {
-							const assUrl = playback.getAssSubtitleUrl(sub);
-							if (assUrl && pgsCanvasRef.current) {
-								const assFontsUrl = playback.getAssFontsUrl(sub);
-								const assErrorHandler = (err) => {
-									console.error('[Player] ASS renderer error, falling back to text', err);
-									disposeAssRenderer(assRendererRef.current);
-									assRendererRef.current = null;
-									playback.fetchSubtitleData(sub).then(data => {
-										if (stillCurrent()) setSubtitleTrackEvents(data?.TrackEvents || null);
-									}).catch(() => stillCurrent() && setSubtitleTrackEvents(null));
-								};
-								const renderer = await initAssCanvasRenderer(pgsCanvasRef.current, assUrl, assFontsUrl, assErrorHandler);
-								if (!stillCurrent()) {
-									if (renderer) disposeAssRenderer(renderer);
-									return;
-								}
-								if (renderer) {
-									assRendererRef.current = renderer;
-									setSubtitleTrackEvents(null);
-								} else {
-									const data = await playback.fetchSubtitleData(sub);
-									if (stillCurrent()) setSubtitleTrackEvents(data?.TrackEvents || null);
-								}
-							}
-						} catch (err) {
-							console.error('[Player] ASS init failed, falling back to text', err);
-							try {
-								const data = await playback.fetchSubtitleData(sub);
-								if (stillCurrent()) setSubtitleTrackEvents(data?.TrackEvents || null);
-							} catch (_e) {
-								if (stillCurrent()) setSubtitleTrackEvents(null);
-							}
-						}
+						await startAssRenderer(sub, stillCurrent);
 					} else if (action.type === 'text') {
 						try {
 							const data = await playback.fetchSubtitleData(sub);
@@ -1939,36 +1995,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 			} else if (stream && stream.isAss && supportsAssRenderer()) {
 				useNativeSubtitleRef.current = false;
 				avplaySetSilentSubtitle(true);
-				try {
-					const assUrl = playback.getAssSubtitleUrl(stream);
-					if (assUrl && pgsCanvasRef.current) {
-						const assFontsUrl = playback.getAssFontsUrl(stream);
-						const assErrorHandler = (err) => {
-							console.error('[Player] ASS renderer error, falling back to text', err);
-							disposeAssRenderer(assRendererRef.current);
-							assRendererRef.current = null;
-							playback.fetchSubtitleData(stream).then(data => {
-								setSubtitleTrackEvents(data?.TrackEvents || null);
-							}).catch(() => setSubtitleTrackEvents(null));
-						};
-						const renderer = await initAssCanvasRenderer(pgsCanvasRef.current, assUrl, assFontsUrl, assErrorHandler);
-						if (renderer) {
-							assRendererRef.current = renderer;
-							setSubtitleTrackEvents(null);
-						} else {
-							const data = await playback.fetchSubtitleData(stream);
-							setSubtitleTrackEvents(data?.TrackEvents || null);
-						}
-					}
-				} catch (err) {
-					console.error('[Player] ASS init failed, falling back to text', err);
-					try {
-						const data = await playback.fetchSubtitleData(stream);
-						setSubtitleTrackEvents(data?.TrackEvents || null);
-					} catch (_e) {
-						setSubtitleTrackEvents(null);
-					}
-				}
+				await startAssRenderer(stream);
 			} else if (stream && (stream.isTextBased || stream.isEmbeddedNative)) {
 				useNativeSubtitleRef.current = false;
 				avplaySetSilentSubtitle(true);
@@ -2017,7 +2044,7 @@ const Player = ({item, resume, initialMediaSourceId, initialAudioIndex, initialS
 		if (shouldClose) {
 			closeModal();
 		}
-	}, [item, subtitleStreams, closeModal, settings.enablePgsRendering, applyNativeSubtitleTrack, reloadWithSubtitleIndex]);
+	}, [item, subtitleStreams, closeModal, settings.enablePgsRendering, applyNativeSubtitleTrack, reloadWithSubtitleIndex, startAssRenderer]);
 
 	const handleSelectSubtitle = useCallback(async (e) => {
 		const index = parseInt(e.currentTarget.dataset.index, 10);

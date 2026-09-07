@@ -450,7 +450,17 @@ async function main() {
 			warn(`${file} not found (ASS rendering may degrade)`);
 		}
 	}
-	
+
+	// The renderer asks for this by name whenever a style names a font the file does not
+	// carry, and it throws the whole track away when it cant be fetched.
+	const fallbackFontSrc = path.join(REPO_ROOT, 'node_modules', '@enact', 'sandstone', 'fonts', 'MuseoSans', 'MuseoSans-Light.ttf');
+	if (fs.existsSync(fallbackFontSrc)) {
+		fs.copyFileSync(fallbackFontSrc, path.join(DIST, 'ass-fallback-font.ttf'));
+		success('Copied ass-fallback-font.ttf (MuseoSans-Light)');
+	} else {
+		warn('MuseoSans-Light.ttf not found, subtitle fallback font missing');
+	}
+
 	// Step 2.5: Patch index.html for Tizen compatibility
 	log('Patching index.html for Tizen compatibility...');
 	const indexPath = path.join(DIST, 'index.html');
