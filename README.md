@@ -17,25 +17,25 @@
 
 ## What is Moonfin for Smart TVs?
 
-Moonfin is a premium Jellyfin and Emby client built with the **Enact/Sandstone framework** for Samsung Smart TVs (Tizen) and LG Smart TVs (webOS). A single shared codebase powers both platforms, with a native video pipeline tuned for each, so you get hardware-accelerated playback, a UI designed around a remote instead of a mouse, and features that most TV clients leave out.
+Moonfin is a Jellyfin and Emby client for Samsung Smart TVs (Tizen) and LG Smart TVs (webOS). One shared codebase powers both platforms, with a native video pipeline tuned for each, so you get hardware-accelerated playback, a UI designed around a remote instead of a mouse, and features that most TV clients leave out.
 
 ## Features
 
 - **Hardware-accelerated playback** through Samsung AVPlay and webOS Starfish, with direct play first and a transcode fallback only when needed.
 - **Lossless audio passthrough** for DTS, DTS-HD, and Dolby TrueHD to a capable receiver.
 - **Multi-server and Emby support**, including Emby Connect, Quick Connect, and a unified library view across all your Jellyfin servers.
-- **A setup wizard on first run** that walks you through the navigation, media bar, home row and detail screen styles with live previews built from your own artwork, and skips anything you have already chosen.
-- **A proper on-screen keyboard** with layouts that follow your language, plus sign in that finds servers on your network by itself.
-- **Personal ratings** as a like, stars or a score out of ten, shown alongside the other rating sources and usable as a library filter.
-- **Native Seerr integration** for browsing, discovering, and requesting content in HD or 4K from your TV, with requests, issue reporting and a watchlist button built into the detail screen itself, plus collections and request management.
-- **Retro games** browsed and played right on the TV from a server game library, with save states synced through the server. Needs webOS 5 or Tizen 5 and newer. See [Retro Games](https://github.com/Moonfin-Client/Plugin/wiki/Retro-Games).
-- **Live TV and DVR** with a full program guide, genre color coding, filters, channel sorting and a date picker, plus recording management.
-- **Advanced subtitles** including PGS image subtitles and styled ASS/SSA through libass, plus in-app subtitle downloads.
+- **A setup wizard on first run** that walks you through the look of the app with live previews built from your own artwork.
+- **A proper on-screen keyboard** with layouts that follow your language, plus sign-in that finds servers on your network by itself.
+- **Native Seerr integration** for browsing, discovering, and requesting content in HD or 4K from your TV, with requests, issue reporting, and a watchlist button built into the detail screen.
+- **Retro games** played right on the TV from a server game library, with save states synced through the server. Needs webOS 5 or Tizen 5 and newer. See [Retro Games](https://github.com/Moonfin-Client/Plugin/wiki/Retro-Games).
+- **Live TV and DVR** with a full program guide and recording management.
+- **Advanced subtitles**, including PGS image subtitles and styled ASS/SSA through libass, plus in-app subtitle downloads.
 - **SyncPlay** for watching together in sync with others.
 - **Themes** with four built-in looks including Glass and 8-Bit Hero, a Theme Store for community themes, custom themes, and accent color customization.
-- **Media bar styles** with six layouts to showcase featured content on the home screen, including the rounded Aya hero.
+- **A featured media bar** with six layouts, including the rounded Aya hero.
+- **Personal ratings** as a like, stars, or a score out of ten, usable as a library filter.
 - **Automatic performance tuning** that matches visual effects to how capable your TV is, with a manual override.
-- **Wide device support**, from Samsung 2016 sets (Tizen 2.4) and LG webOS 3.0 through the latest models, including Let's Encrypt support on older webOS models whose built in certificate stores are out of date.
+- **Wide device support**, from Samsung 2016 sets (Tizen 2.4) and LG webOS 3.0 through the latest models, including Let's Encrypt support on older webOS models whose built-in certificate stores are out of date.
 
 The full list is on the [Features](https://github.com/Moonfin-Client/Smart-TV/wiki/Features) wiki page.
 
@@ -51,7 +51,7 @@ More in the [Screenshots](https://github.com/Moonfin-Client/Smart-TV/wiki/Screen
 
 ## Installation
 
-Download the latest release from the [Releases page](https://github.com/Moonfin-Client/Smart-TV/releases) and pick the file that matches your TV:
+TVs don't carry Moonfin in their app stores, so the package has to be sideloaded. Download the latest release from the [Releases page](https://github.com/Moonfin-Client/Smart-TV/releases) and pick the file that matches your TV:
 
 | Platform | File | Supported Devices |
 |---|---|---|
@@ -60,7 +60,7 @@ Download the latest release from the [Releases page](https://github.com/Moonfin-
 | **Tizen Legacy** | `Moonfin_Tizen_Legacy_*.wgt` | Samsung Smart TVs (2016, Tizen 2.4) |
 | **webOS** | `Moonfin_webOS_*.ipk` | LG Smart TVs (2016+, webOS 3.0+) |
 
-TVs don't carry Moonfin in their app stores, so the package has to be sideloaded. On Samsung the easiest route is the [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) tool, and on LG it's the webOS CLI (`ares-install`). Step-by-step instructions for both are on the [Installation and Sideloading](https://github.com/Moonfin-Client/Smart-TV/wiki/Installation-and-Sideloading) page.
+On Samsung the easiest route is the [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung) tool, and on LG it's the webOS CLI (`ares-install`). Step-by-step instructions for both are on the [Installation and Sideloading](https://github.com/Moonfin-Client/Smart-TV/wiki/Installation-and-Sideloading) page.
 
 Seerr is optional and connects through the [Moonfin server plugin](https://github.com/Moonfin-Client/Plugin) rather than directly, so nothing needs to be entered on the TV. See [Seerr Setup](https://github.com/Moonfin-Client/Smart-TV/wiki/Seerr-Setup).
 
@@ -76,6 +76,7 @@ The deeper reference material lives in the [Wiki](https://github.com/Moonfin-Cli
 | [Seerr Setup](https://github.com/Moonfin-Client/Smart-TV/wiki/Seerr-Setup) | Connecting Seerr through the Moonfin server plugin |
 | [Building from Source](https://github.com/Moonfin-Client/Smart-TV/wiki/Building-from-Source) | Build scripts, the three Tizen variants, and dev servers |
 | [Development](https://github.com/Moonfin-Client/Smart-TV/wiki/Development) | Project structure, platform abstraction, and developer notes |
+| [Collecting Logs](https://github.com/Moonfin-Client/Smart-TV/wiki/Collecting-Logs) | Diagnostic logging and what to attach to an issue |
 
 ## Building
 
@@ -85,7 +86,14 @@ npm run build:tizen:all   # Samsung: Regular, Oblong, and Legacy
 npm run build:webos       # LG
 ```
 
-Node.js 18+ and npm 9+ are the only prerequisites. `npm install` also sets up the build CLIs in the git-ignored `tools/` directory, which keeps them out of the lockfile on purpose. See `tools/package.json` for the reasoning. Full details, including the individual variant builds and the dev servers, are on [Building from Source](https://github.com/Moonfin-Client/Smart-TV/wiki/Building-from-Source).
+Node.js 18+ and npm 9+ are the only prerequisites.
+
+<details>
+<summary><b>Advanced:</b> where the build CLIs live</summary>
+
+`npm install` also sets up the build CLIs in the git-ignored `tools/` directory, which keeps them out of the lockfile on purpose. See `tools/package.json` for the reasoning. Full details, including the individual variant builds and the dev servers, are on [Building from Source](https://github.com/Moonfin-Client/Smart-TV/wiki/Building-from-Source).
+
+</details>
 
 ## Contributing
 
