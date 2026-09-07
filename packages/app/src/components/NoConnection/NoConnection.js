@@ -1,19 +1,37 @@
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect, useCallback, useRef} from 'react';
 import $L from '@enact/i18n/$L';
 import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
+
+import {api, getServerUrl} from '../../services/jellyfinApi';
+import {confirmOffline} from '../../utils/connectionProbe';
 
 import css from './NoConnection.module.less';
 
 const SpottableButton = Spottable('button');
 
 const NoConnection = () => {
-	const [offline, setOffline] = useState(
-		typeof navigator !== 'undefined' ? !navigator.onLine : false
-	);
+	const [offline, setOffline] = useState(false);
+	const checkingRef = useRef(false);
+
+	// Retry asks the server again rather than reading the flag back, so a set that never
+	// changes its mind still has a way through.
+	const check = useCallback(async () => {
+		if (checkingRef.current) return;
+		checkingRef.current = true;
+		try {
+			setOffline(await confirmOffline({
+				probe: () => api.getPublicInfo(),
+				serverUrl: getServerUrl()
+			}));
+		} finally {
+			checkingRef.current = false;
+		}
+	}, []);
 
 	useEffect(() => {
-		const goOffline = () => setOffline(true);
+		if (!navigator.onLine) check();
+		const goOffline = () => check();
 		const goOnline = () => setOffline(false);
 
 		window.addEventListener('offline', goOffline);
@@ -23,13 +41,7 @@ const NoConnection = () => {
 			window.removeEventListener('offline', goOffline);
 			window.removeEventListener('online', goOnline);
 		};
-	}, []);
-
-	const handleRetry = useCallback(() => {
-		if (navigator.onLine) {
-			setOffline(false);
-		}
-	}, []);
+	}, [check]);
 
 	useEffect(() => {
 		if (offline) {
@@ -58,7 +70,7 @@ const NoConnection = () => {
 				<SpottableButton
 					className={css.retryButton}
 					data-spotlight-id="no-connection-retry"
-					onClick={handleRetry}
+					onClick={check}
 				>
 					{$L('Retry')}
 				</SpottableButton>
