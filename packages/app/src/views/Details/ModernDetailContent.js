@@ -620,7 +620,7 @@ const ModernDetailContent = (props) => {
 					)}
 				</>
 			)},
-			{id: 'shuffle', when: isSeries || isSeason, render: () => <ActionButton path={DETAIL_ICON_PATHS.shuffle} label={$L('Shuffle')} onClick={handleShuffle} />},
+			{id: 'shuffle', when: isSeries || isSeason || isBoxSet, render: () => <ActionButton path={DETAIL_ICON_PATHS.shuffle} label={$L('Shuffle')} onClick={handleShuffle} />},
 			{id: 'version', when: hasMultipleVersions, render: () => <ActionButton path={DETAIL_ICON_PATHS.version} label={$L('Version')} onClick={handleOpenVersionModal} />},
 			{id: 'audio', when: hasMultipleAudio, render: () => <ActionButton path={DETAIL_ICON_PATHS.audio} label={$L('Audio')} onClick={handleOpenAudioModal} />},
 			{id: 'subtitles', when: supportsMediaSourceSelection, render: () => <ActionButton path={DETAIL_ICON_PATHS.subtitle} label={$L('Subtitle')} onClick={handleOpenSubtitleModal} />},
@@ -769,7 +769,7 @@ const ModernDetailContent = (props) => {
 									<ExpandableOverview text={item.Overview} itemId={item.Id} className={css.descriptionSlot} backRef={overviewBackRef} />
 								</>
 							)}
-							{!isBoxSet && !isPerson && renderActionButtons()}
+							{!isPerson && renderActionButtons()}
 						</div>
 						{renderUpNext()}
 					</div>

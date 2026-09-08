@@ -25,6 +25,7 @@ const DetailActionButtons = ({
 	seerrOnly,
 	isSeries,
 	isSeason,
+	isBoxSet,
 	isEpisode,
 	isBook,
 	isReadableBook,
@@ -85,7 +86,7 @@ const DetailActionButtons = ({
 				{seerr.canCancel4k && seerrButton($L('Cancel 4K Request'), DETAIL_ICON_PATHS.cancelRequest, seerr.onCancel4k)}
 			</>
 		)},
-		{id: 'shuffle', when: isSeries || isSeason, render: () => (
+		{id: 'shuffle', when: isSeries || isSeason || isBoxSet, render: () => (
 			<SpottableDiv className={css.btnWrapper} onClick={onShuffle}>
 				<div className={css.btnAction}>
 					<BtnIcon path={DETAIL_ICON_PATHS.shuffle}/>

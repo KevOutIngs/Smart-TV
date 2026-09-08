@@ -22,6 +22,7 @@ import {
 import useLongPress from '../../utils/longPress';
 import {formatPlaybackEndsAt} from '../../utils/playbackTimeLabels';
 import {pickEpisodePlayTarget, shouldResumeTarget} from '../../utils/episodePlayTarget';
+import {collectionQueue, collectionPlayTarget} from '../../utils/collectionPlayback';
 
 import {isSeerrOnlyItem, libraryIdOf} from '../../utils/seerrTarget';
 import {buildSeerrDetailItem} from '../../utils/seerrDetailItem';
@@ -289,6 +290,14 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 				const target = pickEpisodePlayTarget(episodes) || episodes[0];
 				onPlay?.(target, shouldResumeTarget(target), {});
 			}
+		} else if (item.Type === 'BoxSet') {
+			// The rest of the collection rides along, so finishing one film starts the next
+			// rather than sending the viewer back to pick it.
+			const queue = collectionQueue(collectionItems);
+			const target = collectionPlayTarget(queue);
+			if (target) {
+				onPlay?.(target, shouldResumeTarget(target), {videoQueue: queue});
+			}
 		} else if (item.Type === 'MusicAlbum') {
 			if (albumTracks.length > 0) {
 				onPlay?.(albumTracks[0], false, {audioPlaylist: albumTracks});
@@ -315,7 +324,7 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 				onPlay?.(item, false, playbackOptions);
 			}
 		}
-	}, [item, episodes, nextUp, seasons, albumTracks, playlistItems, onPlay, onSelectItem, buildPlaybackOptions, effectiveApi, settings, tagWithServerInfo, isSyncPlayInGroup]);
+	}, [item, episodes, nextUp, seasons, collectionItems, albumTracks, playlistItems, onPlay, onSelectItem, buildPlaybackOptions, effectiveApi, settings, tagWithServerInfo, isSyncPlayInGroup]);
 
 	const handleResume = useCallback(() => {
 		if (!item) return;
@@ -351,6 +360,13 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 			return;
 		}
 
+		if (item.Type === 'BoxSet') {
+			const queue = shuffleArray(collectionQueue(collectionItems));
+			if (queue.length === 0) return;
+			onPlay?.(queue[0], false, {videoQueue: queue});
+			return;
+		}
+
 		// An album shuffles its own loaded tracks into the audio queue.
 		if (item.Type === 'MusicAlbum') {
 			if (albumTracks.length === 0) return;
@@ -360,7 +376,7 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 		}
 
 		onPlay?.(item, false, {});
-	}, [item, episodes, albumTracks, onPlay, effectiveApi, tagWithServerInfo]);
+	}, [item, episodes, collectionItems, albumTracks, onPlay, effectiveApi, tagWithServerInfo]);
 
 	const handleToggleFavorite = useCallback(async () => {
 		if (!item) return;
@@ -1125,6 +1141,7 @@ const Details = ({itemId: itemIdProp, initialItem, onPlay, onSelectItem, onSelec
 			seerrOnly={seerrOnly}
 			isSeries={isSeries}
 			isSeason={isSeason}
+			isBoxSet={isBoxSet}
 			isEpisode={isEpisode}
 			isBook={isBook}
 			isReadableBook={isReadableBook}

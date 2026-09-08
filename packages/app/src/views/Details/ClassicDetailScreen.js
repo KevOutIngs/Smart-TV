@@ -152,7 +152,7 @@ const ClassicDetailScreen = ({
 			</div>
 		</div>
 
-		{!isBoxSet && actionButtons}
+		{actionButtons}
 
 		<SeerrDownloadBars seerr={seerr} />
 
