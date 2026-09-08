@@ -1,11 +1,10 @@
-/* global tizen */
 import {memo, useCallback, useEffect} from 'react';
 import Spottable from '@enact/spotlight/Spottable';
 import Spotlight from '@enact/spotlight';
 import SpotlightContainerDecorator from '@enact/spotlight/SpotlightContainerDecorator';
 import $L from '@enact/i18n/$L';
-import {isTizen} from '../../platform';
 import {isBackKey, KEYS} from '../../utils/keys';
+import {exitApp} from '../../utils/appLifecycle';
 
 import css from './ExitDialog.module.less';
 
@@ -16,14 +15,6 @@ const DialogContainer = SpotlightContainerDecorator({
 }, 'div');
 
 const SpottableButton = Spottable('button');
-
-const exitApp = () => {
-	if (isTizen() && typeof tizen !== 'undefined') {
-		tizen.application.getCurrentApplication().exit();
-	} else {
-		window.close();
-	}
-};
 
 const ExitDialog = ({open, onCancel, onExit}) => {
 	useEffect(() => {

@@ -16,8 +16,9 @@ import serverLogger from '../services/serverLogger';
 import {isBackKey, KEYS} from '../utils/keys';
 import {applyPerfTier} from '../utils/perfTier';
 import {OLED_TUNING} from '../utils/oledMode';
-import {isTizen, isWebOS} from '../platform';
+import {isTizen} from '../platform';
 import {initVideo, cleanupVideoElement, setupVisibilityHandler, setupPlatformLifecycle} from '../services/video';
+import {activateApp, exitApp} from '../utils/appLifecycle';
 import {SettingsProvider} from '../context/SettingsContext';
 import {seedLanguagePreferences} from '../utils/languagePrefSeed';
 import {shouldRun as shouldRunSetupWizard, beginRerun as beginSetupWizardRerun} from '../utils/setupWizardGate';
@@ -446,16 +447,21 @@ const AppContent = (props) => {
 		}
 	}, [panelIndex, selectedItem?.Id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-	const performAppCleanup = useCallback(() => {
-		cleanupHandlersRef.current?.();
-		cleanupHandlersRef.current = null;
-
-		// Clean up any video elements to release hardware decoder
+	// The hardware decoder stays claimed until these are torn down.
+	const releaseVideoElements = useCallback(() => {
 		const videoElements = document.querySelectorAll('video');
 		videoElements.forEach(video => {
 			cleanupVideoElement(video);
 		});
 	}, []);
+
+	// Belongs to leaving and nowhere else. Dropping the handlers on any other path costs
+	// the app the listener it is reopened through, and webOS has no other way back in.
+	const performAppCleanup = useCallback(() => {
+		cleanupHandlersRef.current?.();
+		cleanupHandlersRef.current = null;
+		releaseVideoElements();
+	}, [releaseVideoElements]);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
@@ -485,34 +491,38 @@ const AppContent = (props) => {
 		};
 
 		const handleRelaunch = () => {
-			performAppCleanup();
-			setPlayingItem(null);
-			setPanelHistory([]);
-			if (isAuthenticated && settings.pinCodeProtection === true) {
-				setIsPinUnlocked(false);
-				setPinCodeInput('');
-				setPinCodeError('');
-			}
-			if (isAuthenticated) {
-				setPanelIndex(PANELS.BROWSE);
-			}
-			if (isWebOS()) {
-				window.webOSSystem.activate();
+			// The app is held in the background until it activates, so a throw on the way
+			// there must not be allowed to skip it.
+			try {
+				releaseVideoElements();
+				setPlayingItem(null);
+				setPanelHistory([]);
+				if (isAuthenticated && settings.pinCodeProtection === true) {
+					setIsPinUnlocked(false);
+					setPinCodeInput('');
+					setPinCodeError('');
+				}
+				if (isAuthenticated) {
+					setPanelIndex(PANELS.BROWSE);
+				}
+			} finally {
+				activateApp();
 			}
 		};
 
 		window.addEventListener('beforeunload', handleBeforeUnload);
 		window.addEventListener('pagehide', handlePageHide);
 
+		// Put on without waiting for the video module, since the app is reopened through it.
+		const removeLifecycleHandler = setupPlatformLifecycle(handleRelaunch);
+
 		let removeVisibilityHandler;
-		let removeLifecycleHandler;
 		let cancelled = false;
 
 		initVideo().then(() => {
 			if (cancelled) return;
 			removeVisibilityHandler = setupVisibilityHandler(handleVisibilityHidden, handleVisibilityVisible);
-			removeLifecycleHandler = setupPlatformLifecycle(handleRelaunch);
-		});
+		}).catch(() => {});
 
 		if (isTizen()) {
 			import('@moonfin/platform-tizen/smarthub').then(m => m.initSmartHub()).catch(() => {});
@@ -531,7 +541,7 @@ const AppContent = (props) => {
 				cleanupHandlersRef.current();
 			}
 		};
-	}, [isAuthenticated, performAppCleanup, revalidateSession, settings.pinCodeProtection]);
+	}, [isAuthenticated, performAppCleanup, releaseVideoElements, revalidateSession, settings.pinCodeProtection]);
 
 	useEffect(() => {
 		if (!isAuthenticated || !user?.Id) {
@@ -646,6 +656,7 @@ const AppContent = (props) => {
 					if (backHandlerRef.current?.()) return;
 					if (settings.exitConfirmation === false) {
 						performAppCleanup();
+						exitApp();
 					} else {
 						setShowExitDialog(true);
 					}

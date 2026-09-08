@@ -33,9 +33,20 @@ export const getAudioOutputInfo = (...args) => impl.getAudioOutputInfo(...args);
 export const cleanupVideoElement = (...args) => impl.cleanupVideoElement(...args);
 export const setupVisibilityHandler = (...args) => impl.setupVisibilityHandler(...args);
 
-export const setupPlatformLifecycle = (...args) => {
-	if (getPlatform() === 'tizen') {
-		return impl.setupTizenLifecycle?.(...args) || (() => {});
-	}
-	return impl.setupWebOSLifecycle?.(...args) || (() => {});
+// Asked for before the platform module has loaded, so a caller that tears down first is
+// caught by the flag rather than by a remover for a handler that never went on.
+export const setupPlatformLifecycle = (onRelaunch) => {
+	let remove;
+	let cancelled = false;
+
+	loadImpl().then((loaded) => {
+		if (cancelled) return;
+		const setup = getPlatform() === 'tizen' ? loaded.setupTizenLifecycle : loaded.setupWebOSLifecycle;
+		remove = setup?.(onRelaunch);
+	}).catch(() => {});
+
+	return () => {
+		cancelled = true;
+		remove?.();
+	};
 };
