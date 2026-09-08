@@ -1,13 +1,14 @@
 // Which collection a title belongs to.
 //
-// No route answers this. Ancestors describes the folders above an item, and a
-// collection is a link rather than a folder, so a title in one comes back with
-// nothing but its library.
+// Jellyfin 12 answers this outright, so on a server carrying that route it is one request.
+// Older servers and Emby have nothing of the sort. Ancestors describes the folders above
+// an item, and a collection is a link rather than a folder, so a title in one comes back
+// with nothing but its library.
 //
-// Provider ids are what settle it. A collection built from TMDB carries the same
-// id the title names, so the collections and a local match are enough. Anything
-// hand made carries no such id and has to be asked what it holds, which is dear
-// enough that the answers are kept and the asking done at most once.
+// Provider ids are what settle it on the rest. A collection built from TMDB carries the
+// same id the title names, so the collections and a local match are enough. Anything hand
+// made carries no such id and has to be asked what it holds, which is dear enough that
+// the answers are kept and the asking done at most once.
 
 const MAX_COLLECTIONS = 500;
 const MEMBER_LOOKUPS_AT_ONCE = 8;
@@ -17,6 +18,13 @@ const providerId = (item, name) => {
 	if (!ids) return '';
 	const key = Object.keys(ids).find((entry) => entry.trim().toLowerCase() === name);
 	return key ? String(ids[key] ?? '').trim() : '';
+};
+
+// The collection a title names as its own.
+const namedCollection = (item, collections) => {
+	const wanted = providerId(item, 'tmdbcollection');
+	if (!wanted) return null;
+	return collections.find((collection) => providerId(collection, 'tmdb') === wanted) || null;
 };
 
 // Only the ids and names are read here, and the artwork and watch state the server
@@ -29,6 +37,12 @@ let membershipCache = null;
 export const __resetCollectionMembership = () => {
 	membershipCache = null;
 };
+
+// A server without the route answers 404, and so does one asked about a title it does not
+// hold. Those cant be told apart, so neither is remembered and a refusal only ever means
+// going the long way round.
+const directCollections = (api, item) =>
+	api.getItemCollections(item.Id).then((result) => result?.Items || []).catch(() => null);
 
 const allCollections = (api) => api.getItems({
 	...LEAN,
@@ -62,14 +76,17 @@ const membershipFor = async (api, collections) => {
 
 export const findParentCollection = async (api, item) => {
 	if (!api || !item?.Id) return null;
+
+	// The route hands back every collection the title is in, ordered by name. An empty
+	// answer from it settles the question, where a refusal settles nothing.
+	const direct = await directCollections(api, item);
+	if (direct) return namedCollection(item, direct) || direct[0] || null;
+
 	const collections = await allCollections(api);
 	if (collections.length === 0) return null;
 
-	const wanted = providerId(item, 'tmdbcollection');
-	if (wanted) {
-		const match = collections.find((collection) => providerId(collection, 'tmdb') === wanted);
-		if (match) return match;
-	}
+	const named = namedCollection(item, collections);
+	if (named) return named;
 
 	const owners = await membershipFor(api, collections);
 	return owners[item.Id] || null;

@@ -4,10 +4,17 @@ const ACE = {Id: 'box-ace', Name: 'Ace Ventura Collection', ProviderIds: {Tmdb: 
 const ALIEN = {Id: 'box-alien', Name: 'Alien Collection', ProviderIds: {Tmdb: '8091'}};
 const HAND_MADE = {Id: 'box-mine', Name: 'Saturday Night'};
 
-// Stands in for the server: the collections it holds, and what each one contains.
+const notFound = () => Promise.reject(new Error('Not Found'));
+
+// Stands in for a server too old to carry the route: the collections it holds, and what
+// each one contains.
 const serverWith = (collections, members = {}) => {
-	const calls = {collections: 0, members: 0};
+	const calls = {collections: 0, members: 0, direct: 0};
 	const api = {
+		getItemCollections: () => {
+			calls.direct++;
+			return notFound();
+		},
 		getItems: ({IncludeItemTypes, ParentId}) => {
 			if (IncludeItemTypes === 'BoxSet') {
 				calls.collections++;
@@ -15,6 +22,22 @@ const serverWith = (collections, members = {}) => {
 			}
 			calls.members++;
 			return Promise.resolve({Items: members[ParentId] || []});
+		}
+	};
+	return {api, calls};
+};
+
+// Stands in for a server that answers the question itself.
+const serverAnswering = (holding) => {
+	const calls = {collections: 0, direct: 0};
+	const api = {
+		getItemCollections: () => {
+			calls.direct++;
+			return Promise.resolve({Items: holding});
+		},
+		getItems: () => {
+			calls.collections++;
+			return Promise.resolve({Items: []});
 		}
 	};
 	return {api, calls};
@@ -84,6 +107,7 @@ describe('findParentCollection', () => {
 
 	test('a collection that cant be read is skipped rather than failing the rest', async () => {
 		const api = {
+			getItemCollections: notFound,
 			getItems: ({IncludeItemTypes, ParentId}) => {
 				if (IncludeItemTypes === 'BoxSet') return Promise.resolve({Items: [ACE, HAND_MADE]});
 				if (ParentId === 'box-ace') return Promise.reject(new Error('gone'));
@@ -99,5 +123,45 @@ describe('findParentCollection', () => {
 
 		expect(await findParentCollection(api, null)).toBeNull();
 		expect(await findParentCollection(null, movie())).toBeNull();
+	});
+});
+
+describe('findParentCollection and the direct route', () => {
+	beforeEach(() => __resetCollectionMembership());
+
+	test('the answer is taken as given and nothing is worked out', async () => {
+		const {api, calls} = serverAnswering([HAND_MADE]);
+
+		expect(await findParentCollection(api, movie())).toBe(HAND_MADE);
+		expect(calls.collections).toBe(0);
+	});
+
+	test('the collection the title names wins when it is in several', async () => {
+		const {api} = serverAnswering([HAND_MADE, ACE]);
+
+		const found = await findParentCollection(api, movie({ProviderIds: {TmdbCollection: '3167'}}));
+
+		expect(found).toBe(ACE);
+	});
+
+	test('the first stands when the title names none of them', async () => {
+		const {api} = serverAnswering([HAND_MADE, ACE]);
+
+		expect(await findParentCollection(api, movie())).toBe(HAND_MADE);
+	});
+
+	test('an empty answer is the whole answer', async () => {
+		const {api, calls} = serverAnswering([]);
+
+		expect(await findParentCollection(api, movie())).toBeNull();
+		expect(calls.collections).toBe(0);
+	});
+
+	test('a server that turns the route away is worked out the long way instead', async () => {
+		const {api, calls} = serverWith([ACE], {'box-ace': [{Id: 'movie-1'}]});
+
+		expect(await findParentCollection(api, movie())).toBe(ACE);
+		expect(calls.direct).toBe(1);
+		expect(calls.collections).toBe(1);
 	});
 });

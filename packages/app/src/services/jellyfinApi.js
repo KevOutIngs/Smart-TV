@@ -598,6 +598,10 @@ export const api = {
 	getAncestors: (itemId) =>
 		request(`/Items/${itemId}/Ancestors?UserId=${currentUser}`),
 
+	// Jellyfin 12 and up, so a caller has to cope with a 404 from anything older.
+	getItemCollections: (itemId) =>
+		request(`/Items/${itemId}/Collections?UserId=${currentUser}&Fields=ProviderIds`),
+
 	getThemeSongs: (itemId, inheritFromParent = true) =>
 		request(`/Items/${itemId}/ThemeSongs?UserId=${currentUser}&InheritFromParent=${inheritFromParent}`),
 
@@ -1102,6 +1106,9 @@ export const createApiForServer = (serverUrl, token, userId, serverTypeOverride 
 
 		getAncestors: (itemId) =>
 			serverRequest(`/Items/${itemId}/Ancestors?UserId=${userId}`),
+
+		getItemCollections: (itemId) =>
+			serverRequest(`/Items/${itemId}/Collections?UserId=${userId}&Fields=ProviderIds`),
 
 		getThemeSongs: (itemId, inheritFromParent = true) =>
 			serverRequest(`/Items/${itemId}/ThemeSongs?UserId=${userId}&InheritFromParent=${inheritFromParent}`),
