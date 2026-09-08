@@ -1,5 +1,6 @@
 import {getPlatform} from '../platform';
 import {setNetworkLogSink} from '../utils/networkLogSink';
+import {redact, redactContext} from '../utils/logRedaction';
 
 const LOG_LEVELS = {
 	DEBUG: 'Debug',
@@ -140,12 +141,14 @@ const log = async (level, category, message, context = {}, immediate = false) =>
 // not even a console write, until the user asks for it.
 	if (!isRecording && !isEnabled) return;
 
+	// Cleaned on the way into the buffer rather than on the way out, so the screen that
+	// reads the log back shows exactly what a report would carry.
 	const entry = {
 		timestamp: getTimestamp(),
 		level,
 		category,
-		message,
-		context,
+		message: redact(message),
+		context: redactContext(context),
 		device: await loadDeviceInfo()
 	};
 
@@ -156,7 +159,7 @@ const log = async (level, category, message, context = {}, immediate = false) =>
 	notify();
 
 	const consoleMethod = level === LOG_LEVELS.ERROR || level === LOG_LEVELS.FATAL ? 'error' : 'log';
-	console[consoleMethod]('[ServerLogger]', level, '-', category, ':', message, context);
+	console[consoleMethod]('[ServerLogger]', level, '-', category, ':', entry.message, entry.context);
 
 	if (!isEnabled) return;
 
